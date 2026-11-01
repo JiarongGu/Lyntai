@@ -92,6 +92,13 @@ every addition.
 
 ### Added
 
+- **A scope dense in ended entries still returns its current ones** (**D241**). A `Current` or as-of recall dropped the ended
+  entries after the candidate window was cut, so 100 ended entries matching a query better than 5 current ones returned none of the
+  5. When a seed source fills its window and the reading drops some of what it returned, the engine now asks again with a window four
+  times larger, up to the new `GraphMemoryOptions.WidenedCandidateLimit` (default 1000, 0 turns it off); a scope with no ended
+  entries never asks twice and a `History` recall never widens. Candidates are ranked among the entries the reading admits, so an
+  ended entry no longer shifts a current one's rank. A scope holding more ended matches than the bound still loses its current
+  ones. No store changed.
 - **The Claude CLI door reads background work as `AgentTaskStarted` and `AgentTaskEnded` events.** The agent's binary ends the work it
   backgrounded when the turn ends, so a `SessionEnded` never meant that work finished, and nothing said it had started. A `task_started`
   line now yields `AgentTaskStarted` (the task id, the agent's own kind word, its description and the call that started it; the last

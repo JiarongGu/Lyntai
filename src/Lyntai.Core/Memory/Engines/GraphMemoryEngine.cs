@@ -1253,13 +1253,14 @@ public sealed class GraphMemoryEngine(
         var limit = query.Limit ?? _options.DefaultLimit;
         if (limit <= 0) return nothing;
 
-        var gathered = await TryGatherAsync(query, limit, ct).ConfigureAwait(false);
+        var now = _clock();
+        var gathered = await TryGatherAsync(query, limit, now, ct).ConfigureAwait(false);
         if (gathered is null) return nothing;
 
         // THE READING, applied to the PAGE and not to the graph: an ended entry is still walked through, so what it
-        // links to is reached as it always was, and it is simply not offered to the ranking. A recall dense in ended
-        // entries can therefore return fewer than the limit — never an ended one.
-        var now = _clock();
+        // links to is reached as it always was, and it is simply not offered to the ranking. Gathering widened its
+        // window where ended entries filled it (`WidenedCandidateLimit`), so only a scope past that bound can return
+        // fewer than the limit for want of its current entries — and never an ended one.
         var found = query.Validity.IsHistory
             ? gathered
             : gathered.Where(f => query.Validity.Admits(f.Node.Validity, now)).ToList();
@@ -1385,11 +1386,12 @@ public sealed class GraphMemoryEngine(
     /// <c>IMemorySeedSource</c>, so a BYO vector backend or store timing out anywhere below surfaces here. Nothing
     /// between this and the seed source catches, so a bare rethrow would break the promise whatever the
     /// sources did.</para></summary>
-    private async Task<List<GatheredCandidate>?> TryGatherAsync(MemoryQuery query, int limit, CancellationToken ct)
+    private async Task<List<GatheredCandidate>?> TryGatherAsync(MemoryQuery query, int limit, DateTimeOffset now,
+        CancellationToken ct)
     {
         try
         {
-            return await GatherAsync(query, limit, ct).ConfigureAwait(false);
+            return await GatherAsync(query, limit, now, ct).ConfigureAwait(false);
         }
         catch (OperationCanceledException) when (ct.IsCancellationRequested) { throw; }
         catch (Exception ex)
@@ -2148,13 +2150,34 @@ public sealed class GraphMemoryEngine(
     /// <para>Sources are read in their registered order and each candidate's ranks are appended in it, so two
     /// candidates matched by the same sources build IDENTICAL rank lists —
     /// <see cref="MemorySeedRanks"/> compares by sequence.</para></summary>
-    private async Task<List<GatheredCandidate>> GatherAsync(MemoryQuery query, int limit,
+    private async Task<List<GatheredCandidate>> GatherAsync(MemoryQuery query, int limit, DateTimeOffset now,
         CancellationToken ct)
     {
         // no faintness bound: the store returns candidates grade-first, then most-recently-used, and the
         // count is the only limit, so nothing is excluded for having decayed — burial happens by rank, above
         var candidates = Saturating(limit, _options.CandidateMultiplier);
-        var request = new MemorySeedRequest(Name, store, query, candidates)
+        var window = candidates;
+        while (true)
+        {
+            var (gathered, cutShort) = await GatherWindowAsync(query, window, candidates, now, ct).ConfigureAwait(false);
+            var next = (int)Math.Min(_options.WidenedCandidateLimit, (long)window * WindowGrowth);
+            if (!cutShort || next <= window) return gathered;
+            window = next;
+        }
+    }
+
+    /// <summary>How much larger each re-seed's window is than the last, when the validity reading left one short.</summary>
+    private const int WindowGrowth = 4;
+
+    /// <summary>One pass over the seed sources at <paramref name="window"/>, then the hop expansion. <c>cutShort</c>
+    /// is true when a source filled its window, the reading dropped some of what it returned, and fewer than
+    /// <paramref name="wanted"/> were admitted: the ended entries may have crowded current ones out of the window.
+    /// <para>Ranks are placed among the entries the reading admits, so an ended entry that matched better does not
+    /// push a current one down a rank it would not have held without it.</para></summary>
+    private async Task<(List<GatheredCandidate> Gathered, bool CutShort)> GatherWindowAsync(MemoryQuery query,
+        int window, int wanted, DateTimeOffset now, CancellationToken ct)
+    {
+        var request = new MemorySeedRequest(Name, store, query, window)
         {
             VectorProviderId = _options.VectorProviderId,
         };
@@ -2162,6 +2185,7 @@ public sealed class GraphMemoryEngine(
         var found = new List<(GraphNode Node, int Hop)>();
         var seen = new HashSet<long>();
         var ranks = new Dictionary<long, List<MemorySeedRank>>();
+        var cutShort = false;
 
         foreach (var source in _seedSources)
         {
@@ -2170,16 +2194,22 @@ public sealed class GraphMemoryEngine(
 
             var eligible = new List<GraphNode>(produced.Count);
             var fromThisSource = new HashSet<long>();
+            var admittedHere = 0;
             foreach (var node in produced)
             {
                 // one rank per source per candidate: a source repeating a node would otherwise buy a second
                 // fusion term for the same evidence, and MemorySeedRanks reports only the first
                 if (!fromThisSource.Add(node.Id)) continue;
                 if (seen.Add(node.Id)) found.Add((node, 0));
-                // true ONLY — see this method's own remarks for why null is refused alongside false
+                if (!query.Validity.Admits(node.Validity, now)) continue;
+                admittedHere++;
+                // true ONLY — see GatherAsync's remarks for why null is refused alongside false
                 if (node.Matched != true) continue;
                 eligible.Add(node);
             }
+
+            if (produced.Count >= window && admittedHere < fromThisSource.Count && admittedHere < wanted)
+                cutShort = true;
 
             var assigned = SourceRanks(eligible);
             for (var i = 0; i < assigned.Length; i++)
@@ -2197,7 +2227,7 @@ public sealed class GraphMemoryEngine(
         {
             ct.ThrowIfCancellationRequested();
             var neighbours = await store
-                .NeighboursAsync(Name, query.TaskKey, frontier, candidates, ct).ConfigureAwait(false);
+                .NeighboursAsync(Name, query.TaskKey, frontier, wanted, ct).ConfigureAwait(false);
 
             frontier = [];
             // re-rank by DECAYED edge weight: the store's raw-weight ordering is a pre-sort, and a link
@@ -2213,8 +2243,8 @@ public sealed class GraphMemoryEngine(
                 }
         }
 
-        return [.. found.Select(f => new GatheredCandidate(f.Node, f.Hop,
-            ranks.TryGetValue(f.Node.Id, out var r) ? new MemorySeedRanks(r) : MemorySeedRanks.Empty))];
+        return ([.. found.Select(f => new GatheredCandidate(f.Node, f.Hop,
+            ranks.TryGetValue(f.Node.Id, out var r) ? new MemorySeedRanks(r) : MemorySeedRanks.Empty))], cutShort);
     }
 
     /// <summary>Asks the verifier which of these actually answered the query, fail-open in every direction

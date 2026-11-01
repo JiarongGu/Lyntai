@@ -6552,3 +6552,15 @@ registered reader, nothing from the shipped set), narrowing, an empty set, held 
 moved from the emitted `.actual`. Lane `inference`.
 
 - AG15 — an ACP dialect seam
+## Part 438 — MC10: a scope dense in ended entries still returns its current ones (2026-11-01)
+
+✅ done 2026-11-01 — **Outcome:** the engine, not the stores, repairs it (**D241**). `GatherAsync` re-seeds a source with a window four times larger, up to the new
+`GraphMemoryOptions.WidenedCandidateLimit` (default 1000, 0 off), when that source filled its window, the reading dropped some of what it returned and fewer than the asked
+count were admitted; a scope with no ended entries never asks twice and `History` never widens. Candidates are ranked among the entries the reading admits, so an ended entry
+no longer shifts a current one's rank; an ended entry is still gathered and walked through. **What the row left open, read here:** it took the engine-side form because a
+store-side one is a new member on four stores' seed SQL and an optional interface for a BYO store, for what a loop in `Lyntai.Core` does with no store change; the hop
+expansion keeps the original window. Proof: `MemoryGraphStoreContract.A_scope_dense_in_ended_entries_still_returns_its_current_ones` on all four stores (5/5 at N = 100 and 500,
+`History` still 10, option at 0 reproduces the loss), recorded as `ended-entries-widened-n4` in `docs/memory-measurements.md` §5; the `ApiSurface` baselines moved from the
+emitted `.actual`. Lane `memory`.
+
+- MC10 — a scope dense in ended entries still returns its current ones

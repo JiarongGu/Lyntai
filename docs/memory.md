@@ -234,6 +234,7 @@ section.
 | `DefaultLimit` | 10 | entries a recall returns |
 | `Hops` | 2 | edge-traversal depth |
 | `CandidateMultiplier` | 4 | candidates fetched per returned slot |
+| `WidenedCandidateLimit` | 1000 (0 = off) | the most candidates a seed source is asked for when a `Current` or as-of reading drops entries from a full window (§9) |
 | `AuthoritativeReserve` | `null` (unbounded) | slots exact facts may take **within** the limit |
 | `SemanticSeedOptions.K` | not registered by default (`AddMemorySemanticSeeds`; `K` = 20 once added) | entries the query's embedding pulls into the candidate set |
 | `SubjectSeedOptions.K` | 5 (channel registered by `AddMemoryEngine`; `AddMemorySubjectSeeds` only configures it) | entries each SUBJECT the query names pulls into the candidate set |
@@ -883,7 +884,11 @@ by the engine's clock — what a default recall now does, so an ended entry leav
 never a resolver: two entries valid at one instant are both returned, and the engine does not decide which is true.
 It is applied to the PAGE after candidates are gathered, so an ended entry is still walked through — what it links
 to is reached as it always was — and a scope dense in ended entries can return fewer than `Limit`, never an ended
-one. `Explain` reports what the reading left out as `MemoryCandidateOutcome.OutsideValidity`. A walk passes its
+one. **Gathering widens where ended entries fill the window**: a seed source that filled its window while the reading
+dropped some of what it returned is asked again with a window four times larger, up to `WidenedCandidateLimit`, and the
+candidates are ranked among the entries the reading admits. So a scope's current entries come back as they would with no
+ended ones in it, until the ended entries matching the query outnumber that bound (`ended-entries-crowd-page-n4`, then
+`ended-entries-widened-n4` in `docs/memory-measurements.md` §5). `Explain` reports what the reading left out as `MemoryCandidateOutcome.OutsideValidity`. A walk passes its
 query's reading into every expansion, and an expansion always returns the entry it was asked for, ended or not:
 asking for it by reference is how history is read.
 

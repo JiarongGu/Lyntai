@@ -1,4 +1,5 @@
 using Lyntai.Memory;
+using Lyntai.Memory.Engines;
 
 namespace Lyntai.Tests.Memory;
 
@@ -2872,5 +2873,47 @@ public static class MemoryGraphStoreContract
         if (store is ITypedLinkMemoryGraphStore typed) await typed.LinksAmongAsync(engine, key, [a, b], ["disputes", "amends"]);
 
         Assert.Equal(before, await Held(portable, engine, key));
+    }
+
+    /// <summary><b>A scope dense in ended entries still returns its current ones.</b> Five current entries are written first and
+    /// N ended ones after, all matching the query and the ended ones matching it better: a <c>Current</c> recall returns the five
+    /// at N = 100 and 500, in the order a scope holding only them returns them, a <c>History</c> recall is the full window it
+    /// always was, and a scope past <see cref="GraphMemoryOptions.WidenedCandidateLimit"/> is the one that loses them.</summary>
+    public static async Task A_scope_dense_in_ended_entries_still_returns_its_current_ones(IMemoryGraphStore store, string key)
+    {
+        var endable = Assert.IsAssignableFrom<IEndableMemoryGraphStore>(store);
+        const string engine = "tv-dense";
+        var recall = new GraphMemoryEngine(engine, store, null, new GraphMemorySeams { Clock = () => Jun });
+
+        async Task<string> Fill(string task, int ended)
+        {
+            for (var i = 0; i < 5; i++)
+                await store.UpsertAsync(Write(engine, task, $"the client lives in current-{i}") with { ValidFrom = Jan });
+            for (var i = 0; i < ended; i++)
+            {
+                var id = await store.UpsertAsync(Write(engine, task, $"the client lives in ended-{i} and lives") with { ValidFrom = Jan });
+                Assert.Equal(GraphEndOutcome.Ended, (await endable.EndAsync(engine, new GraphEnd(id, "moved", Mar))).Outcome);
+            }
+            return task;
+        }
+
+        async Task<string[]> Returned(string task, MemoryValidityReading? reading = null, GraphMemoryEngine? by = null) =>
+            [.. (await (by ?? recall).RecallAsync(new MemoryQuery(task, "s", "client lives") { Validity = reading ?? default }))
+                .Items.Select(i => i.Headline).Order(StringComparer.Ordinal)];
+
+        var alone = await Returned(await Fill($"{key}-0", 0));
+        Assert.Equal(5, alone.Length);
+        foreach (var ended in new[] { 100, 500 })
+        {
+            var task = await Fill($"{key}-{ended}", ended);
+            Assert.Equal(alone, await Returned(task));
+            Assert.Equal(10, (await Returned(task, MemoryValidityReading.History)).Length);
+        }
+
+        var capped = new GraphMemoryEngine(engine, store, new GraphMemoryOptions { WidenedCandidateLimit = 0 },
+            new GraphMemorySeams { Clock = () => Jun });
+        // a fresh scope, since a recall reinforces what it returns and a reinforced entry is the most recently used
+        Assert.DoesNotContain(await Returned(await Fill($"{key}-off", 100), by: capped),
+            h => h.Contains("current-", StringComparison.Ordinal));
     }
 }

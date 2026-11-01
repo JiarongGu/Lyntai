@@ -15,27 +15,26 @@ LLM-ops layer (prompt registry, scoring, traces, memory). `AddLyntai(...)` and g
 
 <!-- open-items:begin — GENERATED. Edit the per-item `item:` markers, never this table. -->
 
-## Open items — 14 across 6 Parts: 9 startable, 2 blocked, 3 watch
+## Open items — 13 across 6 Parts: 8 startable, 2 blocked, 3 watch
 
 _Generated from the per-item `<!-- item: … -->` markers by `node devtools/dev.mjs check-backlog --write`._
 _Edit a marker, never this table — `verify` fails the moment the two disagree._
 
 | line | Part | item | state | waiting on |
 | ---: | ---: | --- | --- | --- |
-| 115 | 33 | GEN-VERIFY-FAL, the last line — the Hugging Face route | blocked · env | an hf_ token for the router route |
-| 156 | 75 | Decide what an aggregator's in-band `code` means | blocked · env+data | two or three real aggregators to measure an in-band code against |
-| 183 | 99 | `verify`'s test step intermittently fails EXACTLY 9 tests, and once aborted… | watch · data | the same nine tests to recur — the fix is unconfirmed as the cure, and a gr… |
-| 242 | 99 | `InputSegmenterTests.Counting_NFKC_is_LINEAR_in_the_length_of_the_text` fai… | watch · data | a recurrence under the full parallel run, with the ratio it read — the mess… |
-| 260 | 99 | `AgentUsageProcessTests.A_server_that_never_answers_is_ended_with_its_child… | watch · data | a recurrence under the full parallel run, with the load it ran under; it fa… |
-| 295 | 412 | AG16 — the event-stream rules, held by one theory | startable |  |
-| 303 | 412 | AG19 — an ACP permission request the host can answer | startable |  |
-| 318 | 416 | AG21 — the usage exchange writes each request after the answer it depends on | startable |  |
-| 330 | 416 | AG22 — the host names where the usage server runs and what it is told of it… | startable |  |
-| 343 | 416 | AG23 — an allowance reading carries what the server stated | startable |  |
-| 358 | 416 | AG24 — a host's policy for a version the library has not validated | startable |  |
-| 379 | 417 | MC3 — measure the candidate list's similarity basis | startable |  |
-| 387 | 417 | MC8 — run the wrong-end instrument on an adjudicated corpus, with a bar wri… | startable |  |
-| 400 | 417 | MC10 — a scope dense in ended entries still returns its current ones | startable |  |
+| 114 | 33 | GEN-VERIFY-FAL, the last line — the Hugging Face route | blocked · env | an hf_ token for the router route |
+| 155 | 75 | Decide what an aggregator's in-band `code` means | blocked · env+data | two or three real aggregators to measure an in-band code against |
+| 182 | 99 | `verify`'s test step intermittently fails EXACTLY 9 tests, and once aborted… | watch · data | the same nine tests to recur — the fix is unconfirmed as the cure, and a gr… |
+| 241 | 99 | `InputSegmenterTests.Counting_NFKC_is_LINEAR_in_the_length_of_the_text` fai… | watch · data | a recurrence under the full parallel run, with the ratio it read — the mess… |
+| 259 | 99 | `AgentUsageProcessTests.A_server_that_never_answers_is_ended_with_its_child… | watch · data | a recurrence under the full parallel run, with the load it ran under; it fa… |
+| 294 | 412 | AG16 — the event-stream rules, held by one theory | startable |  |
+| 302 | 412 | AG19 — an ACP permission request the host can answer | startable |  |
+| 317 | 416 | AG21 — the usage exchange writes each request after the answer it depends on | startable |  |
+| 329 | 416 | AG22 — the host names where the usage server runs and what it is told of it… | startable |  |
+| 342 | 416 | AG23 — an allowance reading carries what the server stated | startable |  |
+| 357 | 416 | AG24 — a host's policy for a version the library has not validated | startable |  |
+| 378 | 417 | MC3 — measure the candidate list's similarity basis | startable |  |
+| 386 | 417 | MC8 — run the wrong-end instrument on an adjudicated corpus, with a bar wri… | startable |  |
 
 <!-- open-items:end -->
 
@@ -371,7 +370,7 @@ fact is named where it bites. Captures are labelled REAL or SOURCE-DERIVED as `U
 
 _The study is `docs/memory-currency-study.md`, the rulings are **D239** and **D240**, and the synthesis that orders and
 amends them is `docs/memory-currency-synthesis.md` (**D241**). Each row is one sitting and none is built; the order is MC3,
-MC4, MC6, MC2, MC5, MC7, with MC8 able to run once MC3 lands and MC10 waiting for nothing. Every member a row adds is
+MC4, MC6, MC2, MC5, MC7, with MC8 able to run once MC3 lands. Every member a row adds is
 unreleased until a release carries it (**D70**, **D235**). **What a YES does to the library is each row's contract**;
 **D242**'s MC11 (a caller's key and receipt), MC12 (the one-change supersession) and MC7 (the widened read-only view) are built (`docs/task-archive.md` Part 424, 425 and 426). MC3's measured rate and MC8's instrument each state what a YES and a NO change, and a measured step pairs its arms
 (`docs/memory-currency-synthesis.md` §5)._
@@ -396,15 +395,6 @@ unreleased until a release carries it (**D70**, **D235**). **What a YES does to 
   the first model run, then one run per (model, corpus) pair. **What a YES does:** names that pair in `docs/memory.md` and
   `docs/memory-measurements.md` §5 as one whose proposal a host may confirm by review of a bounded claim pair; **a NO changes nothing** and is
   recorded as a refutation. **Stop rule.** The first actionable rate stops the instrument; no run is spent after it.
-
-- [ ] **MC10 — a scope dense in ended entries still returns its current ones** (lane `memory`; **D241**, measured by MC1). <!-- item: state=startable -->
-  The validity reading is applied to the page after the candidates are gathered, so 100 ended entries that match a query
-  better than 5 current ones return **0 of the 5** (`docs/memory-measurements.md` §5, `ended-entries-crowd-page-n4`).
-  **Contract.** A `Current` or as-of recall returns the current entries it would have returned with no ended ones in the
-  scope; the first step is to read where the window is cut (`TryGatherAsync`) and whether the store can take the reading
-  into its seed or the engine can widen and re-seed under a bound, whichever stays additive on `IMemoryGraphStore`
-  (**D70**, **D41**: only the ranker buries). **Proof.** The measured corpus returns 5/5 at N = 100 and 500 on every
-  shipped store, a recall under `History` unchanged, and the `ApiSurface` baselines.
 
 ## Retired — five Parts that outlived their open work (2026-09-16)
 
