@@ -12,11 +12,15 @@ internal static class CodexAgentDoor
 
     public const string AccountHomeVariable = "CODEX_HOME";
 
+    /// <summary>The home variable and the two API-key variables the program reads, declared from its
+    /// documentation; none is measured here.</summary>
+    public static readonly AgentAccountMapping Mapping = new(AccountHomeVariable, ["OPENAI_API_KEY", "CODEX_API_KEY"]);
+
     public static AgentProviderDescriptor Describe(string providerId, string? agent = null) => new()
     {
         Id = providerId,
         Agent = agent,
-        Accounts = new AgentAccountMapping(AccountHomeVariable),
+        Accounts = Mapping,
         Doors =
         [
             new AgentDoor

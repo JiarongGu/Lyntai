@@ -623,6 +623,44 @@ public class AcpAgentSessionTests
     }
 
     [Fact]
+    public async Task A_key_account_reaches_the_child_in_a_declared_variable_and_any_other_is_refused_without_a_spawn()
+    {
+        var runner = new FakeProcessRunner();
+        var session = new AcpAgentSession(runner, new LyntaiOptions(), "agent",
+            accountHomeVariable: "AGENT_HOME", accountVariables: ["AGENT_KEY"]);
+        AgentAccount Key(string variable) => new()
+        {
+            Provider = "acp", Name = "key", Environment = new Dictionary<string, string> { [variable] = "sentinel-value" },
+        };
+
+        await Run(session, Ask() with { Account = Key("AGENT_KEY") });
+        var refused = Ended(await Run(session, Ask() with { Account = Key("OTHER_KEY") }));
+
+        var call = Assert.Single(runner.Calls);
+        Assert.Equal("sentinel-value", call.Environment!["AGENT_KEY"]);
+        Assert.False(call.Environment.ContainsKey("AGENT_HOME"));
+        Assert.Equal("account-invalid", refused.Subtype);
+        Assert.DoesNotContain("sentinel-value", refused.Diagnostic);
+    }
+
+    [Fact]
+    public async Task An_acp_door_that_declares_no_variable_refuses_an_account_entry_and_states_the_declaration()
+    {
+        var runner = new FakeProcessRunner();
+        var key = new AgentAccount
+        {
+            Provider = "acp", Name = "key", Environment = new Dictionary<string, string> { ["AGENT_KEY"] = "v" },
+        };
+
+        var refused = Ended(await Run(Scripted(runner, "AGENT_HOME"), Ask() with { Account = key }));
+
+        Assert.Equal("account-invalid", refused.Subtype);
+        Assert.Empty(runner.Calls);
+        Assert.Equal(["AGENT_HOME", "AGENT_KEY"], AcpAgentDoor.Describe("acp", "AGENT_HOME", null, ["AGENT_KEY"]).Accounts!.Variables);
+        Assert.Equal(["AGENT_HOME"], AcpAgentDoor.Describe("acp", "AGENT_HOME").Accounts!.Variables);
+    }
+
+    [Fact]
     public async Task An_account_is_refused_without_a_spawn_where_the_agents_home_variable_is_not_known()
     {
         var runner = new FakeProcessRunner();

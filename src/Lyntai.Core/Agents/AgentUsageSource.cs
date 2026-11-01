@@ -40,7 +40,9 @@ public static class AgentAllowanceUnknown
     /// <summary>The host has not enabled the ability, or enabled it as off. Nothing was started.</summary>
     public const string Disabled = "disabled";
 
-    /// <summary>The account is not this provider's, or has no usable name or home. Nothing was started.</summary>
+    /// <summary>The account is not this provider's, has no usable name or home, or is a key (it sets an
+    /// <see cref="AgentAccount.Environment"/> entry: a key has no signed-in allowance to read, and the read starts no
+    /// child under a key). Nothing was started.</summary>
     public const string AccountRefused = "account-refused";
 
     /// <summary>The registered <see cref="Lyntai.Processes.IProcessRunner"/> cannot hold a process open for an

@@ -3,32 +3,56 @@ using Lyntai.Agents;
 namespace Lyntai.Providers.Basic;
 
 /// <summary>How a CLI agent session turns <see cref="AgentSessionOptions.Account"/> into the child's environment,
-/// so both doors read an account the same way: one variable carrying the host's configuration home, and nothing
-/// else. The library never opens the home, creates it or copies out of it (<c>D20</c>).</summary>
+/// so every door reads an account the same way: the host's configuration home in the home variable and the
+/// account's own entries beside it, each a name the provider reads. The library never opens the home, creates it or
+/// copies out of it (<c>D20</c>), and a value reaches the environment and no message, so every refusal names a
+/// variable and never a value.</summary>
 internal static class AgentAccounts
 {
     /// <summary>The <see cref="SessionEnded.Subtype"/> of a turn refused because the account cannot be handed to
     /// the child as given.</summary>
     internal const string RefusedSubtype = "account-invalid";
 
-    /// <summary>The per-turn environment an account asks for: <paramref name="homeVariable"/> set to the home, or
-    /// nothing when there is no account. False with a caller-actionable <paramref name="refusal"/> when the name
-    /// or the home is blank, or the home holds a control character (the OS rejects such a value at spawn, and a
-    /// NUL would cut it short).</summary>
-    internal static bool TryMap(AgentAccount? account, string homeVariable,
+    /// <summary>The per-turn environment an account asks for: the home variable set to the home, then the account's
+    /// entries, or nothing when there is no account. False with a caller-actionable <paramref name="refusal"/> when
+    /// the name is blank, the account has neither a home nor an entry, the home is blank or holds a control
+    /// character (the OS rejects such a value at spawn, and a NUL would cut it short), an entry is named outside
+    /// <see cref="AgentAccountMapping.Variables"/> or is the home variable, or an entry's value holds a control
+    /// character.</summary>
+    internal static bool TryMap(AgentAccount? account, AgentAccountMapping mapping,
         out IReadOnlyDictionary<string, string> environment, out string? refusal)
     {
         environment = new Dictionary<string, string>(0);
         refusal = null;
         if (account is null) return true;
 
+        var entries = account.Environment ?? new Dictionary<string, string>(0);
         if (string.IsNullOrWhiteSpace(account.Name))
             refusal = "an account needs a name; pass the one the host calls it by.";
-        else if (string.IsNullOrWhiteSpace(account.Home) || account.Home.Any(char.IsControl))
+        else if (account.Home is null && entries.Count == 0)
+            refusal = $"account '{account.Name}' has neither a home nor an environment entry.";
+        else if (account.Home is not null && (string.IsNullOrWhiteSpace(account.Home) || account.Home.Any(char.IsControl)))
             refusal = $"account '{account.Name}' has no usable home: it must be a path with no control character.";
+        else
+        {
+            foreach (var (name, value) in entries)
+            {
+                if (string.Equals(name, mapping.HomeVariable, StringComparison.Ordinal))
+                    refusal = $"account '{account.Name}' sets {name} as an entry: the home variable is set by its Home.";
+                else if (!mapping.Variables.Contains(name, StringComparer.Ordinal))
+                    refusal = $"account '{account.Name}' sets '{name}', which the provider does not read " +
+                        $"(it reads {string.Join(", ", mapping.Variables)}).";
+                else if (value is null || value.Any(char.IsControl))
+                    refusal = $"account '{account.Name}' has no usable value for {name}: it must be text with no control character.";
+                if (refusal is not null) break;
+            }
+        }
         if (refusal is not null) return false;
 
-        environment = new Dictionary<string, string>(1, StringComparer.Ordinal) { [homeVariable] = account.Home };
+        var set = new Dictionary<string, string>(entries.Count + 1, StringComparer.Ordinal);
+        if (account.Home is not null) set[mapping.HomeVariable] = account.Home;
+        foreach (var (name, value) in entries) set[name] = value;
+        environment = set;
         return true;
     }
 

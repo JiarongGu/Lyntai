@@ -75,8 +75,10 @@ public sealed class CodexAgentSession : IAgentSession
     /// as an OPTION rather than as an id (blank, or starting with <c>-</c> such as its own <c>--last</c>),
     /// because forwarding it would silently resume the WRONG thread.
     /// <para>A non-null <see cref="AgentSessionOptions.Account"/> sets <c>CODEX_HOME</c> to its
-    /// <see cref="AgentAccount.Home"/> for this turn's child, over the same variable in the ctor's environment; a
-    /// blank name or a home with a control character refuses the turn without spawning.</para>
+    /// <see cref="AgentAccount.Home"/> and sets its <see cref="AgentAccount.Environment"/> for this turn's child,
+    /// over the same variables in the ctor's environment; a blank name, a home with a control character, or an
+    /// entry the door does not read (<see cref="AgentAccountMapping.Variables"/>) refuses the turn without
+    /// spawning.</para>
     /// <para>Whether codex re-announces <c>thread.started</c> on a resumed turn is NOT measured, so a resumed
     /// turn's <see cref="SessionEnded.SessionId"/> may be null where a fresh one's is set. Nothing is
     /// fabricated to cover that: a caller resuming already holds the id it passed in, and echoing it back
@@ -92,7 +94,7 @@ public sealed class CodexAgentSession : IAgentSession
             yield break;
         }
 
-        if (!AgentAccounts.TryMap(options.Account, CodexAgentDoor.AccountHomeVariable, out var accountEnvironment, out var accountRefusal))
+        if (!AgentAccounts.TryMap(options.Account, CodexAgentDoor.Mapping, out var accountEnvironment, out var accountRefusal))
         {
             yield return CliAgentLoop.Refused(AgentAccounts.RefusedSubtype, accountRefusal);
             yield break;

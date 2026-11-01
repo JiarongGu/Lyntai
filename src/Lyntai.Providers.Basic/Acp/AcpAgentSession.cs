@@ -42,7 +42,7 @@ public sealed class AcpAgentSession : IAgentSession
     private readonly string _command;
     private readonly IReadOnlyList<string> _arguments;
     private readonly IReadOnlyDictionary<string, string?>? _environment;
-    private readonly string? _accountHomeVariable;
+    private readonly AgentAccountMapping? _accounts;
     private readonly TimeSpan _cancelGrace;
     private readonly TimeProvider _time;
 
@@ -61,6 +61,9 @@ public sealed class AcpAgentSession : IAgentSession
     /// null = <see cref="DefaultCancelGrace"/>.</param>
     /// <param name="logger">Optional diagnostics.</param>
     /// <param name="time">The clock a usage reading is stamped from; null = the system clock.</param>
+    /// <param name="accountVariables">The other variables the agent reads for a key or a gateway's address, which an
+    /// account's <see cref="AgentAccount.Environment"/> may set. Needs <paramref name="accountHomeVariable"/>; none
+    /// means an account entry is refused.</param>
     public AcpAgentSession(
         IProcessRunner runner,
         LyntaiOptions options,
@@ -70,7 +73,8 @@ public sealed class AcpAgentSession : IAgentSession
         string? accountHomeVariable = null,
         TimeSpan? cancelGrace = null,
         ILogger<AcpAgentSession>? logger = null,
-        TimeProvider? time = null)
+        TimeProvider? time = null,
+        IEnumerable<string>? accountVariables = null)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(command);
         _runner = runner;
@@ -78,7 +82,7 @@ public sealed class AcpAgentSession : IAgentSession
         _command = command;
         _arguments = arguments ?? [];
         _environment = environment;
-        _accountHomeVariable = accountHomeVariable;
+        _accounts = accountHomeVariable is null ? null : new AgentAccountMapping(accountHomeVariable, accountVariables);
         _cancelGrace = cancelGrace ?? DefaultCancelGrace;
         _logger = logger ?? NullLogger<AcpAgentSession>.Instance;
         _time = time ?? TimeProvider.System;
@@ -87,7 +91,8 @@ public sealed class AcpAgentSession : IAgentSession
     /// <summary>Run one turn and stream what the agent does.</summary>
     /// <param name="options">The turn. Its <see cref="AgentSessionOptions.WorkingDirectory"/> is the session's
     /// <c>cwd</c> (made absolute; the current directory when null). A blank resume token, an unusable MCP server
-    /// and an account with no usable home, or one on an agent whose home variable is unknown, refuse the turn
+    /// and an account with no usable home or an entry the agent does not read, or one on an agent whose home
+    /// variable is unknown, refuse the turn
     /// before anything is spawned.</param>
     /// <param name="ct">Cancels the turn: <c>session/cancel</c>, then the process.</param>
     public async IAsyncEnumerable<AgentStreamEvent> StreamAsync(
@@ -102,9 +107,10 @@ public sealed class AcpAgentSession : IAgentSession
 
         IReadOnlyDictionary<string, string> accountEnvironment = new Dictionary<string, string>(0);
         string? accountRefusal = null;
-        if (options.Account is not null && _accountHomeVariable is null)
+        if (options.Account is not null && _accounts is null)
             accountRefusal = "this agent's configuration-home variable is not known, so an account cannot be handed to it.";
-        else if (!AgentAccounts.TryMap(options.Account, _accountHomeVariable ?? "", out accountEnvironment, out accountRefusal))
+        else if (options.Account is not null
+            && !AgentAccounts.TryMap(options.Account, _accounts!, out accountEnvironment, out accountRefusal))
             accountRefusal ??= "the account cannot be handed to the agent.";
         if (accountRefusal is not null)
         {

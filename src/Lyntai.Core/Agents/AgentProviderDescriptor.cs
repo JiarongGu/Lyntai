@@ -142,10 +142,38 @@ public sealed record AgentProviderDescriptor
 }
 
 /// <summary>How a provider's doors take an <see cref="AgentAccount"/>: the environment variable its agent reads its
-/// configuration home from, set on the child it starts for the turn.</summary>
-/// <param name="HomeVariable">The variable name (<c>CLAUDE_CONFIG_DIR</c> for claude, <c>CODEX_HOME</c> for codex).
-/// For the turn it wins over the same variable in the session's own environment.</param>
-public sealed record AgentAccountMapping(string HomeVariable);
+/// configuration home from, and the others it reads that choose whose identity or route a turn runs under, all set on
+/// the child it starts for the turn. A host that wants an agent not to inherit another provider's credentials
+/// computes its strip from <see cref="Variables"/> (a null entry in the session's environment removes a variable,
+/// <see cref="Lyntai.Processes.IProcessRunner"/>); which to strip is the host's policy.</summary>
+public sealed record AgentAccountMapping
+{
+    /// <param name="homeVariable">The variable name (<c>CLAUDE_CONFIG_DIR</c> for claude, <c>CODEX_HOME</c> for codex).
+    /// For the turn it wins over the same variable in the session's own environment.</param>
+    /// <param name="variables">The others the agent reads for an API key, a token or a gateway's address, exact names.
+    /// A repeat of a name is dropped.</param>
+    /// <exception cref="ArgumentException">A blank name, or one holding <c>=</c> or a control character, none of
+    /// which an environment can carry.</exception>
+    public AgentAccountMapping(string homeVariable, IEnumerable<string>? variables = null)
+    {
+        var all = new List<string>();
+        foreach (var name in new[] { homeVariable }.Concat(variables ?? []))
+        {
+            if (string.IsNullOrWhiteSpace(name) || name.Contains('=') || name.Any(char.IsControl))
+                throw new ArgumentException($"'{name}' is not a name an environment variable can have.", nameof(variables));
+            if (!all.Contains(name, StringComparer.Ordinal)) all.Add(name);
+        }
+        HomeVariable = homeVariable;
+        Variables = all;
+    }
+
+    /// <summary>The variable the agent reads its configuration home from; <see cref="AgentAccount.Home"/> is set in it.</summary>
+    public string HomeVariable { get; }
+
+    /// <summary>Every variable an <see cref="AgentAccount"/> may set for this provider: the home variable, then the
+    /// others. An <see cref="AgentAccount.Environment"/> entry outside this set is refused before a spawn.</summary>
+    public IReadOnlyList<string> Variables { get; }
+}
 
 /// <summary>The abilities a host asks about, by name. A host's own provider may state more; these are the ones
 /// every provider states.</summary>

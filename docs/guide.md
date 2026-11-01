@@ -1104,14 +1104,32 @@ agent is registered under, `"claude-cli"` by default), a `Name` of your choosing
 directory you already set up and signed in. The door starts its child with the home in its agent's own variable, for
 that turn only and over the same variable in the session's `environment`: `CLAUDE_CONFIG_DIR` for claude and
 `CODEX_HOME` for codex (`Describe().Accounts.HomeVariable` names it). Lyntai creates no profile, signs in to none and
-stores no credential (**D20**): it never opens the home, and nothing in the account is a secret. Pass the home
+stores no credential (**D20**): it never opens the home, and the home is a path and no secret. Pass the home
 absolute and existing, since the agent creates a missing one signed out and resolves a relative one against the
 turn's working directory. A turn through `Open(doorId)` is refused, with no process spawned, when the account belongs
 to another provider (subtype `account-other-provider`), when the door states `accounts` `Unsupported`
-(`option-unsupported`), or when the name is blank or the home is blank or holds a control character
-(`account-invalid`, which the door's own session raises too); each is one `SessionEnded` with
+(`option-unsupported`), or when the name is blank, the home is blank or holds a control character, or an entry is
+not one the provider reads (`account-invalid`, which the door's own session raises too); each is one `SessionEnded` with
 `ProviderVerdict.Unsupported` and `NeverSent`. The keyed `IAgentSession` checks only the account's own shape, not whose
 it is, so go through the provider when the account may be the wrong one.
+
+**An account that is a key** (AG17). `Home` may be left out, and `Environment` carries variables for that turn's child
+only: an API key, a gateway's base address. Each name must be one the provider declares it reads
+(`Describe().Accounts.Variables`, the home variable first; claude: `ANTHROPIC_API_KEY`, `ANTHROPIC_AUTH_TOKEN`,
+`CLAUDE_CODE_OAUTH_TOKEN`, `ANTHROPIC_BASE_URL`; codex: `OPENAI_API_KEY`, `CODEX_API_KEY`; declared from the programs'
+documentation, not measured), matched exactly, and the home variable is set by `Home` and never as an entry; anything else
+is `account-invalid` before a spawn. An empty value is set empty, which blanks a variable the child would otherwise
+read, as a gateway that takes its key in one variable asks. A value goes into the child's environment and nowhere else
+(the shape of `AgentMcpServer.AuthToken`): not argv, a log line, a diagnostic or an event; `AgentAccount.ToString()`
+lists the entries' names and no value; and the pool files an account by `Provider` and `Name`, so nothing is
+persisted. The same account listed in two choices must carry the same entries. The value is yours to hold; a pick hands
+back the account you listed, so read it from your own store when you build the pool. An ACP door states its own
+list: `AddAcpAgentSession(..., accountHomeVariable: "...", accountVariables: [...])`; none declared refuses any entry.
+A usage read (`AddAgentUsageReading`) of a key account is `account-refused`, since a key has no signed-in allowance.
+
+To keep an agent from inheriting another provider's credentials, strip the names that provider declares: set each
+`Variables` entry of the others to `null` in the session's `environment` (a null value removes a variable from the child).
+Which to strip is your deployment's policy, and the list is the provider's fact.
 
 **One account across an agent's doors** (`agent:`, **D234**). A CLI and an ACP adapter of one vendor are two
 providers with two ids, so by default an account built for one is refused by the other. Pass the same `agent:` string

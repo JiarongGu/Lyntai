@@ -59,15 +59,18 @@ public record AgentSessionOptions
 
     /// <summary>The account this turn runs under; null = the door's own default home. A door that reads one starts
     /// its child with the account's <see cref="AgentAccount.Home"/> in its own configuration-home variable
-    /// (<see cref="AgentAccountMapping.HomeVariable"/>); a door that does not, and an account that belongs to
-    /// another provider (neither the door's id nor its <see cref="AgentProviderDescriptor.Agent"/>), refuse the turn
+    /// (<see cref="AgentAccountMapping.HomeVariable"/>) and its <see cref="AgentAccount.Environment"/> beside it; a
+    /// door that does not, an account that belongs to another provider (neither the door's id nor its
+    /// <see cref="AgentProviderDescriptor.Agent"/>), and an entry the provider does not read, refuse the turn
     /// before anything is spawned. Needs <see cref="AgentAbilities.Accounts"/>.</summary>
     public AgentAccount? Account { get; init; }
 }
 
-/// <summary>An account for one provider: a name the host calls it by and a configuration home the host already set
-/// up and signed in. Lyntai creates no profile, signs in to none and stores no credential (<c>D20</c>): nothing
-/// here is a secret, and the home's contents are the agent's own, never read or written by the library.</summary>
+/// <summary>An account for one provider: a name the host calls it by, and either a configuration home the host
+/// already set up and signed in, or environment entries the host supplies for the turn (an API key, a gateway's
+/// address), or both. Lyntai creates no profile, signs in to none and stores no credential (<c>D20</c>): the
+/// home's contents are the agent's own, never read or written by the library, and an <see cref="Environment"/>
+/// value is held only as long as the host holds this record, reaches the child's environment and nowhere else.</summary>
 public sealed record AgentAccount
 {
     /// <summary>The account's key: the id of the registered provider it belongs to
@@ -82,8 +85,33 @@ public sealed record AgentAccount
 
     /// <summary>The account's configuration home, passed to the child verbatim in the door's home variable. It must
     /// exist already and should be absolute: a relative path resolves against the child's working directory, and a
-    /// missing one is created by the agent itself, signed out. No control character is allowed.</summary>
-    public required string Home { get; init; }
+    /// missing one is created by the agent itself, signed out. No control character is allowed. Null = the account
+    /// is its <see cref="Environment"/> alone, and the door's home variable is left as the session has it. An
+    /// account with neither a home nor an environment entry is refused.</summary>
+    public string? Home { get; init; }
+
+    /// <summary>Variables the child is started with for this turn, over the session's own environment: an API key, a
+    /// gateway's base address. Each name must be one the provider reads (<see cref="AgentAccountMapping.Variables"/>,
+    /// matched exactly), else the turn is refused before a spawn; a value is empty or free of control characters,
+    /// and an empty one is set empty, which is how a variable an agent would otherwise read is blanked. The home
+    /// variable is set by <see cref="Home"/>, never here.
+    /// <para><b>A value is a secret and goes nowhere but the child's environment</b> (the shape of
+    /// <see cref="AgentMcpServer.AuthToken"/>): never argv, a log line, a diagnostic or an event, and not
+    /// <see cref="ToString"/> on this record, which lists the names. The pool files an account by
+    /// <see cref="Provider"/> and <see cref="Name"/> only, so nothing here is persisted; two listings of one account
+    /// carry the same entries.</para></summary>
+    public IReadOnlyDictionary<string, string> Environment { get; init; } = EmptyEnvironment;
+
+    private static readonly IReadOnlyDictionary<string, string> EmptyEnvironment =
+        new Dictionary<string, string>(0, StringComparer.Ordinal);
+
+    // the compiler's ToString lists every member, which would print each value of Environment
+    private bool PrintMembers(System.Text.StringBuilder builder)
+    {
+        builder.Append("Provider = ").Append(Provider).Append(", Name = ").Append(Name).Append(", Home = ").Append(Home)
+            .Append(", Environment = [").Append(string.Join(", ", Environment.Keys.Order(StringComparer.Ordinal))).Append(']');
+        return true;
+    }
 }
 
 /// <summary>The caller-facing outcome of a session (the fold of the event stream).</summary>

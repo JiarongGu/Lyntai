@@ -276,6 +276,9 @@ public class AgentUsageSourceTests
                      Account(door.ProviderId, " "),
                      Account(door.ProviderId, "/home\0cut"),
                      Account(door.ProviderId) with { Name = "" },
+                     // a key has no signed-in allowance to read, and the read starts no child under one
+                     Account(door.ProviderId, null) with { Environment = new Dictionary<string, string> { ["ANTHROPIC_API_KEY"] = "k" } },
+                     Account(door.ProviderId) with { Environment = new Dictionary<string, string> { ["OPENAI_API_KEY"] = "k" } },
                  })
             Assert.Equal(AgentAllowanceUnknown.AccountRefused, (await source.ReadAllowanceAsync(account)).UnknownReason);
 

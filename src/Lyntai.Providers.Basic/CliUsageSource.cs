@@ -69,7 +69,7 @@ internal sealed class CliUsageSource(
 
         if (!(string.Equals(account.Provider, dialect.ProviderId, StringComparison.Ordinal)
                 || string.Equals(account.Provider, agent, StringComparison.Ordinal))
-            || !AgentAccounts.TryMap(account, dialect.HomeVariable, out var accountEnvironment, out _))
+            || !AgentAccounts.TryMap(account, new AgentAccountMapping(dialect.HomeVariable), out var accountEnvironment, out _))
             return Unknown(AgentAllowanceUnknown.AccountRefused);
 
         var (exe, prefix) = CliCommand.Resolve(command, dialect.Backend);
