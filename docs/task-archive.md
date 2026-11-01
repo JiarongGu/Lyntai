@@ -6580,3 +6580,13 @@ answer dropped, cancelled turn answered `cancelled` once, read-only never asked,
 new ability on every door; the `ApiSurface` baselines moved from the emitted `.actual`. Lane `inference`.
 
 - AG19 — an ACP permission request the host can answer
+## Part 440 — MC3: the candidate list's similarity basis, measured (2026-11-01)
+
+✅ done 2026-11-01 — **Outcome:** a NO, recorded as a refutation, and nothing in `src/` or `docs/memory.md` moved (the row said a NO changes nothing). On the same 70 pairs an embedder
+(`nomic-embed-text-v1.5` Q8_0, its own `llama-server`) does not raise the true-predecessor rate at any k: the combined list reads 8 / 36 / 57 of 70 at k = 1 / 4 / 10 against the lexical
+8 / 38 / 62, which the same run re-measured to the integer. The engine lists every similarity-flagged entry first and the embedder fills the window, so lexical hits it ranks lower are
+pushed out. Detail, the diagnostics and what is not held (one embedder, no prefix, one corpus): `update-candidates-similarity-haystack-n70` in `docs/memory-measurements.md` §5. The
+scratch harness was rebuilt from the `knowledge-update` loading and deleted again, so the figure is reproducible from the entry's arm description only. Ratio: no line added to
+`src/` or the bench project. Lane `memory`.
+
+- MC3 — measure the candidate list's similarity basis
