@@ -2731,6 +2731,7 @@ sealed class Lyntai.Memory.GraphMemoryOptions
     VerdictCombination : MemoryVerdictCombination { get; init; }
     VerificationDepth : Nullable<Int32> { get; init; }
     VerificationFilters : Boolean { get; init; }
+    WidenedCandidateLimit : Int32 { get; init; }
 sealed class Lyntai.Memory.GraphNeighbour
     .ctor(GraphNode Node, Double EdgeWeight, Double EdgeAge, Double EdgeOrdinalAge = 0, Double EdgeVolumeAge = 0, Double EdgeElapsedAge = 0)
     Deconstruct(GraphNode& Node, Double& EdgeWeight, Double& EdgeAge, Double& EdgeOrdinalAge, Double& EdgeVolumeAge, Double& EdgeElapsedAge) : Void

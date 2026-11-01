@@ -126,6 +126,21 @@ public sealed record GraphMemoryOptions
             "fewer candidates than the items asked for leaves the ranking nothing to choose between.");
     } = 4;
 
+    /// <summary>The most candidates one seed source is asked for when a recall's validity reading drops entries from a
+    /// full window. A <see cref="MemoryValidityReading.Current"/> or as-of read leaves out the ended entries of what a
+    /// source returned, so a scope where they outrank the current ones would otherwise return none of those; the engine
+    /// then asks again with a window four times larger, up to this bound, until the window holds as many admitted
+    /// entries as it asked for or the source stops filling it. A scope with no ended entries never asks twice.
+    /// <para>The bound is a cost ceiling: a scope holding more ended entries matching a query than this still loses its
+    /// current ones. Zero turns it off, and a value at or below the window the multiplier gives widens nothing; a
+    /// recall under <see cref="MemoryValidityReading.History"/> never widens.</para></summary>
+    /// <exception cref="ArgumentOutOfRangeException">Set below zero.</exception>
+    public int WidenedCandidateLimit
+    {
+        get;
+        init => field = MemoryOption.Require(value, 0, nameof(GraphMemoryOptions), ZeroIsOff);
+    } = 1000;
+
     /// <summary>Items returned when the query names no limit.</summary>
     /// <exception cref="ArgumentOutOfRangeException">Set below one.</exception>
     public int DefaultLimit
