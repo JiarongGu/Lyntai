@@ -647,6 +647,7 @@ public sealed class LyntaiBuilder
     /// options; <c>o.Enabled = false</c> inside it switches the ability back off.</summary>
     /// <exception cref="ArgumentOutOfRangeException">The timeout is not between 0 and 5 minutes, or the client name or
     /// version is empty, longer than 64 characters or holds a control character.</exception>
+    /// <exception cref="ArgumentNullException">The version policy is null.</exception>
     public LyntaiBuilder AddAgentUsageReading(Action<AgentUsageReadingOptions>? configure = null)
     {
         var options = AgentUsageReading ??= new AgentUsageReadingOptions();

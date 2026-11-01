@@ -96,6 +96,13 @@ every addition.
 
 ### Added
 
+- **A host states its own policy for a version the library has not validated** (**D236**). `AgentUsageReadingOptions.VersionPolicy`
+  takes an `IAgentUsageVersionPolicy`: whether the binary is asked its version, and, given an `AgentUsageVersionQuery` (the
+  provider, the account, the version read and whether the library validated it), whether the vendor's server starts. The default
+  is `AgentUsageVersionPolicies.ValidatedOnly`, the behaviour a read always had; `AnyVersion` starts the server on whatever is
+  installed, with no version probe. The reading gains `Version` and `VersionValidated` (null under `AnyVersion`, which reads
+  none). The descriptor's `usage-reading` claim and validated versions are the same under every policy, an answer the reader
+  does not recognise is `unrecognised-answer` under every policy, and a policy that throws reads `version-not-validated`.
 - **An allowance reading carries what the server stated** (**D237**). `AgentAllowanceWindow.UsedPercent` is a `double?` kept as
   written, with a `UsedStep` (1 for `23`, 0.1 for `23.5`; null in exponent form) and a `Scope` (null for the account's own limit). A
   window stating a use or a reset is kept in part, and one stating neither is left out. Claude's `seven_day_<scope>` windows and
