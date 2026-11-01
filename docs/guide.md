@@ -1379,14 +1379,24 @@ if (sp.GetRequiredService<AgentProviderRegistry>().Get("claude-cli") is IAgentUs
 Without `AddAgentUsageReading` (or with `o.Enabled = false`) a read answers `disabled` and starts nothing. When on, a
 read asks the binary its version first (of no account's home) and **starts the server only for a version whose
 signed-in usage response is validated** — claude 2.1.296 and codex-cli 0.160.0, which the descriptor's
-`usage-reading` claim names in `AppliesTo`; any other version reads `version-not-validated`, and so does one whose
-version cannot be read. The server is claude's `-p --input-format stream-json` with a `get_usage` control request, or
+`usage-reading` claim names in `AppliesTo`; any other version reads `version-not-validated`, and one whose
+version cannot be read reads `version-unreadable`. The server is claude's `-p --input-format stream-json` with a `get_usage` control request, or
 codex's `app-server` with `account/rateLimits/read`; neither spends model usage. Each request is written only once the
 answer to the one before it has arrived, and an error answer to the first ends the read as unknown. It runs under the account's home,
 in a fresh empty working directory (so no project's extensions load), bounded by `AgentUsageReadingOptions.Timeout`
 (default 30 seconds); the process tree is ended when the answer arrives, the time passes, the server ends, or the
 token is cancelled, which rethrows. It needs a runner that can hold a process open (`IProcessRunner.ExchangeLinesAsync`, the live-stdin member;
 the shipped one does, a runner of your own that does not reads `runner-unsupported`).
+
+**A version you chose.** A host that keeps an agent at a version of its own sets `AgentUsageReadingOptions.VersionPolicy`:
+`AgentUsageVersionPolicies.AnyVersion` starts the server on whatever is installed with no version probe, and an
+`IAgentUsageVersionPolicy` of yours says whether the binary is probed (`ProbesVersion`) and whether the server starts
+(`ShouldStart`), given the provider, the account, the version read and whether the library validated it. The default is
+`ValidatedOnly`. **The claim does not move**: the descriptor names the same validated versions under every policy, and an
+answer this reader does not recognise is `unrecognised-answer` whichever policy let the server start, so a wider policy
+risks only a read that is unknown. The reading names the `Version` it was read on and `VersionValidated`, so a reading taken
+under your policy is told from a validated one (`VersionValidated` false); under `AnyVersion` both are null. A policy that
+throws reads `version-not-validated`, and a version that cannot be read reads `version-unreadable` without asking it.
 
 **Where the server runs, and what it is told.** **The folder is a project to the vendor**: it keys state by that path and
 loads the project's extensions from it. `AgentUsageReadingOptions.WorkingDirectory` is a function of the account that

@@ -6781,7 +6781,7 @@ cheaper than the pack.
 
 ## D236 — a host states its own policy for reading a version the library has not validated, and the library's support claim does not move (2026-10-30)
 
-**Standing.** Written from the session that answered a host's three requests about the usage reading (`TASKS.md` Part 416);
+**Standing.** Written from the session that answered a host's three requests about the usage reading (its rows closed as `docs/task-archive.md` Parts 441 to 444);
 the owner's acceptance of the branch makes it binding. It refines **D222**'s "per vendor version" without loosening it. The
 members it adds are unreleased, so a row may still reshape them (**D235**).
 

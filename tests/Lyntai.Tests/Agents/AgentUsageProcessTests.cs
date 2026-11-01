@@ -103,8 +103,8 @@ public class AgentUsageProcessTests
         var script = scratch.File("server.cjs", ordered ? OrderedServer : Server);
         var dialect = new StandInDialect(pidFile, mode, ordered);
         var source = new CliUsageSource(dialect, new ProcessRunner(),
-            new AgentUsageReadingOptions { Enabled = true, Timeout = timeout }, logger: null,
-            command: $"node \"{script}\"", environment: null, requireValidatedVersion: false);
+            new AgentUsageReadingOptions { Enabled = true, Timeout = timeout, VersionPolicy = AgentUsageVersionPolicies.AnyVersion },
+            logger: null, command: $"node \"{script}\"", environment: null);
         return (source, dialect);
     }
 
@@ -192,11 +192,11 @@ public class AgentUsageProcessTests
         ScratchDir scratch, Action<AgentUsageReadingOptions> configure)
     {
         var log = scratch.Combine("server.log");
-        var options = new AgentUsageReadingOptions { Enabled = true };
+        var options = new AgentUsageReadingOptions { Enabled = true, VersionPolicy = AgentUsageVersionPolicies.AnyVersion };
         configure(options);
         var source = new CliUsageSource(new CodexUsageDialect("stand-in"), new ProcessRunner(), options, logger: null,
             command: $"node \"{scratch.File("codex-server.cjs", CodexServer)}\"",
-            environment: new Dictionary<string, string?> { ["STAND_IN_LOG"] = log }, requireValidatedVersion: false);
+            environment: new Dictionary<string, string?> { ["STAND_IN_LOG"] = log });
 
         var reading = await source.ReadAllowanceAsync(Account(scratch.Combine("home")));
 
@@ -320,8 +320,8 @@ public class AgentUsageProcessTests
         using var scratch = new ScratchDir("usage-process");
         var dialect = new StandInDialect(scratch.Combine("pids.txt"), "answer");
         var source = new CliUsageSource(dialect, new ProcessRunner(),
-            new AgentUsageReadingOptions { Enabled = true }, logger: null,
-            command: "lyntai-no-such-binary-" + Guid.NewGuid().ToString("N"), environment: null, requireValidatedVersion: false);
+            new AgentUsageReadingOptions { Enabled = true, VersionPolicy = AgentUsageVersionPolicies.AnyVersion }, logger: null,
+            command: "lyntai-no-such-binary-" + Guid.NewGuid().ToString("N"), environment: null);
 
         var reading = await source.ReadAllowanceAsync(Account("/homes/work"));
 

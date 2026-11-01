@@ -30,10 +30,13 @@ public class AgentUsageLiveTests
     // the standing environment points the agent at a throwaway home too, so even the version question
     // (asked of no account) cannot touch the home of whoever runs the suite
     private static CliUsageSource Source(IUsageDialect dialect, bool gate, ScratchDir standingHome) => new(
-        dialect, new ProcessRunner(), new AgentUsageReadingOptions { Enabled = true, Timeout = TimeSpan.FromSeconds(90) },
+        dialect, new ProcessRunner(), new AgentUsageReadingOptions
+        {
+            Enabled = true, Timeout = TimeSpan.FromSeconds(90),
+            VersionPolicy = gate ? AgentUsageVersionPolicies.ValidatedOnly : AgentUsageVersionPolicies.AnyVersion,
+        },
         logger: null, command: null,
-        new Dictionary<string, string?>(NoInheritedCredentials) { [dialect.HomeVariable] = standingHome.Path },
-        requireValidatedVersion: gate);
+        new Dictionary<string, string?>(NoInheritedCredentials) { [dialect.HomeVariable] = standingHome.Path });
 
     private static AgentAccount Account(string provider, ScratchDir home) =>
         new() { Provider = provider, Name = "empty", Home = home.Path };

@@ -51,8 +51,9 @@ internal interface IUsageDialect
 internal sealed record UsageStep(IReadOnlyList<string> Writes, Func<string, bool> IsAnswerTo);
 
 /// <summary>An <see cref="IAgentUsageSource"/> over a CLI agent's own server. One start, one question: the version is
-/// read first, and only a version whose response is validated has its server started at all, under the folder the
-/// host names or else a fresh empty one so the vendor loads no project's extensions. The process is ended on every
+/// read first unless the host's version policy says otherwise, and by default only a version whose response is
+/// validated has its server started at all, under the folder the host names or else a fresh empty one so the vendor
+/// loads no project's extensions. The process is ended on every
 /// path out. The library keeps nothing the answer carries beyond the windows and the plan: no account id, no token.</summary>
 internal sealed class CliUsageSource(
     IUsageDialect dialect,
@@ -62,7 +63,6 @@ internal sealed class CliUsageSource(
     string? command,
     IReadOnlyDictionary<string, string?>? environment,
     TimeProvider? time = null,
-    bool requireValidatedVersion = true,
     string? agent = null) : IAgentUsageSource
 {
     private static readonly TimeSpan VersionTimeout = TimeSpan.FromSeconds(15);
@@ -85,12 +85,8 @@ internal sealed class CliUsageSource(
 
         var (exe, prefix) = CliCommand.Resolve(command, dialect.Backend);
 
-        if (requireValidatedVersion)
-        {
-            var version = await ReadVersionAsync(exe, prefix, ct).ConfigureAwait(false);
-            if (version.Failed is { } failed) return Unknown(failed);
-            if (!dialect.ValidatedVersions.Contains(version.Value!)) return Unknown(AgentAllowanceUnknown.VersionNotValidated);
-        }
+        var (refusal, version, validated) = await CheckVersionAsync(account, exe, prefix, options.VersionPolicy, ct).ConfigureAwait(false);
+        if (refusal is not null) return Unknown(refusal, version, validated);
 
         var workDir = named ?? Path.Combine(Path.GetTempPath(), $"lyntai-usage-{Guid.NewGuid():N}");
         try
@@ -98,21 +94,49 @@ internal sealed class CliUsageSource(
             Directory.CreateDirectory(workDir);
             var (lines, outcome) = await ExchangeAsync(exe, [.. prefix, .. dialect.ServerArgs], workDir,
                 AgentAccounts.Merge(environment, accountEnvironment), options.Timeout, ct).ConfigureAwait(false);
-            return outcome is null ? dialect.Read(lines, _time.GetUtcNow()) : Unknown(outcome);
+            return outcome is null
+                ? dialect.Read(lines, _time.GetUtcNow()) with { Version = version, VersionValidated = validated }
+                : Unknown(outcome, version, validated);
         }
         catch (NotSupportedException)
         {
-            return Unknown(AgentAllowanceUnknown.RunnerUnsupported);
+            return Unknown(AgentAllowanceUnknown.RunnerUnsupported, version, validated);
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
             _logger.LogWarning("{Provider} usage read could not start its server: {Error}", dialect.ProviderId, ex.GetType().Name);
-            return Unknown(AgentAllowanceUnknown.SpawnFailed);
+            return Unknown(AgentAllowanceUnknown.SpawnFailed, version, validated);
         }
         finally
         {
             // only the folder this read made: a named one is the host's
             if (named is null) await RemoveAsync(workDir).ConfigureAwait(false);
+        }
+    }
+
+    // The host's policy decides whether the binary is asked its version and whether the server starts on it. The
+    // refusal is null to go on. A policy that throws refuses, with its exception type logged and nothing rethrown.
+    private async Task<(string? Refusal, string? Version, bool? Validated)> CheckVersionAsync(
+        AgentAccount account, string exe, IReadOnlyList<string> prefix, IAgentUsageVersionPolicy policy, CancellationToken ct)
+    {
+        string? version = null;
+        bool? validated = null;
+        try
+        {
+            if (policy.ProbesVersion)
+            {
+                var read = await ReadVersionAsync(exe, prefix, ct).ConfigureAwait(false);
+                if (read.Failed is { } failed) return (failed, null, null);
+                version = read.Value;
+                validated = dialect.ValidatedVersions.Contains(version!);
+            }
+            var start = policy.ShouldStart(new AgentUsageVersionQuery(dialect.ProviderId, account, version, validated ?? false));
+            return (start ? null : AgentAllowanceUnknown.VersionNotValidated, version, validated);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            _logger.LogWarning("{Provider} usage read: the host's version policy failed: {Error}", dialect.ProviderId, ex.GetType().Name);
+            return (AgentAllowanceUnknown.VersionNotValidated, version, validated);
         }
     }
 
@@ -203,5 +227,6 @@ internal sealed class CliUsageSource(
         }
     }
 
-    private AgentAllowanceReading Unknown(string reason) => AgentAllowanceReading.Unknown(reason, _time.GetUtcNow());
+    private AgentAllowanceReading Unknown(string reason, string? version = null, bool? validated = null) =>
+        AgentAllowanceReading.Unknown(reason, _time.GetUtcNow()) with { Version = version, VersionValidated = validated };
 }

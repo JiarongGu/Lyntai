@@ -6626,3 +6626,9 @@ repeat; a reading with no own window at all has `HasRoom` null. **Not establishe
 SOURCE-DERIVED and a capture of the real answer should replace them. Proof: `AgentUsageDialectTests` holds each case beside a malformed value. No decision recorded: **D237** states it. Lanes `platform` + `inference`.
 
 - AG23 — an allowance reading carries what the server stated
+
+## Part 444 — AG24: a host's policy for a version the library has not validated (2026-11-02)
+
+✅ done 2026-11-02 — **Outcome:** `IAgentUsageVersionPolicy` (`ProbesVersion`, `ShouldStart(AgentUsageVersionQuery)`), the query record (provider, account, version, validated), `AgentUsageVersionPolicies.ValidatedOnly` and `.AnyVersion`, `AgentUsageReadingOptions.VersionPolicy` (default `ValidatedOnly`, null refused at `AddAgentUsageReading`) and `AgentAllowanceReading.Version` / `VersionValidated`; the `ApiSurface` baseline moved from the emitted `.actual`, additions only, no `### Breaking`. `CliUsageSource` lost its test-only `requireValidatedVersion` flag: the policy decides whether the binary is probed and whether the server starts, and a policy that throws reads `version-not-validated` with the exception type logged. The descriptor is untouched, and the dialects' recognition is untouched, so an unrecognised answer is `unrecognised-answer` under `AnyVersion`. **Read here:** a version that cannot be read is `version-unreadable` and the policy is not asked, so `AnyVersion` is the way to start on a binary that prints none; a refusal after a probe still carries the version it read; under `AnyVersion` both version fields are null. Proof: `AgentUsageSourceTests` holds each case on both doors; the stand-in tests in `AgentUsageProcessTests` and the live gate tests now state their policy. No decision recorded: **D236** states it. Lanes `platform` + `inference`.
+
+- AG24 — a host's policy for a version the library has not validated

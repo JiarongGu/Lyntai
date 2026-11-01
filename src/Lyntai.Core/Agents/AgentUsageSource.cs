@@ -72,7 +72,9 @@ public static class AgentAllowanceUnknown
     /// not started.</summary>
     public const string VersionUnreadable = "version-unreadable";
 
-    /// <summary>The binary's version is not one whose usage response is validated. The server was not started.</summary>
+    /// <summary>The host's <see cref="AgentUsageReadingOptions.VersionPolicy"/> did not start the server: by default
+    /// because the binary's version is not one whose usage response is validated, and also when a policy declines or
+    /// throws. The server was not started.</summary>
     public const string VersionNotValidated = "version-not-validated";
 
     /// <summary>The process could not be started.</summary>
@@ -124,6 +126,15 @@ public sealed record AgentAllowanceReading
     /// <summary>Why the reading is unknown, one of <see cref="AgentAllowanceUnknown"/>'s; null when it was read.</summary>
     public string? UnknownReason { get; init; }
 
+    /// <summary>The version of the binary this was read on, as the library parses it (<c>"2.1.296"</c>). Null when no
+    /// version was read: the policy does not probe, the version could not be read, or the read ended before the probe.</summary>
+    public string? Version { get; init; }
+
+    /// <summary>Whether the library has validated <see cref="Version"/>'s usage response; null exactly when
+    /// <see cref="Version"/> is. False on a reading a host's <see cref="AgentUsageReadingOptions.VersionPolicy"/> let through,
+    /// so a host that keeps readings can tell one from a validated one.</summary>
+    public bool? VersionValidated { get; init; }
+
     /// <summary>True when the server's answer was recognised and carried at least one window.</summary>
     public bool IsKnown => UnknownReason is null && Windows.Count > 0;
 
@@ -171,6 +182,13 @@ public sealed class AgentUsageReadingOptions
     /// throws reads <see cref="AgentAllowanceUnknown.AccountRefused"/> before anything is started. Default null.</summary>
     public Func<AgentAccount, string?>? WorkingDirectory { get; set; }
 
+    /// <summary>What to do with a version the library has not validated: <see cref="AgentUsageVersionPolicies.ValidatedOnly"/>
+    /// by default, which reads <see cref="AgentAllowanceUnknown.VersionNotValidated"/> and starts nothing;
+    /// <see cref="AgentUsageVersionPolicies.AnyVersion"/>, or a host's own <see cref="IAgentUsageVersionPolicy"/>, starts the
+    /// server on it. The descriptor's claim is the same under every policy, and so is what counts as a reading.
+    /// Null is refused where it is set.</summary>
+    public IAgentUsageVersionPolicy VersionPolicy { get; set; } = AgentUsageVersionPolicies.ValidatedOnly;
+
     /// <summary>The name the server is told its client has, where the protocol carries one (Codex's
     /// <c>initialize</c>) and ignored where it carries none (Claude's control request). A server may act on it.
     /// Non-empty, at most 64 characters and free of control characters; written by a
@@ -189,6 +207,7 @@ public sealed class AgentUsageReadingOptions
             throw new ArgumentOutOfRangeException(nameof(Timeout), Timeout, "A usage read needs a timeout between 0 and 5 minutes.");
         CheckClient(ClientName, nameof(ClientName));
         CheckClient(ClientVersion, nameof(ClientVersion));
+        ArgumentNullException.ThrowIfNull(VersionPolicy);
     }
 
     // the value is left out of the message: it is a host's text, and may hold the control character it is refused for

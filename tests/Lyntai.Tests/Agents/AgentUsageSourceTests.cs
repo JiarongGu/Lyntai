@@ -16,6 +16,10 @@ public class AgentUsageSourceTests
     {
         public string AskMarker => ProviderId == "claude-cli" ? "get_usage" : "account/rateLimits/read";
 
+        // the versions as the library parses them out of what the binary prints
+        public string ValidatedParsed => ProviderId == "claude-cli" ? "2.1.296" : "0.160.0";
+        public string UnvalidatedParsed => ProviderId == "claude-cli" ? "2.1.312" : "0.163.0-alpha.10.2";
+
         // the answer a server gives to the first request; the question is written only once it has arrived
         public string InitializeAnswer => ProviderId == "claude-cli"
             ? UsageCaptures.ClaudeSignedOut_2_1_312[0]
@@ -142,6 +146,8 @@ public class AgentUsageSourceTests
         var reading = await Source(sp, door).ReadAllowanceAsync(Account(door.ProviderId));
 
         Assert.True(reading.IsKnown, reading.UnknownReason);
+        Assert.Equal(door.ValidatedParsed, reading.Version);
+        Assert.True(reading.VersionValidated);
         Assert.Equal(2, runner.Calls.Count);
         Assert.Equal(["--version"], runner.Calls[0].Args);
         Assert.False(runner.Calls[0].Environment?.ContainsKey(door.HomeVariable) ?? false,
@@ -168,8 +174,177 @@ public class AgentUsageSourceTests
         var reading = await Source(sp, door).ReadAllowanceAsync(Account(door.ProviderId));
 
         Assert.Equal(AgentAllowanceUnknown.VersionNotValidated, reading.UnknownReason);
+        Assert.Equal(door.UnvalidatedParsed, reading.Version);
+        Assert.False(reading.VersionValidated);
         Assert.Empty(runner.Exchanges);
         Assert.Single(runner.Calls);
+    }
+
+    // ── a host's policy for a version the library has not validated ───────────────────────────────
+
+    private sealed class HostPolicy(bool probes, Func<AgentUsageVersionQuery, bool> starts) : IAgentUsageVersionPolicy
+    {
+        public List<AgentUsageVersionQuery> Asked { get; } = [];
+        public bool ProbesVersion => probes;
+
+        public bool ShouldStart(AgentUsageVersionQuery query)
+        {
+            Asked.Add(query);
+            return starts(query);
+        }
+    }
+
+    [Theory, MemberData(nameof(Doors))]
+    public async Task A_host_policy_naming_the_unvalidated_version_starts_the_server_and_the_reading_says_so(Door door)
+    {
+        var runner = Runner(door, door.UnvalidatedVersion);
+        var policy = new HostPolicy(true, q => q.Version == door.UnvalidatedParsed);
+        using var sp = Compose(runner, b => b.AddAgentUsageReading(o => o.VersionPolicy = policy));
+
+        var reading = await Source(sp, door).ReadAllowanceAsync(Account(door.ProviderId));
+
+        Assert.True(reading.IsKnown, reading.UnknownReason);
+        Assert.Equal(door.UnvalidatedParsed, reading.Version);
+        Assert.False(reading.VersionValidated);
+        Assert.Single(runner.Exchanges);
+
+        var asked = Assert.Single(policy.Asked);
+        Assert.Equal(door.ProviderId, asked.Provider);
+        Assert.Equal(Home, asked.Account.Home);
+        Assert.Equal(door.UnvalidatedParsed, asked.Version);
+        Assert.False(asked.Validated);
+    }
+
+    [Theory, MemberData(nameof(Doors))]
+    public async Task A_host_policy_that_declines_reads_not_validated_and_starts_nothing(Door door)
+    {
+        var runner = Runner(door, door.UnvalidatedVersion);
+        using var sp = Compose(runner, b => b.AddAgentUsageReading(o => o.VersionPolicy = new HostPolicy(true, _ => false)));
+
+        var reading = await Source(sp, door).ReadAllowanceAsync(Account(door.ProviderId));
+
+        Assert.Equal(AgentAllowanceUnknown.VersionNotValidated, reading.UnknownReason);
+        Assert.Equal(door.UnvalidatedParsed, reading.Version);
+        Assert.Empty(runner.Exchanges);
+    }
+
+    [Theory, MemberData(nameof(Doors))]
+    public async Task A_host_policy_is_told_when_the_library_validated_the_version(Door door)
+    {
+        var policy = new HostPolicy(true, _ => true);
+        using var sp = Compose(Runner(door), b => b.AddAgentUsageReading(o => o.VersionPolicy = policy));
+
+        var reading = await Source(sp, door).ReadAllowanceAsync(Account(door.ProviderId));
+
+        Assert.True(Assert.Single(policy.Asked).Validated);
+        Assert.True(reading.VersionValidated);
+    }
+
+    [Theory, MemberData(nameof(Doors))]
+    public async Task AnyVersion_starts_the_server_with_no_version_probe_and_names_no_version(Door door)
+    {
+        var runner = Runner(door, door.UnvalidatedVersion);
+        using var sp = Compose(runner, b => b.AddAgentUsageReading(o => o.VersionPolicy = AgentUsageVersionPolicies.AnyVersion));
+
+        var reading = await Source(sp, door).ReadAllowanceAsync(Account(door.ProviderId));
+
+        Assert.True(reading.IsKnown, reading.UnknownReason);
+        Assert.Null(reading.Version);
+        Assert.Null(reading.VersionValidated);
+        Assert.DoesNotContain(runner.Calls, c => c.Args.Contains("--version"));
+        Assert.Single(runner.Exchanges);
+    }
+
+    [Theory, MemberData(nameof(Doors))]
+    public async Task A_policy_that_does_not_probe_is_asked_with_no_version(Door door)
+    {
+        var runner = Runner(door, door.UnvalidatedVersion);
+        var policy = new HostPolicy(false, _ => true);
+        using var sp = Compose(runner, b => b.AddAgentUsageReading(o => o.VersionPolicy = policy));
+
+        await Source(sp, door).ReadAllowanceAsync(Account(door.ProviderId));
+
+        var asked = Assert.Single(policy.Asked);
+        Assert.Null(asked.Version);
+        Assert.False(asked.Validated);
+        Assert.DoesNotContain(runner.Calls, c => c.Args.Contains("--version"));
+    }
+
+    [Theory, MemberData(nameof(Doors))]
+    public async Task A_policy_that_throws_refuses_as_not_validated_and_never_throws(Door door)
+    {
+        foreach (var throwing in new IAgentUsageVersionPolicy[]
+                 {
+                     new ThrowingPolicy(onProbes: true),
+                     new ThrowingPolicy(onProbes: false),
+                 })
+        {
+            var runner = Runner(door, door.UnvalidatedVersion);
+            using var sp = Compose(runner, b => b.AddAgentUsageReading(o => o.VersionPolicy = throwing));
+
+            var reading = await Source(sp, door).ReadAllowanceAsync(Account(door.ProviderId));
+
+            Assert.Equal(AgentAllowanceUnknown.VersionNotValidated, reading.UnknownReason);
+            Assert.Empty(runner.Exchanges);
+        }
+    }
+
+    private sealed class ThrowingPolicy(bool onProbes) : IAgentUsageVersionPolicy
+    {
+        public bool ProbesVersion => onProbes ? throw new InvalidOperationException("the host's policy failed") : true;
+        public bool ShouldStart(AgentUsageVersionQuery query) => throw new InvalidOperationException("the host's policy failed");
+    }
+
+    [Theory, MemberData(nameof(Doors))]
+    public async Task A_version_that_cannot_be_read_is_unreadable_under_a_probing_policy_and_the_policy_is_not_asked(Door door)
+    {
+        var policy = new HostPolicy(true, _ => true);
+        var runner = Runner(door, "no version here");
+        using var sp = Compose(runner, b => b.AddAgentUsageReading(o => o.VersionPolicy = policy));
+
+        var reading = await Source(sp, door).ReadAllowanceAsync(Account(door.ProviderId));
+
+        Assert.Equal(AgentAllowanceUnknown.VersionUnreadable, reading.UnknownReason);
+        Assert.Null(reading.Version);
+        Assert.Empty(policy.Asked);
+        Assert.Empty(runner.Exchanges);
+    }
+
+    [Theory, MemberData(nameof(Doors))]
+    public async Task An_answer_the_reader_does_not_recognise_is_unknown_under_AnyVersion_too(Door door)
+    {
+        var runner = Runner(door, door.UnvalidatedVersion, door.ProviderId == "claude-cli"
+            ? """{"type":"control_response","response":{"subtype":"success","request_id":"usage","response":{"rate_limits_available":true}}}"""
+            : """{"id":2,"result":{"somethingNew":{}}}""");
+        using var sp = Compose(runner, b => b.AddAgentUsageReading(o => o.VersionPolicy = AgentUsageVersionPolicies.AnyVersion));
+
+        var reading = await Source(sp, door).ReadAllowanceAsync(Account(door.ProviderId));
+
+        Assert.Equal(AgentAllowanceUnknown.Unrecognised, reading.UnknownReason);
+        Assert.False(reading.IsKnown);
+    }
+
+    [Theory, MemberData(nameof(Doors))]
+    public void The_descriptor_is_the_same_with_and_without_a_policy(Door door)
+    {
+        string Described(Action<AgentUsageReadingOptions>? configure)
+        {
+            using var sp = Compose(Runner(door), b => { if (configure is not null) b.AddAgentUsageReading(configure); });
+            return System.Text.Json.JsonSerializer.Serialize(sp.GetRequiredService<AgentProviderRegistry>().Get(door.ProviderId).Describe());
+        }
+
+        var without = Described(null);
+        Assert.Equal(without, Described(o => { }));
+        Assert.Equal(without, Described(o => o.VersionPolicy = AgentUsageVersionPolicies.AnyVersion));
+        Assert.Equal(without, Described(o => o.VersionPolicy = new HostPolicy(true, _ => true)));
+    }
+
+    [Fact]
+    public void The_version_policy_defaults_to_validated_only_and_a_null_one_is_refused_where_it_is_set()
+    {
+        Assert.Same(AgentUsageVersionPolicies.ValidatedOnly, new AgentUsageReadingOptions().VersionPolicy);
+        Assert.Throws<ArgumentNullException>(() =>
+            new ServiceCollection().AddLyntai(b => b.AddAgentUsageReading(o => o.VersionPolicy = null!)));
     }
 
     [Theory, MemberData(nameof(Doors))]
