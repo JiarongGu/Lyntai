@@ -208,14 +208,15 @@ public class AgentUsageDialectTests
     [Fact]
     public void Codex_states_the_exchange_as_two_steps_with_the_notification_beside_the_usage_request()
     {
-        Assert.Equal(2, Codex.Steps.Count);
-        Assert.Single(Codex.Steps[0].Writes);
-        Assert.Contains("\"initialize\"", Codex.Steps[0].Writes[0]);
-        Assert.Equal(["""{"method":"initialized"}""", Codex.Steps[1].Writes[1]], Codex.Steps[1].Writes);
-        Assert.Contains("account/rateLimits/read", Codex.Steps[1].Writes[1]);
-        Assert.True(Codex.Steps[0].IsAnswerTo(UsageCaptures.CodexSignedOut_0_163[0]));
-        Assert.False(Codex.Steps[0].IsAnswerTo(UsageCaptures.CodexSignedOut_0_163[2]));
-        Assert.True(Codex.Steps[1].IsAnswerTo(UsageCaptures.CodexSignedOut_0_163[2]));
+        var steps = Codex.StepsFor("lyntai", "1");
+        Assert.Equal(2, steps.Count);
+        Assert.Single(steps[0].Writes);
+        Assert.Contains("\"initialize\"", steps[0].Writes[0]);
+        Assert.Equal(["""{"method":"initialized"}""", steps[1].Writes[1]], steps[1].Writes);
+        Assert.Contains("account/rateLimits/read", steps[1].Writes[1]);
+        Assert.True(steps[0].IsAnswerTo(UsageCaptures.CodexSignedOut_0_163[0]));
+        Assert.False(steps[0].IsAnswerTo(UsageCaptures.CodexSignedOut_0_163[2]));
+        Assert.True(steps[1].IsAnswerTo(UsageCaptures.CodexSignedOut_0_163[2]));
     }
 
     [Theory]
@@ -228,12 +229,50 @@ public class AgentUsageDialectTests
         Assert.Equal(expected, Codex.FailureOf(line));
 
     [Fact]
+    public void Codex_says_the_default_client_exactly_as_it_always_has()
+    {
+        Assert.Equal(
+            """{"id":1,"method":"initialize","params":{"clientInfo":{"name":"lyntai","version":"1"}}}""",
+            Codex.StepsFor("lyntai", "1")[0].Writes[0]);
+    }
+
+    [Theory]
+    [InlineData("host-app", "2.0")]
+    [InlineData("say \"hi\"", "back\\slash")]
+    [InlineData("two\nlines", "cr\rlf")]
+    [InlineData("灵台 {\"x\":1}", "tab\there")]
+    public void Codex_writes_the_client_through_a_json_writer_and_never_splices_it(string name, string version)
+    {
+        var line = Codex.StepsFor(name, version)[0].Writes[0];
+
+        Assert.DoesNotContain('\n', line);
+        Assert.DoesNotContain('\r', line);
+        using var request = System.Text.Json.JsonDocument.Parse(line);
+        var client = request.RootElement.GetProperty("params").GetProperty("clientInfo");
+        Assert.Equal(name, client.GetProperty("name").GetString());
+        Assert.Equal(version, client.GetProperty("version").GetString());
+        Assert.Equal("initialize", request.RootElement.GetProperty("method").GetString());
+        Assert.Equal(1, request.RootElement.GetProperty("id").GetInt32());
+    }
+
+    [Fact]
+    public void Claude_carries_no_client_so_its_requests_are_the_same_for_any_name()
+    {
+        var standing = Claude.StepsFor("lyntai", "1");
+        var renamed = Claude.StepsFor("host-app", "9.9");
+
+        Assert.Equal(standing.Select(s => s.Writes), renamed.Select(s => s.Writes));
+        Assert.DoesNotContain("host-app", string.Concat(renamed.SelectMany(s => s.Writes)));
+    }
+
+    [Fact]
     public void Claude_states_the_exchange_as_two_steps_each_answered_by_its_own_request_id()
     {
-        Assert.Equal(2, Claude.Steps.Count);
-        Assert.True(Claude.Steps[0].IsAnswerTo(UsageCaptures.ClaudeSignedOut_2_1_312[0]));
-        Assert.False(Claude.Steps[0].IsAnswerTo(UsageCaptures.ClaudeSignedOut_2_1_312[1]));
-        Assert.True(Claude.Steps[1].IsAnswerTo(UsageCaptures.ClaudeSignedOut_2_1_312[1]));
+        var steps = Claude.StepsFor("lyntai", "1");
+        Assert.Equal(2, steps.Count);
+        Assert.True(steps[0].IsAnswerTo(UsageCaptures.ClaudeSignedOut_2_1_312[0]));
+        Assert.False(steps[0].IsAnswerTo(UsageCaptures.ClaudeSignedOut_2_1_312[1]));
+        Assert.True(steps[1].IsAnswerTo(UsageCaptures.ClaudeSignedOut_2_1_312[1]));
     }
 
     [Theory]

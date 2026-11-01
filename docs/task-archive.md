@@ -6602,3 +6602,15 @@ step's answer, which the existing dialect tests call, and the single-step stand-
 what it receives (only `one`); `AgentUsageDialectTests` holds the steps and `FailureOf` on each dialect. No decision recorded: **D238** states it. Lane `inference`.
 
 - AG21 — the usage exchange writes each request after the answer it depends on
+
+## Part 442 — AG22: where the usage server runs and what it is told of its client (2026-11-01)
+
+✅ done 2026-11-01 — **Outcome:** `AgentUsageReadingOptions` gained `WorkingDirectory` (`Func<AgentAccount, string?>`), `ClientName` and `ClientVersion` (defaults `lyntai` and `1`, refused at `AddAgentUsageReading` when empty, over 64
+characters or holding a control character); the `ApiSurface` baseline moved from the emitted `.actual`, no `### Breaking`. `CliUsageSource` runs the server in the named folder (created when absent, never removed or
+emptied) or else the fresh one it removes; a path not fully qualified, with a control character, or from a function that throws is `account-refused` before any spawn, the version probe included. `IUsageDialect.Steps`
+became `StepsFor(clientName, clientVersion)` (internal): Codex writes `initialize` through a `Utf8JsonWriter`, Claude's control request carries no client and ignores both. **Read here:** a throwing
+`WorkingDirectory` function reads `account-refused` (the row says nothing of one), and `docs/guide.md` states the folder is a project to the vendor. Proof: `AgentUsageProcessTests` runs the shipped runner against a
+`node` codex-shaped stand-in that logs its working directory and the `initialize` line (named folder reached and left, default folder removed, a quote and a newline intact on one line);
+`AgentUsageSourceTests` and `AgentUsageDialectTests` hold the refusals, the registration bounds and the Claude request unchanged. No decision recorded: **D238** states it. Lanes `inference` + `platform`.
+
+- AG22 — the host names where the usage server runs and what it is told of its client

@@ -1388,6 +1388,16 @@ in a fresh empty working directory (so no project's extensions load), bounded by
 token is cancelled, which rethrows. It needs a runner that can hold a process open (`IProcessRunner.ExchangeLinesAsync`, the live-stdin member;
 the shipped one does, a runner of your own that does not reads `runner-unsupported`).
 
+**Where the server runs, and what it is told.** **The folder is a project to the vendor**: it keys state by that path and
+loads the project's extensions from it. `AgentUsageReadingOptions.WorkingDirectory` is a function of the account that
+returns a fully qualified path, or null for the fresh folder above (removed when the read ends). A named folder is
+created when absent and **never removed or emptied** — it is yours, so name one only where the vendor keeping state
+there, or loading what it holds, is meant. A path that is not fully qualified, holds a control character, or comes from a
+function that throws reads `account-refused` before anything starts, the version probe included. `ClientName` and
+`ClientVersion` (default `lyntai` and `1`; 1 to 64 characters, no control character, refused where
+`AddAgentUsageReading` sets them) are what codex's `initialize` tells the server its client is, since a server may act on
+it; claude's control request carries no client, so both are ignored there.
+
 **What a start may do is declared, not hidden.** The `usage-reading` claim's `SideEffects` lists `RefreshesCredentials`,
 `ChangesConfiguration`, `LoadsExtensions`, `OpensListener` and `LeavesProcess` as things the vendor's start MAY do,
 since none can be ruled out from outside. Seen on a start under an empty home: claude wrote `.claude.json`, `backups`,

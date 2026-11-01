@@ -645,7 +645,8 @@ public sealed class LyntaiBuilder
     /// pool pick. Each read starts the vendor's binary under the account's home, with the side effects the
     /// descriptor's <see cref="AgentAbilities.UsageReading"/> claim declares. Repeating the call re-applies its
     /// options; <c>o.Enabled = false</c> inside it switches the ability back off.</summary>
-    /// <exception cref="ArgumentOutOfRangeException">The timeout is not between 0 and 5 minutes.</exception>
+    /// <exception cref="ArgumentOutOfRangeException">The timeout is not between 0 and 5 minutes, or the client name or
+    /// version is empty, longer than 64 characters or holds a control character.</exception>
     public LyntaiBuilder AddAgentUsageReading(Action<AgentUsageReadingOptions>? configure = null)
     {
         var options = AgentUsageReading ??= new AgentUsageReadingOptions();

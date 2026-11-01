@@ -31,13 +31,16 @@ internal sealed partial class ClaudeUsageDialect(string providerId) : IUsageDial
     public IReadOnlyList<string> ServerArgs { get; } =
         ["-p", "--input-format", "stream-json", "--output-format", "stream-json", "--verbose", "--strict-mcp-config"];
 
-    public IReadOnlyList<UsageStep> Steps { get; } =
+    // the control request names no client, so the host's name and version have nowhere to go
+    private static readonly IReadOnlyList<UsageStep> Exchange =
     [
         new([$$$"""{"type":"control_request","request_id":"{{{InitializeRequestId}}}","request":{"subtype":"initialize"}}"""],
             line => IsAnswerTo(line, InitializeRequestId)),
         new([$$$"""{"type":"control_request","request_id":"{{{UsageRequestId}}}","request":{"subtype":"get_usage","skip_behaviors":true}}"""],
             line => IsAnswerTo(line, UsageRequestId)),
     ];
+
+    public IReadOnlyList<UsageStep> StepsFor(string clientName, string clientVersion) => Exchange;
 
     public string? ParseVersion(string output) =>
         VersionPattern().Match(output) is { Success: true } m ? m.Groups[1].Value : null;

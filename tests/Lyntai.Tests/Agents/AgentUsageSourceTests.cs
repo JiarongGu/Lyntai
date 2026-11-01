@@ -25,11 +25,10 @@ public class AgentUsageSourceTests
     private static IEnumerable<string>? Speaks(Door door, string sent, Func<IEnumerable<string>?> ask) =>
         sent.Contains("\"initialize\"") ? [door.InitializeAnswer] : sent.Contains(door.AskMarker) ? ask() : [];
 
-    public static TheoryData<Door> Doors() =>
-    [
-        new Door("claude-cli", "2.1.296 (Claude Code)", UsageCaptures.ClaudeSignedIn_2_1_296, "CLAUDE_CONFIG_DIR", "--input-format", "2.1.312 (Claude Code)"),
-        new Door("codex-cli", "codex-cli 0.160.0", UsageCaptures.CodexSignedIn_0_160_0, "CODEX_HOME", "app-server", "codex-cli 0.163.0-alpha.10.2"),
-    ];
+    private static readonly Door ClaudeDoor = new("claude-cli", "2.1.296 (Claude Code)", UsageCaptures.ClaudeSignedIn_2_1_296, "CLAUDE_CONFIG_DIR", "--input-format", "2.1.312 (Claude Code)");
+    private static readonly Door CodexDoor = new("codex-cli", "codex-cli 0.160.0", UsageCaptures.CodexSignedIn_0_160_0, "CODEX_HOME", "app-server", "codex-cli 0.163.0-alpha.10.2");
+
+    public static TheoryData<Door> Doors() => [ClaudeDoor, CodexDoor];
 
     private const string Home = "/accounts/work-home";
 
@@ -241,6 +240,123 @@ public class AgentUsageSourceTests
 
         Assert.Equal(AgentAllowanceUnknown.Unrecognised, reading.UnknownReason);
         Assert.False(Directory.Exists(workDir));
+    }
+
+    // ── where the server runs, and what it is told of its client ──────────────────────────────────
+
+    [Theory, MemberData(nameof(Doors))]
+    public async Task A_named_working_directory_is_created_reached_and_left_with_what_it_held(Door door)
+    {
+        using var scratch = new ScratchDir("usage-workdir");
+        var named = scratch.Combine("project");
+        var runner = Runner(door);
+        string? reached = null;
+        var existedAtSpawn = false;
+        runner.OnSpawn = call =>
+        {
+            if (!call.Args.Contains(door.ServerMarker)) return;
+            reached = call.WorkingDirectory;
+            existedAtSpawn = Directory.Exists(named);
+        };
+        AgentAccount? asked = null;
+        using var sp = Compose(runner, b => b.AddAgentUsageReading(o => o.WorkingDirectory = account => { asked = account; return named; }));
+
+        var reading = await Source(sp, door).ReadAllowanceAsync(Account(door.ProviderId));
+
+        Assert.True(reading.IsKnown, reading.UnknownReason);
+        Assert.Equal(named, reached);
+        Assert.True(existedAtSpawn, "an absent folder is created before the server starts in it");
+        Assert.Equal(Home, asked?.Home);
+        Assert.True(Directory.Exists(named), "a named folder is the host's and is never removed");
+
+        File.WriteAllText(Path.Combine(named, "state.json"), "kept");
+        Assert.True((await Source(sp, door).ReadAllowanceAsync(Account(door.ProviderId))).IsKnown);
+        Assert.Equal("kept", File.ReadAllText(Path.Combine(named, "state.json")));
+    }
+
+    [Theory, MemberData(nameof(Doors))]
+    public async Task A_working_directory_that_answers_null_keeps_the_fresh_folder_removed_after_the_read(Door door)
+    {
+        var runner = Runner(door);
+        string? workDir = null;
+        runner.OnSpawn = call => { if (call.Args.Contains(door.ServerMarker)) workDir = call.WorkingDirectory; };
+        using var sp = Compose(runner, b => b.AddAgentUsageReading(o => o.WorkingDirectory = _ => null));
+
+        var reading = await Source(sp, door).ReadAllowanceAsync(Account(door.ProviderId));
+
+        Assert.True(reading.IsKnown, reading.UnknownReason);
+        Assert.NotNull(workDir);
+        Assert.False(Directory.Exists(workDir));
+    }
+
+    [Theory, MemberData(nameof(Doors))]
+    public async Task A_working_directory_that_is_not_fully_qualified_or_cannot_be_chosen_is_refused_before_any_spawn(Door door)
+    {
+        foreach (var choose in new Func<AgentAccount, string?>[]
+                 {
+                     _ => "relative/project",
+                     _ => "",
+                     _ => " ",
+                     _ => "project",
+                     _ => Path.Combine(Path.GetTempPath(), "cut\0here"),
+                     _ => throw new InvalidOperationException("the host's function failed"),
+                 })
+        {
+            var runner = Runner(door);
+            using var sp = Compose(runner, b => b.AddAgentUsageReading(o => o.WorkingDirectory = choose));
+
+            var reading = await Source(sp, door).ReadAllowanceAsync(Account(door.ProviderId));
+
+            Assert.Equal(AgentAllowanceUnknown.AccountRefused, reading.UnknownReason);
+            Assert.Empty(runner.Calls);
+        }
+    }
+
+    [Fact]
+    public async Task Codex_is_told_the_client_the_host_names_and_claudes_request_does_not_carry_it()
+    {
+        var (codex, claude) = (CodexDoor, ClaudeDoor);
+
+        var named = Runner(codex);
+        using (var sp = Compose(named, b => b.AddAgentUsageReading(o => { o.ClientName = "host-app"; o.ClientVersion = "9.9"; })))
+            Assert.True((await Source(sp, codex).ReadAllowanceAsync(Account("codex-cli"))).IsKnown);
+        var initialize = Assert.Single(named.Exchanged, line => line.Contains("\"initialize\""));
+        Assert.Contains("\"clientInfo\":{\"name\":\"host-app\",\"version\":\"9.9\"}", initialize);
+
+        var standing = Runner(claude);
+        var renamed = Runner(claude);
+        using (var spStanding = Compose(standing, b => b.AddAgentUsageReading()))
+            await Source(spStanding, claude).ReadAllowanceAsync(Account("claude-cli"));
+        using (var spRenamed = Compose(renamed, b => b.AddAgentUsageReading(o => { o.ClientName = "host-app"; o.ClientVersion = "9.9"; })))
+            await Source(spRenamed, claude).ReadAllowanceAsync(Account("claude-cli"));
+        Assert.Equal(standing.Exchanged, renamed.Exchanged);
+        Assert.DoesNotContain(renamed.Exchanged, line => line.Contains("host-app"));
+    }
+
+    [Fact]
+    public void The_client_defaults_to_what_the_library_always_said_and_a_bad_one_is_refused_where_it_is_set()
+    {
+        var options = new AgentUsageReadingOptions();
+        Assert.Equal("lyntai", options.ClientName);
+        Assert.Equal("1", options.ClientVersion);
+        Assert.Null(options.WorkingDirectory);
+
+        foreach (var bad in new[] { "", "two\nlines", "tab\there", "nul\0", new string('x', 65) })
+        {
+            Assert.Throws<ArgumentOutOfRangeException>(() =>
+                new ServiceCollection().AddLyntai(b => b.AddAgentUsageReading(o => o.ClientName = bad)));
+            Assert.Throws<ArgumentOutOfRangeException>(() =>
+                new ServiceCollection().AddLyntai(b => b.AddAgentUsageReading(o => o.ClientVersion = bad)));
+        }
+        Assert.Throws<ArgumentOutOfRangeException>(() =>
+            new ServiceCollection().AddLyntai(b => b.AddAgentUsageReading(o => o.ClientName = null!)));
+
+        // a quote, a backslash and non-ASCII text are legal: the JSON writer carries them
+        new ServiceCollection().AddLyntai(b => b.AddAgentUsageReading(o =>
+        {
+            o.ClientName = "the \"host\" \\ 灵台";
+            o.ClientVersion = new string('v', 64);
+        }));
     }
 
     [Theory, MemberData(nameof(Doors))]

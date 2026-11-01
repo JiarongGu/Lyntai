@@ -31,9 +31,9 @@ internal interface IUsageDialect
     /// <summary>The arguments that start the vendor's server on stdio.</summary>
     IReadOnlyList<string> ServerArgs { get; }
 
-    /// <summary>The exchange, in order. The last step is the usage question, and its answer is
-    /// <see cref="IsAnswer"/>.</summary>
-    IReadOnlyList<UsageStep> Steps { get; }
+    /// <summary>The exchange, in order, for a client of this name and version; a dialect whose protocol carries no
+    /// client ignores both. The last step is the usage question, and its answer is <see cref="IsAnswer"/>.</summary>
+    IReadOnlyList<UsageStep> StepsFor(string clientName, string clientVersion);
 
     /// <summary>Whether a stdout line is the answer to the usage question, which ends the exchange.</summary>
     bool IsAnswer(string line);
@@ -51,9 +51,9 @@ internal interface IUsageDialect
 internal sealed record UsageStep(IReadOnlyList<string> Writes, Func<string, bool> IsAnswerTo);
 
 /// <summary>An <see cref="IAgentUsageSource"/> over a CLI agent's own server. One start, one question: the version is
-/// read first, and only a version whose response is validated has its server started at all, under a fresh empty
-/// working directory so the vendor loads no project's extensions. The process is ended on every path out. The
-/// library keeps nothing the answer carries beyond the windows and the plan: no account id, no token.</summary>
+/// read first, and only a version whose response is validated has its server started at all, under the folder the
+/// host names or else a fresh empty one so the vendor loads no project's extensions. The process is ended on every
+/// path out. The library keeps nothing the answer carries beyond the windows and the plan: no account id, no token.</summary>
 internal sealed class CliUsageSource(
     IUsageDialect dialect,
     IProcessRunner runner,
@@ -81,6 +81,8 @@ internal sealed class CliUsageSource(
             || !AgentAccounts.TryMap(account, new AgentAccountMapping(dialect.HomeVariable), out var accountEnvironment, out _))
             return Unknown(AgentAllowanceUnknown.AccountRefused);
 
+        if (!TryChooseWorkingDirectory(account, out var named)) return Unknown(AgentAllowanceUnknown.AccountRefused);
+
         var (exe, prefix) = CliCommand.Resolve(command, dialect.Backend);
 
         if (requireValidatedVersion)
@@ -90,7 +92,7 @@ internal sealed class CliUsageSource(
             if (!dialect.ValidatedVersions.Contains(version.Value!)) return Unknown(AgentAllowanceUnknown.VersionNotValidated);
         }
 
-        var workDir = Path.Combine(Path.GetTempPath(), $"lyntai-usage-{Guid.NewGuid():N}");
+        var workDir = named ?? Path.Combine(Path.GetTempPath(), $"lyntai-usage-{Guid.NewGuid():N}");
         try
         {
             Directory.CreateDirectory(workDir);
@@ -109,8 +111,27 @@ internal sealed class CliUsageSource(
         }
         finally
         {
-            await RemoveAsync(workDir).ConfigureAwait(false);
+            // only the folder this read made: a named one is the host's
+            if (named is null) await RemoveAsync(workDir).ConfigureAwait(false);
         }
+    }
+
+    // The host's folder for this account, or null for a fresh one. False when what it names cannot be started in,
+    // which is refused before any spawn, the version probe included.
+    private bool TryChooseWorkingDirectory(AgentAccount account, out string? named)
+    {
+        named = null;
+        if (options?.WorkingDirectory is not { } choose) return true;
+        try
+        {
+            named = choose(account);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            _logger.LogWarning("{Provider} usage read: the host's working directory choice failed: {Error}", dialect.ProviderId, ex.GetType().Name);
+            return false;
+        }
+        return named is null || (Path.IsPathFullyQualified(named) && !named.Any(char.IsControl));
     }
 
     // The server was just killed and Windows holds its working directory until the process is gone, so the first
@@ -140,7 +161,7 @@ internal sealed class CliUsageSource(
         string exe, IReadOnlyList<string> args, string workDir, IReadOnlyDictionary<string, string?>? env,
         TimeSpan timeout, CancellationToken ct)
     {
-        var steps = dialect.Steps;
+        var steps = dialect.StepsFor(options!.ClientName, options.ClientVersion);
         var requests = Channel.CreateUnbounded<string>();
         var step = 0;
         foreach (var write in steps[step].Writes) requests.Writer.TryWrite(write);

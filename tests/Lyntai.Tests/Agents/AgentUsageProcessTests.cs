@@ -4,6 +4,7 @@ using Lyntai.Inference.Cli;
 using Lyntai.Processes;
 using Lyntai.Providers.Basic;
 using Lyntai.Providers.ClaudeCli;
+using Lyntai.Providers.CodexCli;
 using Lyntai.Tests.Fakes;
 
 namespace Lyntai.Tests.Agents;
@@ -78,7 +79,7 @@ public class AgentUsageProcessTests
         public string? ParseVersion(string output) => output;
         public IReadOnlySet<string> ValidatedVersions { get; } = new HashSet<string>();
         public IReadOnlyList<string> ServerArgs { get; } = [mode, pidFile, pidFile + ".log"];
-        public IReadOnlyList<UsageStep> Steps => ordered
+        public IReadOnlyList<UsageStep> StepsFor(string clientName, string clientVersion) => ordered
             ? [new(["one"], line => line.Contains("\"ack\"") || line.Contains("\"error\"")), new(["two"], IsAnswer)]
             : [new(["hello", "ask"], IsAnswer)];
         public bool IsAnswer(string line) => line.Contains("\"answer\"");
@@ -163,6 +164,86 @@ public class AgentUsageProcessTests
         var cwd = answer.RootElement.GetProperty("cwd").GetString()!;
         Assert.NotEqual(Path.GetFullPath(Directory.GetCurrentDirectory()), Path.GetFullPath(cwd));
         Assert.False(Directory.Exists(cwd), "the fresh working directory is removed when the read ends");
+    }
+
+    // A codex-shaped server that records its working directory and every line it receives to the file in
+    // STAND_IN_LOG, one JSON object per line, and answers both requests.
+    private const string CodexServer = """
+        const fs = require('fs');
+        const log = process.env.STAND_IN_LOG;
+        fs.appendFileSync(log, JSON.stringify({ cwd: process.cwd() }) + '\n');
+        setTimeout(() => process.exit(0), 60000);
+        process.stdin.on('end', () => process.exit(0));
+        let buffer = '';
+        process.stdin.on('data', chunk => {
+          buffer += chunk;
+          let i;
+          while ((i = buffer.indexOf('\n')) >= 0) {
+            const line = buffer.slice(0, i); buffer = buffer.slice(i + 1);
+            fs.appendFileSync(log, JSON.stringify({ received: line }) + '\n');
+            if (line.includes('"initialize"')) console.log(JSON.stringify({ id: 1, result: {} }));
+            else if (line.includes('rateLimits/read'))
+              console.log(JSON.stringify({ id: 2, result: { rateLimits: { primary: { usedPercent: 4, windowDurationMins: 300 } } } }));
+          }
+        });
+        """;
+
+    private static async Task<(string Cwd, string Initialize)> RunCodexStandIn(
+        ScratchDir scratch, Action<AgentUsageReadingOptions> configure)
+    {
+        var log = scratch.Combine("server.log");
+        var options = new AgentUsageReadingOptions { Enabled = true };
+        configure(options);
+        var source = new CliUsageSource(new CodexUsageDialect("stand-in"), new ProcessRunner(), options, logger: null,
+            command: $"node \"{scratch.File("codex-server.cjs", CodexServer)}\"",
+            environment: new Dictionary<string, string?> { ["STAND_IN_LOG"] = log }, requireValidatedVersion: false);
+
+        var reading = await source.ReadAllowanceAsync(Account(scratch.Combine("home")));
+
+        Assert.True(reading.IsKnown, reading.UnknownReason);
+        var records = (await File.ReadAllLinesAsync(log)).Select(l => System.Text.Json.JsonDocument.Parse(l).RootElement).ToList();
+        return (records[0].GetProperty("cwd").GetString()!,
+            records.Select(r => r.TryGetProperty("received", out var line) ? line.GetString()! : "").First(l => l.Contains("\"initialize\"")));
+    }
+
+    [Fact]
+    public async Task A_named_working_directory_is_where_the_server_runs_and_is_left_in_place()
+    {
+        using var scratch = new ScratchDir("usage-process");
+        var named = scratch.Combine("project");
+
+        var (cwd, _) = await RunCodexStandIn(scratch, o => o.WorkingDirectory = _ => named);
+
+        Assert.Equal(Path.GetFullPath(named), Path.GetFullPath(cwd), ignoreCase: OperatingSystem.IsWindows());
+        Assert.True(Directory.Exists(named), "a named folder is the host's, so the read leaves it");
+    }
+
+    [Fact]
+    public async Task The_default_working_directory_is_a_fresh_folder_removed_when_the_read_ends()
+    {
+        using var scratch = new ScratchDir("usage-process");
+
+        var (cwd, _) = await RunCodexStandIn(scratch, _ => { });
+
+        Assert.NotEqual(Path.GetFullPath(Directory.GetCurrentDirectory()), Path.GetFullPath(cwd));
+        Assert.False(Directory.Exists(cwd));
+    }
+
+    [Fact]
+    public async Task A_client_name_holding_a_quote_and_a_newline_reaches_the_server_intact_on_one_line()
+    {
+        using var scratch = new ScratchDir("usage-process");
+
+        var (_, initialize) = await RunCodexStandIn(scratch, o =>
+        {
+            o.ClientName = "the \"host\"\nof it";
+            o.ClientVersion = "2.0";
+        });
+
+        using var request = System.Text.Json.JsonDocument.Parse(initialize);
+        var client = request.RootElement.GetProperty("params").GetProperty("clientInfo");
+        Assert.Equal("the \"host\"\nof it", client.GetProperty("name").GetString());
+        Assert.Equal("2.0", client.GetProperty("version").GetString());
     }
 
     [Fact]

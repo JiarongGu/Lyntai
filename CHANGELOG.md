@@ -96,6 +96,13 @@ every addition.
 
 ### Added
 
+- **A host names where the usage server runs and what it is told of its client** (**D238**). `AgentUsageReadingOptions`
+  gains `WorkingDirectory` (a function of the account: a fully qualified path, or null for the fresh folder removed after the
+  read; a named folder is created when absent and never removed or emptied, and a path that is not fully qualified reads
+  `account-refused` before a spawn), and `ClientName` and `ClientVersion` (default `lyntai` and `1`, refused at
+  `AddAgentUsageReading` when empty, over 64 characters or holding a control character). Codex's `initialize` carries the
+  client, written by a JSON writer; Claude's control request carries none and ignores both. The vendor keys project state by the
+  folder, so `docs/guide.md` says it is a project to it.
 - **A scope dense in ended entries still returns its current ones** (**D241**). A `Current` or as-of recall dropped the ended
   entries after the candidate window was cut, so 100 ended entries matching a query better than 5 current ones returned none of the
   5. When a seed source fills its window and the reading drops some of what it returned, the engine now asks again with a window four

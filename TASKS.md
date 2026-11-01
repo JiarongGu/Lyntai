@@ -15,23 +15,22 @@ LLM-ops layer (prompt registry, scoring, traces, memory). `AddLyntai(...)` and g
 
 <!-- open-items:begin — GENERATED. Edit the per-item `item:` markers, never this table. -->
 
-## Open items — 10 across 6 Parts: 5 startable, 2 blocked, 3 watch
+## Open items — 9 across 6 Parts: 4 startable, 2 blocked, 3 watch
 
 _Generated from the per-item `<!-- item: … -->` markers by `node devtools/dev.mjs check-backlog --write`._
 _Edit a marker, never this table — `verify` fails the moment the two disagree._
 
 | line | Part | item | state | waiting on |
 | ---: | ---: | --- | --- | --- |
-| 111 | 33 | GEN-VERIFY-FAL, the last line — the Hugging Face route | blocked · env | an hf_ token for the router route |
-| 152 | 75 | Decide what an aggregator's in-band `code` means | blocked · env+data | two or three real aggregators to measure an in-band code against |
-| 179 | 99 | `verify`'s test step intermittently fails EXACTLY 9 tests, and once aborted… | watch · data | the same nine tests to recur — the fix is unconfirmed as the cure, and a gr… |
-| 238 | 99 | `InputSegmenterTests.Counting_NFKC_is_LINEAR_in_the_length_of_the_text` fai… | watch · data | a recurrence under the full parallel run, with the ratio it read — the mess… |
-| 256 | 99 | `AgentUsageProcessTests.A_server_that_never_answers_is_ended_with_its_child… | watch · data | a recurrence under the full parallel run, with the load it ran under; it fa… |
-| 291 | 412 | AG16 — the event-stream rules, held by one theory | startable |  |
-| 307 | 416 | AG22 — the host names where the usage server runs and what it is told of it… | startable |  |
-| 320 | 416 | AG23 — an allowance reading carries what the server stated | startable |  |
-| 335 | 416 | AG24 — a host's policy for a version the library has not validated | startable |  |
-| 356 | 417 | MC8 — run the wrong-end instrument on an adjudicated corpus, with a bar wri… | startable |  |
+| 110 | 33 | GEN-VERIFY-FAL, the last line — the Hugging Face route | blocked · env | an hf_ token for the router route |
+| 151 | 75 | Decide what an aggregator's in-band `code` means | blocked · env+data | two or three real aggregators to measure an in-band code against |
+| 178 | 99 | `verify`'s test step intermittently fails EXACTLY 9 tests, and once aborted… | watch · data | the same nine tests to recur — the fix is unconfirmed as the cure, and a gr… |
+| 237 | 99 | `InputSegmenterTests.Counting_NFKC_is_LINEAR_in_the_length_of_the_text` fai… | watch · data | a recurrence under the full parallel run, with the ratio it read — the mess… |
+| 255 | 99 | `AgentUsageProcessTests.A_server_that_never_answers_is_ended_with_its_child… | watch · data | a recurrence under the full parallel run, with the load it ran under; it fa… |
+| 290 | 412 | AG16 — the event-stream rules, held by one theory | startable |  |
+| 306 | 416 | AG23 — an allowance reading carries what the server stated | startable |  |
+| 321 | 416 | AG24 — a host's policy for a version the library has not validated | startable |  |
+| 342 | 417 | MC8 — run the wrong-end instrument on an adjudicated corpus, with a bar wri… | startable |  |
 
 <!-- open-items:end -->
 
@@ -300,22 +299,9 @@ stand on is **D233**, and the study's §7 is the order they are built in._
 
 _A host that consumes the layer asked three things of the usage reading (`D236` to `D238` answer them, each by the
 generic-library test; none asks for a consumer's shape). The types are unreleased, so a row reshapes them with its
-`ApiSurface` baseline moved from the emitted `.actual` and no `### Breaking` (**D235**). Order: AG22 (it edits the first
-step the exchange makes), then AG23 and AG24 in either. No row spends an account or calls a paid service; the unmeasured
+`ApiSurface` baseline moved from the emitted `.actual` and no `### Breaking` (**D235**). Order: AG23 and AG24 in either
+order. No row spends an account or calls a paid service; the unmeasured
 fact is named where it bites. Captures are labelled REAL or SOURCE-DERIVED as `UsageCaptures` does._
-
-- [ ] **AG22 — the host names where the usage server runs and what it is told of its client** (lanes `inference` + <!-- item: state=startable -->
-  `platform`, after AG21, **D238**). The read starts the vendor's server in a fresh folder under the system's temporary
-  folder (`CliUsageSource.cs:84`) and tells Codex it is client `lyntai` version `1` (`CodexUsageDialect.cs:35`), neither of
-  which a host can change, though a vendor keys project state by the folder and a server may act on its client's name.
-  **Contract.** `AgentUsageReadingOptions` gains `WorkingDirectory` (a function of the account: a fully qualified path or
-  null for today's fresh folder; a named folder is created when absent and never removed or emptied; a path not fully
-  qualified is `account-refused` before a spawn), `ClientName` and `ClientVersion` (defaults as today, validated at
-  registration, written by a JSON writer where the protocol carries a client and ignored where it carries none). Each has
-  an XML doc, as `check-options` requires, and `docs/guide.md` states the folder is a project to the vendor. **Proof.** A
-  stand-in that echoes its working directory and the `initialize` line: the named folder reached and left in place, the
-  default folder removed, a name holding a quote or a newline written intact or refused at registration, and the Claude
-  door's request unchanged by a client name.
 
 - [ ] **AG23 — an allowance reading carries what the server stated** (lanes `platform` + `inference`, **D237**). <!-- item: state=startable -->
   `AgentAllowanceWindow` is a name, an integer percent, a length and a reset with no scope (`AgentUsageSource.cs:27`); the

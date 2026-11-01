@@ -424,8 +424,11 @@ sealed class Lyntai.Agents.AgentTranscriptRecorder
     Transcript : AgentTranscript { get; }
 sealed class Lyntai.Agents.AgentUsageReadingOptions
     .ctor()
+    ClientName : String { get; set; }
+    ClientVersion : String { get; set; }
     Enabled : Boolean { get; set; }
     Timeout : TimeSpan { get; set; }
+    WorkingDirectory : Func<AgentAccount,String> { get; set; }
 sealed class Lyntai.Agents.ChatOrchestrator
     .ctor(ITextClient llm, IToolLoop toolLoop, IToolRegistry tools, IGuardRail guards, IPromptComposer composer, ILogger<ChatOrchestrator> logger = null)
     ChatAsync(ChatTurn turn, CancellationToken ct = default) : Task<ChatResult>
