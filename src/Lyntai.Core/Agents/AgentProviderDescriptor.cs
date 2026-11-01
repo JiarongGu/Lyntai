@@ -220,9 +220,14 @@ public static class AgentAbilities
     /// versions it is validated on and the <see cref="AgentAbility.SideEffects"/> of the start.</summary>
     public const string UsageReading = "usage-reading";
 
+    /// <summary>Hand the host a request the agent makes before it runs a tool, to answer, rather than decide it from
+    /// <see cref="AgentSessionOptions.ToolPolicy"/>. Not something a turn asks for: a host registers the callback
+    /// the door's own registration names, and a door with none states this <see cref="AgentSupport.Unsupported"/>.</summary>
+    public const string PermissionRequests = "permission-requests";
+
     /// <summary>Every ability a provider states, in a fixed order.</summary>
     public static IReadOnlyList<string> All { get; } =
-        [Resume, ReadOnlyGate, McpServers, DisallowedTools, SystemPrompt, Model, Steering, PlanEvents, LiveUsage, TypedFailures, Accounts, UsageReading];
+        [Resume, ReadOnlyGate, McpServers, DisallowedTools, SystemPrompt, Model, Steering, PlanEvents, LiveUsage, TypedFailures, Accounts, UsageReading, PermissionRequests];
 
     /// <summary>The abilities <paramref name="options"/> asks a door for. Only the option-shaped ones appear:
     /// an event ability (plan events, live usage) is something a door emits, not something a turn asks for.</summary>

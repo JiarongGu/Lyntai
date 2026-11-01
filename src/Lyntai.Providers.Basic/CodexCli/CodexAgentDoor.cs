@@ -48,6 +48,7 @@ internal static class CodexAgentDoor
                         AppliesTo = string.Join(", ", CodexUsageDialect.Validated.Order(StringComparer.Ordinal)),
                         SideEffects = UsageAgentProvider.ServerStart,
                     },
+                    Declared(AgentAbilities.PermissionRequests, AgentSupport.Unsupported, "a turn is one non-interactive process: the sandbox decides, and no request reaches the host"),
                 ],
             },
         ],

@@ -4,6 +4,7 @@ static class Lyntai.Agents.AgentAbilities
     LiveUsage : String const
     McpServers : String const
     Model : String const
+    PermissionRequests : String const
     PlanEvents : String const
     ReadOnlyGate : String const
     Resume : String const

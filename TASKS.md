@@ -15,26 +15,25 @@ LLM-ops layer (prompt registry, scoring, traces, memory). `AddLyntai(...)` and g
 
 <!-- open-items:begin — GENERATED. Edit the per-item `item:` markers, never this table. -->
 
-## Open items — 13 across 6 Parts: 8 startable, 2 blocked, 3 watch
+## Open items — 12 across 6 Parts: 7 startable, 2 blocked, 3 watch
 
 _Generated from the per-item `<!-- item: … -->` markers by `node devtools/dev.mjs check-backlog --write`._
 _Edit a marker, never this table — `verify` fails the moment the two disagree._
 
 | line | Part | item | state | waiting on |
 | ---: | ---: | --- | --- | --- |
-| 114 | 33 | GEN-VERIFY-FAL, the last line — the Hugging Face route | blocked · env | an hf_ token for the router route |
-| 155 | 75 | Decide what an aggregator's in-band `code` means | blocked · env+data | two or three real aggregators to measure an in-band code against |
-| 182 | 99 | `verify`'s test step intermittently fails EXACTLY 9 tests, and once aborted… | watch · data | the same nine tests to recur — the fix is unconfirmed as the cure, and a gr… |
-| 241 | 99 | `InputSegmenterTests.Counting_NFKC_is_LINEAR_in_the_length_of_the_text` fai… | watch · data | a recurrence under the full parallel run, with the ratio it read — the mess… |
-| 259 | 99 | `AgentUsageProcessTests.A_server_that_never_answers_is_ended_with_its_child… | watch · data | a recurrence under the full parallel run, with the load it ran under; it fa… |
-| 294 | 412 | AG16 — the event-stream rules, held by one theory | startable |  |
-| 302 | 412 | AG19 — an ACP permission request the host can answer | startable |  |
-| 317 | 416 | AG21 — the usage exchange writes each request after the answer it depends on | startable |  |
-| 329 | 416 | AG22 — the host names where the usage server runs and what it is told of it… | startable |  |
-| 342 | 416 | AG23 — an allowance reading carries what the server stated | startable |  |
-| 357 | 416 | AG24 — a host's policy for a version the library has not validated | startable |  |
-| 378 | 417 | MC3 — measure the candidate list's similarity basis | startable |  |
-| 386 | 417 | MC8 — run the wrong-end instrument on an adjudicated corpus, with a bar wri… | startable |  |
+| 113 | 33 | GEN-VERIFY-FAL, the last line — the Hugging Face route | blocked · env | an hf_ token for the router route |
+| 154 | 75 | Decide what an aggregator's in-band `code` means | blocked · env+data | two or three real aggregators to measure an in-band code against |
+| 181 | 99 | `verify`'s test step intermittently fails EXACTLY 9 tests, and once aborted… | watch · data | the same nine tests to recur — the fix is unconfirmed as the cure, and a gr… |
+| 240 | 99 | `InputSegmenterTests.Counting_NFKC_is_LINEAR_in_the_length_of_the_text` fai… | watch · data | a recurrence under the full parallel run, with the ratio it read — the mess… |
+| 258 | 99 | `AgentUsageProcessTests.A_server_that_never_answers_is_ended_with_its_child… | watch · data | a recurrence under the full parallel run, with the load it ran under; it fa… |
+| 293 | 412 | AG16 — the event-stream rules, held by one theory | startable |  |
+| 309 | 416 | AG21 — the usage exchange writes each request after the answer it depends on | startable |  |
+| 321 | 416 | AG22 — the host names where the usage server runs and what it is told of it… | startable |  |
+| 334 | 416 | AG23 — an allowance reading carries what the server stated | startable |  |
+| 349 | 416 | AG24 — a host's policy for a version the library has not validated | startable |  |
+| 370 | 417 | MC3 — measure the candidate list's similarity basis | startable |  |
+| 378 | 417 | MC8 — run the wrong-end instrument on an adjudicated corpus, with a bar wri… | startable |  |
 
 <!-- open-items:end -->
 
@@ -298,13 +297,6 @@ stand on is **D233**, and the study's §7 is the order they are built in._
   event, `Taken` after a start and `Uncertain` after a tool call; a limit sentence a tool printed never classifies;
   cancellation ends the turn without a second terminal. **Proof.** the cases themselves, each shown failing against a
   door that breaks it (a planted double terminal); a stand-in a host registers is held to them with no edit here.
-
-- [ ] **AG19 — an ACP permission request the host can answer** (lane `inference`). A read-only turn rejects every <!-- item: state=startable -->
-  request and a write turn allows each once, so an application that lets a person decide cannot. **Contract.** An
-  optional host callback on the ACP door's registration (the shape of `IToolApprover`), an ability `permission-requests`
-  stated `Unsupported` where none is registered, the response written once with the answer, and no answer within the
-  turn's inactivity clock a refusal. **Proof.** SOURCE-DERIVED `session/request_permission` captures: answered allow,
-  answered deny, never answered; the default (no callback) behaves exactly as today.
 
 ## Part 416 — the usage reading, as a host that keeps an account's history needs it (2026-10-30)
 

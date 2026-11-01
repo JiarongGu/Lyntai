@@ -48,6 +48,7 @@ internal static class ClaudeAgentDoor
                         AppliesTo = string.Join(", ", ClaudeUsageDialect.Validated.Order(StringComparer.Ordinal)),
                         SideEffects = UsageAgentProvider.ServerStart,
                     },
+                    Claim(AgentAbilities.PermissionRequests, AgentSupport.Unsupported, "a turn is one non-interactive process: the tool policy and the deny list decide, and no request reaches the host"),
                 ],
             },
         ],

@@ -48,6 +48,10 @@ public static class AcpBuilderExtensions
     /// the shipped ones in <see cref="AcpExtensionReaders"/>. Null = <see cref="AcpExtensionReaders.Default"/>, which
     /// is every shipped reader and what the door read before the parameter existed. The set belongs to this
     /// registration and not to the container, because two agents' doors read different keys.</param>
+    /// <param name="permissionApprover">Who answers the agent's permission requests (<see cref="IAcpPermissionApprover"/>),
+    /// so a person can decide a tool call. Null = the turn's tool policy answers every request, as before, and the door
+    /// states <see cref="AgentAbilities.PermissionRequests"/> <see cref="AgentSupport.Unsupported"/>; given, it states
+    /// it <see cref="AgentSupport.Supported"/>. Only a write turn asks it.</param>
     /// <exception cref="ArgumentException"><paramref name="agent"/> or <paramref name="accountVariables"/> is given
     /// without <paramref name="accountHomeVariable"/>, or a variable name is not one an environment can carry.</exception>
     /// <exception cref="InvalidOperationException"><paramref name="agent"/> is shared with a door registered through
@@ -61,7 +65,8 @@ public static class AcpBuilderExtensions
         string? accountHomeVariable = null,
         string? agent = null,
         IEnumerable<string>? accountVariables = null,
-        IEnumerable<IAcpExtensionReader>? extensions = null)
+        IEnumerable<IAcpExtensionReader>? extensions = null,
+        IAcpPermissionApprover? permissionApprover = null)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(id);
         ArgumentException.ThrowIfNullOrWhiteSpace(command);
@@ -73,7 +78,7 @@ public static class AcpBuilderExtensions
         var readers = extensions?.ToList();
         if (readers is not null && readers.Contains(null!))
             throw new ArgumentException("A reader is null.", nameof(extensions));
-        var descriptor = AcpAgentDoor.Describe(id, accountHomeVariable, agent, accountVariables);
+        var descriptor = AcpAgentDoor.Describe(id, accountHomeVariable, agent, accountVariables, permissionApprover is not null);
         builder.AddAgentProvider(descriptor, sp => new AgentProvider(descriptor,
             _ => sp.GetRequiredKeyedService<IAgentSession>(id)));
         builder.Services.AddKeyedSingleton<IAgentSession>(id, (sp, _) => new AcpAgentSession(
@@ -85,7 +90,8 @@ public static class AcpBuilderExtensions
             accountHomeVariable,
             logger: sp.GetService<ILogger<AcpAgentSession>>(),
             accountVariables: accountVariables,
-            extensions: readers));
+            extensions: readers,
+            permissionApprover: permissionApprover));
         return builder;
     }
 }

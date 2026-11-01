@@ -1089,7 +1089,7 @@ name an `Access` failure, and the verdict of such a fault is still its stderr's 
 an unknown id throws `KeyNotFoundException` naming the ids that exist. `Describe()` returns an
 `AgentProviderDescriptor`: its doors (`Id`, `Kind`) and, per door, one claim for EACH ability in `AgentAbilities.All`
 (resume, read-only gate, MCP servers, disallowed tools, system prompt, model, steering, plan events, live usage, typed
-failures, accounts, usage reading). A claim is `Supported`, `Unsupported` or `Unknown`, with a `Source` (`Declared`, `Negotiated`,
+failures, accounts, usage reading, permission requests). A claim is `Supported`, `Unsupported` or `Unknown`, with a `Source` (`Declared`, `Negotiated`,
 `Measured`) and its `Evidence`; an ability nobody measured is `Unknown`, which a host reads as not promised, never
 as not possible. Ask the descriptor rather than branching on an id. `Open(doorId)` returns the door's session, and
 that session refuses an option its door states `Unsupported` before anything is spawned — one `SessionEnded` with
@@ -1174,6 +1174,22 @@ services.AddLyntai(b => b
         extensions: [AcpExtensionReaders.AirSessionFailure, myAgentReader]));
 ```
 
+**A person who decides a tool call** is handed the agent's `session/request_permission` by an `IAcpPermissionApprover`
+passed as `permissionApprover:`, and the door then states `permission-requests` `Supported` (`Unsupported` where none is
+registered, when the tool policy answers). It is asked for each request of a write turn, with the agent's tool call
+(its own JSON) and the options it offered, and answers `Approve` (the `allow_once` option, never an `allow_always`),
+`Deny` (`reject_once`, else `reject_always`, else the protocol's `cancelled`) or `Choose(optionId)` for one of the agent's
+own, an `allow_always` included. The agent is answered once: when the approver answers, when the turn is cancelled
+(`cancelled`), or when half of the turn's inactivity window has passed with no answer, which is a refusal and leaves
+the agent the other half to act on it before the clock ends a silent process. An approver that throws, answers null or
+names an option the agent did not offer refuses; a read-only turn rejects without asking, so the gate stays a promise.
+
+<!-- compile-given: IAcpPermissionApprover askThePerson; -->
+```csharp
+services.AddLyntai(b => b
+    .AddAcpAgentSession("claude-acp", "claude-agent-acp", permissionApprover: askThePerson));
+```
+
 A turn is `initialize`, then `session/new`, or for a `ResumeToken` `session/resume` where the agent's `initialize`
 answer states `sessionCapabilities.resume` and `session/load` where it states `loadSession`, then `session/prompt`.
 An agent that states neither refuses the turn before the prompt (`option-unsupported`, `NeverSent`), which is why
@@ -1200,7 +1216,8 @@ sentence in `data.message` from `codex-acp` — a rejected rate-limit frame `cla
 with `end_turn` and no field reads as a clean end, because nothing on its wire says otherwise.
 
 `session/request_permission` follows `ToolPolicy`: read-only rejects every request, write allows each once and never
-for good, and an agent in a mode that asks for nothing is gated by its mode. The door offers no filesystem and no
+for good, and an agent in a mode that asks for nothing is gated by its mode. A write turn's requests go to a person
+instead where the registration passes a `permissionApprover:` (below); a read-only turn never asks it. The door offers no filesystem and no
 terminal, and answers any other request `method not found`. `DisallowedTools` and steering are `Unsupported`;
 `SystemPrompt` is a leading text block; plan events are `Unknown` until a real agent's plan is recorded. Cancelling
 the token sends `session/cancel` and waits for the agent's answer for `AcpAgentSession.DefaultCancelGrace` (5 s)

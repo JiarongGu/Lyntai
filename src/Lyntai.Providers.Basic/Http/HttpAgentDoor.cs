@@ -36,6 +36,7 @@ internal static class HttpAgentDoor
                         "the failed response's status, Retry-After header and error envelope (ProviderVerdictClassifier.ReadHttpFailure), or a transport fault's kind"),
                     Declared(AgentAbilities.Accounts, AgentSupport.Unsupported, "the key is the registration's own; a turn cannot choose one"),
                     Declared(AgentAbilities.UsageReading, AgentSupport.Unsupported, "the door asks the endpoint no usage question, and a turn reports its own usage"),
+                    Declared(AgentAbilities.PermissionRequests, AgentSupport.Unsupported, "the model asks no permission: a call is put to the registered IToolApprovers, which are the tool loop's"),
                 ],
             },
         ],
