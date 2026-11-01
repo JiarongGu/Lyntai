@@ -66,7 +66,10 @@ report it.
 `ProviderVerdictClassifier.ReadAgentFailure` / `FromAgentFailure`). The sentences stay in the classifier and
 `FromErrorText` agrees with them (one `RateLimitPattern`); a door reads a status, a category or a rejected frame
 first, and only the door's error text — never an agent message or a tool's output — reaches a sentence. A process
-fault's stderr may name an access failure and nothing else. Delivery is stamped once, in `CliAgentLoop`.
+fault's stderr may name an access failure and nothing else. An HTTP response is read the same way by
+`ProviderVerdictClassifier.ReadHttpFailure`: status, `Retry-After` and the envelope's `code` and `type` first, and a
+2xx body only through its top-level `error` member, so text a model merely quotes never classifies. Delivery is
+stamped once, in `CliAgentLoop`.
 `RetryingAgentSession` (opt-in, `AddAgentRetry`) is the only retry an agent session has, because a session never
 passes through the router; it retries `Transient` alone and a prompt is sent again only when `Delivery` is
 `NeverSent`, so a second retry layer anywhere above it would spend the turn's budget twice.

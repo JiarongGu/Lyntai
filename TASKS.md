@@ -15,31 +15,30 @@ LLM-ops layer (prompt registry, scoring, traces, memory). `AddLyntai(...)` and g
 
 <!-- open-items:begin — GENERATED. Edit the per-item `item:` markers, never this table. -->
 
-## Open items — 18 across 6 Parts: 13 startable, 2 blocked, 3 watch
+## Open items — 17 across 6 Parts: 12 startable, 2 blocked, 3 watch
 
 _Generated from the per-item `<!-- item: … -->` markers by `node devtools/dev.mjs check-backlog --write`._
 _Edit a marker, never this table — `verify` fails the moment the two disagree._
 
 | line | Part | item | state | waiting on |
 | ---: | ---: | --- | --- | --- |
-| 119 | 33 | GEN-VERIFY-FAL, the last line — the Hugging Face route | blocked · env | an hf_ token for the router route |
-| 160 | 75 | Decide what an aggregator's in-band `code` means | blocked · env+data | two or three real aggregators to measure an in-band code against |
-| 187 | 99 | `verify`'s test step intermittently fails EXACTLY 9 tests, and once aborted… | watch · data | the same nine tests to recur — the fix is unconfirmed as the cure, and a gr… |
-| 246 | 99 | `InputSegmenterTests.Counting_NFKC_is_LINEAR_in_the_length_of_the_text` fai… | watch · data | a recurrence under the full parallel run, with the ratio it read — the mess… |
-| 264 | 99 | `AgentUsageProcessTests.A_server_that_never_answers_is_ended_with_its_child… | watch · data | a recurrence under the full parallel run, with the load it ran under; it fa… |
-| 299 | 412 | AG13 — an HTTP response's own facts are read as an `AgentFailure` | startable |  |
-| 308 | 412 | AG14 — an HTTP door: `IToolLoop` as an agent provider | startable |  |
-| 318 | 412 | AG15 — an ACP dialect seam | startable |  |
-| 326 | 412 | AG16 — the event-stream rules, held by one theory | startable |  |
-| 334 | 412 | AG17 — an account that is a key, and the variables a provider reads | startable |  |
-| 343 | 412 | AG19 — an ACP permission request the host can answer | startable |  |
-| 358 | 416 | AG21 — the usage exchange writes each request after the answer it depends on | startable |  |
-| 370 | 416 | AG22 — the host names where the usage server runs and what it is told of it… | startable |  |
-| 383 | 416 | AG23 — an allowance reading carries what the server stated | startable |  |
-| 398 | 416 | AG24 — a host's policy for a version the library has not validated | startable |  |
-| 419 | 417 | MC3 — measure the candidate list's similarity basis | startable |  |
-| 427 | 417 | MC8 — run the wrong-end instrument on an adjudicated corpus, with a bar wri… | startable |  |
-| 440 | 417 | MC10 — a scope dense in ended entries still returns its current ones | startable |  |
+| 118 | 33 | GEN-VERIFY-FAL, the last line — the Hugging Face route | blocked · env | an hf_ token for the router route |
+| 159 | 75 | Decide what an aggregator's in-band `code` means | blocked · env+data | two or three real aggregators to measure an in-band code against |
+| 186 | 99 | `verify`'s test step intermittently fails EXACTLY 9 tests, and once aborted… | watch · data | the same nine tests to recur — the fix is unconfirmed as the cure, and a gr… |
+| 245 | 99 | `InputSegmenterTests.Counting_NFKC_is_LINEAR_in_the_length_of_the_text` fai… | watch · data | a recurrence under the full parallel run, with the ratio it read — the mess… |
+| 263 | 99 | `AgentUsageProcessTests.A_server_that_never_answers_is_ended_with_its_child… | watch · data | a recurrence under the full parallel run, with the load it ran under; it fa… |
+| 298 | 412 | AG14 — an HTTP door: `IToolLoop` as an agent provider | startable |  |
+| 308 | 412 | AG15 — an ACP dialect seam | startable |  |
+| 316 | 412 | AG16 — the event-stream rules, held by one theory | startable |  |
+| 324 | 412 | AG17 — an account that is a key, and the variables a provider reads | startable |  |
+| 333 | 412 | AG19 — an ACP permission request the host can answer | startable |  |
+| 348 | 416 | AG21 — the usage exchange writes each request after the answer it depends on | startable |  |
+| 360 | 416 | AG22 — the host names where the usage server runs and what it is told of it… | startable |  |
+| 373 | 416 | AG23 — an allowance reading carries what the server stated | startable |  |
+| 388 | 416 | AG24 — a host's policy for a version the library has not validated | startable |  |
+| 409 | 417 | MC3 — measure the candidate list's similarity basis | startable |  |
+| 417 | 417 | MC8 — run the wrong-end instrument on an adjudicated corpus, with a bar wri… | startable |  |
+| 430 | 417 | MC10 — a scope dense in ended entries still returns its current ones | startable |  |
 
 <!-- open-items:end -->
 
@@ -296,16 +295,7 @@ _The study is `docs/agent-provider-daoris-study.md`: it answers every Daoris row
 Each is one sitting, none is built, and each capture a test uses is labelled REAL or SOURCE-DERIVED. The decision they
 stand on is **D233**, and the study's §7 is the order they are built in._
 
-- [ ] **AG13 — an HTTP response's own facts are read as an `AgentFailure`** (lane `inference`). Today <!-- item: state=startable -->
-  `ProviderVerdictClassifier.FromHttpFailure` returns a verdict from the status and the body and no header is read, so a
-  `Retry-After` is lost and a 402 is not a credit hold. **Contract.** A pure reader over a status, the headers, the body
-  and a `TimeProvider`: 429 a rate limit whose recovery is `RetryNotBefore` from `Retry-After` (seconds or an HTTP date)
-  and `Unknown` when absent (never defaulted); 402 or a credit code `OwnerAction`; 401 and 403 access; 408, 5xx and 529
-  transient with the scope the envelope names; the JSON error envelope's `code` and `type` read before the sentence; an
-  error under a 2xx (`HttpBody.InBandError`) the same. **Proof.** SOURCE-DERIVED responses (OpenAI-style, Anthropic-style
-  and OpenRouter-style envelopes) held both ways, including a limit a tool's output merely quotes, which never classifies.
-
-- [ ] **AG14 — an HTTP door: `IToolLoop` as an agent provider** (lanes `platform` + `inference`, after AG13, **D233**). <!-- item: state=startable -->
+- [ ] **AG14 — an HTTP door: `IToolLoop` as an agent provider** (lanes `platform` + `inference`, reads AG13's `ProviderVerdictClassifier.ReadHttpFailure`, **D233**). <!-- item: state=startable -->
   `ToolLoop.StreamAsync` yields `AgentStreamEvent`s and one `SessionEnded`, but nothing describes it as a provider.
   **Contract.** `AddHttpAgentSession(id, …)` registers a keyed session and an `IAgentProvider` with one door of kind
   `http`: abilities stated from what the loop measurably does and `Unknown` otherwise (resume `Unsupported` until a

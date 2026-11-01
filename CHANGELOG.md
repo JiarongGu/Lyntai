@@ -99,6 +99,14 @@ every addition.
   word). A task still open at the result is ended after the turn's one `SessionEnded`, which is an event and never a second ending. A
   task line announces no session and moves nothing the session owns. Seen with a backgrounded command and an asynchronous subagent
   only; a synchronous subagent and a failed task were not.
+- **`ProviderVerdictClassifier.ReadHttpFailure` reads an HTTP response's own facts as an `AgentFailure`.** `FromHttpFailure` returns a
+  verdict from the status and the body and never reads a header, so a `Retry-After` was lost and a 402 was not a credit hold. The new
+  pure reader takes the status, the headers, the body and a `TimeProvider`: a 429 is a `Limit` whose recovery is `RetryNotBefore` from
+  `Retry-After` (seconds or an HTTP date) and `Unknown` when it is absent, never defaulted; a 402 or a credit code is a `Credit` limit
+  that needs an owner; 401 and 403 are access; 408, 5xx and 529 are transient, restricting the model when the envelope names its capacity
+  and the endpoint otherwise; the envelope's string `code` and `type` are read before its sentence. A 2xx body is a failure only through
+  its top-level `error` member, and a limit the model's own text merely quotes is never read (the result is null). A numeric `code` is
+  not taken for a status. `FromHttpFailure` and the routers that call it are unchanged.
 - **The Claude CLI door keeps a subagent's lines apart from the session's, and `ToolCall` and `ToolResult` carry `ParentCallId`.** A
   subagent's lines reach the session's stdout with `parent_tool_use_id` set to the call that spawned it, and the reader never read the
   field: a subagent's `TodoWrite` replaced the session's plan, its usage ticked as the turn's, and its last text or error field could
