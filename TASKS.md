@@ -15,20 +15,19 @@ LLM-ops layer (prompt registry, scoring, traces, memory). `AddLyntai(...)` and g
 
 <!-- open-items:begin — GENERATED. Edit the per-item `item:` markers, never this table. -->
 
-## Open items — 7 across 5 Parts: 2 startable, 2 blocked, 3 watch
+## Open items — 6 across 4 Parts: 3 blocked, 3 watch
 
 _Generated from the per-item `<!-- item: … -->` markers by `node devtools/dev.mjs check-backlog --write`._
 _Edit a marker, never this table — `verify` fails the moment the two disagree._
 
 | line | Part | item | state | waiting on |
 | ---: | ---: | --- | --- | --- |
-| 108 | 33 | GEN-VERIFY-FAL, the last line — the Hugging Face route | blocked · env | an hf_ token for the router route |
-| 149 | 75 | Decide what an aggregator's in-band `code` means | blocked · env+data | two or three real aggregators to measure an in-band code against |
-| 176 | 99 | `verify`'s test step intermittently fails EXACTLY 9 tests, and once aborted… | watch · data | the same nine tests to recur — the fix is unconfirmed as the cure, and a gr… |
-| 235 | 99 | `InputSegmenterTests.Counting_NFKC_is_LINEAR_in_the_length_of_the_text` fai… | watch · data | a recurrence under the full parallel run, with the ratio it read — the mess… |
-| 253 | 99 | `AgentUsageProcessTests.A_server_that_never_answers_is_ended_with_its_child… | watch · data | a recurrence under the full parallel run, with the load it ran under; it fa… |
-| 288 | 412 | AG16 — the event-stream rules, held by one theory | startable |  |
-| 305 | 417 | MC8 — run the wrong-end instrument on an adjudicated corpus, with a bar wri… | startable |  |
+| 107 | 33 | GEN-VERIFY-FAL, the last line — the Hugging Face route | blocked · env | an hf_ token for the router route |
+| 148 | 75 | Decide what an aggregator's in-band `code` means | blocked · env+data | two or three real aggregators to measure an in-band code against |
+| 175 | 99 | `verify`'s test step intermittently fails EXACTLY 9 tests, and once aborted… | watch · data | the same nine tests to recur — the fix is unconfirmed as the cure, and a gr… |
+| 234 | 99 | `InputSegmenterTests.Counting_NFKC_is_LINEAR_in_the_length_of_the_text` fai… | watch · data | a recurrence under the full parallel run, with the ratio it read — the mess… |
+| 252 | 99 | `AgentUsageProcessTests.A_server_that_never_answers_is_ended_with_its_child… | watch · data | a recurrence under the full parallel run, with the load it ran under; it fa… |
+| 290 | 417 | MC8 — run the wrong-end instrument on an adjudicated corpus, with a bar wri… | blocked · decision+data | two reviewers' independent labels on a sample of the pairs, and a bar a per… |
 
 <!-- open-items:end -->
 
@@ -279,20 +278,6 @@ there is nothing here to code: what remains is evidence only recurrence can supp
   <br>**2026-10-29: not the SQLite pool race** (`docs/FIXES.md`). The test spawns a node stand-in and reads its pid file, and
   opens no connection.
 
-## Part 412 — the agent-provider layer after Daoris's accepted provider design (2026-10-29)
-
-_The study is `docs/agent-provider-daoris-study.md`: it answers every Daoris row, and these are the general gaps it found.
-Each is one sitting, none is built, and each capture a test uses is labelled REAL or SOURCE-DERIVED. The decision they
-stand on is **D233**, and the study's §7 is the order they are built in._
-
-- [ ] **AG16 — the event-stream rules, held by one theory** (lanes `platform` + `tools`). The conformance theory holds the <!-- item: state=startable -->
-  descriptor and the spawn, and each stream rule is held door by door. **Contract.** A theory over the registry, from one
-  source (**D211**'s shape), driven by the existing stubs: exactly one terminal and nothing after it; a failed terminal
-  carries a `Failure` where the door states `typed-failures`; delivery `NeverSent` for a process that dies before any
-  event, `Taken` after a start and `Uncertain` after a tool call; a limit sentence a tool printed never classifies;
-  cancellation ends the turn without a second terminal. **Proof.** the cases themselves, each shown failing against a
-  door that breaks it (a planted double terminal); a stand-in a host registers is held to them with no edit here.
-
 ## Part 417 — keeping an agent's memory current, after Daoris's requests LQ16 to LQ20 (2026-10-30)
 
 _The study is `docs/memory-currency-study.md`, the rulings are **D239** and **D240**, and the synthesis that orders and
@@ -302,8 +287,11 @@ unreleased until a release carries it (**D70**, **D235**). **What a YES does to 
 **D242**'s MC11 (a caller's key and receipt), MC12 (the one-change supersession) and MC7 (the widened read-only view) are built (`docs/task-archive.md` Part 424, 425 and 426). MC3 is measured (`docs/task-archive.md` Part 440), and MC8's instrument states what a YES and a NO change, and a measured step pairs its arms
 (`docs/memory-currency-synthesis.md` §5)._
 
-- [ ] **MC8 — run the wrong-end instrument on an adjudicated corpus, with a bar written first** (lane `memory`; <!-- item: state=startable -->
+- [ ] **MC8 — run the wrong-end instrument on an adjudicated corpus, with a bar written first** (lane `memory`; <!-- item: state=blocked kind=decision,data needs="two reviewers' independent labels on a sample of the pairs, and a bar a person writes and commits before the first model run" -->
   **D241**).
+  **Not startable by a session alone:** the two things it waits on are a person's, never an agent's guess: **D241** asks the cases
+  "independently adjudicated" and the bounds "written before the run", and a bar or a label an agent supplied itself would pre-register
+  nothing. A session starts it the moment both exist.
   **The harness is built**: `node devtools/dev.mjs memory-end-proposal` (`MemoryEndProposalBench.cs`) ingests each `--haystack` question once, clones
   the database per arm (`SweepDb.Clone`) so one arm's reinforcement and links never reach another, counterbalances the arm order across questions,
   repeats the walk inside each clone, and prints four rates separately — a wrong end hiding a fact that still held, a missed replacement, an
