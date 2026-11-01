@@ -15,7 +15,15 @@ public class AgentUsageSourceTests
     public sealed record Door(string ProviderId, string Version, string SignedIn, string HomeVariable, string ServerMarker, string UnvalidatedVersion)
     {
         public string AskMarker => ProviderId == "claude-cli" ? "get_usage" : "account/rateLimits/read";
+
+        // the answer a server gives to the first request; the question is written only once it has arrived
+        public string InitializeAnswer => ProviderId == "claude-cli"
+            ? UsageCaptures.ClaudeSignedOut_2_1_312[0]
+            : UsageCaptures.CodexSignedOut_0_163[0];
     }
+
+    private static IEnumerable<string>? Speaks(Door door, string sent, Func<IEnumerable<string>?> ask) =>
+        sent.Contains("\"initialize\"") ? [door.InitializeAnswer] : sent.Contains(door.AskMarker) ? ask() : [];
 
     public static TheoryData<Door> Doors() =>
     [
@@ -33,7 +41,7 @@ public class AgentUsageSourceTests
         {
             RunHandler = (_, args) => args.Contains("--version") ? FakeProcessRunner.Ok(version ?? door.Version) : FakeProcessRunner.Ok(""),
             // the server speaks when it is asked the usage question, as the real ones do, and not before
-            ExchangeHandler = sent => sent.Contains(door.AskMarker) ? (answer.Length > 0 ? answer : [door.SignedIn]) : [],
+            ExchangeHandler = sent => Speaks(door, sent, () => answer.Length > 0 ? answer : [door.SignedIn]),
         };
 
     private static ServiceProvider Compose(IProcessRunner runner, Action<LyntaiBuilder>? usage)
@@ -209,7 +217,7 @@ public class AgentUsageSourceTests
     public async Task A_server_that_ends_or_runs_out_of_time_without_an_answer_reads_unknown(Door door)
     {
         var silent = Runner(door);
-        silent.ExchangeHandler = sent => sent.Contains(door.AskMarker) ? null : [];   // the server ends without answering
+        silent.ExchangeHandler = sent => Speaks(door, sent, () => null);   // the server ends without answering
         using var spA = Compose(silent, b => b.AddAgentUsageReading());
         Assert.Equal(AgentAllowanceUnknown.NoAnswer, (await Source(spA, door).ReadAllowanceAsync(Account(door.ProviderId))).UnknownReason);
 

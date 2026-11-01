@@ -205,6 +205,44 @@ public class AgentUsageDialectTests
         Assert.False(Codex.IsAnswer("{broken"));
     }
 
+    [Fact]
+    public void Codex_states_the_exchange_as_two_steps_with_the_notification_beside_the_usage_request()
+    {
+        Assert.Equal(2, Codex.Steps.Count);
+        Assert.Single(Codex.Steps[0].Writes);
+        Assert.Contains("\"initialize\"", Codex.Steps[0].Writes[0]);
+        Assert.Equal(["""{"method":"initialized"}""", Codex.Steps[1].Writes[1]], Codex.Steps[1].Writes);
+        Assert.Contains("account/rateLimits/read", Codex.Steps[1].Writes[1]);
+        Assert.True(Codex.Steps[0].IsAnswerTo(UsageCaptures.CodexSignedOut_0_163[0]));
+        Assert.False(Codex.Steps[0].IsAnswerTo(UsageCaptures.CodexSignedOut_0_163[2]));
+        Assert.True(Codex.Steps[1].IsAnswerTo(UsageCaptures.CodexSignedOut_0_163[2]));
+    }
+
+    [Theory]
+    [InlineData("""{"id":1,"error":{"code":-32600,"message":"codex account authentication required"}}""", AgentAllowanceUnknown.NotSignedIn)]
+    [InlineData("""{"id":1,"error":{"code":-32603,"message":"something else broke"}}""", AgentAllowanceUnknown.Unrecognised)]
+    [InlineData("""{"id":1,"error":"flat"}""", AgentAllowanceUnknown.Unrecognised)]
+    [InlineData("""{"id":1,"result":{}}""", null)]
+    [InlineData("{broken", null)]
+    public void Codex_reads_an_error_answer_to_the_initialize_step(string line, string? expected) =>
+        Assert.Equal(expected, Codex.FailureOf(line));
+
+    [Fact]
+    public void Claude_states_the_exchange_as_two_steps_each_answered_by_its_own_request_id()
+    {
+        Assert.Equal(2, Claude.Steps.Count);
+        Assert.True(Claude.Steps[0].IsAnswerTo(UsageCaptures.ClaudeSignedOut_2_1_312[0]));
+        Assert.False(Claude.Steps[0].IsAnswerTo(UsageCaptures.ClaudeSignedOut_2_1_312[1]));
+        Assert.True(Claude.Steps[1].IsAnswerTo(UsageCaptures.ClaudeSignedOut_2_1_312[1]));
+    }
+
+    [Theory]
+    [InlineData("""{"type":"control_response","response":{"subtype":"error","request_id":"init","error":"no"}}""", AgentAllowanceUnknown.Unrecognised)]
+    [InlineData("""{"type":"control_response","response":{"subtype":"success","request_id":"init","response":{}}}""", null)]
+    [InlineData("{broken", null)]
+    public void Claude_reads_an_error_answer_to_the_initialize_step(string line, string? expected) =>
+        Assert.Equal(expected, Claude.FailureOf(line));
+
     [Theory]
     [InlineData("codex-cli 0.160.0", "0.160.0")]
     [InlineData("codex-cli 0.163.0-alpha.10.2\n", "0.163.0-alpha.10.2")]

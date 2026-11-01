@@ -1381,7 +1381,8 @@ read asks the binary its version first (of no account's home) and **starts the s
 signed-in usage response is validated** — claude 2.1.296 and codex-cli 0.160.0, which the descriptor's
 `usage-reading` claim names in `AppliesTo`; any other version reads `version-not-validated`, and so does one whose
 version cannot be read. The server is claude's `-p --input-format stream-json` with a `get_usage` control request, or
-codex's `app-server` with `account/rateLimits/read`; neither spends model usage. It runs under the account's home,
+codex's `app-server` with `account/rateLimits/read`; neither spends model usage. Each request is written only once the
+answer to the one before it has arrived, and an error answer to the first ends the read as unknown. It runs under the account's home,
 in a fresh empty working directory (so no project's extensions load), bounded by `AgentUsageReadingOptions.Timeout`
 (default 30 seconds); the process tree is ended when the answer arrives, the time passes, the server ends, or the
 token is cancelled, which rethrows. It needs a runner that can hold a process open (`IProcessRunner.ExchangeLinesAsync`, the live-stdin member;

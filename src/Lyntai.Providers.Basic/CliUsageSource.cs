@@ -31,15 +31,24 @@ internal interface IUsageDialect
     /// <summary>The arguments that start the vendor's server on stdio.</summary>
     IReadOnlyList<string> ServerArgs { get; }
 
-    /// <summary>The lines written to the server, in order.</summary>
-    IReadOnlyList<string> Requests { get; }
+    /// <summary>The exchange, in order. The last step is the usage question, and its answer is
+    /// <see cref="IsAnswer"/>.</summary>
+    IReadOnlyList<UsageStep> Steps { get; }
 
     /// <summary>Whether a stdout line is the answer to the usage question, which ends the exchange.</summary>
     bool IsAnswer(string line);
 
+    /// <summary>The unknown reason when <paramref name="answer"/>, the answer to a step before the last, is an error,
+    /// else null. The usage question's own answer is read by <see cref="Read"/>.</summary>
+    string? FailureOf(string answer);
+
     /// <summary>The reading of the lines the exchange saw. Never throws: an answer it does not recognise is unknown.</summary>
     AgentAllowanceReading Read(IReadOnlyList<string> lines, DateTimeOffset measuredAt);
 }
+
+/// <summary>One step of a usage exchange: the lines written, then the stdout line that answers them. A notification
+/// goes in the same step as the request after it, since nothing answers a notification.</summary>
+internal sealed record UsageStep(IReadOnlyList<string> Writes, Func<string, bool> IsAnswerTo);
 
 /// <summary>An <see cref="IAgentUsageSource"/> over a CLI agent's own server. One start, one question: the version is
 /// read first, and only a version whose response is validated has its server started at all, under a fresh empty
@@ -123,15 +132,18 @@ internal sealed class CliUsageSource(
         }
     }
 
-    // Writes the dialect's requests and keeps stdin OPEN until the answer arrives: codex's server ends the moment
-    // stdin closes, before it answers. Leaving the loop ends the child (the runner kills its tree when the stream is
-    // abandoned, times out or is cancelled), and completing the channel releases the writer.
+    // Writes each step only once the answer to the one before has arrived, and keeps stdin OPEN until the last answer:
+    // codex's server ends the moment stdin closes, before it answers. A line pushed between answers is kept and read
+    // past. Leaving the loop ends the child (the runner kills its tree when the stream is abandoned, times out or is
+    // cancelled), and completing the channel releases the writer.
     private async Task<(List<string> Lines, string? Unknown)> ExchangeAsync(
         string exe, IReadOnlyList<string> args, string workDir, IReadOnlyDictionary<string, string?>? env,
         TimeSpan timeout, CancellationToken ct)
     {
+        var steps = dialect.Steps;
         var requests = Channel.CreateUnbounded<string>();
-        foreach (var request in dialect.Requests) requests.Writer.TryWrite(request);
+        var step = 0;
+        foreach (var write in steps[step].Writes) requests.Writer.TryWrite(write);
         var lines = new List<string>();
         try
         {
@@ -139,7 +151,11 @@ internal sealed class CliUsageSource(
                                maxDuration: timeout, workingDirectory: workDir, environment: env, ct: ct).ConfigureAwait(false))
             {
                 lines.Add(line);
-                if (dialect.IsAnswer(line)) return (lines, null);
+                if (!steps[step].IsAnswerTo(line)) continue;
+                if (step == steps.Count - 1) return (lines, null);
+                if (dialect.FailureOf(line) is { } failure) return (lines, failure);
+                step++;
+                foreach (var write in steps[step].Writes) requests.Writer.TryWrite(write);
             }
             return (lines, AgentAllowanceUnknown.NoAnswer);
         }

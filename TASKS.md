@@ -15,24 +15,23 @@ LLM-ops layer (prompt registry, scoring, traces, memory). `AddLyntai(...)` and g
 
 <!-- open-items:begin — GENERATED. Edit the per-item `item:` markers, never this table. -->
 
-## Open items — 11 across 6 Parts: 6 startable, 2 blocked, 3 watch
+## Open items — 10 across 6 Parts: 5 startable, 2 blocked, 3 watch
 
 _Generated from the per-item `<!-- item: … -->` markers by `node devtools/dev.mjs check-backlog --write`._
 _Edit a marker, never this table — `verify` fails the moment the two disagree._
 
 | line | Part | item | state | waiting on |
 | ---: | ---: | --- | --- | --- |
-| 112 | 33 | GEN-VERIFY-FAL, the last line — the Hugging Face route | blocked · env | an hf_ token for the router route |
-| 153 | 75 | Decide what an aggregator's in-band `code` means | blocked · env+data | two or three real aggregators to measure an in-band code against |
-| 180 | 99 | `verify`'s test step intermittently fails EXACTLY 9 tests, and once aborted… | watch · data | the same nine tests to recur — the fix is unconfirmed as the cure, and a gr… |
-| 239 | 99 | `InputSegmenterTests.Counting_NFKC_is_LINEAR_in_the_length_of_the_text` fai… | watch · data | a recurrence under the full parallel run, with the ratio it read — the mess… |
-| 257 | 99 | `AgentUsageProcessTests.A_server_that_never_answers_is_ended_with_its_child… | watch · data | a recurrence under the full parallel run, with the load it ran under; it fa… |
-| 292 | 412 | AG16 — the event-stream rules, held by one theory | startable |  |
-| 308 | 416 | AG21 — the usage exchange writes each request after the answer it depends on | startable |  |
-| 320 | 416 | AG22 — the host names where the usage server runs and what it is told of it… | startable |  |
-| 333 | 416 | AG23 — an allowance reading carries what the server stated | startable |  |
-| 348 | 416 | AG24 — a host's policy for a version the library has not validated | startable |  |
-| 369 | 417 | MC8 — run the wrong-end instrument on an adjudicated corpus, with a bar wri… | startable |  |
+| 111 | 33 | GEN-VERIFY-FAL, the last line — the Hugging Face route | blocked · env | an hf_ token for the router route |
+| 152 | 75 | Decide what an aggregator's in-band `code` means | blocked · env+data | two or three real aggregators to measure an in-band code against |
+| 179 | 99 | `verify`'s test step intermittently fails EXACTLY 9 tests, and once aborted… | watch · data | the same nine tests to recur — the fix is unconfirmed as the cure, and a gr… |
+| 238 | 99 | `InputSegmenterTests.Counting_NFKC_is_LINEAR_in_the_length_of_the_text` fai… | watch · data | a recurrence under the full parallel run, with the ratio it read — the mess… |
+| 256 | 99 | `AgentUsageProcessTests.A_server_that_never_answers_is_ended_with_its_child… | watch · data | a recurrence under the full parallel run, with the load it ran under; it fa… |
+| 291 | 412 | AG16 — the event-stream rules, held by one theory | startable |  |
+| 307 | 416 | AG22 — the host names where the usage server runs and what it is told of it… | startable |  |
+| 320 | 416 | AG23 — an allowance reading carries what the server stated | startable |  |
+| 335 | 416 | AG24 — a host's policy for a version the library has not validated | startable |  |
+| 356 | 417 | MC8 — run the wrong-end instrument on an adjudicated corpus, with a bar wri… | startable |  |
 
 <!-- open-items:end -->
 
@@ -301,21 +300,9 @@ stand on is **D233**, and the study's §7 is the order they are built in._
 
 _A host that consumes the layer asked three things of the usage reading (`D236` to `D238` answer them, each by the
 generic-library test; none asks for a consumer's shape). The types are unreleased, so a row reshapes them with its
-`ApiSurface` baseline moved from the emitted `.actual` and no `### Breaking` (**D235**). Order: AG21, then AG22 (it edits
-the first step AG21 makes), then AG23 and AG24 in either. No row spends an account or calls a paid service; the unmeasured
+`ApiSurface` baseline moved from the emitted `.actual` and no `### Breaking` (**D235**). Order: AG22 (it edits the first
+step the exchange makes), then AG23 and AG24 in either. No row spends an account or calls a paid service; the unmeasured
 fact is named where it bites. Captures are labelled REAL or SOURCE-DERIVED as `UsageCaptures` does._
-
-- [ ] **AG21 — the usage exchange writes each request after the answer it depends on** (lane `inference`, **D238**). <!-- item: state=startable -->
-  `CliUsageSource.ExchangeAsync` writes every request before reading any answer (`CliUsageSource.cs:133-134`;
-  `CodexUsageDialect.cs:33-38`), the order **D226** refuses as a default; a server that answers `initialize` with an
-  error is still sent the question. **Contract.** `IUsageDialect` states the exchange as steps (internal, so no baseline
-  moves): the first request is written, each next only after the answer to the one before has arrived, and a notification
-  goes with the request after it. An error answer to any step ends the read as unknown (`not-signed-in` where the dialect
-  reads it so, else `unrecognised-answer`) with the process ended; a line the server pushes between answers is read past,
-  as today. **Proof.** A `node` stand-in beside `AgentUsageProcessTests` that records arrival order and exits when the
-  second request arrives before the first's answer was written (RED against today's source, green after), one that
-  answers `initialize` with an error and must receive nothing more, and every existing usage test unchanged.
-  **Not established:** whether the installed servers tolerate the eager order; nothing here needs it measured.
 
 - [ ] **AG22 — the host names where the usage server runs and what it is told of its client** (lanes `inference` + <!-- item: state=startable -->
   `platform`, after AG21, **D238**). The read starts the vendor's server in a fresh folder under the system's temporary
