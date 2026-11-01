@@ -15,25 +15,24 @@ LLM-ops layer (prompt registry, scoring, traces, memory). `AddLyntai(...)` and g
 
 <!-- open-items:begin — GENERATED. Edit the per-item `item:` markers, never this table. -->
 
-## Open items — 12 across 6 Parts: 7 startable, 2 blocked, 3 watch
+## Open items — 11 across 6 Parts: 6 startable, 2 blocked, 3 watch
 
 _Generated from the per-item `<!-- item: … -->` markers by `node devtools/dev.mjs check-backlog --write`._
 _Edit a marker, never this table — `verify` fails the moment the two disagree._
 
 | line | Part | item | state | waiting on |
 | ---: | ---: | --- | --- | --- |
-| 113 | 33 | GEN-VERIFY-FAL, the last line — the Hugging Face route | blocked · env | an hf_ token for the router route |
-| 154 | 75 | Decide what an aggregator's in-band `code` means | blocked · env+data | two or three real aggregators to measure an in-band code against |
-| 181 | 99 | `verify`'s test step intermittently fails EXACTLY 9 tests, and once aborted… | watch · data | the same nine tests to recur — the fix is unconfirmed as the cure, and a gr… |
-| 240 | 99 | `InputSegmenterTests.Counting_NFKC_is_LINEAR_in_the_length_of_the_text` fai… | watch · data | a recurrence under the full parallel run, with the ratio it read — the mess… |
-| 258 | 99 | `AgentUsageProcessTests.A_server_that_never_answers_is_ended_with_its_child… | watch · data | a recurrence under the full parallel run, with the load it ran under; it fa… |
-| 293 | 412 | AG16 — the event-stream rules, held by one theory | startable |  |
-| 309 | 416 | AG21 — the usage exchange writes each request after the answer it depends on | startable |  |
-| 321 | 416 | AG22 — the host names where the usage server runs and what it is told of it… | startable |  |
-| 334 | 416 | AG23 — an allowance reading carries what the server stated | startable |  |
-| 349 | 416 | AG24 — a host's policy for a version the library has not validated | startable |  |
-| 370 | 417 | MC3 — measure the candidate list's similarity basis | startable |  |
-| 378 | 417 | MC8 — run the wrong-end instrument on an adjudicated corpus, with a bar wri… | startable |  |
+| 112 | 33 | GEN-VERIFY-FAL, the last line — the Hugging Face route | blocked · env | an hf_ token for the router route |
+| 153 | 75 | Decide what an aggregator's in-band `code` means | blocked · env+data | two or three real aggregators to measure an in-band code against |
+| 180 | 99 | `verify`'s test step intermittently fails EXACTLY 9 tests, and once aborted… | watch · data | the same nine tests to recur — the fix is unconfirmed as the cure, and a gr… |
+| 239 | 99 | `InputSegmenterTests.Counting_NFKC_is_LINEAR_in_the_length_of_the_text` fai… | watch · data | a recurrence under the full parallel run, with the ratio it read — the mess… |
+| 257 | 99 | `AgentUsageProcessTests.A_server_that_never_answers_is_ended_with_its_child… | watch · data | a recurrence under the full parallel run, with the load it ran under; it fa… |
+| 292 | 412 | AG16 — the event-stream rules, held by one theory | startable |  |
+| 308 | 416 | AG21 — the usage exchange writes each request after the answer it depends on | startable |  |
+| 320 | 416 | AG22 — the host names where the usage server runs and what it is told of it… | startable |  |
+| 333 | 416 | AG23 — an allowance reading carries what the server stated | startable |  |
+| 348 | 416 | AG24 — a host's policy for a version the library has not validated | startable |  |
+| 369 | 417 | MC8 — run the wrong-end instrument on an adjudicated corpus, with a bar wri… | startable |  |
 
 <!-- open-items:end -->
 
@@ -361,19 +360,11 @@ fact is named where it bites. Captures are labelled REAL or SOURCE-DERIVED as `U
 ## Part 417 — keeping an agent's memory current, after Daoris's requests LQ16 to LQ20 (2026-10-30)
 
 _The study is `docs/memory-currency-study.md`, the rulings are **D239** and **D240**, and the synthesis that orders and
-amends them is `docs/memory-currency-synthesis.md` (**D241**). Each row is one sitting and none is built; the order is MC3,
-MC4, MC6, MC2, MC5, MC7, with MC8 able to run once MC3 lands. Every member a row adds is
+amends them is `docs/memory-currency-synthesis.md` (**D241**). Each row is one sitting and none is built; the order is MC4,
+MC6, MC2, MC5, MC7, with MC8 free to run now that MC3 has landed. Every member a row adds is
 unreleased until a release carries it (**D70**, **D235**). **What a YES does to the library is each row's contract**;
-**D242**'s MC11 (a caller's key and receipt), MC12 (the one-change supersession) and MC7 (the widened read-only view) are built (`docs/task-archive.md` Part 424, 425 and 426). MC3's measured rate and MC8's instrument each state what a YES and a NO change, and a measured step pairs its arms
+**D242**'s MC11 (a caller's key and receipt), MC12 (the one-change supersession) and MC7 (the widened read-only view) are built (`docs/task-archive.md` Part 424, 425 and 426). MC3 is measured (`docs/task-archive.md` Part 440), and MC8's instrument states what a YES and a NO change, and a measured step pairs its arms
 (`docs/memory-currency-synthesis.md` §5)._
-
-- [ ] **MC3 — measure the candidate list's similarity basis** (lane `memory`; LQ17, **D239**). <!-- item: state=startable -->
-  The contract is built and the lexical basis is measured (`docs/memory-measurements.md` §5, `update-candidates-lexical-haystack-n70`:
-  the true predecessor in the first four for 54% of pairs, in the first ten for 89%, so the default limit is ten). **What
-  remains is the same measurement with an embedder wired**: serve an embedding model from your own llama-server on its own port,
-  run the 70 pairs with `Similarity` on, report the rate per basis beside the lexical one. A YES moves the guidance in
-  `docs/memory.md`; a NO changes nothing. The measurement's scratch harness was deleted: rebuild it from the `knowledge-update`
-  loading in `MemoryLongMemEvalBench.cs`.
 
 - [ ] **MC8 — run the wrong-end instrument on an adjudicated corpus, with a bar written first** (lane `memory`; <!-- item: state=startable -->
   **D241**).
