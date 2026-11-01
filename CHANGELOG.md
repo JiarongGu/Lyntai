@@ -29,6 +29,10 @@ every addition.
 
 ### Changed
 
+- **The usage reading writes each request after the answer it depends on** (**D238**). Through 3.5.3 it wrote every request to
+  the vendor's server before reading any answer, so a server that refused `initialize` was still asked the question. Now
+  the question follows the answer to `initialize`, and an error answer to either ends the read as unknown
+  (`not-signed-in` where the server says so, else `unrecognised-answer`) with the server ended.
 - **`Microsoft.Data.Sqlite` is 10.0.14**, which carries the upstream fix for the connection-pool race that could hand one
   handle to two callers (dotnet/efcore#39008, fixed in 10.0.13). The SQLite factory still serializes the rent, for a consumer
   who pins an older patch; with the lock removed, 8 runs of the 200-round handoff test on 10.0.14 passed, and the lock's cost is

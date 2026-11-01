@@ -6590,3 +6590,15 @@ scratch harness was rebuilt from the `knowledge-update` loading and deleted agai
 `src/` or the bench project. Lane `memory`.
 
 - MC3 — measure the candidate list's similarity basis
+
+## Part 441 — AG21: the usage exchange writes each request after the answer it depends on (2026-11-01)
+
+✅ done 2026-11-01 — **Outcome:** `IUsageDialect.Requests` became `Steps` (`UsageStep(Writes, IsAnswerTo)`, internal, so no baseline moved), plus `FailureOf` for an error answer to a step before the
+last. `CliUsageSource.ExchangeAsync` writes step one, and each next step only once the answer to the one before has arrived; Codex's `initialized` notification is written with the usage
+request, not awaited. An error answer ends the read as unknown with the server ended (`not-signed-in` where Codex's message says so, else `unrecognised-answer`; Claude's refusal is
+`unrecognised-answer`, since no capture shows one that says signed out). A line pushed between answers is kept and read past. **Read here:** `IsAnswer` stays on the dialect as the last
+step's answer, which the existing dialect tests call, and the single-step stand-in dialect in `AgentUsageProcessTests` keeps both of its lines in one step. Proof:
+`AgentUsageProcessTests` gained a `node` stand-in that exits when the second request arrives before the first's answer was written, and one that answers the first with an error and logs
+what it receives (only `one`); `AgentUsageDialectTests` holds the steps and `FailureOf` on each dialect. No decision recorded: **D238** states it. Lane `inference`.
+
+- AG21 — the usage exchange writes each request after the answer it depends on

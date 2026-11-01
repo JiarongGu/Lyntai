@@ -12,6 +12,7 @@ namespace Lyntai.Providers.ClaudeCli;
 /// only the fields a validated version was seen to send and reads anything else as unknown.</summary>
 internal sealed partial class ClaudeUsageDialect(string providerId) : IUsageDialect
 {
+    internal const string InitializeRequestId = "init";
     internal const string UsageRequestId = "usage";
 
     /// <summary>The versions whose signed-in response is recorded and read by <see cref="Read"/> in the tests.</summary>
@@ -30,19 +31,26 @@ internal sealed partial class ClaudeUsageDialect(string providerId) : IUsageDial
     public IReadOnlyList<string> ServerArgs { get; } =
         ["-p", "--input-format", "stream-json", "--output-format", "stream-json", "--verbose", "--strict-mcp-config"];
 
-    public IReadOnlyList<string> Requests { get; } =
+    public IReadOnlyList<UsageStep> Steps { get; } =
     [
-        """{"type":"control_request","request_id":"init","request":{"subtype":"initialize"}}""",
-        $$$"""{"type":"control_request","request_id":"{{{UsageRequestId}}}","request":{"subtype":"get_usage","skip_behaviors":true}}""",
+        new([$$$"""{"type":"control_request","request_id":"{{{InitializeRequestId}}}","request":{"subtype":"initialize"}}"""],
+            line => IsAnswerTo(line, InitializeRequestId)),
+        new([$$$"""{"type":"control_request","request_id":"{{{UsageRequestId}}}","request":{"subtype":"get_usage","skip_behaviors":true}}"""],
+            line => IsAnswerTo(line, UsageRequestId)),
     ];
 
     public string? ParseVersion(string output) =>
         VersionPattern().Match(output) is { Success: true } m ? m.Groups[1].Value : null;
 
-    public bool IsAnswer(string line)
+    public bool IsAnswer(string line) => IsAnswerTo(line, UsageRequestId);
+
+    // a refusal is a response whose subtype is not "success"; no capture shows one that says signed out, so none is read so
+    public string? FailureOf(string answer)
     {
-        using var answer = Answer(line);
-        return answer is not null;
+        using var response = Answer(answer, InitializeRequestId);
+        return response is not null && WireJson.String(response.RootElement.GetProperty("response"), "subtype") != "success"
+            ? AgentAllowanceUnknown.Unrecognised
+            : null;
     }
 
     public AgentAllowanceReading Read(IReadOnlyList<string> lines, DateTimeOffset measuredAt)
@@ -52,7 +60,7 @@ internal sealed partial class ClaudeUsageDialect(string providerId) : IUsageDial
         {
             JsonDocument? response = null;
             foreach (var line in lines)
-                if ((response = Answer(line)) is not null) break;
+                if ((response = Answer(line, UsageRequestId)) is not null) break;
             if (response is null) return unknown(AgentAllowanceUnknown.Unrecognised);
 
             using (response)
@@ -93,8 +101,14 @@ internal sealed partial class ClaudeUsageDialect(string providerId) : IUsageDial
         ("seven_day", AgentAllowanceWindow.Weekly, TimeSpan.FromDays(7)),
     ];
 
-    // the document of the control_response that answers the usage request; the caller disposes it
-    private static JsonDocument? Answer(string line)
+    private static bool IsAnswerTo(string line, string requestId)
+    {
+        using var answer = Answer(line, requestId);
+        return answer is not null;
+    }
+
+    // the document of the control_response that answers request <requestId>; the caller disposes it
+    private static JsonDocument? Answer(string line, string requestId)
     {
         if (line.Length == 0 || line[0] != '{') return null;
         JsonDocument? document = null;
@@ -104,7 +118,7 @@ internal sealed partial class ClaudeUsageDialect(string providerId) : IUsageDial
             var root = document.RootElement;
             if (WireJson.String(root, "type") == "control_response"
                 && WireJson.Object(root, "response") is { } response
-                && WireJson.String(response, "request_id") == UsageRequestId)
+                && WireJson.String(response, "request_id") == requestId)
                 return document;
         }
         catch (JsonException) { /* not a JSON line: the server printed something else */ }

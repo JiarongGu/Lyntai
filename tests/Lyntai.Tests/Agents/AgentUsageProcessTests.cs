@@ -37,7 +37,38 @@ public class AgentUsageProcessTests
         });
         """;
 
-    private sealed class StandInDialect(string pidFile, string mode) : IUsageDialect
+    // Records each line it receives to argv[4] and exits the moment 'two' arrives before 'one' was answered, so a
+    // source that writes ahead of the answer is caught by the server and not by the clock.
+    private const string OrderedServer = """
+        const { spawn } = require('child_process');
+        const fs = require('fs');
+        const [mode, pidFile, logFile] = process.argv.slice(2);
+        const grand = spawn(process.execPath, ['-e', 'setTimeout(() => {}, 120000)'], { stdio: 'ignore' });
+        fs.writeFileSync(pidFile, process.pid + ' ' + grand.pid);
+        setTimeout(() => process.exit(0), 60000);
+        process.stdin.on('end', () => process.exit(0));
+        let buffer = '', oneAnswered = false;
+        process.stdin.on('data', chunk => {
+          buffer += chunk;
+          let i;
+          while ((i = buffer.indexOf('\n')) >= 0) {
+            const line = buffer.slice(0, i); buffer = buffer.slice(i + 1);
+            fs.appendFileSync(logFile, line + '\n');
+            if (line === 'one') {
+              if (mode === 'error') console.log(JSON.stringify({ error: true }));
+              else {
+                console.log(JSON.stringify({ pushed: true }));   // a line the server volunteers between answers
+                setTimeout(() => { oneAnswered = true; console.log(JSON.stringify({ ack: true })); }, 300);
+              }
+            } else if (line === 'two') {
+              if (!oneAnswered) { fs.appendFileSync(logFile, 'EARLY\n'); process.exit(7); }
+              console.log(JSON.stringify({ answer: true }));
+            }
+          }
+        });
+        """;
+
+    private sealed class StandInDialect(string pidFile, string mode, bool ordered = false) : IUsageDialect
     {
         public List<string> Seen { get; } = [];
         public string ProviderId => "stand-in";
@@ -46,9 +77,12 @@ public class AgentUsageProcessTests
         public IReadOnlyList<string> VersionArgs { get; } = ["--version"];
         public string? ParseVersion(string output) => output;
         public IReadOnlySet<string> ValidatedVersions { get; } = new HashSet<string>();
-        public IReadOnlyList<string> ServerArgs { get; } = [mode, pidFile];
-        public IReadOnlyList<string> Requests { get; } = ["hello", "ask"];
+        public IReadOnlyList<string> ServerArgs { get; } = [mode, pidFile, pidFile + ".log"];
+        public IReadOnlyList<UsageStep> Steps => ordered
+            ? [new(["one"], line => line.Contains("\"ack\"") || line.Contains("\"error\"")), new(["two"], IsAnswer)]
+            : [new(["hello", "ask"], IsAnswer)];
         public bool IsAnswer(string line) => line.Contains("\"answer\"");
+        public string? FailureOf(string answer) => answer.Contains("\"error\"") ? AgentAllowanceUnknown.Unrecognised : null;
 
         public AgentAllowanceReading Read(IReadOnlyList<string> lines, DateTimeOffset measuredAt)
         {
@@ -62,11 +96,11 @@ public class AgentUsageProcessTests
     }
 
     private static (CliUsageSource Source, StandInDialect Dialect) Standing(
-        ScratchDir scratch, string mode, TimeSpan timeout, out string pidFile)
+        ScratchDir scratch, string mode, TimeSpan timeout, out string pidFile, bool ordered = false)
     {
         pidFile = scratch.Combine("pids.txt");
-        var script = scratch.File("server.cjs", Server);
-        var dialect = new StandInDialect(pidFile, mode);
+        var script = scratch.File("server.cjs", ordered ? OrderedServer : Server);
+        var dialect = new StandInDialect(pidFile, mode, ordered);
         var source = new CliUsageSource(dialect, new ProcessRunner(),
             new AgentUsageReadingOptions { Enabled = true, Timeout = timeout }, logger: null,
             command: $"node \"{script}\"", environment: null, requireValidatedVersion: false);
@@ -170,6 +204,33 @@ public class AgentUsageProcessTests
 
         Assert.Equal(AgentAllowanceUnknown.NoAnswer, reading.UnknownReason);
         await AssertNoneAlive(await Pids(pidFile));
+    }
+
+    [Fact]
+    public async Task A_request_is_written_only_after_the_answer_to_the_one_before_it()
+    {
+        using var scratch = new ScratchDir("usage-process");
+        var (source, dialect) = Standing(scratch, "ordered", TimeSpan.FromSeconds(30), out var pidFile, ordered: true);
+
+        var reading = await source.ReadAllowanceAsync(Account("/homes/work"));
+
+        Assert.True(reading.IsKnown, reading.UnknownReason);
+        Assert.Equal(["one", "two"], await File.ReadAllLinesAsync(pidFile + ".log"));
+        Assert.Contains(dialect.Seen, line => line.Contains("\"pushed\""));   // read past, and kept
+        await AssertNoneAlive(await Pids(pidFile));
+    }
+
+    [Fact]
+    public async Task An_error_answer_to_an_earlier_step_ends_the_read_and_the_next_request_is_never_sent()
+    {
+        using var scratch = new ScratchDir("usage-process");
+        var (source, _) = Standing(scratch, "error", TimeSpan.FromSeconds(30), out var pidFile, ordered: true);
+
+        var reading = await source.ReadAllowanceAsync(Account("/homes/work"));
+
+        Assert.Equal(AgentAllowanceUnknown.Unrecognised, reading.UnknownReason);
+        await AssertNoneAlive(await Pids(pidFile));
+        Assert.Equal(["one"], await File.ReadAllLinesAsync(pidFile + ".log"));
     }
 
     [Fact]

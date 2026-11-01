@@ -13,6 +13,7 @@ namespace Lyntai.Providers.CodexCli;
 /// seen to send; the account id the answer carries is neither read nor kept.</summary>
 internal sealed partial class CodexUsageDialect(string providerId) : IUsageDialect
 {
+    private const int InitializeRequestId = 1;
     private const int UsageRequestId = 2;
 
     /// <summary>The versions whose signed-in response is recorded and read by <see cref="Read"/> in the tests.</summary>
@@ -30,21 +31,31 @@ internal sealed partial class CodexUsageDialect(string providerId) : IUsageDiale
 
     public IReadOnlyList<string> ServerArgs { get; } = ["app-server"];
 
-    public IReadOnlyList<string> Requests { get; } =
+    public IReadOnlyList<UsageStep> Steps { get; } =
     [
-        """{"id":1,"method":"initialize","params":{"clientInfo":{"name":"lyntai","version":"1"}}}""",
-        """{"method":"initialized"}""",
-        $$"""{"id":{{UsageRequestId}},"method":"account/rateLimits/read","params":null}""",
+        new([$$$$"""{"id":{{{{InitializeRequestId}}}},"method":"initialize","params":{"clientInfo":{"name":"lyntai","version":"1"}}}"""],
+            line => IsAnswerTo(line, InitializeRequestId)),
+        new(["""{"method":"initialized"}""", $$"""{"id":{{UsageRequestId}},"method":"account/rateLimits/read","params":null}"""],
+            line => IsAnswerTo(line, UsageRequestId)),
     ];
 
     public string? ParseVersion(string output) =>
         VersionPattern().Match(output) is { Success: true } m ? m.Groups[1].Value : null;
 
-    public bool IsAnswer(string line)
+    public bool IsAnswer(string line) => IsAnswerTo(line, UsageRequestId);
+
+    public string? FailureOf(string answer)
     {
-        using var answer = Answer(line);
-        return answer is not null;
+        using var document = Answer(answer, InitializeRequestId);
+        return document is not null && document.RootElement.TryGetProperty("error", out var error) ? ErrorReason(error) : null;
     }
+
+    // `error` is an object whose message says whether the account is signed in; any other shape is not recognised
+    private static string ErrorReason(JsonElement error) =>
+        WireJson.String(error, "message") is { } message
+        && message.Contains("authentication required", StringComparison.OrdinalIgnoreCase)
+            ? AgentAllowanceUnknown.NotSignedIn
+            : AgentAllowanceUnknown.Unrecognised;
 
     public AgentAllowanceReading Read(IReadOnlyList<string> lines, DateTimeOffset measuredAt)
     {
@@ -53,17 +64,13 @@ internal sealed partial class CodexUsageDialect(string providerId) : IUsageDiale
         {
             JsonDocument? answer = null;
             foreach (var line in lines)
-                if ((answer = Answer(line)) is not null) break;
+                if ((answer = Answer(line, UsageRequestId)) is not null) break;
             if (answer is null) return unknown(AgentAllowanceUnknown.Unrecognised);
 
             using (answer)
             {
                 var root = answer.RootElement;
-                if (WireJson.Object(root, "error") is { } error)
-                    return unknown(WireJson.String(error, "message") is { } message
-                        && message.Contains("authentication required", StringComparison.OrdinalIgnoreCase)
-                        ? AgentAllowanceUnknown.NotSignedIn
-                        : AgentAllowanceUnknown.Unrecognised);
+                if (WireJson.Object(root, "error") is { } error) return unknown(ErrorReason(error));
 
                 if (WireJson.Object(root, "result") is not { } result
                     || WireJson.Object(result, "rateLimits") is not { } limits)
@@ -106,8 +113,14 @@ internal sealed partial class CodexUsageDialect(string providerId) : IUsageDiale
         _ => $"{minutes.ToString(CultureInfo.InvariantCulture)}-minutes",
     };
 
-    // the document of the JSON-RPC response that answers the usage request; the caller disposes it
-    private static JsonDocument? Answer(string line)
+    private static bool IsAnswerTo(string line, int id)
+    {
+        using var answer = Answer(line, id);
+        return answer is not null;
+    }
+
+    // the document of the JSON-RPC response that answers request <id>; the caller disposes it
+    private static JsonDocument? Answer(string line, int id)
     {
         if (line.Length == 0 || line[0] != '{') return null;
         JsonDocument? document = null;
@@ -115,7 +128,7 @@ internal sealed partial class CodexUsageDialect(string providerId) : IUsageDiale
         {
             document = JsonDocument.Parse(line);
             // a request the server makes of the client can carry the same id; it carries a method, a response does not
-            if (WireJson.Int32(document.RootElement, "id") == UsageRequestId && !document.RootElement.TryGetProperty("method", out _))
+            if (WireJson.Int32(document.RootElement, "id") == id && !document.RootElement.TryGetProperty("method", out _))
                 return document;
         }
         catch (JsonException) { /* not a JSON line: the server printed something else */ }

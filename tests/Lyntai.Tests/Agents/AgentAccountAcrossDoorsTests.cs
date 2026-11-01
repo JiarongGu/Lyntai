@@ -375,7 +375,8 @@ public class AgentAccountAcrossDoorsTests
         var runner = new FakeProcessRunner
         {
             RunHandler = (_, args) => args.Contains("--version") ? FakeProcessRunner.Ok("2.1.296 (Claude Code)") : FakeProcessRunner.Ok(""),
-            ExchangeHandler = sent => sent.Contains("get_usage") ? [UsageCaptures.ClaudeSignedIn_2_1_296] : [],
+            ExchangeHandler = sent => sent.Contains("\"initialize\"") ? [UsageCaptures.ClaudeSignedOut_2_1_312[0]]
+                : sent.Contains("get_usage") ? [UsageCaptures.ClaudeSignedIn_2_1_296] : [],
         };
         var services = new ServiceCollection();
         services.AddSingleton<IProcessRunner>(runner);
