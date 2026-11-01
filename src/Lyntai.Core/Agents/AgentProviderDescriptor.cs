@@ -78,6 +78,10 @@ public static class AgentDoorKinds
 
     /// <summary>An agent reached over the Agent Client Protocol.</summary>
     public const string Acp = "acp";
+
+    /// <summary>A chat-completions endpoint reached over HTTP, whose tool loop is Lyntai's own
+    /// (<see cref="IToolLoop"/>) rather than an agent's.</summary>
+    public const string Http = "http";
 }
 
 /// <summary>One way into an agent, and what it can do. A provider with two doors (a CLI and a protocol) states
