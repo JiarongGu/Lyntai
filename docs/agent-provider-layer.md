@@ -307,7 +307,9 @@ Zero tokens, as the rest of the suite is (`repo-mechanics.md` §Dev loop).
   `devtools/scripts` that speaks the protocol, including an error with `data`, a usage update, and a limit
   (`acp-stub.mjs`, built with AG8, where a header comment lists its markers and the two captures that are REAL).
 - **A conformance theory** over every registered provider, from one source (D211's shape): each states every
-  ability, an unknown one is `unknown`, and an option it cannot honour is refused before a spawn.
+  ability, an unknown one is `unknown`, and an option it cannot honour is refused before a spawn. A second theory
+  over the same registry holds the stream: one terminal, a failed one typed with its delivery, a tool's limit
+  sentence never read as the turn's, a cancel never ending in a terminal.
 - **Fault injection** for delivery: a process dying before any event (never sent), mid-stream (taken), after
   a tool call (uncertain).
 - **Live suites** against an installed agent are gated and skip without it; each is one named new skip.

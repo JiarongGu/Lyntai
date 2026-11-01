@@ -9,56 +9,11 @@ namespace Lyntai.Tests.Agents;
 /// <summary>The conformance theory over EVERY registered <see cref="IAgentProvider"/>: the two CLI doors, the
 /// protocol door, the HTTP door and a host's own stand-in, all through one registry from one source, at zero tokens
 /// (a recording runner stands in for the spawn, and a counting handler for the HTTP door's call). The set is read from the registry, so a provider added to it is held to the same rules
-/// without this file changing.</summary>
+/// without this file changing. What a door's STREAM keeps is the sibling theory, <see cref="AgentStreamConformanceTests"/>,
+/// over this same registry.</summary>
 public class AgentProviderConformanceTests
 {
-    private const string StandIn = "stand-in";
-
-    /// <summary>A host's own provider, built the way <see cref="IAgentProvider"/> says to: it refuses what its
-    /// door states unsupported, leaves what it never measured to the door, and "spawns" through the runner.</summary>
-    private static AgentProvider StandInProvider(IProcessRunner runner) => new(
-        new AgentProviderDescriptor
-        {
-            Id = StandIn,
-            Doors =
-            [
-                new AgentDoor
-                {
-                    Id = "local",
-                    Kind = "host-own",
-                    Abilities =
-                    [
-                        Claim(AgentAbilities.Resume, AgentSupport.Supported, AgentAbilitySource.Negotiated),
-                        Claim(AgentAbilities.ReadOnlyGate, AgentSupport.Unsupported, AgentAbilitySource.Declared),
-                        Claim(AgentAbilities.McpServers, AgentSupport.Unknown, AgentAbilitySource.Declared),
-                        Claim(AgentAbilities.DisallowedTools, AgentSupport.Unsupported, AgentAbilitySource.Declared),
-                        Claim(AgentAbilities.SystemPrompt, AgentSupport.Unknown, AgentAbilitySource.Declared),
-                        Claim(AgentAbilities.Model, AgentSupport.Unknown, AgentAbilitySource.Negotiated),
-                        Claim(AgentAbilities.Steering, AgentSupport.Unsupported, AgentAbilitySource.Declared),
-                        Claim(AgentAbilities.PlanEvents, AgentSupport.Unknown, AgentAbilitySource.Declared),
-                        Claim(AgentAbilities.LiveUsage, AgentSupport.Unknown, AgentAbilitySource.Declared),
-                        Claim(AgentAbilities.TypedFailures, AgentSupport.Unsupported, AgentAbilitySource.Declared),
-                        Claim(AgentAbilities.Accounts, AgentSupport.Unsupported, AgentAbilitySource.Declared),
-                        Claim(AgentAbilities.UsageReading, AgentSupport.Unsupported, AgentAbilitySource.Declared),
-                        Claim(AgentAbilities.PermissionRequests, AgentSupport.Unsupported, AgentAbilitySource.Declared),
-                    ],
-                },
-            ],
-        },
-        _ => new SpawningSession(runner));
-
-    private static AgentAbility Claim(string name, AgentSupport support, AgentAbilitySource source) =>
-        new(name, support, source) { Evidence = $"the stand-in states {name} as {support}" };
-
-    private sealed class SpawningSession(IProcessRunner runner) : IAgentSession
-    {
-        public async IAsyncEnumerable<AgentStreamEvent> StreamAsync(
-            AgentSessionOptions options, [System.Runtime.CompilerServices.EnumeratorCancellation] CancellationToken ct = default)
-        {
-            await foreach (var _ in runner.StreamLinesAsync("stand-in", [], options.Prompt, ct: ct)) { }
-            yield return new SessionEnded(ProviderVerdict.Ok, false, null, "s", "done", null);
-        }
-    }
+    private const string StandIn = DialectStandIn.Id;
 
     /// <summary>An endpoint that answers every request with one plain completion and counts them: the HTTP door's
     /// spawn.</summary>
@@ -76,18 +31,24 @@ public class AgentProviderConformanceTests
         }
     }
 
-    private static ServiceProvider Compose(FakeProcessRunner runner, CountingHandler? endpoint = null)
+    /// <summary>The one registry both theories read: every door the layer ships and a host's own, over a recording
+    /// runner and an endpoint handler. <paramref name="tool"/> joins the registered tools, which only the HTTP door
+    /// reads.</summary>
+    internal static ServiceProvider Compose(FakeProcessRunner runner, HttpMessageHandler? endpoint = null, ITool? tool = null)
     {
         endpoint ??= new CountingHandler();
         var services = new ServiceCollection();
         services.AddSingleton<IProcessRunner>(runner);
-        services.AddLyntai(b => b
-            .AddClaudeCliAgentSession(command: "claude")
-            .AddCodexCliAgentSession(command: "codex")
-            .AddAcpAgentSession("acp-agent", "acp-agent-cmd", accountHomeVariable: "ACP_AGENT_HOME")
-            .AddHttpAgentSession("http-agent", o => { o.BaseUrl = "https://endpoint.test"; o.ApiKey = "k"; },
-                _ => new HttpClient(endpoint, disposeHandler: false))
-            .AddAgentProvider(_ => StandInProvider(runner)));
+        services.AddLyntai(b =>
+        {
+            b.AddClaudeCliAgentSession(command: "claude")
+                .AddCodexCliAgentSession(command: "codex")
+                .AddAcpAgentSession("acp-agent", "acp-agent-cmd", accountHomeVariable: "ACP_AGENT_HOME")
+                .AddHttpAgentSession("http-agent", o => { o.BaseUrl = "https://endpoint.test"; o.ApiKey = "k"; },
+                    _ => new HttpClient(endpoint, disposeHandler: false))
+                .AddAgentProvider(_ => DialectStandIn.Provider(runner));
+            if (tool is not null) b.AddTool(_ => tool);
+        });
         return services.BuildServiceProvider();
     }
 
