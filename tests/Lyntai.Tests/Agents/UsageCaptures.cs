@@ -27,7 +27,28 @@ internal static class UsageCaptures
     public const string ClaudeWeekFull_2_1_296 =
         """{"type":"control_response","response":{"subtype":"success","request_id":"usage","response":{"subscription_type":"max","rate_limits_available":true,"rate_limits":{"five_hour":{"utilization":0,"resets_at":null},"seven_day":{"utilization":100,"resets_at":"2026-10-14T08:00:00.000000+00:00"},"seven_day_opus":null}}}}""";
 
+    /// <summary>SOURCE-DERIVED, claude 2.1.296: a use written with a fraction (23.5), one written as a whole (79) and
+    /// one with a trailing zero (12.50), on the five-hour window, the week and a limit row.</summary>
+    public const string ClaudeFractional_2_1_296 =
+        """{"type":"control_response","response":{"subtype":"success","request_id":"usage","response":{"subscription_type":"pro","rate_limits_available":true,"rate_limits":{"five_hour":{"utilization":23.5,"resets_at":"2026-10-12T14:00:00.000000+00:00"},"seven_day":{"utilization":79,"resets_at":"2026-10-15T09:30:00.000000+00:00"},"limits":[{"kind":"session","percent":12.50,"severity":"normal","resets_at":"2026-10-12T14:00:00.000000+00:00","scope":null}]}}}}""";
+
+    /// <summary>SOURCE-DERIVED, claude 2.1.296: the account's own windows under their limits and a model-scoped week
+    /// (<c>seven_day_opus</c>) at 100, with a limit row carrying that scope. The shape of a scoped row on a real
+    /// signed-in account is not established.</summary>
+    public const string ClaudeScopedWeekFull_2_1_296 =
+        """{"type":"control_response","response":{"subtype":"success","request_id":"usage","response":{"subscription_type":"max","rate_limits_available":true,"rate_limits":{"five_hour":{"utilization":40,"resets_at":"2026-10-12T14:00:00.000000+00:00"},"seven_day":{"utilization":60,"resets_at":"2026-10-15T09:30:00.000000+00:00"},"seven_day_opus":{"utilization":100,"resets_at":"2026-10-15T09:30:00.000000+00:00"},"seven_day_sonnet":null,"limits":[{"kind":"weekly_all","percent":60,"severity":"normal","resets_at":"2026-10-15T09:30:00.000000+00:00","scope":null},{"kind":"weekly_scoped","percent":100,"severity":"critical","resets_at":"2026-10-15T09:30:00.000000+00:00","scope":"opus"}]}}}}""";
+
     // ── codex ─────────────────────────────────────────────────────────────────────────────────────────
+
+    /// <summary>SOURCE-DERIVED, codex-cli 0.160.0: a fractional use on each window (1.5 and 15.25).</summary>
+    public const string CodexFractional_0_160_0 =
+        """{"id":2,"result":{"rateLimits":{"limitId":"codex","primary":{"usedPercent":1.5,"windowDurationMins":300,"resetsAt":1792000000},"secondary":{"usedPercent":15.25,"windowDurationMins":10080,"resetsAt":1792400000},"planType":"plus"}}}""";
+
+    /// <summary>SOURCE-DERIVED, codex-cli 0.160.0: the account's own limit (<c>codex</c>) and a second one
+    /// (<c>codex_other</c>) in <c>rateLimitsByLimitId</c>, whose weekly window is full. The shape of a second limit on
+    /// a real signed-in account is not established.</summary>
+    public const string CodexSecondLimit_0_160_0 =
+        """{"id":2,"result":{"rateLimits":{"limitId":"codex","primary":{"usedPercent":1,"windowDurationMins":300,"resetsAt":1792000000},"secondary":{"usedPercent":15,"windowDurationMins":10080,"resetsAt":1792400000},"planType":"pro"},"rateLimitsByLimitId":{"codex":{"limitId":"codex","primary":{"usedPercent":1,"windowDurationMins":300,"resetsAt":1792000000}},"codex_other":{"limitId":"codex_other","primary":null,"secondary":{"usedPercent":100,"windowDurationMins":10080,"resetsAt":1792400000}}}}}""";
 
     /// <summary>REAL, codex-cli 0.163.0-alpha.10.2, an empty home (signed out). The initialize answer is trimmed to
     /// what carries no path or machine name.</summary>

@@ -6614,3 +6614,15 @@ became `StepsFor(clientName, clientVersion)` (internal): Codex writes `initializ
 `AgentUsageSourceTests` and `AgentUsageDialectTests` hold the refusals, the registration bounds and the Claude request unchanged. No decision recorded: **D238** states it. Lanes `inference` + `platform`.
 
 - AG22 — the host names where the usage server runs and what it is told of its client
+
+## Part 443 — AG23: an allowance reading carries what the server stated (2026-11-01)
+
+✅ done 2026-11-01 — **Outcome:** `AgentAllowanceWindow.UsedPercent` became `double?` with `UsedStep` and `Scope` (init properties, so the four-argument constructor stays); `AgentAllowanceLimit` is new, and `AgentAllowanceReading` gained
+`Limits` and `LimitId`; the `ApiSurface` baseline moved from the emitted `.actual`, no `### Breaking`. `WireJson.Percent` reads a use as written and its step from the raw digits. Both dialects keep a window that states a use or a reset and
+leave out one that states neither; the Claude reader adds `seven_day_<scope>` windows after its two and `rate_limits.limits[]` rows (kind required, severity never read); the Codex reader adds the `rateLimitsByLimitId` limits other than
+`rateLimits.limitId` as scoped windows. `HasRoom` reads `Scope` null only. A present value that does not read (a use outside 0 to 100 or not a number, a malformed reset, a limit row without a kind, a scoped window of the wrong
+type, a Codex window with a use or a reset and no length) is still `unrecognised-answer`. **Read here:** with no own `limitId` stated the other Codex limits are not read, since the own entry cannot be told apart and would
+repeat; a reading with no own window at all has `HasRoom` null. **Not established:** the shape of a scoped row and of a second Codex limit on a signed-in account; `ClaudeScopedWeekFull_2_1_296` and `CodexSecondLimit_0_160_0` are
+SOURCE-DERIVED and a capture of the real answer should replace them. Proof: `AgentUsageDialectTests` holds each case beside a malformed value. No decision recorded: **D237** states it. Lanes `platform` + `inference`.
+
+- AG23 — an allowance reading carries what the server stated

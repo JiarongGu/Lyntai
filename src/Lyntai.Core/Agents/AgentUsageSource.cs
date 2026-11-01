@@ -17,21 +17,40 @@ public interface IAgentUsageSource
     Task<AgentAllowanceReading> ReadAllowanceAsync(AgentAccount account, CancellationToken ct = default);
 }
 
-/// <summary>One window of an account's allowance, as the vendor's server stated it.</summary>
+/// <summary>One window of an account's allowance, as the vendor's server stated it. A window the server states in part
+/// is kept in part: a missing use, length or reset is null, never made up.</summary>
 /// <param name="Name">What the window is: <see cref="FiveHour"/>, <see cref="Weekly"/>, or <c>"{n}-minutes"</c> for a
 /// window of another length, named by that length and not guessed.</param>
-/// <param name="UsedPercent">How much of the window is used, a whole percent from 0 to 100 as the vendors state it.
-/// Null when the server stated none.</param>
+/// <param name="UsedPercent">How much of the window is used, from 0 to 100, kept as the server wrote it (<c>23.5</c> is
+/// 23.5). Null when the server stated none.</param>
 /// <param name="Length">The window's length, when the server states it or the name implies it.</param>
 /// <param name="ResetsAt">When the window resets, when the server states it (a window not yet opened states none).</param>
-public sealed record AgentAllowanceWindow(string Name, int? UsedPercent, TimeSpan? Length, DateTimeOffset? ResetsAt)
+public sealed record AgentAllowanceWindow(string Name, double? UsedPercent, TimeSpan? Length, DateTimeOffset? ResetsAt)
 {
     /// <summary>A window of five hours.</summary>
     public const string FiveHour = "five-hour";
 
     /// <summary>A window of seven days.</summary>
     public const string Weekly = "weekly";
+
+    /// <summary>What the window limits when it is not the account's own limit: Claude's suffix after
+    /// <c>seven_day_</c> (<c>"opus"</c>), a Codex limit's <c>limitId</c>. Null for the account's own windows, the only
+    /// ones <see cref="AgentAllowanceReading.HasRoom"/> reads.</summary>
+    public string? Scope { get; init; }
+
+    /// <summary>The least difference the server's written digits show in <see cref="UsedPercent"/>: 1 for <c>23</c>,
+    /// 0.1 for <c>23.5</c>. Null when no use was stated or it was written in exponent form.</summary>
+    public double? UsedStep { get; init; }
 }
+
+/// <summary>One limit row the server stated beside its windows (Claude's <c>rate_limits.limits[]</c>), as it wrote it.
+/// The server's severity for the row is its judgement and is not carried.</summary>
+/// <param name="Kind">The server's word for the limit (<c>"session"</c>, <c>"weekly_all"</c>); not a value to parse.</param>
+/// <param name="Scope">What the row limits when it is not the account's own limit; null for the account's own.</param>
+/// <param name="UsedPercent">The use the row states, from 0 to 100, kept as written; null when it stated none.</param>
+/// <param name="UsedStep">The least difference the written digits show, as <see cref="AgentAllowanceWindow.UsedStep"/>.</param>
+/// <param name="ResetsAt">When the row resets, when the server states it.</param>
+public sealed record AgentAllowanceLimit(string Kind, string? Scope, double? UsedPercent, double? UsedStep, DateTimeOffset? ResetsAt);
 
 /// <summary>Why a reading is unknown. The values are stable words for a host to branch on or log; none is a format
 /// to parse beyond equality.</summary>
@@ -78,15 +97,25 @@ public static class AgentAllowanceUnknown
 /// <summary>What an account's allowance read as: windows with their use, or unknown with the reason. Absent is
 /// unknown and never zero or full.
 /// <para>Windows are the vendor's own and are not normalised across vendors beyond their names; compare readings
-/// of the same provider. The reading carries no account identifier and no credential.</para></summary>
+/// of the same provider. <b>What it does not carry</b>: the account id, the credits or balance, and the severity the
+/// server gives a limit. A value the server stated that this reader cannot recognise makes the whole reading unknown
+/// rather than leaving it out.</para></summary>
 public sealed record AgentAllowanceReading
 {
     /// <summary>When the library read the answer, on its own clock. Pass it to
     /// <see cref="AgentAccountPool.ReportReadingAsync"/> as <c>measuredAt</c>.</summary>
     public required DateTimeOffset MeasuredAt { get; init; }
 
-    /// <summary>The windows the server stated; empty exactly when <see cref="UnknownReason"/> is set.</summary>
+    /// <summary>The windows the server stated, the account's own and any scoped one; empty exactly when
+    /// <see cref="UnknownReason"/> is set.</summary>
     public IReadOnlyList<AgentAllowanceWindow> Windows { get; init; } = [];
+
+    /// <summary>The limit rows the server stated beside its windows (Claude's <c>limits[]</c>), by kind and scope;
+    /// empty when it stated none or the door's server sends none.</summary>
+    public IReadOnlyList<AgentAllowanceLimit> Limits { get; init; } = [];
+
+    /// <summary>The name the server gives the account's own limit (Codex's <c>limitId</c>), when it states one.</summary>
+    public string? LimitId { get; init; }
 
     /// <summary>The plan the server named for the account, when it did (<c>"team"</c>, <c>"plus"</c>); the vendor's
     /// word, not a value to match on.</summary>
@@ -99,16 +128,19 @@ public sealed record AgentAllowanceReading
     public bool IsKnown => UnknownReason is null && Windows.Count > 0;
 
     /// <summary>Whether the account has room, for <see cref="AgentAccountPool.ReportReadingAsync"/>'s
-    /// <c>hasRoom</c>: false when a stated window is full (100 percent), true when every stated window shows use
-    /// under it, null — unknown — when the reading is unknown or a window states no use. Room in the windows the
-    /// server stated is not room in one it did not.</summary>
+    /// <c>hasRoom</c>: false when one of the account's own windows (<see cref="AgentAllowanceWindow.Scope"/> null) is
+    /// full (100 percent), true when every one shows use under it, null — unknown — when the reading is unknown,
+    /// states no own window, or an own window states no use. A full scoped window is not an account with no room, and
+    /// room in the windows the server stated is not room in one it did not; read <see cref="Windows"/> for a scope.</summary>
     public bool? HasRoom
     {
         get
         {
             if (!IsKnown) return null;
-            if (Windows.Any(w => w.UsedPercent >= 100)) return false;
-            return Windows.All(w => w.UsedPercent is not null) ? true : null;
+            var own = Windows.Where(w => w.Scope is null).ToList();
+            if (own.Count == 0) return null;
+            if (own.Any(w => w.UsedPercent >= 100)) return false;
+            return own.All(w => w.UsedPercent is not null) ? true : null;
         }
     }
 

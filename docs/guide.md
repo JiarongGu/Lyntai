@@ -1406,12 +1406,19 @@ Whether a read disturbs a turn running on the same home was not measured, so rea
 
 **The reading** (`AgentAllowanceReading`) holds the windows the server stated (`AgentAllowanceWindow`: `five-hour`,
 `weekly`, or `<n>-minutes` for another length, each with `UsedPercent`, `Length` and `ResetsAt` where stated), the
-`Plan` the server named and `MeasuredAt`, on the library's clock. **Anything else is unknown with a reason** from
+`Plan` the server named and `MeasuredAt`, on the library's clock. `UsedPercent` is kept as the server wrote it
+(`23.5` is 23.5), with a `UsedStep` of the least difference its digits show (1 for `23`, 0.1 for `23.5`, null in exponent
+form); a window stating a use or a reset is kept with the other null, and one stating neither is left out. A window with a
+`Scope` is not the account's own limit — Claude's `seven_day_<scope>` weeks, a Codex limit other than the own one from
+`rateLimitsByLimitId` — and `Limits` holds Claude's `limits[]` rows by kind and scope, `LimitId` Codex's name for the own
+limit. The reading does not carry the account id, the credits or any severity. **Anything else is unknown with a reason** from
 `AgentAllowanceUnknown` — a failure to start, a timeout, a server that ended, a signed-out account (`not-signed-in`,
-`allowance-not-reported`), or an answer that does not match what the validated version sends (`unrecognised-answer`)
-— and is never a guess or a zero. The library keeps no account id and no token. `reading.HasRoom` is false when a
-stated window is full, true when every stated window shows room, and null otherwise: it is exactly the pool's
-`hasRoom`, and wiring the two is yours.
+`allowance-not-reported`), or an answer that does not match what the validated version sends (`unrecognised-answer`,
+which a stated value this reader cannot recognise also reads) — and is never a guess or a zero. The library keeps no
+account id and no token. `reading.HasRoom` is false when one of the account's own windows (`Scope` null) is full, true when
+every one shows room, and null otherwise: it is exactly the pool's `hasRoom`, and wiring the two is yours. A full scoped
+week is not an account with no room; read `Windows` for a scope's own. **Not established:** the shape of a scoped row and
+of a second Codex limit on a signed-in account — their captures are derived from the source, not recorded.
 
 ## Durable jobs (`Lyntai.Jobs`)
 

@@ -15,22 +15,21 @@ LLM-ops layer (prompt registry, scoring, traces, memory). `AddLyntai(...)` and g
 
 <!-- open-items:begin — GENERATED. Edit the per-item `item:` markers, never this table. -->
 
-## Open items — 9 across 6 Parts: 4 startable, 2 blocked, 3 watch
+## Open items — 8 across 6 Parts: 3 startable, 2 blocked, 3 watch
 
 _Generated from the per-item `<!-- item: … -->` markers by `node devtools/dev.mjs check-backlog --write`._
 _Edit a marker, never this table — `verify` fails the moment the two disagree._
 
 | line | Part | item | state | waiting on |
 | ---: | ---: | --- | --- | --- |
-| 110 | 33 | GEN-VERIFY-FAL, the last line — the Hugging Face route | blocked · env | an hf_ token for the router route |
-| 151 | 75 | Decide what an aggregator's in-band `code` means | blocked · env+data | two or three real aggregators to measure an in-band code against |
-| 178 | 99 | `verify`'s test step intermittently fails EXACTLY 9 tests, and once aborted… | watch · data | the same nine tests to recur — the fix is unconfirmed as the cure, and a gr… |
-| 237 | 99 | `InputSegmenterTests.Counting_NFKC_is_LINEAR_in_the_length_of_the_text` fai… | watch · data | a recurrence under the full parallel run, with the ratio it read — the mess… |
-| 255 | 99 | `AgentUsageProcessTests.A_server_that_never_answers_is_ended_with_its_child… | watch · data | a recurrence under the full parallel run, with the load it ran under; it fa… |
-| 290 | 412 | AG16 — the event-stream rules, held by one theory | startable |  |
-| 306 | 416 | AG23 — an allowance reading carries what the server stated | startable |  |
-| 321 | 416 | AG24 — a host's policy for a version the library has not validated | startable |  |
-| 342 | 417 | MC8 — run the wrong-end instrument on an adjudicated corpus, with a bar wri… | startable |  |
+| 109 | 33 | GEN-VERIFY-FAL, the last line — the Hugging Face route | blocked · env | an hf_ token for the router route |
+| 150 | 75 | Decide what an aggregator's in-band `code` means | blocked · env+data | two or three real aggregators to measure an in-band code against |
+| 177 | 99 | `verify`'s test step intermittently fails EXACTLY 9 tests, and once aborted… | watch · data | the same nine tests to recur — the fix is unconfirmed as the cure, and a gr… |
+| 236 | 99 | `InputSegmenterTests.Counting_NFKC_is_LINEAR_in_the_length_of_the_text` fai… | watch · data | a recurrence under the full parallel run, with the ratio it read — the mess… |
+| 254 | 99 | `AgentUsageProcessTests.A_server_that_never_answers_is_ended_with_its_child… | watch · data | a recurrence under the full parallel run, with the load it ran under; it fa… |
+| 289 | 412 | AG16 — the event-stream rules, held by one theory | startable |  |
+| 304 | 416 | AG24 — a host's policy for a version the library has not validated | startable |  |
+| 325 | 417 | MC8 — run the wrong-end instrument on an adjudicated corpus, with a bar wri… | startable |  |
 
 <!-- open-items:end -->
 
@@ -299,24 +298,8 @@ stand on is **D233**, and the study's §7 is the order they are built in._
 
 _A host that consumes the layer asked three things of the usage reading (`D236` to `D238` answer them, each by the
 generic-library test; none asks for a consumer's shape). The types are unreleased, so a row reshapes them with its
-`ApiSurface` baseline moved from the emitted `.actual` and no `### Breaking` (**D235**). Order: AG23 and AG24 in either
-order. No row spends an account or calls a paid service; the unmeasured
+`ApiSurface` baseline moved from the emitted `.actual` and no `### Breaking` (**D235**). AG24 is the one left. No row spends an account or calls a paid service; the unmeasured
 fact is named where it bites. Captures are labelled REAL or SOURCE-DERIVED as `UsageCaptures` does._
-
-- [ ] **AG23 — an allowance reading carries what the server stated** (lanes `platform` + `inference`, **D237**). <!-- item: state=startable -->
-  `AgentAllowanceWindow` is a name, an integer percent, a length and a reset with no scope (`AgentUsageSource.cs:27`); the
-  Claude reader takes two windows (`ClaudeUsageDialect.cs:70-94`) and the Codex reader only `rateLimits`, where a fractional
-  percent makes the whole reading unknown (`CodexUsageDialect.cs:68-93`). **Contract.** As **D237**: `Scope`,
-  `UsedPercent` as `double?` with `UsedStep`, a window said in part kept, `Limits` (Claude's `limits[]` rows by kind and
-  scope, never severity), `LimitId`, Claude's `seven_day_<scope>` windows and Codex's `rateLimitsByLimitId` limits other than
-  the own one read as scoped windows, `HasRoom` over the unscoped windows only, a present unrecognisable value still unknown.
-  The XML doc names what the reading does not carry (the account id, the credits, the severity). **Proof.** Every existing
-  capture reads as before apart from the type; SOURCE-DERIVED captures for a fractional use on each vendor, a scoped week
-  at 100 with the account's own windows under it (`HasRoom` true), a window with a use and no reset and one with a reset and
-  no use, a `limits[]` row with a scope, and `rateLimitsByLimitId` with a second limit, each held both ways beside a
-  malformed value that stays unknown. **Not established:** the shape of a scoped row and of a second Codex limit on a real
-  signed-in account; the host holds recorded answers and can share them, and a capture of it should replace the
-  SOURCE-DERIVED one when it arrives.
 
 - [ ] **AG24 — a host's policy for a version the library has not validated** (lanes `platform` + `inference`, **D236**). <!-- item: state=startable -->
   The version gate is internal (`CliUsageSource.cs:77-82`; `requireValidatedVersion`), so a host that keeps an agent at a

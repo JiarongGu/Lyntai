@@ -96,6 +96,14 @@ every addition.
 
 ### Added
 
+- **An allowance reading carries what the server stated** (**D237**). `AgentAllowanceWindow.UsedPercent` is a `double?` kept as
+  written, with a `UsedStep` (1 for `23`, 0.1 for `23.5`; null in exponent form) and a `Scope` (null for the account's own limit). A
+  window stating a use or a reset is kept in part, and one stating neither is left out. Claude's `seven_day_<scope>` windows and
+  Codex's `rateLimitsByLimitId` limits other than the own one read as scoped windows; a fractional Codex percent is now a reading
+  where it made the whole reading unknown. The reading gains `Limits` (Claude's `limits[]` rows by kind and scope, never their
+  severity) and `LimitId` (Codex's name for the own limit). `HasRoom` reads the account's own windows only, so a full model-scoped
+  week no longer reads as no room. A value present that the reader cannot recognise still makes the reading unknown. The scoped
+  row and a second Codex limit are SOURCE-DERIVED; their shape on a signed-in account is not established.
 - **A host names where the usage server runs and what it is told of its client** (**D238**). `AgentUsageReadingOptions`
   gains `WorkingDirectory` (a function of the account: a fully qualified path, or null for the fresh folder removed after the
   read; a named folder is created when absent and never removed or emptied, and a path that is not fully qualified reads

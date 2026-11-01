@@ -67,6 +67,18 @@ sealed class Lyntai.Agents.AgentAllowance
     GetHashCode() : Int32
     Id : String { get; init; }
     ToString() : String
+sealed class Lyntai.Agents.AgentAllowanceLimit
+    .ctor(String Kind, String Scope, Nullable<Double> UsedPercent, Nullable<Double> UsedStep, Nullable<DateTimeOffset> ResetsAt)
+    Deconstruct(String& Kind, String& Scope, Nullable`1& UsedPercent, Nullable`1& UsedStep, Nullable`1& ResetsAt) : Void
+    Equals(AgentAllowanceLimit other) : Boolean
+    Equals(Object obj) : Boolean
+    GetHashCode() : Int32
+    Kind : String { get; init; }
+    ResetsAt : Nullable<DateTimeOffset> { get; init; }
+    Scope : String { get; init; }
+    ToString() : String
+    UsedPercent : Nullable<Double> { get; init; }
+    UsedStep : Nullable<Double> { get; init; }
 sealed class Lyntai.Agents.AgentAllowanceReading
     .ctor()
     Equals(AgentAllowanceReading other) : Boolean
@@ -74,6 +86,8 @@ sealed class Lyntai.Agents.AgentAllowanceReading
     GetHashCode() : Int32
     HasRoom : Nullable<Boolean> { get; }
     IsKnown : Boolean { get; }
+    LimitId : String { get; init; }
+    Limits : IReadOnlyList<AgentAllowanceLimit> { get; init; }
     MeasuredAt : DateTimeOffset { get; init; } required
     Plan : String { get; init; }
     ToString() : String
@@ -93,7 +107,7 @@ static class Lyntai.Agents.AgentAllowanceUnknown
     VersionNotValidated : String const
     VersionUnreadable : String const
 sealed class Lyntai.Agents.AgentAllowanceWindow
-    .ctor(String Name, Nullable<Int32> UsedPercent, Nullable<TimeSpan> Length, Nullable<DateTimeOffset> ResetsAt)
+    .ctor(String Name, Nullable<Double> UsedPercent, Nullable<TimeSpan> Length, Nullable<DateTimeOffset> ResetsAt)
     Deconstruct(String& Name, Nullable`1& UsedPercent, Nullable`1& Length, Nullable`1& ResetsAt) : Void
     Equals(AgentAllowanceWindow other) : Boolean
     Equals(Object obj) : Boolean
@@ -102,8 +116,10 @@ sealed class Lyntai.Agents.AgentAllowanceWindow
     Length : Nullable<TimeSpan> { get; init; }
     Name : String { get; init; }
     ResetsAt : Nullable<DateTimeOffset> { get; init; }
+    Scope : String { get; init; }
     ToString() : String
-    UsedPercent : Nullable<Int32> { get; init; }
+    UsedPercent : Nullable<Double> { get; init; }
+    UsedStep : Nullable<Double> { get; init; }
     Weekly : String const
 sealed class Lyntai.Agents.AgentBrief
     .ctor(String Text, Int32 Characters, Boolean WithinBound, AgentBriefOmitted Omitted)

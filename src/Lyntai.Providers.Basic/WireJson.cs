@@ -26,6 +26,25 @@ internal static class WireJson
     internal static long? Int64(JsonElement parent, string name) =>
         Property(parent, name, JsonValueKind.Number) is { } el && el.TryGetInt64(out var value) ? value : null;
 
+    /// <summary>A percent from 0 to 100 as the server wrote it, with the least difference its digits show (1 for
+    /// <c>23</c>, 0.1 for <c>23.5</c>; null for exponent form). Absent or null is a stated absence and reads true with
+    /// both null; false is a value present that is not a number in range.</summary>
+    internal static bool Percent(JsonElement parent, string name, out double? value, out double? step)
+    {
+        value = step = null;
+        if (parent.ValueKind != JsonValueKind.Object || !parent.TryGetProperty(name, out var el) || el.ValueKind == JsonValueKind.Null)
+            return true;
+        if (el.ValueKind != JsonValueKind.Number || !el.TryGetDouble(out var number) || !double.IsFinite(number) || number is < 0 or > 100)
+            return false;
+        value = number;
+
+        var text = el.GetRawText();
+        if (text.AsSpan().IndexOfAny('e', 'E') >= 0) return true;
+        var point = text.IndexOf('.');
+        step = point < 0 ? 1 : 1.0 / Math.Pow(10, text.Length - point - 1);
+        return true;
+    }
+
     /// <summary>A string-valued property, or null when absent or not a string.</summary>
     internal static string? String(JsonElement parent, string name) =>
         Property(parent, name, JsonValueKind.String)?.GetString();
