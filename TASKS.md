@@ -15,29 +15,28 @@ LLM-ops layer (prompt registry, scoring, traces, memory). `AddLyntai(...)` and g
 
 <!-- open-items:begin — GENERATED. Edit the per-item `item:` markers, never this table. -->
 
-## Open items — 16 across 6 Parts: 11 startable, 2 blocked, 3 watch
+## Open items — 15 across 6 Parts: 10 startable, 2 blocked, 3 watch
 
 _Generated from the per-item `<!-- item: … -->` markers by `node devtools/dev.mjs check-backlog --write`._
 _Edit a marker, never this table — `verify` fails the moment the two disagree._
 
 | line | Part | item | state | waiting on |
 | ---: | ---: | --- | --- | --- |
-| 117 | 33 | GEN-VERIFY-FAL, the last line — the Hugging Face route | blocked · env | an hf_ token for the router route |
-| 158 | 75 | Decide what an aggregator's in-band `code` means | blocked · env+data | two or three real aggregators to measure an in-band code against |
-| 185 | 99 | `verify`'s test step intermittently fails EXACTLY 9 tests, and once aborted… | watch · data | the same nine tests to recur — the fix is unconfirmed as the cure, and a gr… |
-| 244 | 99 | `InputSegmenterTests.Counting_NFKC_is_LINEAR_in_the_length_of_the_text` fai… | watch · data | a recurrence under the full parallel run, with the ratio it read — the mess… |
-| 262 | 99 | `AgentUsageProcessTests.A_server_that_never_answers_is_ended_with_its_child… | watch · data | a recurrence under the full parallel run, with the load it ran under; it fa… |
-| 297 | 412 | AG15 — an ACP dialect seam | startable |  |
-| 305 | 412 | AG16 — the event-stream rules, held by one theory | startable |  |
-| 313 | 412 | AG17 — an account that is a key, and the variables a provider reads | startable |  |
-| 322 | 412 | AG19 — an ACP permission request the host can answer | startable |  |
-| 337 | 416 | AG21 — the usage exchange writes each request after the answer it depends on | startable |  |
-| 349 | 416 | AG22 — the host names where the usage server runs and what it is told of it… | startable |  |
-| 362 | 416 | AG23 — an allowance reading carries what the server stated | startable |  |
-| 377 | 416 | AG24 — a host's policy for a version the library has not validated | startable |  |
-| 398 | 417 | MC3 — measure the candidate list's similarity basis | startable |  |
-| 406 | 417 | MC8 — run the wrong-end instrument on an adjudicated corpus, with a bar wri… | startable |  |
-| 419 | 417 | MC10 — a scope dense in ended entries still returns its current ones | startable |  |
+| 116 | 33 | GEN-VERIFY-FAL, the last line — the Hugging Face route | blocked · env | an hf_ token for the router route |
+| 157 | 75 | Decide what an aggregator's in-band `code` means | blocked · env+data | two or three real aggregators to measure an in-band code against |
+| 184 | 99 | `verify`'s test step intermittently fails EXACTLY 9 tests, and once aborted… | watch · data | the same nine tests to recur — the fix is unconfirmed as the cure, and a gr… |
+| 243 | 99 | `InputSegmenterTests.Counting_NFKC_is_LINEAR_in_the_length_of_the_text` fai… | watch · data | a recurrence under the full parallel run, with the ratio it read — the mess… |
+| 261 | 99 | `AgentUsageProcessTests.A_server_that_never_answers_is_ended_with_its_child… | watch · data | a recurrence under the full parallel run, with the load it ran under; it fa… |
+| 296 | 412 | AG15 — an ACP dialect seam | startable |  |
+| 304 | 412 | AG16 — the event-stream rules, held by one theory | startable |  |
+| 312 | 412 | AG19 — an ACP permission request the host can answer | startable |  |
+| 327 | 416 | AG21 — the usage exchange writes each request after the answer it depends on | startable |  |
+| 339 | 416 | AG22 — the host names where the usage server runs and what it is told of it… | startable |  |
+| 352 | 416 | AG23 — an allowance reading carries what the server stated | startable |  |
+| 367 | 416 | AG24 — a host's policy for a version the library has not validated | startable |  |
+| 388 | 417 | MC3 — measure the candidate list's similarity basis | startable |  |
+| 396 | 417 | MC8 — run the wrong-end instrument on an adjudicated corpus, with a bar wri… | startable |  |
+| 409 | 417 | MC10 — a scope dense in ended entries still returns its current ones | startable |  |
 
 <!-- open-items:end -->
 
@@ -309,15 +308,6 @@ stand on is **D233**, and the study's §7 is the order they are built in._
   event, `Taken` after a start and `Uncertain` after a tool call; a limit sentence a tool printed never classifies;
   cancellation ends the turn without a second terminal. **Proof.** the cases themselves, each shown failing against a
   door that breaks it (a planted double terminal); a stand-in a host registers is held to them with no edit here.
-
-- [ ] **AG17 — an account that is a key, and the variables a provider reads** (lanes `inference` + `platform`). <!-- item: state=startable -->
-  `AgentAccount` is a provider, a name and a home, so an agent run on an API key or through a gateway cannot vary per
-  turn, and a host that wants an agent not to inherit another provider's key has no list to strip from. **Contract.**
-  `AgentAccount` gains optional environment entries the host supplies for the turn; `AgentAccountMapping` names the
-  variables the provider reads, and an entry outside that set is refused before a spawn. The value is never stored, never
-  in argv, a log line, a diagnostic, the pool's persisted hold or a transcript (**D20**; `AgentMcpServer.AuthToken`'s
-  handling is the precedent). **Proof.** A turn under a key account reaches the child; a name outside the set is refused
-  with nothing spawned; a sentinel value appears nowhere in the pool's store, the events or the diagnostics.
 
 - [ ] **AG19 — an ACP permission request the host can answer** (lane `inference`). A read-only turn rejects every <!-- item: state=startable -->
   request and a write turn allows each once, so an application that lets a person decide cannot. **Contract.** An

@@ -6,7 +6,8 @@ public sealed class AgentPoolOptions
 {
     /// <summary>The ordered choices, at least one. A choice's accounts are walked before the next choice. An account
     /// is identified by its <see cref="AgentAccount.Provider"/> (its key) and <see cref="AgentAccount.Name"/>: the
-    /// same name in two choices is the same account and must carry the same <see cref="AgentAccount.Home"/>. An
+    /// same name in two choices is the same account and must carry the same <see cref="AgentAccount.Home"/> and
+    /// <see cref="AgentAccount.Environment"/>. An
     /// account's key is its choice's provider or the agent that provider shares
     /// (<see cref="AgentProviderDescriptor.Agent"/>); listing one account in the choices of several providers of that
     /// agent is how one account serves every door, and a restriction on it holds in all of them.</summary>
@@ -40,7 +41,7 @@ public sealed class AgentPoolOptions
         if (Choices.Count == 0)
             throw new ArgumentException("An agent account pool needs at least one choice.", nameof(Choices));
 
-        var homes = new Dictionary<(string, string), string>();
+        var listed = new Dictionary<(string, string), AgentAccount>();
         foreach (var choice in Choices)
         {
             ArgumentNullException.ThrowIfNull(choice);
@@ -60,10 +61,19 @@ public sealed class AgentPoolOptions
                         $"Account '{account.Name}' belongs to '{account.Provider}', but the choice is of provider '{choice.Provider}'" +
                         (key == choice.Provider ? "." : $" (agent '{key}')."),
                         nameof(Choices));
-                if (!homes.TryAdd((account.Provider, account.Name), account.Home)
-                    && !string.Equals(homes[(account.Provider, account.Name)], account.Home, StringComparison.Ordinal))
-                    throw new ArgumentException(
-                        $"Account '{account.Name}' of '{account.Provider}' is listed with two different homes.", nameof(Choices));
+                if (!listed.TryAdd((account.Provider, account.Name), account))
+                {
+                    var first = listed[(account.Provider, account.Name)];
+                    if (!string.Equals(first.Home, account.Home, StringComparison.Ordinal))
+                        throw new ArgumentException(
+                            $"Account '{account.Name}' of '{account.Provider}' is listed with two different homes.", nameof(Choices));
+                    // the message names the variables and never a value
+                    if (first.Environment.Count != account.Environment.Count
+                        || first.Environment.Any(e => !account.Environment.TryGetValue(e.Key, out var v)
+                            || !string.Equals(e.Value, v, StringComparison.Ordinal)))
+                        throw new ArgumentException(
+                            $"Account '{account.Name}' of '{account.Provider}' is listed with two different environments.", nameof(Choices));
+                }
             }
         }
     }

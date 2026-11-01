@@ -12,11 +12,16 @@ internal static class ClaudeAgentDoor
 
     public const string AccountHomeVariable = "CLAUDE_CONFIG_DIR";
 
+    /// <summary>The home variable and the credentials and gateway address the program reads, declared from its
+    /// documentation; none is measured here.</summary>
+    public static readonly AgentAccountMapping Mapping = new(
+        AccountHomeVariable, ["ANTHROPIC_API_KEY", "ANTHROPIC_AUTH_TOKEN", "CLAUDE_CODE_OAUTH_TOKEN", "ANTHROPIC_BASE_URL"]);
+
     public static AgentProviderDescriptor Describe(string providerId, string? agent = null) => new()
     {
         Id = providerId,
         Agent = agent,
-        Accounts = new AgentAccountMapping(AccountHomeVariable),
+        Accounts = Mapping,
         Doors =
         [
             new AgentDoor

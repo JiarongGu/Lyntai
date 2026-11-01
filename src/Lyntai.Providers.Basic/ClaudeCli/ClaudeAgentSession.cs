@@ -61,8 +61,10 @@ public sealed class ClaudeAgentSession : IAgentSession
     /// the tools it exists to use looks like a working agent. So does a
     /// <see cref="AgentSessionOptions.ResumeToken"/> the CLI would read as an OPTION rather than an id: blank,
     /// or starting with <c>-</c>. A non-null <see cref="AgentSessionOptions.Account"/> sets
-    /// <c>CLAUDE_CONFIG_DIR</c> to its <see cref="AgentAccount.Home"/> for this turn's child, over the same variable
-    /// in the ctor's environment; a blank name or a home with a control character refuses the turn too.</param>
+    /// <c>CLAUDE_CONFIG_DIR</c> to its <see cref="AgentAccount.Home"/> and sets its
+    /// <see cref="AgentAccount.Environment"/> for this turn's child, over the same variables in the ctor's
+    /// environment; a blank name, a home with a control character, or an entry the door does not read
+    /// (<see cref="AgentAccountMapping.Variables"/>) refuses the turn too.</param>
     /// <param name="ct">Cancels the turn and kills the process tree.</param>
     public async IAsyncEnumerable<AgentStreamEvent> StreamAsync(
         AgentSessionOptions options, [EnumeratorCancellation] CancellationToken ct = default)
@@ -73,7 +75,7 @@ public sealed class ClaudeAgentSession : IAgentSession
             yield break;
         }
 
-        if (!AgentAccounts.TryMap(options.Account, ClaudeAgentDoor.AccountHomeVariable, out var accountEnvironment, out var accountRefusal))
+        if (!AgentAccounts.TryMap(options.Account, ClaudeAgentDoor.Mapping, out var accountEnvironment, out var accountRefusal))
         {
             yield return CliAgentLoop.Refused(AgentAccounts.RefusedSubtype, accountRefusal);
             yield break;

@@ -38,8 +38,12 @@ public static class AcpBuilderExtensions
     /// the same string on each door of that agent. Needs <paramref name="accountHomeVariable"/>, and every door of the
     /// agent must read the home through the same variable: a door that does not is refused at this call, never handed
     /// a home its program does not read. Null keeps the accounts to <paramref name="id"/>.</param>
-    /// <exception cref="ArgumentException"><paramref name="agent"/> is given without
-    /// <paramref name="accountHomeVariable"/>.</exception>
+    /// <param name="accountVariables">The other variables the agent reads for an API key or a gateway's address, exact
+    /// names: what an <see cref="AgentAccount.Environment"/> entry may set, and what a host strips from an inherited
+    /// environment (<see cref="AgentAccountMapping.Variables"/>). None = an account entry is refused. Needs
+    /// <paramref name="accountHomeVariable"/>.</param>
+    /// <exception cref="ArgumentException"><paramref name="agent"/> or <paramref name="accountVariables"/> is given
+    /// without <paramref name="accountHomeVariable"/>, or a variable name is not one an environment can carry.</exception>
     /// <exception cref="InvalidOperationException"><paramref name="agent"/> is shared with a door registered through
     /// a descriptor that reads the home through another variable.</exception>
     public static LyntaiBuilder AddAcpAgentSession(
@@ -49,14 +53,17 @@ public static class AcpBuilderExtensions
         IReadOnlyList<string>? arguments = null,
         IReadOnlyDictionary<string, string?>? environment = null,
         string? accountHomeVariable = null,
-        string? agent = null)
+        string? agent = null,
+        IEnumerable<string>? accountVariables = null)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(id);
         ArgumentException.ThrowIfNullOrWhiteSpace(command);
         if (agent is not null && accountHomeVariable is null)
             throw new ArgumentException("An agent's accounts are shared through the variable its program reads the home from.", nameof(agent));
+        if (accountVariables is not null && accountHomeVariable is null)
+            throw new ArgumentException("The variables an account may set are declared with the home variable.", nameof(accountVariables));
         ArgumentException.ThrowIfNullOrWhiteSpace(agent ?? id, nameof(agent));
-        var descriptor = AcpAgentDoor.Describe(id, accountHomeVariable, agent);
+        var descriptor = AcpAgentDoor.Describe(id, accountHomeVariable, agent, accountVariables);
         builder.AddAgentProvider(descriptor, sp => new AgentProvider(descriptor,
             _ => sp.GetRequiredKeyedService<IAgentSession>(id)));
         builder.Services.AddKeyedSingleton<IAgentSession>(id, (sp, _) => new AcpAgentSession(
@@ -66,7 +73,8 @@ public static class AcpBuilderExtensions
             arguments,
             environment,
             accountHomeVariable,
-            logger: sp.GetService<ILogger<AcpAgentSession>>()));
+            logger: sp.GetService<ILogger<AcpAgentSession>>(),
+            accountVariables: accountVariables));
         return builder;
     }
 }

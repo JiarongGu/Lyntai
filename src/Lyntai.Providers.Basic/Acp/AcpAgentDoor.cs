@@ -11,11 +11,12 @@ internal static class AcpAgentDoor
 {
     public const string DoorId = "acp";
 
-    public static AgentProviderDescriptor Describe(string providerId, string? accountHomeVariable, string? agent = null) => new()
+    public static AgentProviderDescriptor Describe(
+        string providerId, string? accountHomeVariable, string? agent = null, IEnumerable<string>? accountVariables = null) => new()
     {
         Id = providerId,
         Agent = agent,
-        Accounts = accountHomeVariable is null ? null : new AgentAccountMapping(accountHomeVariable),
+        Accounts = accountHomeVariable is null ? null : new AgentAccountMapping(accountHomeVariable, accountVariables),
         Doors =
         [
             new AgentDoor
@@ -40,7 +41,7 @@ internal static class AcpAgentDoor
                         accountHomeVariable is null ? AgentSupport.Unsupported : AgentSupport.Supported,
                         accountHomeVariable is null
                             ? "registered without the agent's configuration-home variable"
-                            : $"the account's home in {accountHomeVariable} for the child"),
+                            : $"the account's home in {accountHomeVariable}, and its entries among the declared variables, for the child"),
                     Declared(AgentAbilities.UsageReading, AgentSupport.Unsupported, "the door reads no allowance: the protocol has no usage question, and a turn reports its own usage"),
                 ],
             },

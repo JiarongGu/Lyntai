@@ -33,21 +33,22 @@ enum Lyntai.Agents.AgentAbilitySource
     value__ : Int32
 sealed class Lyntai.Agents.AgentAccount
     .ctor()
+    Environment : IReadOnlyDictionary<String,String> { get; init; }
     Equals(AgentAccount other) : Boolean
     Equals(Object obj) : Boolean
     GetHashCode() : Int32
-    Home : String { get; init; } required
+    Home : String { get; init; }
     Name : String { get; init; } required
     Provider : String { get; init; } required
     ToString() : String
 sealed class Lyntai.Agents.AgentAccountMapping
-    .ctor(String HomeVariable)
-    Deconstruct(String& HomeVariable) : Void
+    .ctor(String homeVariable, IEnumerable<String> variables = null)
     Equals(AgentAccountMapping other) : Boolean
     Equals(Object obj) : Boolean
     GetHashCode() : Int32
-    HomeVariable : String { get; init; }
+    HomeVariable : String { get; }
     ToString() : String
+    Variables : IReadOnlyList<String> { get; }
 sealed class Lyntai.Agents.AgentAccountPool
     .ctor(AgentPoolOptions options, IKeyValueStore store = null, TimeProvider time = null, IEnumerable<IAgentAllowanceSource> allowances = null, IAgentAccountPolicy policy = null, ILogger<AgentAccountPool> logger = null, IEnumerable<AgentProviderDescriptor> providers = null)
     AbandonAsync(AgentPick pick, CancellationToken ct = default) : Task

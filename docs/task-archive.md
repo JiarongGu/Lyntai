@@ -6523,3 +6523,17 @@ without `Retry-After`, 402, 401, 503, an in-band error buffered and streamed), t
 from the emitted `.actual`. Lanes `platform` and `inference`.
 
 - AG14 — an HTTP door: `IToolLoop` as an agent provider
+
+## Part 436 — AG17: an account that is a key, and the variables a provider reads (2026-11-01)
+
+✅ done 2026-11-01 — **Outcome:** `AgentAccount.Home` is optional and `AgentAccount.Environment` carries the entries a host supplies for the turn; `AgentAccountMapping`
+gains `Variables` (the home variable first, then the others the provider reads), declared by the claude door (`ANTHROPIC_API_KEY`, `ANTHROPIC_AUTH_TOKEN`,
+`CLAUDE_CODE_OAUTH_TOKEN`, `ANTHROPIC_BASE_URL`) and the codex door (`OPENAI_API_KEY`, `CODEX_API_KEY`) from the programs' documentation, and by `AddAcpAgentSession(accountVariables:)`.
+`AgentAccounts.TryMap` refuses, as `account-invalid` before a spawn, an entry outside the set, the home variable given as an entry, a value with a control character, and an
+account with neither a home nor an entry; every message names a variable and no value. **What the row left open, read here:** an empty value is allowed and set empty (a gateway
+that takes its key in one variable blanks another that way); `ToString` lists the entry names only (a record's own would print each value); two listings of one account
+must carry the same entries; a usage read of a key account is `account-refused`; the pool needed no change because it files an account by provider and name. The variable
+lists are declared, not measured. Proof: `AgentAccountTests` (both CLI doors; a sentinel absent from events, logs, argv, the pool's store and every `ToString`), `AcpAgentSessionTests`,
+`AgentUsageSourceTests`, and the `ApiSurface` baselines moved from the emitted `.actual`. Lanes `inference` and `platform`.
+
+- AG17 — an account that is a key, and the variables a provider reads

@@ -194,6 +194,10 @@ AgentFailure
   `AgentProvider` refuses an account of another provider, and each session refuses a blank name or a home with a
   control character, all before a spawn (`docs/guide.md` §CLI-agent session). The library never opens the home
   and does not check that it exists, since a runner may place the child on another machine.
+  **As built (AG17):** an account may instead be a key: `Home` is optional and `Environment` carries entries the host
+  supplies for the turn, each a name in `AgentAccountMapping.Variables` (the provider's own declared list, the home
+  variable first) or the turn is refused before a spawn. A value is never stored, logged or put in argv, and the pool
+  files an account by `Provider` and `Name` only.
 - **The pool** takes an ordered list of choices (provider, model, effort) and the accounts of each, and
   answers the first choice and account that no active restriction forbids, **walking a choice's accounts
   before the next choice**. It is asked once per turn, so **a rotation happens at a turn's end and never

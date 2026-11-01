@@ -118,6 +118,16 @@ every addition.
   the response's own status, `Retry-After` and error envelope through `ReadHttpFailure`, a transport fault being `Transient`; `Delivery`
   is `NeverSent` only for a connection that never opened, `Taken` once any response arrived, and `Uncertain` after a tool ran or for a
   request that may have left unanswered. A cancelled call propagates and is never a failure. `docs/guide.md` says how to compose it.
+- **An `AgentAccount` can be a key, and a provider declares the variables it reads.** An agent run on an API key or through a
+  gateway could not vary per turn, because an account was a name and a home, and a host that wanted an agent not to inherit another
+  provider's key had no list to strip from. `AgentAccount.Home` is now optional and `AgentAccount.Environment` carries entries the
+  host supplies for the turn; `AgentAccountMapping.Variables` names what the provider reads (the home variable first), and an entry
+  outside it, the home variable as an entry, or a value holding a control character refuses the turn as `account-invalid` before a
+  spawn. The claude door declares `ANTHROPIC_API_KEY`, `ANTHROPIC_AUTH_TOKEN`, `CLAUDE_CODE_OAUTH_TOKEN` and `ANTHROPIC_BASE_URL`, the
+  codex door `OPENAI_API_KEY` and `CODEX_API_KEY`, from the programs' documentation and not a measurement; `AddAcpAgentSession` takes
+  `accountVariables`. A value reaches the child's environment and nothing else (D20): never argv, a log line, a diagnostic, an event,
+  `AgentAccount.ToString()` (it lists the names) or the pool's store, which files an account by provider and name. A usage read of a key
+  account is `account-refused`. `docs/guide.md` says how to strip another provider's variables.
 - **The Claude CLI door keeps a subagent's lines apart from the session's, and `ToolCall` and `ToolResult` carry `ParentCallId`.** A
   subagent's lines reach the session's stdout with `parent_tool_use_id` set to the call that spawned it, and the reader never read the
   field: a subagent's `TodoWrite` replaced the session's plan, its usage ticked as the turn's, and its last text or error field could
