@@ -6537,3 +6537,18 @@ lists are declared, not measured. Proof: `AgentAccountTests` (both CLI doors; a 
 `AgentUsageSourceTests`, and the `ApiSurface` baselines moved from the emitted `.actual`. Lanes `inference` and `platform`.
 
 - AG17 — an account that is a key, and the variables a provider reads
+
+## Part 437 — AG15: an ACP extension seam (2026-11-01)
+
+✅ done 2026-11-01 — **Outcome:** the extensions of the two agents the ACP door knew, read inline for every agent, are now three shipped `IAcpExtensionReader`s (`AcpExtensionReaders.Claude`, `.Codex`,
+`.AirSessionFailure`; `.Default` is all three), and `AddAcpAgentSession(extensions:)` and `AcpAgentSession`'s constructor take the set a door reads. A reader answers three questions with a
+default of nothing: an update's extension (events, and a failure held until the turn fails), an error (an `AgentFailure`), and a prompt answer's end (a failure stated on a turn ended
+normally). The door keeps the protocol's own reads: the sign-in code, the stop reasons, the model option. **Read here, where the row left it open:** the public name is not
+"dialect" (**D159** retired the word from the public surface); a set is per registration, not a DI collection, because two agents' doors read different keys; a held failure is replaced by the
+same reader's next reading and a null reading clears nothing, which is how the AIR warning that replaces an earlier error and an `allowed` frame that does not both keep their old behaviour;
+a reader's `SessionStarted` or `SessionEnded` is dropped, so a turn still ends once; a reader's JSON shape fault loses its own reading only. No decision was recorded: no alternative
+the study left open constrains later work. Proof: every `AcpAgentSessionTests` case unchanged; `AcpExtensionReaderTests` with a STAND-IN agent whose keys no shipped reader knows (read by its
+registered reader, nothing from the shipped set), narrowing, an empty set, held and cleared failures, a normally-ended failed turn, and two doors in one container; the `ApiSurface` baseline
+moved from the emitted `.actual`. Lane `inference`.
+
+- AG15 — an ACP dialect seam

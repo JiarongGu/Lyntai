@@ -1,6 +1,6 @@
 # The agent-provider layer against Daoris's accepted provider design — a study
 
-**Status: a study (`docs/documents.md`), 2026-10-29; AG20, AG11, AG12, AG10, AG13, AG14, AG17 and AG18 are built, the rest is not.** It reads Lyntai's layer
+**Status: a study (`docs/documents.md`), 2026-10-29; AG20, AG11, AG12, AG10, AG13, AG14, AG15, AG17 and AG18 are built, the rest is not.** It reads Lyntai's layer
 (`docs/agent-provider-layer.md`, **D219**, rows AG1 to AG9 closed in `docs/task-archive.md`) against two designs
 Daoris has since accepted, and files what a host that runs coding agents still needs from the layer as rows AG10 to
 AG20 in `TASKS.md` (Part 412 there) and **D233**. AG20 was ruled and built as **D234**, and §9 states how a host
@@ -157,7 +157,7 @@ to a provider; the rule language and skills; the plugin catalogue and its manife
 
 ## 7. Order of the rows
 
-AG20, AG11, AG12, AG10, AG13, AG14, AG17 and AG18 are built (**D234**, **D243**); AG15, AG16 and AG19 are startable, and this is the order they are built in, one sitting each:
+AG20, AG11, AG12, AG10, AG13, AG14, AG15, AG17 and AG18 are built (**D234**, **D243**); AG16 and AG19 are startable, and this is the order they are built in, one sitting each:
 
 1. **AG10**: a defect against measured evidence in a shipped reader, small, and it needs nothing.
 2. **AG11**, then **AG12**: the second reads the refusal the first makes, and a pool pick must not drop a model
@@ -202,7 +202,7 @@ the layer is yet carried, so the tiers below are about what a row can still touc
 | Tier | Members | A host may |
 |---|---|---|
 | Not touched by any open row | `IAgentProvider`, `AgentProvider`, `AgentProviderRegistry`, `AgentProviderDescriptor` with `Agent` and `AccountKey` (**D234**), `AgentDoor`, `AgentAbility`, `AgentAccount`, `AgentSessionOptions`, `IAgentSession` and the event records but `ToolCall` and `ToolResult`, `SessionEnded` with `AgentFailure`, `AgentRestriction` and `AgentDelivery`, `AgentAccountPool` with `AgentChoice`, `AgentPick`, `AgentSeat`, `AgentHold` and `IAgentAccountPolicy`, `AgentHandover`, the brief and transcript types, the retry decorator, `AddAgentProvider` in both forms, the pool, retry and brief registrations, and `agent:` on the three session registrations | build on them as they stand |
-| Grown by a row, additively | `ToolCall` and `ToolResult` (a `ParentCallId`, AG10); `AgentAbilities.All` (a `model` ability, AG11, and `permission-requests`, AG19; a provider that states fewer reads `Unknown` for the rest); `AgentAccount` and `AgentAccountMapping` (environment entries and the names a provider reads, AG17, built; it replaced `AgentAccount`'s test that it holds only a name and a home); the new event records `AgentTaskStarted` and `AgentTaskEnded` (AG18, built); `AddAcpAgentSession` (a dialect and a callback, AG15 and AG19); `AddHttpAgentSession` and `AgentDoorKinds.Http` (AG14, built); the HTTP failure reader (AG13, built); the usage reading: `AgentAllowanceWindow` and `AgentAllowanceReading` reshaped to state what the server did (AG23, **D237**), `AgentUsageReadingOptions` with a version policy, a working directory and a client identity (AG24, AG22, **D236**, **D238**) | build on the members that exist, and treat a member a row adds or reshapes as absent until its row lands |
+| Grown by a row, additively | `ToolCall` and `ToolResult` (a `ParentCallId`, AG10); `AgentAbilities.All` (a `model` ability, AG11, and `permission-requests`, AG19; a provider that states fewer reads `Unknown` for the rest); `AgentAccount` and `AgentAccountMapping` (environment entries and the names a provider reads, AG17, built; it replaced `AgentAccount`'s test that it holds only a name and a home); the new event records `AgentTaskStarted` and `AgentTaskEnded` (AG18, built); `AddAcpAgentSession` (a set of extension readers, AG15, built, and a callback, AG19); `AddHttpAgentSession` and `AgentDoorKinds.Http` (AG14, built); the HTTP failure reader (AG13, built); the usage reading: `AgentAllowanceWindow` and `AgentAllowanceReading` reshaped to state what the server did (AG23, **D237**), `AgentUsageReadingOptions` with a version policy, a working directory and a client identity (AG24, AG22, **D236**, **D238**) | build on the members that exist, and treat a member a row adds or reshapes as absent until its row lands |
 | Not a promise | `internal` types, XML-doc wording, log text, the SOURCE-DERIVED capture shapes (`TASKS.md` AG rows say which), an ability stated `Unknown`, and what `docs/guide.md` says an agent's wire carries beyond the neutral events | read them, never depend on them |
 
 Every row's change to a type in the first two tiers is made with its `ApiSurface` baseline moved from an emitted
