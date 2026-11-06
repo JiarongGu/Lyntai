@@ -1,11 +1,15 @@
 static class Lyntai.Agents.AgentAbilities
     Accounts : String const
     DisallowedTools : String const
+    Effort : String const
+    Environment : String const
     LiveUsage : String const
     McpServers : String const
     Model : String const
+    PermissionMode : String const
     PermissionRequests : String const
     PlanEvents : String const
+    Plugins : String const
     ReadOnlyGate : String const
     Resume : String const
     Steering : String const
@@ -76,6 +80,8 @@ sealed class Lyntai.Agents.AgentAllowanceLimit
     Kind : String { get; init; }
     ResetsAt : Nullable<DateTimeOffset> { get; init; }
     Scope : String { get; init; }
+    ScopeName : String { get; init; }
+    Surface : String { get; init; }
     ToString() : String
     UsedPercent : Nullable<Double> { get; init; }
     UsedStep : Nullable<Double> { get; init; }
@@ -96,6 +102,21 @@ sealed class Lyntai.Agents.AgentAllowanceReading
     VersionValidated : Nullable<Boolean> { get; init; }
     Windows : IReadOnlyList<AgentAllowanceWindow> { get; init; }
     static Unknown(String reason, DateTimeOffset measuredAt) : AgentAllowanceReading
+sealed class Lyntai.Agents.AgentAllowanceReport
+    .ctor(String Status, AgentAllowanceWindow Window, String LimitScope, Nullable<Boolean> IsUsingOverage, Nullable<DateTimeOffset> OverageResetsAt)
+    Deconstruct(String& Status, AgentAllowanceWindow& Window, String& LimitScope, Nullable`1& IsUsingOverage, Nullable`1& OverageResetsAt) : Void
+    EqualityContract : Type { protected get; }
+    Equals(AgentAllowanceReport other) : Boolean
+    Equals(AgentStreamEvent other) : Boolean
+    Equals(Object obj) : Boolean
+    GetHashCode() : Int32
+    IsUsingOverage : Nullable<Boolean> { get; init; }
+    LimitScope : String { get; init; }
+    OverageResetsAt : Nullable<DateTimeOffset> { get; init; }
+    PrintMembers(StringBuilder builder) : Boolean
+    Status : String { get; init; }
+    ToString() : String
+    Window : AgentAllowanceWindow { get; init; }
 static class Lyntai.Agents.AgentAllowanceUnknown
     AccountRefused : String const
     Disabled : String const
@@ -270,6 +291,66 @@ sealed class Lyntai.Agents.AgentMcpServer
     Url : String { get; init; }
     static Http(String name, String url, String authToken = null) : AgentMcpServer
     static Stdio(String name, String command, IEnumerable<String> arguments = null, IReadOnlyDictionary<String,String> environment = null) : AgentMcpServer
+sealed class Lyntai.Agents.AgentModelUsage
+    .ctor(IReadOnlyList<AgentModelUsageEntry> Models, DateTimeOffset MeasuredAt)
+    Deconstruct(IReadOnlyList`1& Models, DateTimeOffset& MeasuredAt) : Void
+    EqualityContract : Type { protected get; }
+    Equals(AgentModelUsage other) : Boolean
+    Equals(AgentStreamEvent other) : Boolean
+    Equals(Object obj) : Boolean
+    GetHashCode() : Int32
+    MeasuredAt : DateTimeOffset { get; init; }
+    Models : IReadOnlyList<AgentModelUsageEntry> { get; init; }
+    PrintMembers(StringBuilder builder) : Boolean
+    ToString() : String
+sealed class Lyntai.Agents.AgentModelUsageEntry
+    .ctor(String Model, Nullable<Int64> InputTokens, Nullable<Int64> OutputTokens, Nullable<Int64> CacheReadTokens, Nullable<Int64> CacheCreateTokens, Nullable<Int64> ContextWindow, Boolean IsSessionModel)
+    CacheCreateTokens : Nullable<Int64> { get; init; }
+    CacheReadTokens : Nullable<Int64> { get; init; }
+    ContextWindow : Nullable<Int64> { get; init; }
+    Deconstruct(String& Model, Nullable`1& InputTokens, Nullable`1& OutputTokens, Nullable`1& CacheReadTokens, Nullable`1& CacheCreateTokens, Nullable`1& ContextWindow, Boolean& IsSessionModel) : Void
+    Equals(AgentModelUsageEntry other) : Boolean
+    Equals(Object obj) : Boolean
+    GetHashCode() : Int32
+    InputTokens : Nullable<Int64> { get; init; }
+    IsSessionModel : Boolean { get; init; }
+    Model : String { get; init; }
+    OutputTokens : Nullable<Int64> { get; init; }
+    ToString() : String
+sealed class Lyntai.Agents.AgentOfferedMode
+    .ctor(String Id, String Name)
+    Deconstruct(String& Id, String& Name) : Void
+    Equals(AgentOfferedMode other) : Boolean
+    Equals(Object obj) : Boolean
+    GetHashCode() : Int32
+    Id : String { get; init; }
+    Name : String { get; init; }
+    ToString() : String
+sealed class Lyntai.Agents.AgentOfferedOption
+    .ctor(String Category, String Id, String Current, IReadOnlyList<String> Values)
+    Category : String { get; init; }
+    Current : String { get; init; }
+    Deconstruct(String& Category, String& Id, String& Current, IReadOnlyList`1& Values) : Void
+    Equals(AgentOfferedOption other) : Boolean
+    Equals(Object obj) : Boolean
+    GetHashCode() : Int32
+    Id : String { get; init; }
+    ToString() : String
+    Values : IReadOnlyList<String> { get; init; }
+sealed class Lyntai.Agents.AgentOffers
+    .ctor(IReadOnlyList<AgentOfferedOption> Options, IReadOnlyList<AgentOfferedMode> Modes, String CurrentModeId, Boolean Truncated)
+    CurrentModeId : String { get; init; }
+    Deconstruct(IReadOnlyList`1& Options, IReadOnlyList`1& Modes, String& CurrentModeId, Boolean& Truncated) : Void
+    EqualityContract : Type { protected get; }
+    Equals(AgentOffers other) : Boolean
+    Equals(AgentStreamEvent other) : Boolean
+    Equals(Object obj) : Boolean
+    GetHashCode() : Int32
+    Modes : IReadOnlyList<AgentOfferedMode> { get; init; }
+    Options : IReadOnlyList<AgentOfferedOption> { get; init; }
+    PrintMembers(StringBuilder builder) : Boolean
+    ToString() : String
+    Truncated : Boolean { get; init; }
 sealed class Lyntai.Agents.AgentPick
     Apply(AgentSessionOptions options) : AgentSessionOptions
     Seat : AgentSeat { get; }
@@ -345,12 +426,16 @@ class Lyntai.Agents.AgentSessionOptions
     .ctor(AgentSessionOptions original)
     Account : AgentAccount { get; init; }
     DisallowedTools : IReadOnlyList<String> { get; init; }
+    Effort : String { get; init; }
+    Environment : IReadOnlyDictionary<String,String> { get; init; }
     EqualityContract : Type { protected get; }
     Equals(AgentSessionOptions other) : Boolean
     Equals(Object obj) : Boolean
     GetHashCode() : Int32
     McpServers : IReadOnlyList<AgentMcpServer> { get; init; }
     Model : String { get; init; }
+    PermissionMode : String { get; init; }
+    PluginDirectories : IReadOnlyList<String> { get; init; }
     PrintMembers(StringBuilder builder) : Boolean
     Prompt : String { get; init; } required
     ResumeToken : String { get; init; }
@@ -373,6 +458,15 @@ sealed class Lyntai.Agents.AgentSessionResult
     ToString() : String
     Usage : UsageFinal { get; init; }
     Verdict : ProviderVerdict { get; init; }
+enum Lyntai.Agents.AgentShownKind
+    Plan : AgentShownKind const
+    Task : AgentShownKind const
+    Text : AgentShownKind const
+    Thinking : AgentShownKind const
+    ToolCall : AgentShownKind const
+    ToolResult : AgentShownKind const
+    Usage : AgentShownKind const
+    value__ : Int32
 enum Lyntai.Agents.AgentSideEffects
     ChangesConfiguration : AgentSideEffects const
     LeavesProcess : AgentSideEffects const
@@ -421,6 +515,19 @@ sealed class Lyntai.Agents.AgentTaskStarted
     PrintMembers(StringBuilder builder) : Boolean
     TaskId : String { get; init; }
     ToString() : String
+sealed class Lyntai.Agents.AgentToolDenied
+    .ctor(String Tool, String CallId, String Reason)
+    CallId : String { get; init; }
+    Deconstruct(String& Tool, String& CallId, String& Reason) : Void
+    EqualityContract : Type { protected get; }
+    Equals(AgentStreamEvent other) : Boolean
+    Equals(AgentToolDenied other) : Boolean
+    Equals(Object obj) : Boolean
+    GetHashCode() : Int32
+    PrintMembers(StringBuilder builder) : Boolean
+    Reason : String { get; init; }
+    ToString() : String
+    Tool : String { get; init; }
 enum Lyntai.Agents.AgentToolPolicy
     ReadOnly : AgentToolPolicy const
     Write : AgentToolPolicy const
@@ -440,6 +547,26 @@ sealed class Lyntai.Agents.AgentTranscriptRecorder
     Add(AgentStreamEvent e) : Void
     BeginTurn(AgentConversationSource source, AgentSessionOptions options) : Void
     Transcript : AgentTranscript { get; }
+sealed class Lyntai.Agents.AgentTurnEvidence
+    .ctor(Nullable<Boolean> Written, IReadOnlyList<AgentShownKind> Shown)
+    Deconstruct(Nullable`1& Written, IReadOnlyList`1& Shown) : Void
+    Equals(AgentTurnEvidence other) : Boolean
+    Equals(Object obj) : Boolean
+    GetHashCode() : Int32
+    Shown : IReadOnlyList<AgentShownKind> { get; init; }
+    ToString() : String
+    Written : Nullable<Boolean> { get; init; }
+sealed class Lyntai.Agents.AgentUnreadFrame
+    .ctor(String Type, String Subtype, Int32 Count, String Sample)
+    Count : Int32 { get; init; }
+    Deconstruct(String& Type, String& Subtype, Int32& Count, String& Sample) : Void
+    Equals(AgentUnreadFrame other) : Boolean
+    Equals(Object obj) : Boolean
+    GetHashCode() : Int32
+    Sample : String { get; init; }
+    Subtype : String { get; init; }
+    ToString() : String
+    Type : String { get; init; }
 sealed class Lyntai.Agents.AgentUsageReadingOptions
     .ctor()
     ClientName : String { get; set; }
@@ -505,6 +632,19 @@ sealed class Lyntai.Agents.CliToolSession
     .ctor(IReadOnlyList<String> extraArgs, Func<ValueTask> dispose = null)
     DisposeAsync() : ValueTask
     ExtraArgs : IReadOnlyList<String> { get; }
+sealed class Lyntai.Agents.ContextReading
+    .ctor(Nullable<Int64> UsedTokens, Nullable<Int64> WindowTokens, DateTimeOffset MeasuredAt)
+    Deconstruct(Nullable`1& UsedTokens, Nullable`1& WindowTokens, DateTimeOffset& MeasuredAt) : Void
+    EqualityContract : Type { protected get; }
+    Equals(AgentStreamEvent other) : Boolean
+    Equals(ContextReading other) : Boolean
+    Equals(Object obj) : Boolean
+    GetHashCode() : Int32
+    MeasuredAt : DateTimeOffset { get; init; }
+    PrintMembers(StringBuilder builder) : Boolean
+    ToString() : String
+    UsedTokens : Nullable<Int64> { get; init; }
+    WindowTokens : Nullable<Int64> { get; init; }
 sealed class Lyntai.Agents.FunctionTool
     .ctor(String name, Func<String,CancellationToken,Task<String>> invoke, String description = null, String parametersJsonSchema = null)
     Description : String { get; }
@@ -659,9 +799,12 @@ sealed class Lyntai.Agents.SessionEnded
     SessionId : String { get; init; }
     Subtype : String { get; init; }
     ToString() : String
+    Turn : AgentTurnEvidence { get; init; }
+    Unread : IReadOnlyList<AgentUnreadFrame> { get; init; }
     Verdict : ProviderVerdict { get; init; }
 sealed class Lyntai.Agents.SessionStarted
     .ctor(String SessionId)
+    Announced : Boolean { get; init; }
     Deconstruct(String& SessionId) : Void
     EqualityContract : Type { protected get; }
     Equals(AgentStreamEvent other) : Boolean
@@ -679,6 +822,7 @@ sealed class Lyntai.Agents.TextDelta
     Equals(Object obj) : Boolean
     Equals(TextDelta other) : Boolean
     GetHashCode() : Int32
+    ParentCallId : String { get; init; }
     PrintMembers(StringBuilder builder) : Boolean
     Text : String { get; init; }
     ToString() : String
@@ -690,6 +834,7 @@ sealed class Lyntai.Agents.Thinking
     Equals(Object obj) : Boolean
     Equals(Thinking other) : Boolean
     GetHashCode() : Int32
+    ParentCallId : String { get; init; }
     PrintMembers(StringBuilder builder) : Boolean
     Text : String { get; init; }
     ToString() : String

@@ -57,6 +57,183 @@ public class StreamJsonAgentReaderTests
         Assert.Equal(["sess-1", "sess-2"], started);
     }
 
+    [Fact]
+    public void A_later_system_frame_that_only_carries_a_new_id_is_not_an_announcement()
+    {
+        var reader = new StreamJsonAgentReader();
+
+        var started = new[]
+            {
+                """{"type":"system","subtype":"init","session_id":"sess-1"}""",
+                """{"type":"system","subtype":"thinking_tokens","estimated_tokens":1,"session_id":"sess-1"}""",
+                """{"type":"system","subtype":"thinking_tokens","estimated_tokens":9,"session_id":"sess-2"}""",
+            }
+            .SelectMany(reader.Read).OfType<SessionStarted>().Select(s => (s.SessionId, s.Announced)).ToList();
+
+        Assert.Equal([("sess-1", true), ("sess-2", false)], started);
+    }
+
+    [Fact]
+    public void A_first_system_frame_that_names_no_subtype_is_the_agents_own_start_and_a_default_is_announced()
+    {
+        var reader = new StreamJsonAgentReader();
+
+        var first = Assert.IsType<SessionStarted>(Assert.Single(reader.Read("""{"type":"system","session_id":"s"}""")));
+
+        Assert.True(first.Announced);
+        Assert.True(new SessionStarted("x").Announced);
+    }
+
+    // ── every allowance report is an event (AG42) ────────────────────────────
+
+    // SOURCE-DERIVED from the field names the rejected frame tests already carry (status, resetsAt, rateLimitType, isUsingOverage)
+    [Fact]
+    public void An_allowed_warning_and_rejected_frame_are_each_an_event_with_the_window_as_an_allowance_window_states_it()
+    {
+        var reader = new StreamJsonAgentReader();
+
+        var reports = new[]
+            {
+                """{"type":"rate_limit_event","rate_limit_info":{"status":"allowed","resetsAt":1792000000,"rateLimitType":"five_hour","isUsingOverage":false}}""",
+                """{"type":"rate_limit_event","rate_limit_info":{"status":"allowed_warning","resetsAt":1792400000,"rateLimitType":"seven_day_opus"}}""",
+                """{"type":"rate_limit_event","rate_limit_info":{"status":"rejected","resetsAt":1792400000,"rateLimitType":"seven_day","limitScope":"group_pool"}}""",
+                """{"type":"rate_limit_event","rate_limit_info":{"status":"rejected","resetsAt":1792000000,"overageResetsAt":1795000000,"rateLimitType":"overage","isUsingOverage":true}}""",
+            }
+            .SelectMany(reader.Read).OfType<AgentAllowanceReport>().ToList();
+
+        Assert.Equal(["allowed", "allowed_warning", "rejected", "rejected"], reports.Select(r => r.Status).ToArray());
+        Assert.Equal((AgentAllowanceWindow.FiveHour, TimeSpan.FromHours(5), (string?)null), (reports[0].Window!.Name, reports[0].Window!.Length, reports[0].Window!.Scope));
+        Assert.Equal(DateTimeOffset.FromUnixTimeSeconds(1792000000), reports[0].Window!.ResetsAt);
+        Assert.Equal((false, null), (reports[0].IsUsingOverage, reports[1].IsUsingOverage));
+        Assert.Equal((AgentAllowanceWindow.Weekly, "opus"), (reports[1].Window!.Name, reports[1].Window!.Scope));
+        Assert.Equal("group_pool", reports[2].LimitScope);
+        Assert.Equal(("overage", (TimeSpan?)null, true), (reports[3].Window!.Name, reports[3].Window!.Length, reports[3].IsUsingOverage));
+        Assert.Equal(DateTimeOffset.FromUnixTimeSeconds(1795000000), reports[3].OverageResetsAt);
+        Assert.All(reports, r => Assert.Null(r.Window!.UsedPercent));
+    }
+
+    [Fact]
+    public void A_frame_with_no_reset_and_one_with_no_window_are_kept_in_part_and_the_rejected_frame_still_ends_a_failing_turn_as_before()
+    {
+        var reader = new StreamJsonAgentReader();
+
+        var events = new[]
+            {
+                """{"type":"rate_limit_event","rate_limit_info":{"status":"allowed","rateLimitType":"five_hour"}}""",
+                """{"type":"rate_limit_event","rate_limit_info":{"status":"allowed"}}""",
+                """{"type":"rate_limit_event","rate_limit_info":{"status":"rejected","resetsAt":1792000000,"rateLimitType":"five_hour"}}""",
+                """{"type":"result","subtype":"success","is_error":true,"result":"limit reached","session_id":"s"}""",
+            }
+            .SelectMany(reader.Read).ToList();
+
+        var reports = events.OfType<AgentAllowanceReport>().ToList();
+        Assert.Null(reports[0].Window!.ResetsAt);
+        Assert.Null(reports[1].Window);
+        var ended = events.OfType<SessionEnded>().Single();
+        Assert.Equal(AgentFailureKind.Limit, ended.Failure!.Kind);
+        Assert.Equal(RecoveryKind.ResetAt, ended.Failure.Restriction!.Recovery.Kind);
+        Assert.Empty(new StreamJsonAgentReader().Read("""{"type":"rate_limit_event"}"""));
+    }
+
+    // ── a turn's own report: denials and usage by model (AG33) ───────────────
+
+    // SOURCE-DERIVED: the shape of a host's record of a result frame (values invented, field names theirs)
+    private const string ThreeModelResult =
+        """{"type":"result","subtype":"success","is_error":false,"result":"done","session_id":"s","usage":{"input_tokens":30,"output_tokens":9},"modelUsage":{"claude-opus-4-8":{"inputTokens":20,"outputTokens":5,"cacheReadInputTokens":100,"cacheCreationInputTokens":7,"contextWindow":200000,"costUSD":0.5},"claude-haiku-4-5":{"inputTokens":10,"outputTokens":4,"contextWindow":200000,"costUSD":0.01},"claude-sub-1":{"inputTokens":1}},"permission_denials":[{"tool_name":"Bash","tool_use_id":"toolu_1","tool_input":{"command":"rm"}},{"tool_name":"Edit","tool_use_id":"toolu_2","reason":"read-only turn"},{"tool_input":{}}]}""";
+
+    [Fact]
+    public void A_results_usage_by_model_marks_the_sessions_model_and_leaves_the_others_as_rows_with_no_cost()
+    {
+        var reader = new StreamJsonAgentReader(new FixedTime());
+        _ = reader.Read("""{"type":"system","subtype":"init","session_id":"s","model":"claude-opus-4-8"}""").ToList();
+
+        var usage = Assert.Single(reader.Read(ThreeModelResult).OfType<AgentModelUsage>());
+
+        Assert.Equal(
+            [("claude-opus-4-8", 20L, 5L, 100L, 7L, 200000L, true), ("claude-haiku-4-5", 10L, 4L, null, null, 200000L, false),
+             ("claude-sub-1", 1L, null, null, null, null, false)],
+            usage.Models.Select(m => (m.Model, m.InputTokens, m.OutputTokens, m.CacheReadTokens, m.CacheCreateTokens, m.ContextWindow, m.IsSessionModel)).ToArray());
+        Assert.DoesNotContain("0.5", usage.ToString());
+    }
+
+    [Fact]
+    public void A_single_model_result_and_one_with_no_model_usage_each_read_as_they_are()
+    {
+        var reader = new StreamJsonAgentReader();
+        var one = Assert.Single(reader.Read(
+            """{"type":"result","subtype":"success","is_error":false,"result":"ok","session_id":"s","modelUsage":{"m1":{"inputTokens":3,"outputTokens":4}}}""")
+            .OfType<AgentModelUsage>());
+
+        Assert.Equal(("m1", 3L, 4L, false), (one.Models[0].Model, one.Models[0].InputTokens, one.Models[0].OutputTokens, one.Models[0].IsSessionModel));
+        Assert.Empty(new StreamJsonAgentReader().Read("""{"type":"result","subtype":"success","is_error":false,"result":"ok","session_id":"s"}""").OfType<AgentModelUsage>());
+    }
+
+    [Fact]
+    public void A_denied_tool_call_is_an_event_with_the_reason_only_where_the_field_gives_one()
+    {
+        var denied = new StreamJsonAgentReader().Read(ThreeModelResult).OfType<AgentToolDenied>().ToList();
+
+        Assert.Equal([new AgentToolDenied("Bash", "toolu_1", null), new AgentToolDenied("Edit", "toolu_2", "read-only turn")], denied);
+    }
+
+    [Fact]
+    public void The_report_comes_before_the_terminal_and_does_not_change_it()
+    {
+        var events = new StreamJsonAgentReader().Read(ThreeModelResult);
+
+        Assert.IsType<SessionEnded>(events[^1]);
+        Assert.Equal(1, events.OfType<SessionEnded>().Count());
+        Assert.Equal(ProviderVerdict.Ok, ((SessionEnded)events[^1]).Verdict);
+    }
+
+    private sealed class FixedTime : TimeProvider
+    {
+        public override DateTimeOffset GetUtcNow() => new(2026, 11, 7, 12, 0, 0, TimeSpan.Zero);
+    }
+
+    // ── frames no case took (AG32) ───────────────────────────────────────────
+
+    [Fact]
+    public void Three_unknown_types_and_a_flood_of_one_leave_three_entries_with_an_exact_count_and_one_bounded_sample()
+    {
+        var reader = new StreamJsonAgentReader();
+        var flood = "{\"type\":\"telemetry\",\"blob\":\"" + new string('x', 2000) + "\"}";
+        string[] lines = [..Enumerable.Repeat(flood, 500), """{"type":"surprise","n":1}""", """{"type":"stream_event","event":{"type":"novel_event"}}""",
+            """{"type":"system","subtype":"init","session_id":"s"}""", """{"type":"result","subtype":"success","is_error":false,"result":"ok","session_id":"s"}"""];
+
+        var events = lines.SelectMany(reader.Read).ToList();
+        var unread = reader.Unread();
+
+        Assert.Equal([("telemetry", (string?)null, 500), ("surprise", null, 1), ("stream_event", "novel_event", 1)],
+            unread.Select(u => (u.Type, u.Subtype, u.Count)).ToArray());
+        Assert.All(unread, u => Assert.True(u.Sample.Length <= 512));
+        Assert.Equal(512, unread[0].Sample.Length);
+        Assert.Equal(2, events.Count);   // the start and the terminal: nothing was added for the unread ones
+    }
+
+    [Fact]
+    public void A_stream_with_nothing_unknown_leaves_unread_empty_and_the_entries_are_capped_at_sixteen()
+    {
+        var reader = new StreamJsonAgentReader();
+        _ = FullTurn.SelectMany(reader.Read).ToList();
+        Assert.Empty(reader.Unread());
+
+        for (var i = 0; i < 40; i++) _ = reader.Read("{\"type\":\"kind" + i + "\"}");
+        Assert.Equal(16, reader.Unread().Count);
+        Assert.Equal("kind0", reader.Unread()[0].Type);
+    }
+
+    private static readonly string[] FullTurn =
+    [
+        """{"type":"system","subtype":"init","session_id":"s"}""",
+        """{"type":"stream_event","event":{"type":"message_start"}}""",
+        """{"type":"stream_event","event":{"type":"content_block_delta","delta":{"type":"text_delta","text":"hi"}}}""",
+        """{"type":"stream_event","event":{"type":"message_stop"}}""",
+        """{"type":"assistant","message":{"content":[{"type":"text","text":"hi"}]}}""",
+        """{"type":"rate_limit_event","rate_limit_info":{"status":"allowed"}}""",
+        """{"type":"result","subtype":"success","is_error":false,"result":"hi","session_id":"s"}""",
+    ];
+
     // ── stream_event (partial deltas) ────────────────────────────────────────
 
     [Fact]
@@ -452,6 +629,45 @@ public class StreamJsonAgentReaderTests
         Assert.True(string.IsNullOrEmpty(ended.FinalText));
         Assert.Null(ended.Failure);
         Assert.Equal(ProviderVerdict.Ok, ended.Verdict);
+    }
+
+    [Fact]
+    public void A_subagents_complete_message_yields_each_text_and_thinking_block_with_the_call_that_spawned_it()
+    {
+        var reader = new StreamJsonAgentReader();
+
+        var events = reader.Read(
+            """{"type":"assistant","message":{"content":[{"type":"thinking","thinking":"hm","signature":"x"},{"type":"text","text":"found it"},{"type":"tool_use","id":"read-2","name":"Read","input":{}},{"type":"text","text":"and more"},{"type":"text","text":""}],"usage":{"input_tokens":5,"output_tokens":5}},"parent_tool_use_id":"task-1"}""");
+
+        Assert.Equal(
+            [new Thinking("hm") { ParentCallId = "task-1" }, new TextDelta("found it") { ParentCallId = "task-1" },
+             new ToolCall("Read", "{}", "read-2") { ParentCallId = "task-1" }, new TextDelta("and more") { ParentCallId = "task-1" }],
+            events);
+    }
+
+    [Fact]
+    public void A_synchronous_child_with_no_task_still_carries_its_words_and_its_end_is_the_calls_result()
+    {
+        var reader = new StreamJsonAgentReader();
+
+        var all = new[] { SessionSpawn, ChildText,
+            """{"type":"user","message":{"content":[{"type":"tool_result","tool_use_id":"task-1","content":"the child's report"}]},"parent_tool_use_id":null}""" }
+            .SelectMany(reader.Read).ToList();
+
+        Assert.Equal("task-1", Assert.Single(all.OfType<TextDelta>()).ParentCallId);
+        Assert.Empty(all.OfType<AgentTaskStarted>());
+        Assert.Equal("task-1", Assert.Single(all.OfType<ToolResult>()).CallId);
+    }
+
+    [Fact]
+    public void The_sessions_own_message_still_yields_no_text_event_and_no_thinking_event()
+    {
+        var reader = new StreamJsonAgentReader();
+
+        var events = reader.Read(
+            """{"type":"assistant","message":{"content":[{"type":"thinking","thinking":"own"},{"type":"text","text":"own words"}]},"parent_tool_use_id":null}""");
+
+        Assert.Empty(events);
     }
 
     [Fact]

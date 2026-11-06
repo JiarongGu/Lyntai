@@ -225,16 +225,32 @@ public static class AgentAbilities
     /// the door's own registration names, and a door with none states this <see cref="AgentSupport.Unsupported"/>.</summary>
     public const string PermissionRequests = "permission-requests";
 
+    /// <summary>Run the turn under <see cref="AgentSessionOptions.PermissionMode"/>, the agent's own word for how it gates
+    /// a tool use. A door that states it carries the word or refuses the turn before a spawn.</summary>
+    public const string PermissionMode = "permission-mode";
+
+    /// <summary>Run the turn at <see cref="AgentSessionOptions.Effort"/>, the agent's own word for how hard it works.
+    /// A door that states it carries the word or refuses the turn before a spawn.</summary>
+    public const string Effort = "effort";
+
+    /// <summary>Load <see cref="AgentSessionOptions.PluginDirectories"/> for the turn.</summary>
+    public const string Plugins = "plugins";
+
+    /// <summary>Start the turn's child with <see cref="AgentSessionOptions.Environment"/>. A door with no process of its own
+    /// states it <see cref="AgentSupport.Unsupported"/>.</summary>
+    public const string Environment = "environment";
+
     /// <summary>Every ability a provider states, in a fixed order.</summary>
     public static IReadOnlyList<string> All { get; } =
-        [Resume, ReadOnlyGate, McpServers, DisallowedTools, SystemPrompt, Model, Steering, PlanEvents, LiveUsage, TypedFailures, Accounts, UsageReading, PermissionRequests];
+        [Resume, ReadOnlyGate, McpServers, DisallowedTools, SystemPrompt, Model, Steering, PlanEvents, LiveUsage, TypedFailures, Accounts, UsageReading, PermissionRequests,
+            PermissionMode, Effort, Plugins, Environment];
 
     /// <summary>The abilities <paramref name="options"/> asks a door for. Only the option-shaped ones appear:
     /// an event ability (plan events, live usage) is something a door emits, not something a turn asks for.</summary>
     public static IReadOnlyList<string> Needed(AgentSessionOptions options)
     {
         ArgumentNullException.ThrowIfNull(options);
-        var needed = new List<string>(7);
+        var needed = new List<string>(11);
         if (options.ResumeToken is not null) needed.Add(Resume);
         if (options.ToolPolicy == AgentToolPolicy.ReadOnly) needed.Add(ReadOnlyGate);
         if (options.McpServers.Count > 0) needed.Add(McpServers);
@@ -242,6 +258,10 @@ public static class AgentAbilities
         if (!string.IsNullOrEmpty(options.SystemPrompt)) needed.Add(SystemPrompt);
         if (!string.IsNullOrEmpty(options.Model)) needed.Add(Model);
         if (options.Account is not null) needed.Add(Accounts);
+        if (options.PermissionMode is not null) needed.Add(PermissionMode);
+        if (options.Effort is not null) needed.Add(Effort);
+        if (options.PluginDirectories.Count > 0) needed.Add(Plugins);
+        if (options.Environment.Count > 0) needed.Add(Environment);
         return needed;
     }
 }

@@ -119,6 +119,12 @@ public sealed class AcpAgentSession : IAgentSession
             yield break;
         }
 
+        if (!AgentAccounts.TryCheckTurn(options.Environment, out var environmentRefusal))
+        {
+            yield return CliAgentLoop.Refused(AgentAccounts.EnvironmentRefusedSubtype, environmentRefusal);
+            yield break;
+        }
+
         IReadOnlyDictionary<string, string> accountEnvironment = new Dictionary<string, string>(0);
         string? accountRefusal = null;
         if (options.Account is not null && _accounts is null)
@@ -161,13 +167,14 @@ public sealed class AcpAgentSession : IAgentSession
             else kill.Cancel();
         });
 
+        var watch = new PromptWriteWatch(reader);
         IAsyncEnumerable<string>? lines = null;
         string? unsupported = null;
         try
         {
             lines = _runner.ExchangeLinesAsync(tokens[0], [.. tokens.Skip(1), .. _arguments],
-                outbox.Reader.ReadAllAsync(CancellationToken.None), inactivity,
-                workingDirectory: cwd, environment: AgentAccounts.Merge(_environment, accountEnvironment), ct: kill.Token);
+                watch.Frames(outbox.Reader.ReadAllAsync(CancellationToken.None)), inactivity,
+                workingDirectory: cwd, environment: AgentAccounts.Merge(AgentAccounts.MergeTurn(_environment, options.Environment), accountEnvironment), ct: kill.Token);
         }
         catch (NotSupportedException ex)
         {
@@ -182,7 +189,8 @@ public sealed class AcpAgentSession : IAgentSession
 
         try
         {
-            await foreach (var evt in CliAgentLoop.RunLinesAsync(lines, endAtTerminal: true, reader.Read, _logger, "acp", ct).ConfigureAwait(false))
+            await foreach (var evt in CliAgentLoop.RunLinesAsync(
+                lines, endAtTerminal: true, reader.Read, reader.Unread, _logger, "acp", announcesBeforeWrite: true, () => watch.Written, () => reader.PromptAnswered, ct).ConfigureAwait(false))
             {
                 // a cancelled caller never receives the agent's answer to its cancel as if it were a result
                 ct.ThrowIfCancellationRequested();
@@ -195,5 +203,28 @@ public sealed class AcpAgentSession : IAgentSession
         }
 
         ct.ThrowIfCancellationRequested();
+    }
+}
+
+/// <summary>Whether the prompt's frame was written to the agent: the runner asks for the frame after one only once it has
+/// written the one before, so a frame is written when the line after it is asked for.</summary>
+internal sealed class PromptWriteWatch(AcpAgentReader reader)
+{
+    private int _written;
+
+    // an agent that answered the prompt had it, whether or not the writer has come back for the next line yet
+    public bool Written => Volatile.Read(ref _written) == 1 || reader.PromptAnswered;
+
+    // the runner's cancellation of its writer must reach the channel read, as it did before this wrapper stood between them
+    public async IAsyncEnumerable<string> Frames(
+        IAsyncEnumerable<string> frames, [EnumeratorCancellation] CancellationToken ct = default)
+    {
+        var index = 0;
+        await foreach (var frame in frames.WithCancellation(ct).ConfigureAwait(false))
+        {
+            yield return frame;
+            if (index == reader.PromptFrame) Volatile.Write(ref _written, 1);
+            index++;
+        }
     }
 }

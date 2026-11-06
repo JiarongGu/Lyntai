@@ -39,6 +39,52 @@ public record AgentSessionOptions
     /// precedence and nothing here falls over to another provider.</para></summary>
     public string? Model { get; init; }
 
+    /// <summary>The agent's own word for how it gates a tool use, passed through verbatim and never interpreted; null =
+    /// the gate <see cref="ToolPolicy"/> maps to. A door states the words it carries and refuses another before a spawn,
+    /// naming them, because a CLI has no list to ask. <b>A named mode is the host's own gate:</b> the door does not
+    /// apply <see cref="ToolPolicy"/>'s mode mapping or its read-only denial beside it, while
+    /// <see cref="DisallowedTools"/> and the tools the door always denies stand. Needs
+    /// <see cref="AgentAbilities.PermissionMode"/>.</summary>
+    public string? PermissionMode { get; init; }
+
+    /// <summary>The agent's own word for how hard it works (a level), passed through verbatim and never interpreted;
+    /// null = the agent's default. <see cref="AgentPick.Apply"/> sets it from <see cref="AgentChoice.Effort"/>. A door
+    /// states the words it carries and refuses another before a spawn. Needs <see cref="AgentAbilities.Effort"/>.</summary>
+    public string? Effort { get; init; }
+
+    /// <summary>Plugin folders the agent loads for this turn only, each fully qualified and free of a control
+    /// character; a repeat is dropped. The library never reads a folder's contents. Needs
+    /// <see cref="AgentAbilities.Plugins"/>.</summary>
+    public IReadOnlyList<string> PluginDirectories { get; init; } = [];
+
+    /// <summary>Variables this turn's child is started with, over the registration's own environment and beneath
+    /// <see cref="Account"/>'s, so a pool's account home and keys still win. A null value REMOVES a variable the child
+    /// would inherit. A name must be non-blank and free of <c>=</c> and control characters, a value free of control
+    /// characters; else the turn is refused before a spawn (<c>environment-invalid</c>). <b>A value is a secret</b> and goes
+    /// nowhere but the child's environment: never argv, a log line, a diagnostic or an event, and not
+    /// <see cref="ToString"/> on this record, which lists the names. Needs <see cref="AgentAbilities.Environment"/>.</summary>
+    public IReadOnlyDictionary<string, string?> Environment { get; init; } = EmptyEnvironment;
+
+    private static readonly IReadOnlyDictionary<string, string?> EmptyEnvironment =
+        new Dictionary<string, string?>(0, StringComparer.Ordinal);
+
+    // the compiler's ToString lists every member, which would print each value of Environment
+    /// <summary>Prints every member, with the names of <see cref="Environment"/> and none of its values.</summary>
+    protected virtual bool PrintMembers(System.Text.StringBuilder builder)
+    {
+        builder.Append("Prompt = ").Append(Prompt).Append(", SystemPrompt = ").Append(SystemPrompt)
+            .Append(", ToolPolicy = ").Append(ToolPolicy).Append(", ResumeToken = ").Append(ResumeToken)
+            .Append(", Model = ").Append(Model).Append(", PermissionMode = ").Append(PermissionMode)
+            .Append(", Effort = ").Append(Effort).Append(", PluginDirectories = [").Append(string.Join(", ", PluginDirectories))
+            .Append("], TimeoutSeconds = ").Append(TimeoutSeconds)
+            .Append(", DisallowedTools = [").Append(string.Join(", ", DisallowedTools))
+            .Append("], WorkingDirectory = ").Append(WorkingDirectory)
+            .Append(", McpServers = [").Append(string.Join(", ", McpServers.Select(s => s.Name)))
+            .Append("], Account = ").Append(Account)
+            .Append(", Environment = [").Append(string.Join(", ", Environment.Keys.Order(StringComparer.Ordinal))).Append(']');
+        return true;
+    }
+
     /// <summary>Per-call timeout; null = the global default.</summary>
     public int? TimeoutSeconds { get; init; }
 

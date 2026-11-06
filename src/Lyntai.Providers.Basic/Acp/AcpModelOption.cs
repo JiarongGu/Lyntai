@@ -14,21 +14,25 @@ internal sealed record AcpModelOption(string Id, string? Current, IReadOnlyList<
 {
     public const string Category = "model";
 
+    /// <summary>The category the protocol gives an option that sets how hard the agent thinks, which is what a turn's
+    /// effort is carried through.</summary>
+    public const string EffortCategory = "thought_level";
+
     /// <summary>The model option of <paramref name="holder"/>'s <c>configOptions</c> — a <c>session/new</c>,
     /// <c>load</c> or <c>resume</c> answer, or a <c>session/set_config_option</c> answer — or null.</summary>
-    public static AcpModelOption? Read(JsonElement holder)
+    public static AcpModelOption? Read(JsonElement holder, string category = Category)
     {
         if (WireJson.Array(holder, "configOptions") is not { } list) return null;
         foreach (var option in list.EnumerateArray())
         {
-            if (option.ValueKind != JsonValueKind.Object || WireJson.String(option, "category") != Category) continue;
+            if (option.ValueKind != JsonValueKind.Object || WireJson.String(option, "category") != category) continue;
             if (WireJson.String(option, "id") is not { Length: > 0 } id || WireJson.Array(option, "options") is not { } choices) continue;
             return new AcpModelOption(id, WireJson.String(option, "currentValue"), [.. Values(choices)]);
         }
         return null;
     }
 
-    private static IEnumerable<string> Values(JsonElement choices)
+    internal static IEnumerable<string> Values(JsonElement choices)
     {
         foreach (var choice in choices.EnumerateArray())
         {

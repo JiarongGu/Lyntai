@@ -109,8 +109,10 @@ every addition.
   Codex's `rateLimitsByLimitId` limits other than the own one read as scoped windows; a fractional Codex percent is now a reading
   where it made the whole reading unknown. The reading gains `Limits` (Claude's `limits[]` rows by kind and scope, never their
   severity) and `LimitId` (Codex's name for the own limit). `HasRoom` reads the account's own windows only, so a full model-scoped
-  week no longer reads as no room. A value present that the reader cannot recognise still makes the reading unknown. The scoped
-  row and a second Codex limit are SOURCE-DERIVED; their shape on a signed-in account is not established.
+  week no longer reads as no room. A value present that the reader cannot recognise still makes the reading unknown. A limit
+  row's `scope` is a string or an object naming a model and a surface, as the installed Claude server sends it: the row's `Scope`
+  is the model's id, with its `ScopeName` and the `Surface` beside it, and an object naming neither is the account's own limit.
+  A second Codex limit is SOURCE-DERIVED; its shape on a signed-in account is not established.
 - **A host names where the usage server runs and what it is told of its client** (**D238**). `AgentUsageReadingOptions`
   gains `WorkingDirectory` (a function of the account: a fully qualified path, or null for the fresh folder removed after the
   read; a named folder is created when absent and never removed or emptied, and a path that is not fully qualified reads
@@ -118,6 +120,66 @@ every addition.
   `AddAgentUsageReading` when empty, over 64 characters or holding a control character). Codex's `initialize` carries the
   client, written by a JSON writer; Claude's control request carries none and ignores both. The vendor keys project state by the
   folder, so `docs/guide.md` says it is a project to it.
+- **A permission mode, an effort and plugin folders are options a door carries or refuses** (**D244**).
+  `AgentSessionOptions` gains `PermissionMode`, `Effort` and `PluginDirectories`, and `AgentAbilities` the abilities
+  `permission-mode`, `effort` and `plugins` (so every door states three more). The claude door renders `--permission-mode` for the
+  words its `--help` lists, `--effort` for its levels and `--plugin-dir` per fully qualified folder, and refuses any other word
+  before a spawn, naming the set; a mode beside `SkipAllPermissions` is refused, and a named mode replaces the tool policy's own
+  gate (the `acceptEdits` mapping and the read-only write-tool denial) while the deny lists stand. The codex and HTTP
+  doors state all three `Unsupported`, and the protocol door states plugins so. `AgentPick.Apply` now sets `Effort` from the pool choice's, so a choice that names an
+  effort is refused by a door that does not carry one. The word set is from claude 2.1.319's `--help`; that `bypassPermissions`
+  equals `--dangerously-skip-permissions` is not stated there and is not claimed.
+- **A prompt's delivery is what its turn showed after the write** (**D248**). The protocol door announces the session before it
+  writes the prompt, so a turn that died right after the open read `Taken` with the prompt unread; it now reads `NeverSent`, and
+  a retry resends the prompt instead of resuming. A session start counts toward `Taken` only on a door that announces it after
+  the write (both CLI doors, unchanged), and the agent's own answer to the prompt, even an error, counts on the protocol door.
+  `SessionEnded` gains `Turn`, an `AgentTurnEvidence` of whether the door saw the write complete (null for a CLI door, which hands
+  the prompt to the child at its spawn) and, by `AgentShownKind`, which kinds of event followed it. `AgentDelivery` is unchanged.
+- **A session start says whether the agent announced it** (**D245**). `SessionStarted` gains `Announced`: true for the agent's own
+  start (Claude's `init`, or a first frame naming no subtype; the protocol door's open answer; Codex's thread start) and for a
+  start a host builds, false for a later Claude `system` frame that only carries an id the reader had not seen. A door still
+  yields one start per id.
+- **The protocol door states the context figures its updates report** (**D245**). A `usage_update`'s `used` and `size` are a
+  `ContextReading` (`UsedTokens`, `WindowTokens`, `MeasuredAt`), each null when the agent did not send it and never inferred;
+  it is a new `AgentStreamEvent`, beside the token counts of `UsageReading`, and counts as usage toward a turn's delivery.
+- **A child's words carry the call that spawned it** (**D245**). `TextDelta` and `Thinking` gain `ParentCallId` (null on the session's
+  own). The Claude door's reader, which dropped a subagent's text and read no thinking, yields one of each per block of a subagent's
+  complete message with the parent, and never a plan, usage tick or fallback text of the session's. `docs/guide.md` states how to read
+  a child's start and end from events that already exist; no child event is added.
+- **The protocol door keeps a child's stamped lines apart** (**D245**). A `tool_call`, a `tool_call_update` and a message chunk carrying
+  `_meta.claudeCode.parentToolUseId` (what `claude-agent-acp` stamps on a child it did not declare as a session) carry that call as `ParentCallId`, as
+  the Claude CLI door's do; a stamped chunk is not the session's answer text. Declaring child sessions at `initialize` is not done, since the
+  adapter then removes the spawning call from the parent's stream.
+- **An unread frame leaves a bounded trace** (**D245**). `SessionEnded` gains `Unread`, an `AgentUnreadFrame` (type, subtype, an exact count and
+  the first frame as written, cut to 512 characters) for each kind of frame no reader case took, at most 16 entries (a later new kind is dropped whole),
+  on both CLI doors and the protocol door. The readers stay tolerant and add no event; a frame turned into an event is not listed, and neither is a
+  known one that carries nothing a turn reports (a streamed message's envelope, `turn.started`, an ACP `available_commands_update`). A sample is the
+  agent's own text and may hold what it was asked: a host that logs it decides who reads the log.
+- **The Claude door states a turn's own report: denials and usage by model** (**D245**). A result's `permission_denials` is one
+  `AgentToolDenied` per denied call (the tool, its call id, and the reason where the field gives one, else null), and its `modelUsage` is an
+  `AgentModelUsage` of `AgentModelUsageEntry` rows (each model's tokens and context window, the session's model marked, a subagent's and the
+  harness's own left as the rows they are), both before the terminal. `UsageFinal.Model` keeps its meaning and no cost is carried.
+- **The protocol door carries a permission mode and an effort** (**D244**). A mode is set through `session/set_mode` with an id the open's
+  `modes` answer offers, an effort through the config option of category `thought_level`, as the model is set (**D243**): the agent's
+  answer decides, a refusal, an agent that offers no such id or option, or an error ends the turn before the prompt as `option-unsupported`
+  with `NeverSent` and holds nothing against the model, and a value the agent already has is not set again. The door states
+  `permission-mode` and `effort` `Unknown`, `Negotiated` (they were `Unsupported` before this entry), so a turn naming one reaches the agent.
+- **A turn's own variables** (**D244**). `AgentSessionOptions.Environment` (a null value removes a variable the child would inherit) and the
+  ability `environment` start the CLI and protocol doors' child with them, over the registration's environment and beneath the account's, so a
+  pool's account home and keys still win; the HTTP door states it `Unsupported`. A name no environment can carry, or a value with a control
+  character, refuses the turn before a spawn (`environment-invalid`, naming the variable and never a value). A value is a secret: not argv, a
+  log line or an event, and `AgentSessionOptions.ToString()` lists the names only (it had printed every member).
+- **The protocol door states what the open offered** (**D245**). A new `AgentOffers` event, yielded after the agent's open answer and before any
+  set or the prompt (and on a turn that is then refused too), lists each config option the agent offered (`AgentOfferedOption`: category, id, current
+  value, values) and each mode (`AgentOfferedMode`) with the current mode, every list cut to 25 and `Truncated` saying so. An open that offers
+  nothing adds no event. It is the open's, not the agent's answer to the prompt, so it never counts toward delivery; a host that matches
+  on the first event of a protocol turn now meets it before `SessionStarted`.
+- **Every allowance report is an event** (**D246**). A new `AgentAllowanceReport` is yielded for each Claude `rate_limit_event` frame, allowed or
+  rejected, and for the protocol door's `_claude/rateLimit` update: the report's standing in the agent's own word, the window as `AgentAllowanceWindow`
+  states one (the five-hour and weekly windows with their length, a model's week with its scope, any other window by the agent's word and no length,
+  its reset when stated), the spend limit it names, and the overage state (`IsUsingOverage`, `OverageResetsAt`). A rejected frame still ends a
+  failing turn as before, an allowed one clears no held rejection, and a report never counts toward a prompt's delivery. No use figure is carried:
+  none is recorded with a scale.
 - **A scope dense in ended entries still returns its current ones** (**D241**). A `Current` or as-of recall dropped the ended
   entries after the candidate window was cut, so 100 ended entries matching a query better than 5 current ones returned none of the
   5. When a seed source fills its window and the reading drops some of what it returned, the engine now asks again with a window four

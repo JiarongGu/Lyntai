@@ -75,6 +75,12 @@ public sealed class ClaudeAgentSession : IAgentSession
             yield break;
         }
 
+        if (!AgentAccounts.TryCheckTurn(options.Environment, out var environmentRefusal))
+        {
+            yield return CliAgentLoop.Refused(AgentAccounts.EnvironmentRefusedSubtype, environmentRefusal);
+            yield break;
+        }
+
         if (!AgentAccounts.TryMap(options.Account, ClaudeAgentDoor.Mapping, out var accountEnvironment, out var accountRefusal))
         {
             yield return CliAgentLoop.Refused(AgentAccounts.RefusedSubtype, accountRefusal);
@@ -91,9 +97,9 @@ public sealed class ClaudeAgentSession : IAgentSession
             return path;
         }
 
-        if (!ClaudeAgentArgs.TryBuild(options, Write, out var agentArgs, out var refusal))
+        if (!ClaudeAgentArgs.TryBuild(options, Write, out var agentArgs, out var refusal, out var refusalSubtype))
         {
-            yield return CliAgentLoop.Refused(AgentResumeToken.RefusedSubtype, refusal);
+            yield return CliAgentLoop.Refused(refusalSubtype, refusal);
             yield break;
         }
 
@@ -102,7 +108,7 @@ public sealed class ClaudeAgentSession : IAgentSession
             var (exe, prefixArgs) = CliCommand.Resolve(_command, Backend);
             var reader = new StreamJsonAgentReader();
             var turn = CliAgentLoop.RunAsync(_runner, exe, [.. prefixArgs, .. agentArgs], options.Prompt,
-                _options.ResolveTimeout(options.TimeoutSeconds), options, AgentAccounts.Merge(_environment, accountEnvironment), reader.Read, _logger,
+                _options.ResolveTimeout(options.TimeoutSeconds), options, AgentAccounts.Merge(AgentAccounts.MergeTurn(_environment, options.Environment), accountEnvironment), reader.Read, reader.Unread, _logger,
                 "claude", ct);
             await foreach (var evt in turn.ConfigureAwait(false))
                 yield return evt;

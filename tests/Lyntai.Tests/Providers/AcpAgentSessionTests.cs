@@ -187,7 +187,7 @@ public class AcpAgentSessionTests
 
         var events = await Run(Stub(caps: "", log: log), Ask() with { ResumeToken = "conv-1" });
 
-        var ended = Assert.IsType<SessionEnded>(Assert.Single(events));
+        var ended = Assert.IsType<SessionEnded>(Assert.Single(events.Where(e => e is not AgentOffers)));
         Assert.Equal(ProviderVerdict.Unsupported, ended.Verdict);
         Assert.Equal(AgentProvider.OptionRefusedSubtype, ended.Subtype);
         Assert.Contains("resume", ended.Diagnostic);
@@ -231,7 +231,7 @@ public class AcpAgentSessionTests
 
     private static void AssertEndedBeforeThePrompt(IReadOnlyList<AgentStreamEvent> events, List<JsonNode> sent)
     {
-        var ended = Assert.IsType<SessionEnded>(Assert.Single(events));   // no SessionStarted: the session was never ready to prompt
+        var ended = Assert.IsType<SessionEnded>(Assert.Single(events.Where(e => e is not AgentOffers)));   // no SessionStarted: the session was never ready to prompt
         Assert.Equal(ProviderVerdict.Unsupported, ended.Verdict);
         Assert.True(ended.IsError);
         Assert.Equal(AgentProvider.OptionRefusedSubtype, ended.Subtype);
@@ -271,7 +271,7 @@ public class AcpAgentSessionTests
         Assert.Equal("acp-stub-session-1", set["sessionId"]!.GetValue<string>());
         Assert.Equal("model", set["configId"]!.GetValue<string>());
         Assert.Equal("opus", set["value"]!.GetValue<string>());
-        Assert.IsType<SessionStarted>(events[0]);
+        Assert.IsType<SessionStarted>(events.First(e => e is not AgentOffers));
         Assert.Equal("model: opus", Ended(events).FinalText);
         Assert.Equal(ProviderVerdict.Ok, Ended(events).Verdict);
     }
@@ -389,7 +389,7 @@ public class AcpAgentSessionTests
 
         var events = await Run(Scripted(runner), AskOn("b"));
 
-        var ended = Assert.IsType<SessionEnded>(Assert.Single(events));
+        var ended = Assert.IsType<SessionEnded>(Assert.Single(events.Where(e => e is not AgentOffers)));
         Assert.Equal(kind, ended.Failure!.Kind);
         Assert.NotEqual(AgentProvider.OptionRefusedSubtype, ended.Subtype);
         Assert.Equal(AgentDelivery.NeverSent, ended.Failure.Delivery);
@@ -479,7 +479,6 @@ public class AcpAgentSessionTests
                 Update("user_message_chunk", """{"content":{"type":"text","text":"an echo"}}"""),
                 Update("available_commands_update", """{"availableCommands":[]}"""),
                 Update("current_mode_update", """{"currentModeId":"agent"}"""),
-                Update("usage_update", """{"used":51200,"size":200000}"""),
                 Update("agent_message_chunk", """{"content":{"type":"image","data":"AAAA","mimeType":"image/png"}}"""),
                 "this line is not JSON",
                 Update("agent_message_chunk", """{"content":{"type":"text","text":"done"}}"""),
@@ -490,6 +489,66 @@ public class AcpAgentSessionTests
         var events = await Run(Scripted(runner), Ask());
 
         Assert.Equal(["SessionStarted", "TextDelta", "SessionEnded"], events.Select(e => e.GetType().Name));
+    }
+
+    [Fact] // SOURCE-DERIVED: a usage_update carries context figures, not counts; each is null when not sent, never inferred
+    public async Task A_usage_update_is_a_context_reading_with_each_figure_only_when_the_agent_sent_it()
+    {
+        var clock = new ManualTimeProvider();
+        var runner = Agent(new()
+        {
+            ["initialize"] = _ => [Initialized()],
+            ["session/new"] = _ => [OpenedId(2)],
+            ["session/prompt"] = _ =>
+            [
+                Update("usage_update", """{"used":51200,"size":200000}"""),
+                Update("usage_update", """{"used":60000}"""),
+                Update("usage_update", """{"size":200000}"""),
+                Update("usage_update", """{"cost":{"amount":1}}"""),
+                Update("usage_update", """{"used":"many","size":null}"""),
+                PromptEnded("end_turn"),
+            ],
+        });
+
+        var events = await Run(new AcpAgentSession(runner, new LyntaiOptions(), "agent", time: clock), Ask());
+
+        Assert.Equal(
+            [(51200L, 200000L), (60000L, null), (null, 200000L)],
+            events.OfType<ContextReading>().Select(r => (r.UsedTokens, r.WindowTokens)).ToArray());
+        Assert.All(events.OfType<ContextReading>(), r => Assert.Equal(clock.GetUtcNow(), r.MeasuredAt));
+        Assert.Equal(AgentShownKind.Usage, Assert.Single(Ended(events).Turn!.Shown));
+    }
+
+    [Fact] // SOURCE-DERIVED: claude-agent-acp's stamp on what a child it did not declare as a session sends on the root session
+    public async Task A_stamped_childs_calls_and_words_carry_the_parent_and_the_sessions_own_do_not()
+    {
+        const string stamp = ",\"_meta\":{\"claudeCode\":{\"parentToolUseId\":\"task-1\"}}";
+        static string Stamped(string body) => body[..^1] + stamp + "}";
+        var runner = Agent(new()
+        {
+            ["initialize"] = _ => [Initialized()],
+            ["session/new"] = _ => [OpenedId(2)],
+            ["session/prompt"] = _ =>
+            [
+                Update("tool_call", """{"toolCallId":"task-1","title":"Task","kind":"other","status":"pending"}"""),
+                Update("tool_call", Stamped("""{"toolCallId":"c1","title":"Read","kind":"read","status":"pending"}""")),
+                Update("tool_call_update", Stamped("""{"toolCallId":"c1","status":"completed"}""")),
+                Update("agent_thought_chunk", Stamped("""{"content":{"type":"text","text":"child thinks"}}""")),
+                Update("agent_message_chunk", Stamped("""{"content":{"type":"text","text":"child says"}}""")),
+                Update("agent_message_chunk", """{"content":{"type":"text","text":"parent says"}}"""),
+                PromptEnded("end_turn"),
+            ],
+        });
+
+        var events = await Run(Scripted(runner), Ask());
+
+        Assert.Equal(
+            [("ToolCall", null), ("ToolCall", "task-1"), ("ToolResult", "task-1"), ("Thinking", "task-1"), ("TextDelta", "task-1"), ("TextDelta", null)],
+            events.Where(e => e is not (SessionStarted or SessionEnded)).Select(e => (e.GetType().Name, e switch
+            {
+                ToolCall c => c.ParentCallId, ToolResult r => r.ParentCallId, TextDelta t => t.ParentCallId, Thinking h => h.ParentCallId, _ => "?",
+            })).ToArray());
+        Assert.Equal("parent says", Ended(events).FinalText);   // the child's words are not the session's answer
     }
 
     [Fact] // SOURCE-DERIVED: a tool_call that arrives already finished, and an update for a call never seen start
@@ -702,7 +761,7 @@ public class AcpAgentSessionTests
 
         var events = await Run(Scripted(runner), Ask());
 
-        var ended = Assert.IsType<SessionEnded>(Assert.Single(events));
+        var ended = Assert.IsType<SessionEnded>(Assert.Single(events.Where(e => e is not AgentOffers)));
         Assert.Equal(ProviderVerdict.Unsupported, ended.Verdict);
         Assert.Contains("version 2", ended.Diagnostic);
         Assert.Equal(["initialize"], runner.Exchanged.Select(l => Method(JsonNode.Parse(l)!)));
@@ -735,7 +794,7 @@ public class AcpAgentSessionTests
 
         var events = await Run(Scripted(runner), Ask());
 
-        var ended = Assert.IsType<SessionEnded>(Assert.Single(events));
+        var ended = Assert.IsType<SessionEnded>(Assert.Single(events.Where(e => e is not AgentOffers)));
         Assert.Equal(ProviderVerdict.AuthFailed, ended.Verdict);
         Assert.Equal("Authentication required", ended.Diagnostic);
         Assert.Equal(AgentFailureKind.Access, ended.Failure!.Kind);
@@ -936,7 +995,7 @@ public class AcpAgentSessionTests
 
         var events = await Run(Stub(loggedOut: true, log: log), Ask());
 
-        var ended = Assert.IsType<SessionEnded>(Assert.Single(events));
+        var ended = Assert.IsType<SessionEnded>(Assert.Single(events.Where(e => e is not AgentOffers)));
         Assert.Equal(ProviderVerdict.AuthFailed, ended.Verdict);
         Assert.Equal(AgentDelivery.NeverSent, ended.Failure!.Delivery);
         Assert.DoesNotContain(Sent(log), f => Method(f) == "session/prompt");
@@ -959,7 +1018,7 @@ public class AcpAgentSessionTests
     // ── a process that dies ──────────────────────────────────────────────────
 
     [Theory] // the delivery of a turn the process died in is what the turn had shown
-    [InlineData("DIE_EARLY", AgentDelivery.Taken)]
+    [InlineData("DIE_EARLY", AgentDelivery.NeverSent)]
     [InlineData("DIE_MID", AgentDelivery.Taken)]
     [InlineData("DIE_AFTER_TOOL", AgentDelivery.Uncertain)]
     public async Task A_process_that_dies_mid_turn_ends_it_with_the_delivery_the_turn_showed(string marker, AgentDelivery delivery)
@@ -1041,6 +1100,304 @@ public class AcpAgentSessionTests
         });
 
         Assert.DoesNotContain(runner.Exchanged, l => Method(JsonNode.Parse(l)!) == "session/cancel");
+    }
+
+    // ── what a turn showed after its prompt was written (AG37, D248) ──────────
+
+    private static FakeProcessRunner OpenedAgent(Func<JsonNode, string[]> prompt) => Agent(new()
+    {
+        ["initialize"] = _ => [Initialized()],
+        ["session/new"] = _ => [OpenedId(2)],
+        ["session/prompt"] = prompt,
+    });
+
+    [Fact] // the session is announced before the prompt is written, so it shows nothing of whether the prompt was read
+    public async Task A_protocol_turn_that_dies_right_after_the_open_reads_never_sent_with_nothing_shown()
+    {
+        var events = await Run(Scripted(OpenedAgent(_ => null!)), Ask());
+
+        Assert.IsType<SessionStarted>(events.First(e => e is not AgentOffers));
+        var ended = Ended(events);
+        Assert.Equal(AgentDelivery.NeverSent, ended.Failure!.Delivery);
+        Assert.Equal(new AgentTurnEvidence(false, []), ended.Turn, new TurnComparer());
+        Assert.True(((SessionStarted)events[0]).Announced);   // the open's own answer
+    }
+
+    [Fact]
+    public async Task A_protocol_turn_that_streams_one_text_delta_then_fails_reads_taken_and_lists_the_kind()
+    {
+        var runner = OpenedAgent(_ => [Update("agent_message_chunk", """{"content":{"type":"text","text":"half"}}"""),
+            """{"jsonrpc":"2.0","id":3,"error":{"code":-32603,"message":"boom"}}"""]);
+
+        var ended = Ended(await Run(Scripted(runner), Ask()));
+
+        Assert.Equal(AgentDelivery.Taken, ended.Failure!.Delivery);
+        Assert.Equal(true, ended.Turn!.Written);
+        Assert.Equal([AgentShownKind.Text], ended.Turn.Shown);
+    }
+
+    [Fact]
+    public async Task A_prompt_the_agent_answered_with_an_error_was_read_though_it_showed_no_event()
+    {
+        var runner = OpenedAgent(_ => ["""{"jsonrpc":"2.0","id":3,"error":{"code":-32603,"message":"boom"}}"""]);
+
+        var ended = Ended(await Run(Scripted(runner), Ask()));
+
+        Assert.Equal(AgentDelivery.Taken, ended.Failure!.Delivery);
+        Assert.Equal(true, ended.Turn!.Written);
+        Assert.Empty(ended.Turn.Shown);
+    }
+
+    [Fact]
+    public async Task A_successful_protocol_turn_carries_what_it_showed_in_the_order_first_shown()
+    {
+        var runner = OpenedAgent(_ => [Update("agent_thought_chunk", """{"content":{"type":"text","text":"hm"}}"""),
+            Update("agent_message_chunk", """{"content":{"type":"text","text":"a"}}"""),
+            Update("agent_message_chunk", """{"content":{"type":"text","text":"b"}}"""),
+            PromptEnded("end_turn", ""","usage":{"inputTokens":1,"outputTokens":2}""")]);
+
+        var ended = Ended(await Run(Scripted(runner), Ask()));
+
+        Assert.False(ended.IsError);
+        Assert.Equal([AgentShownKind.Thinking, AgentShownKind.Text, AgentShownKind.Usage], ended.Turn!.Shown);
+    }
+
+    [Fact] // a stall right after the open shows nothing of the prompt, so the retry sends it again rather than resuming
+    public async Task A_stall_right_after_the_open_is_retried_by_resending_the_prompt_not_by_resuming()
+    {
+        var prompts = 0;
+        var runner = Agent(new()
+        {
+            ["initialize"] = _ => [Initialized()],
+            ["session/new"] = _ => [OpenedId(2)],
+            ["session/prompt"] = _ => ++prompts == 1
+                ? throw new ProcessTimeoutException("agent", TimeSpan.FromSeconds(1))
+                : [Update("agent_message_chunk", """{"content":{"type":"text","text":"ok"}}"""), PromptEnded("end_turn")],
+        });
+        var retry = new RetryingAgentSession(Scripted(runner), new AgentRetryOptions { InitialDelay = TimeSpan.Zero, MaxDelay = TimeSpan.Zero });
+
+        var ended = Ended(await Run(retry, Ask("do it")));
+
+        Assert.False(ended.IsError);
+        var sent = runner.Exchanged.Select(l => JsonNode.Parse(l)!).Where(f => Method(f) == "session/prompt").ToList();
+        Assert.Equal(2, sent.Count);
+        Assert.All(sent, f => Assert.Equal("do it", f["params"]!["prompt"]![0]!["text"]!.GetValue<string>()));
+        Assert.Equal(2, runner.Exchanges.Count(c => true));
+    }
+
+    [Fact] // a notification, a request and an update of a kind with no case are unread; the turn's own frames are not
+    public async Task A_protocol_turn_lists_the_frames_no_case_took_on_its_terminal()
+    {
+        var runner = OpenedAgent(_ =>
+        [
+            """{"jsonrpc":"2.0","method":"telemetry/ping","params":{"n":1}}""",
+            """{"jsonrpc":"2.0","id":"r1","method":"fs/read_text_file","params":{}}""",
+            Update("novel_update", """{"x":1}"""), Update("novel_update", """{"x":2}"""),
+            Update("available_commands_update", """{"availableCommands":[]}"""),
+            Update("agent_message_chunk", """{"content":{"type":"text","text":"ok"}}"""),
+            PromptEnded("end_turn"),
+        ]);
+
+        var ended = Ended(await Run(Scripted(runner), Ask()));
+
+        Assert.Equal(
+            [("notification", (string?)"telemetry/ping", 1), ("request", "fs/read_text_file", 1), ("session/update", "novel_update", 2)],
+            ended.Unread.Select(u => (u.Type, u.Subtype, u.Count)).ToArray());
+        var clean = Ended(await Run(Scripted(OpenedAgent(_ => [PromptEnded("end_turn")])), Ask()));
+        Assert.Empty(clean.Unread);
+    }
+
+    // ── a permission mode and an effort (AG28, D244): SOURCE-DERIVED opens ────
+
+    private static string OpenWith(string extra) =>
+        "{\"jsonrpc\":\"2.0\",\"id\":2,\"result\":{\"sessionId\":\"s1\"," + extra + "}}";
+
+    private static string Reply(JsonNode frame, string tail) => "{\"jsonrpc\":\"2.0\",\"id\":" + frame["id"] + "," + tail + "}";
+
+    private const string ModesAndEffort =
+        "\"modes\":{\"currentModeId\":\"default\",\"availableModes\":[{\"id\":\"default\",\"name\":\"Default\"},{\"id\":\"plan\",\"name\":\"Plan\"}]},"
+        + "\"configOptions\":[{\"id\":\"thinking\",\"category\":\"thought_level\",\"currentValue\":\"medium\",\"options\":[{\"value\":\"low\",\"name\":\"Low\"},{\"value\":\"medium\",\"name\":\"Medium\"},{\"value\":\"high\",\"name\":\"High\"}]}]";
+
+    private static FakeProcessRunner ModeAgent(string open, Func<JsonNode, string[]>? setMode = null, Func<JsonNode, string[]>? setConfig = null) => Agent(new()
+    {
+        ["initialize"] = _ => [Initialized()],
+        ["session/new"] = _ => [OpenWith(open)],
+        ["session/set_mode"] = setMode ?? (f => [Reply(f, "\"result\":{}")]),
+        ["session/set_config_option"] = setConfig ?? (f => [Reply(f, "\"result\":{\"configOptions\":[]}")]),
+        ["session/prompt"] = _ => [Update("agent_message_chunk", """{"content":{"type":"text","text":"ok"}}"""), PromptEnded("end_turn")],
+    });
+
+    private static IEnumerable<string> Methods(FakeProcessRunner runner) => runner.Exchanged.Select(l => Method(JsonNode.Parse(l)!));
+
+    [Fact]
+    public async Task A_mode_the_open_offers_is_set_before_the_prompt_and_an_effort_through_its_config_option()
+    {
+        var runner = ModeAgent(ModesAndEffort);
+
+        var ended = Ended(await Run(Scripted(runner), Ask() with { PermissionMode = "plan", Effort = "high" }));
+
+        Assert.False(ended.IsError);
+        Assert.Equal(["initialize", "session/new", "session/set_mode", "session/set_config_option", "session/prompt"], Methods(runner));
+        var setMode = runner.Exchanged.Select(l => JsonNode.Parse(l)!).Single(f => Method(f) == "session/set_mode");
+        Assert.Equal("plan", setMode["params"]!["modeId"]!.GetValue<string>());
+        var setEffort = runner.Exchanged.Select(l => JsonNode.Parse(l)!).Single(f => Method(f) == "session/set_config_option");
+        Assert.Equal(("thinking", "high"), (setEffort["params"]!["configId"]!.GetValue<string>(), setEffort["params"]!["value"]!.GetValue<string>()));
+    }
+
+    [Fact]
+    public async Task A_mode_or_effort_the_agent_already_has_is_not_set_again()
+    {
+        var runner = ModeAgent(ModesAndEffort);
+
+        await Run(Scripted(runner), Ask() with { PermissionMode = "default", Effort = "medium" });
+
+        Assert.Equal(["initialize", "session/new", "session/prompt"], Methods(runner));
+    }
+
+    [Fact]
+    public async Task A_mode_the_agent_refuses_to_set_ends_the_turn_before_the_prompt_never_sent()
+    {
+        var runner = ModeAgent(ModesAndEffort,
+            setMode: f => [Reply(f, "\"error\":{\"code\":-32602,\"message\":\"Invalid params\"}")]);
+
+        var ended = Ended(await Run(Scripted(runner), Ask() with { PermissionMode = "plan" }));
+
+        Assert.Equal((ProviderVerdict.Unsupported, AgentProvider.OptionRefusedSubtype), (ended.Verdict, ended.Subtype));
+        Assert.Equal(AgentDelivery.NeverSent, ended.Failure!.Delivery);
+        Assert.DoesNotContain("session/prompt", Methods(runner));
+        Assert.Null(ended.Failure.Restriction);   // a refused mode holds nothing against the model
+    }
+
+    [Theory]
+    [InlineData("\"modes\":null", "bypass", "states no modes")]
+    [InlineData(ModesAndEffort, "yolo", "does not offer permission mode 'yolo'")]
+    public async Task A_mode_the_open_does_not_offer_ends_the_turn_before_the_prompt_and_names_what_it_offers(string open, string mode, string expected)
+    {
+        var runner = ModeAgent(open);
+
+        var ended = Ended(await Run(Scripted(runner), Ask() with { PermissionMode = mode }));
+
+        Assert.Equal(AgentProvider.OptionRefusedSubtype, ended.Subtype);
+        Assert.Contains(expected, ended.Diagnostic);
+        Assert.Equal(AgentDelivery.NeverSent, ended.Failure!.Delivery);
+        Assert.DoesNotContain("session/set_mode", Methods(runner));
+    }
+
+    [Fact]
+    public async Task An_agent_with_no_effort_option_ends_the_turn_before_the_prompt_and_one_that_refuses_the_value_does_too()
+    {
+        var none = ModeAgent("\"modes\":null");
+        var endedNone = Ended(await Run(Scripted(none), Ask() with { Effort = "high" }));
+        Assert.Contains("states no effort option", endedNone.Diagnostic);
+        Assert.Equal(AgentDelivery.NeverSent, endedNone.Failure!.Delivery);
+
+        var refusing = ModeAgent(ModesAndEffort,
+            setConfig: f => [Reply(f, "\"error\":{\"code\":-32602,\"message\":\"Invalid params\"}")]);
+        var endedRefused = Ended(await Run(Scripted(refusing), Ask() with { Effort = "high" }));
+        Assert.Equal(AgentProvider.OptionRefusedSubtype, endedRefused.Subtype);
+        Assert.DoesNotContain("session/prompt", Methods(refusing));
+    }
+
+    [Fact]
+    public void The_protocol_door_states_both_abilities_unknown_and_negotiated()
+    {
+        var door = Assert.Single(AcpAgentDoor.Describe("acp-agent", null).Doors);
+
+        Assert.All(new[] { AgentAbilities.PermissionMode, AgentAbilities.Effort }, ability =>
+        {
+            var claim = door.Abilities.Single(a => a.Name == ability);
+            Assert.Equal((AgentSupport.Unknown, AgentAbilitySource.Negotiated), (claim.Support, claim.Source));
+        });
+    }
+
+    [Fact]
+    public async Task A_turns_variable_reaches_the_protocol_agents_environment_beneath_the_accounts_home()
+    {
+        var runner = OpenedAgent(_ => [PromptEnded("end_turn")]);
+        var session = new AcpAgentSession(runner, new LyntaiOptions(), "agent", accountHomeVariable: "AGENT_HOME");
+
+        await Run(session, Ask() with
+        {
+            Environment = new Dictionary<string, string?> { ["TURN_VAR"] = "t", ["AGENT_HOME"] = "/turn" },
+            Account = new AgentAccount { Provider = "agent", Name = "a", Home = "/accounts/a" },
+        });
+
+        var env = runner.Exchanges[0].Environment!;
+        Assert.Equal(("t", "/accounts/a"), (env["TURN_VAR"], env["AGENT_HOME"]));
+    }
+
+    // ── every allowance report is an event on the protocol door too (AG42) ────
+
+    [Fact] // SOURCE-DERIVED: claude-agent-acp forwards the CLI's rate_limit_info as a usage_update's _meta
+    public async Task An_allowed_report_is_an_event_and_does_not_clear_a_rejection_the_turn_then_fails_on()
+    {
+        const string rejected = "{\"_claude/rateLimit\":{\"status\":\"rejected\",\"rateLimitType\":\"five_hour\",\"resetsAt\":1893456000}}";
+        const string allowed = "{\"_claude/rateLimit\":{\"status\":\"allowed\",\"rateLimitType\":\"five_hour\",\"resetsAt\":1893456000,\"isUsingOverage\":false}}";
+        var runner = OpenedAgent(_ =>
+        [
+            Update("usage_update", "{\"used\":1,\"size\":2,\"_meta\":" + rejected + "}"),
+            Update("usage_update", "{\"used\":1,\"size\":2,\"_meta\":" + allowed + "}"),
+            Reply(JsonNode.Parse("{\"id\":3}")!, "\"error\":{\"code\":-32603,\"message\":\"Internal error\"}"),
+        ]);
+
+        var events = await Run(Scripted(runner), Ask());
+
+        Assert.Equal(["rejected", "allowed"], events.OfType<AgentAllowanceReport>().Select(r => r.Status).ToArray());
+        Assert.Equal(AgentFailureKind.Limit, Ended(events).Failure!.Kind);   // the allowed report did not undo the rejection
+        Assert.Equal(AgentDelivery.Taken, Ended(events).Failure!.Delivery);
+    }
+
+    // ── what the open offered (AG36, D245) ────────────────────────────────────
+
+    [Fact]
+    public async Task The_offers_come_after_the_open_and_before_the_start_and_the_prompt_and_do_not_count_toward_delivery()
+    {
+        var runner = ModeAgent(ModesAndEffort);
+
+        var events = await Run(Scripted(runner), Ask());
+
+        var offers = Assert.IsType<AgentOffers>(events[0]);
+        Assert.IsType<SessionStarted>(events[1]);
+        Assert.Equal(("default", false), (offers.CurrentModeId, offers.Truncated));
+        Assert.Equal([("default", "Default"), ("plan", "Plan")], offers.Modes.Select(m => (m.Id, m.Name)).ToArray());
+        var option = Assert.Single(offers.Options);
+        Assert.Equal(("thought_level", "thinking", "medium"), (option.Category, option.Id, option.Current));
+        Assert.Equal(["low", "medium", "high"], option.Values);
+        Assert.DoesNotContain(AgentShownKind.Usage, Ended(events).Turn!.Shown);
+    }
+
+    [Fact]
+    public async Task A_turn_refused_on_a_model_still_delivers_the_offers_and_reads_never_sent()
+    {
+        var runner = ModeAgent(ModesAndEffort);
+
+        var events = await Run(Scripted(runner), Ask() with { Model = "nope" });
+
+        Assert.IsType<AgentOffers>(events[0]);
+        var ended = Ended(events);
+        Assert.Equal(AgentProvider.OptionRefusedSubtype, ended.Subtype);
+        Assert.Equal(AgentDelivery.NeverSent, ended.Failure!.Delivery);
+        Assert.Empty(ended.Turn!.Shown);
+    }
+
+    [Fact]
+    public async Task The_offers_are_bounded_and_an_open_that_offers_nothing_adds_no_event()
+    {
+        var many = string.Join(",", Enumerable.Range(0, 40).Select(i => "{\"id\":\"m" + i + "\"}"));
+        var values = string.Join(",", Enumerable.Range(0, 40).Select(i => "{\"value\":\"v" + i + "\"}"));
+        var bounded = ModeAgent("\"modes\":{\"availableModes\":[" + many + "]},\"configOptions\":[{\"id\":\"o\",\"category\":\"model\",\"options\":[" + values + "]}]");
+        var offers = Assert.IsType<AgentOffers>((await Run(Scripted(bounded), Ask()))[0]);
+        Assert.Equal((25, 25, true), (offers.Modes.Count, offers.Options[0].Values.Count, offers.Truncated));
+
+        Assert.DoesNotContain(await Run(Scripted(ModeAgent("\"x\":1")), Ask()), e => e is AgentOffers);   // an open that offers nothing says nothing
+    }
+
+    private sealed class TurnComparer : IEqualityComparer<AgentTurnEvidence?>
+    {
+        public bool Equals(AgentTurnEvidence? a, AgentTurnEvidence? b) =>
+            a is not null && b is not null && a.Written == b.Written && a.Shown.SequenceEqual(b.Shown);
+
+        public int GetHashCode(AgentTurnEvidence? o) => 0;
     }
 
     // ── helpers over the wire ────────────────────────────────────────────────

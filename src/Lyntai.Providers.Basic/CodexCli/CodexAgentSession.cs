@@ -94,9 +94,23 @@ public sealed class CodexAgentSession : IAgentSession
             yield break;
         }
 
+        if (!AgentAccounts.TryCheckTurn(options.Environment, out var environmentRefusal))
+        {
+            yield return CliAgentLoop.Refused(AgentAccounts.EnvironmentRefusedSubtype, environmentRefusal);
+            yield break;
+        }
+
         if (!AgentAccounts.TryMap(options.Account, CodexAgentDoor.Mapping, out var accountEnvironment, out var accountRefusal))
         {
             yield return CliAgentLoop.Refused(AgentAccounts.RefusedSubtype, accountRefusal);
+            yield break;
+        }
+
+        // no codex flag is measured for these, so none is dropped: the door states them unsupported and so does this path
+        var unhonoured = AgentAbilities.Needed(options).Where(a => a is AgentAbilities.PermissionMode or AgentAbilities.Effort or AgentAbilities.Plugins).ToList();
+        if (unhonoured.Count > 0)
+        {
+            yield return CliAgentLoop.Refused(AgentProvider.OptionRefusedSubtype, $"the codex door cannot honour: {string.Join(", ", unhonoured)}");
             yield break;
         }
 
@@ -118,8 +132,8 @@ public sealed class CodexAgentSession : IAgentSession
         var reader = new CodexAgentReader();
         var turn = CliAgentLoop.RunAsync(_runner, exe, [.. prefixArgs, .. agentArgs], CodexAgentArgs.BuildPrompt(options),
             _options.ResolveTimeout(options.TimeoutSeconds),
-            options, AgentAccounts.Merge(AgentAccounts.Merge(_environment, mcpEnvironment), accountEnvironment),
-            reader.Read, _logger, "codex", ct);
+            options, AgentAccounts.Merge(AgentAccounts.Merge(AgentAccounts.MergeTurn(_environment, options.Environment), mcpEnvironment), accountEnvironment),
+            reader.Read, reader.Unread, _logger, "codex", ct);
         await foreach (var evt in turn.ConfigureAwait(false))
             yield return evt;
     }

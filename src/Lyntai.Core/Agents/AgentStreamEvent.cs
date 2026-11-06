@@ -7,13 +7,29 @@ namespace Lyntai.Agents;
 public abstract record AgentStreamEvent;
 
 /// <summary>The session id has been established (fed back as a resume token later). </summary>
-public sealed record SessionStarted(string SessionId) : AgentStreamEvent;
+public sealed record SessionStarted(string SessionId) : AgentStreamEvent
+{
+    /// <summary>Whether the agent announced the session: true for the agent's own start (Claude's <c>init</c>, the
+    /// protocol door's open answer, Codex's thread start), false for a later frame that only carries an id the reader had
+    /// not seen. A door yields one per id either way.</summary>
+    public bool Announced { get; init; } = true;
+}
 
 /// <summary>A chunk of assistant answer text.</summary>
-public sealed record TextDelta(string Text) : AgentStreamEvent;
+public sealed record TextDelta(string Text) : AgentStreamEvent
+{
+    /// <summary>The <see cref="ToolCall.CallId"/> of the call that spawned the subagent speaking; null for the session's
+    /// own words, and for a door that does not say. A subagent's words arrive whole, one event per block.</summary>
+    public string? ParentCallId { get; init; }
+}
 
 /// <summary>A chunk of assistant reasoning/thinking text.</summary>
-public sealed record Thinking(string Text) : AgentStreamEvent;
+public sealed record Thinking(string Text) : AgentStreamEvent
+{
+    /// <summary>The <see cref="ToolCall.CallId"/> of the call that spawned the subagent thinking; null for the session's
+    /// own, and for a door that does not say.</summary>
+    public string? ParentCallId { get; init; }
+}
 
 /// <summary>The agent invoked a tool. <paramref name="CallId"/> correlates to the matching <see cref="ToolResult"/>.
 /// No file path here — that is a specific tool's argument schema, not universal; parse it from ArgumentsJson.</summary>
@@ -97,6 +113,79 @@ public sealed record UsageReading(
     public const string Tokens = "tokens";
 }
 
+/// <summary>An allowance report the agent stated mid-turn (Claude's <c>rate_limit_event</c>, allowed or rejected), as it
+/// stated it. A turn that fails on it still ends as before; this is the report itself, for a host that reads an allowance
+/// as it moves. It says nothing of the prompt and never counts toward its delivery.</summary>
+/// <param name="Status">The report's standing in the agent's own word (<c>allowed</c>, <c>rejected</c>…); null when it stated none.</param>
+/// <param name="Window">The window it names, as <see cref="AgentAllowanceWindow"/> states one: <see cref="AgentAllowanceWindow.FiveHour"/>
+/// and <see cref="AgentAllowanceWindow.Weekly"/> with their length and a scope for a model's week, any other window by the agent's
+/// own word with no length. Its <see cref="AgentAllowanceWindow.UsedPercent"/> is null: the report states no use this library reads
+/// as a percent. Null when the report names no window.</param>
+/// <param name="LimitScope">The spend limit the report names when it is not the member's own (<c>group_pool</c>), in the agent's word.</param>
+/// <param name="IsUsingOverage">Whether the agent states the account is drawing on overage; null when it states none.</param>
+/// <param name="OverageResetsAt">When the agent states the overage renews; null when it states none.</param>
+public sealed record AgentAllowanceReport(
+    string? Status, AgentAllowanceWindow? Window, string? LimitScope, bool? IsUsingOverage, DateTimeOffset? OverageResetsAt)
+    : AgentStreamEvent;
+
+/// <summary>One option an agent offered when it opened the session (the protocol door's config option).</summary>
+/// <param name="Category">The agent's category word for it (<c>model</c>, <c>thought_level</c>…); null when it stated none.</param>
+/// <param name="Id">What the option is set by.</param>
+/// <param name="Current">The value it holds now; null when the agent stated none.</param>
+/// <param name="Values">The values it may be set to, grouped choices flattened, in the agent's order, at most 25.</param>
+public sealed record AgentOfferedOption(string? Category, string Id, string? Current, IReadOnlyList<string> Values);
+
+/// <summary>One mode an agent offered when it opened the session.</summary>
+/// <param name="Id">What <c>session/set_mode</c> names it by.</param>
+/// <param name="Name">The agent's name for it; null when it stated none.</param>
+public sealed record AgentOfferedMode(string Id, string? Name);
+
+/// <summary>What the protocol door's agent offered in its open answer: yielded after the open and before any set or the
+/// prompt, on a turn that is then refused too, so a host can say what the agent would have taken. It is not the agent's
+/// answer to the prompt and never counts toward a prompt's delivery. Every list is at most 25 long, and nothing is inferred.</summary>
+/// <param name="Options">The config options, at most 25.</param>
+/// <param name="Modes">The modes, at most 25.</param>
+/// <param name="CurrentModeId">The mode the agent is in; null when it stated none.</param>
+/// <param name="Truncated">Whether any list was cut to its bound.</param>
+public sealed record AgentOffers(
+    IReadOnlyList<AgentOfferedOption> Options, IReadOnlyList<AgentOfferedMode> Modes, string? CurrentModeId, bool Truncated)
+    : AgentStreamEvent;
+
+/// <summary>A tool call the agent's harness denied, as the turn's own report states it (Claude's
+/// <c>permission_denials</c>): the turn went on without the tool's result.</summary>
+/// <param name="Tool">The agent's name for the tool.</param>
+/// <param name="CallId">The <see cref="ToolCall.CallId"/> of the denied call; null when the report names none.</param>
+/// <param name="Reason">The reason, where the report's field gives one; null otherwise, never guessed.</param>
+public sealed record AgentToolDenied(string Tool, string? CallId, string? Reason) : AgentStreamEvent;
+
+/// <summary>One model's share of a turn, as the agent's own report states it. A count the report did not send is null.</summary>
+/// <param name="Model">The model id as the report spells it: the session's, a subagent's, or one the harness used for itself.</param>
+/// <param name="InputTokens">Input count, null = not reported.</param>
+/// <param name="OutputTokens">Output count, null = not reported.</param>
+/// <param name="CacheReadTokens">Count served from a cache, null = not reported.</param>
+/// <param name="CacheCreateTokens">Count written to a cache, null = not reported.</param>
+/// <param name="ContextWindow">The model's context window in tokens, null = not reported.</param>
+/// <param name="IsSessionModel">Whether this is the model the session ran on (<see cref="UsageFinal.Model"/>); the other
+/// rows are what a subagent or the harness used, left as the rows they are.</param>
+public sealed record AgentModelUsageEntry(
+    string Model, long? InputTokens, long? OutputTokens, long? CacheReadTokens, long? CacheCreateTokens, long? ContextWindow,
+    bool IsSessionModel);
+
+/// <summary>A turn's usage split by model, as the agent's own report states it (Claude's <c>modelUsage</c>), beside the
+/// totals of <see cref="UsageReading"/>. No cost is carried: the host prices from its own table. Absent when the
+/// report carries none.</summary>
+/// <param name="Models">One entry per model the report lists, in its order.</param>
+/// <param name="MeasuredAt">When the library read the report off the wire, on its own clock.</param>
+public sealed record AgentModelUsage(IReadOnlyList<AgentModelUsageEntry> Models, DateTimeOffset MeasuredAt) : AgentStreamEvent;
+
+/// <summary>How full the agent's context window is, as the agent reported it mid-turn (the protocol door's
+/// <c>usage_update</c>). These are context figures, not the token counts of a <see cref="UsageReading"/>, and each is the
+/// agent's own. A figure the agent did not send is null: never inferred from the other, and never 0.</summary>
+/// <param name="UsedTokens">What the context holds now.</param>
+/// <param name="WindowTokens">The context window's size.</param>
+/// <param name="MeasuredAt">When the library read the figures off the door's wire, on its own clock.</param>
+public sealed record ContextReading(long? UsedTokens, long? WindowTokens, DateTimeOffset MeasuredAt) : AgentStreamEvent;
+
 /// <summary>The single terminal event, and it ends the TURN: a turn is one <see cref="IAgentSession.StreamAsync"/>
 /// call, and a door that adapts a CLI ends it with exactly one of these. The CONVERSATION is not ended by it —
 /// <see cref="SessionId"/> is the resume token that carries the conversation into the next turn
@@ -112,4 +201,35 @@ public sealed record SessionEnded(
     /// terminal, read from the door's own fields before any sentence; <see cref="Verdict"/> is its mapping onto
     /// the verdict taxonomy, except that a process fault keeps the verdict its stderr gave.</summary>
     public AgentFailure? Failure { get; init; }
+
+    /// <summary>What the turn showed after its prompt was written, which is what <see cref="AgentFailure.Delivery"/> is
+    /// read from. Set by every door's loop on its terminal, failed or not; null on a terminal a door built before any
+    /// turn ran (a refusal).</summary>
+    public AgentTurnEvidence? Turn { get; init; }
+
+    /// <summary>The frames of the turn that no reader case took, by type and subtype (see <see cref="AgentUnreadFrame"/>):
+    /// what the door read nothing from, so a frame it turned into an event is not here. At most 16 entries, empty when
+    /// the door read every frame it was sent. The readers stay tolerant and add no event for these.</summary>
+    public IReadOnlyList<AgentUnreadFrame> Unread { get; init; } = [];
 }
+
+/// <summary>One kind of frame a door's reader read nothing from.</summary>
+/// <param name="Type">The frame's own type word (a stream-json type, a JSON-RPC method, a session update's kind).</param>
+/// <param name="Subtype">Its subtype where the wire has one, else null.</param>
+/// <param name="Count">How many such frames the turn carried, exact.</param>
+/// <param name="Sample">The first such frame as written, cut to 512 characters. It is the agent's own text and may hold
+/// what the agent was asked or answered: a host that logs it decides who may read the log.</param>
+public sealed record AgentUnreadFrame(string Type, string? Subtype, int Count, string Sample);
+
+/// <summary>The kinds of event a turn can show after its prompt was written. A session start the door announces
+/// before it writes the prompt, and an event that is not the agent's answer to the prompt, are none of these.</summary>
+public enum AgentShownKind { Text, Thinking, ToolCall, ToolResult, Usage, Plan, Task }
+
+/// <summary>What one turn showed after its prompt was written: the evidence <see cref="AgentFailure.Delivery"/> is
+/// read from, kept so a host can read it for itself.</summary>
+/// <param name="Written">Whether the door saw the prompt's write complete: true or false where the door writes it
+/// itself (the protocol door, which writes the prompt after its open), null where the child is handed the prompt at
+/// its spawn and the door has no write to watch (the CLI doors).</param>
+/// <param name="Shown">The kinds of event that came after the write, each once, in the order first shown; empty when
+/// none did.</param>
+public sealed record AgentTurnEvidence(bool? Written, IReadOnlyList<AgentShownKind> Shown);

@@ -167,6 +167,17 @@ public class AgentAccountPoolTests
         Assert.Equal("host-model", noModel.Apply(new AgentSessionOptions { Prompt = "p", Model = "host-model" }).Model);
     }
 
+    [Fact]
+    public void Apply_sets_the_choices_effort_over_the_hosts_and_leaves_the_hosts_when_the_choice_names_none()
+    {
+        var withEffort = new AgentPick(new AgentSeat(0, Choice(null, "claude-cli", "a") with { Effort = "high" }, Acct("a"), false), "t", []);
+        var without = new AgentPick(new AgentSeat(0, Choice(null, "claude-cli", "a"), Acct("a"), false), "t", []);
+
+        Assert.Equal("high", withEffort.Apply(new AgentSessionOptions { Prompt = "p", Effort = "low" }).Effort);
+        Assert.Equal("low", without.Apply(new AgentSessionOptions { Prompt = "p", Effort = "low" }).Effort);
+        Assert.Null(without.Apply(new AgentSessionOptions { Prompt = "p" }).Effort);
+    }
+
     private sealed record Derived : AgentSessionOptions { public string? Extra { get; init; } }
 
     // ── a reset moment permits one bounded attempt ───────────────────────────────────────────────
@@ -471,6 +482,105 @@ public class AgentAccountPoolTests
         Assert.Equal((2L, AgentHoldState.Blocked), (hold.Revision, hold.State));
     }
 
+    // clears an owner-action hold, runs the probe it permits and succeeds it: the hold is removed
+    private static async Task RemoveHold(AgentAccountPool pool)
+    {
+        var held = Assert.Single(await pool.HoldsAsync());
+        Assert.True(await pool.ClearAsync(held.Id, held.Revision));
+        await pool.ReportAsync(await Take(pool), Ok());
+        Assert.Empty(await pool.HoldsAsync());
+    }
+
+    [Fact]
+    public async Task A_removed_holds_identity_is_not_reused_so_a_stale_clear_cannot_match_the_hold_that_replaced_it()
+    {
+        var clock = new ManualTimeProvider();
+        var pool = Pool(clock, Choice(null, "claude-cli", "a"));
+        await pool.ReportAsync(await Take(pool), Limit(RestrictionRecovery.OwnerAction, RestrictionCause.Credit));
+        var first = Assert.Single(await pool.HoldsAsync());
+        await RemoveHold(pool);
+
+        await pool.ReportAsync(await Take(pool), Limit(RestrictionRecovery.OwnerAction, RestrictionCause.Credit));
+        var recreated = Assert.Single(await pool.HoldsAsync());
+
+        Assert.Equal(first.Id, recreated.Id);
+        Assert.Equal(first.Revision + 1, recreated.Revision);
+        Assert.False(await pool.ClearAsync(first.Id, first.Revision));
+        Assert.Null((await pool.PickAsync()).Pick);
+        Assert.True(await pool.ClearAsync(recreated.Id, recreated.Revision));
+    }
+
+    [Fact]
+    public async Task A_restart_reads_the_retained_revision_back_so_a_hold_recreated_after_it_continues_from_it()
+    {
+        var clock = new ManualTimeProvider();
+        var store = new InMemoryKeyValueStore();
+        var before = Pool(clock, store, Options(null, Choice(null, "claude-cli", "a")));
+        await before.ReportAsync(await Take(before), Limit(RestrictionRecovery.OwnerAction, RestrictionCause.Credit));
+        var first = Assert.Single(await before.HoldsAsync());
+        await RemoveHold(before);
+
+        var after = Pool(clock, store, Options(null, Choice(null, "claude-cli", "a")));
+        await after.ReportAsync(await Take(after), Limit(RestrictionRecovery.OwnerAction, RestrictionCause.Credit));
+
+        var recreated = Assert.Single(await after.HoldsAsync());
+        Assert.Equal(first.Revision + 1, recreated.Revision);
+        Assert.False(await after.ClearAsync(first.Id, first.Revision));
+    }
+
+    [Fact]
+    public async Task A_hold_a_reading_lifted_keeps_its_identity_too()
+    {
+        var clock = new ManualTimeProvider();
+        var pool = Pool(clock, Choice(null, "claude-cli", "a"));
+        await pool.ReportAsync(await Take(pool), Limit(RestrictionRecovery.ResetAt(clock.GetUtcNow() + Hour)));
+        var first = Assert.Single(await pool.HoldsAsync());
+        clock.Advance(TimeSpan.FromMinutes(1));
+        Assert.Equal(1, await pool.ReportReadingAsync(Acct("a"), clock.GetUtcNow(), true));
+
+        await pool.ReportAsync(await Take(pool), Limit(RestrictionRecovery.ResetAt(clock.GetUtcNow() + Hour)));
+
+        Assert.Equal(first.Revision + 1, Assert.Single(await pool.HoldsAsync()).Revision);
+    }
+
+    [Fact]
+    public async Task A_success_reported_by_a_pick_that_lost_its_lease_removes_nothing()
+    {
+        var clock = new ManualTimeProvider();
+        var pool = Pool(clock, Choice(null, "claude-cli", "a"));
+        await pool.ReportAsync(await Take(pool), Limit(RestrictionRecovery.ResetAt(clock.GetUtcNow())));
+
+        var slow = await Take(pool);
+        clock.Advance(TimeSpan.FromMinutes(31));    // past the attempt lease: the seat is offered again
+        var second = await Take(pool);
+        Assert.NotEqual(slow.Token, second.Token);
+
+        await pool.ReportAsync(slow, Ok());
+
+        var hold = Assert.Single(await pool.HoldsAsync());
+        Assert.Equal(AgentHoldState.Attempting, hold.State);    // still the second pick's
+        Assert.Null((await pool.PickAsync()).Pick);
+        await pool.ReportAsync(second, Ok());
+        Assert.Empty(await pool.HoldsAsync());
+    }
+
+    [Fact]
+    public async Task A_failure_reported_by_a_pick_that_lost_its_lease_does_not_end_the_second_picks_attempt()
+    {
+        var clock = new ManualTimeProvider();
+        var pool = Pool(clock, Choice(null, "claude-cli", "a"));
+        await pool.ReportAsync(await Take(pool), Limit(RestrictionRecovery.ResetAt(clock.GetUtcNow())));
+        var slow = await Take(pool);
+        clock.Advance(TimeSpan.FromMinutes(31));
+        var second = await Take(pool);
+
+        await pool.ReportAsync(slow, Failed(AgentFailureKind.Fatal));    // restricts nothing, and unleases only its own
+
+        Assert.Equal(AgentHoldState.Attempting, Assert.Single(await pool.HoldsAsync()).State);
+        Assert.Null((await pool.PickAsync()).Pick);
+        await pool.AbandonAsync(second);
+    }
+
     // ── an unknown recovery ──────────────────────────────────────────────────────────────────────
 
     [Fact]
@@ -584,7 +694,7 @@ public class AgentAccountPoolTests
     }
 
     [Fact]
-    public async Task The_store_holds_one_key_per_hold_under_the_pools_name_and_a_removed_hold_leaves_none()
+    public async Task The_store_holds_one_key_per_hold_under_the_pools_name_and_a_removed_hold_leaves_only_its_revision()
     {
         var clock = new ManualTimeProvider();
         var store = new InMemoryKeyValueStore();
@@ -595,7 +705,8 @@ public class AgentAccountPoolTests
         Assert.StartsWith("lyntai:agent-pool:work:hold:", Assert.Single(keys));
 
         await pool.ReportAsync(await Take(pool), Ok());
-        Assert.Empty(await store.ListKeysAsync("lyntai:agent-pool:"));
+        Assert.Empty(await store.ListKeysAsync("lyntai:agent-pool:work:hold:"));
+        Assert.Equal("lyntai:agent-pool:work:revisions", Assert.Single(await store.ListKeysAsync("lyntai:agent-pool:")));
     }
 
     [Fact]

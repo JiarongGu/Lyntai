@@ -35,7 +35,7 @@ public class ClaudeAgentSessionTests
         {
             written?.Add((kind, content));
             return $"<temp:{kind}>";
-        }, out var args, out var refusal), refusal);
+        }, out var args, out var refusal, out _), refusal);
         return args;
     }
 
@@ -333,6 +333,193 @@ public class ClaudeAgentSessionTests
         var path = runner.LastArgs![idx + 1];
         Assert.True(existedAtSpawn, "the config file was never written, so its absence proves nothing");
         Assert.False(File.Exists(path), $"the config file should have been deleted: {path}");
+    }
+
+    // ── a permission mode, an effort and plugin folders (the words are `claude --help`'s, 2.1.319) ──────
+
+    private static string ValueAfter(IReadOnlyList<string> argv, string flag) => argv[argv.ToList().IndexOf(flag) + 1];
+
+    private static List<string> ValuesAfter(IReadOnlyList<string> argv, string flag) =>
+        [.. argv.Where((_, i) => i > 0 && argv[i - 1] == flag)];
+
+    [Theory]
+    [InlineData("acceptEdits")]
+    [InlineData("auto")]
+    [InlineData("bypassPermissions")]
+    [InlineData("manual")]
+    [InlineData("dontAsk")]
+    [InlineData("plan")]
+    public void Build_a_permission_mode_is_the_flags_word_and_the_policys_mapping_and_read_only_denial_are_not_applied(string mode)
+    {
+        var argv = Args(new AgentSessionOptions { Prompt = "hi", PermissionMode = mode, DisallowedTools = ["Bash"] });
+
+        Assert.Equal([mode], ValuesAfter(argv, "--permission-mode"));
+        var denied = ValueAfter(argv, "--disallowed-tools").Split(',');
+        Assert.Contains("Bash", denied);            // the caller's denial stands
+        Assert.Contains("AskUserQuestion", denied); // so do the tools a headless turn always denies
+        Assert.DoesNotContain("Edit", denied);      // the default read-only policy's own denial is the policy's, not the mode's
+    }
+
+    [Fact]
+    public void Build_a_mode_replaces_acceptEdits_under_a_write_policy_and_changes_nothing_when_none_is_named()
+    {
+        var named = Args(new AgentSessionOptions { Prompt = "hi", ToolPolicy = AgentToolPolicy.Write, PermissionMode = "plan" });
+        Assert.Equal(["plan"], ValuesAfter(named, "--permission-mode"));
+
+        var unnamed = Args(new AgentSessionOptions { Prompt = "hi" });
+        Assert.DoesNotContain("--permission-mode", unnamed);
+        Assert.Contains("Edit", ValueAfter(unnamed, "--disallowed-tools").Split(','));
+    }
+
+    [Theory]
+    [InlineData("low")]
+    [InlineData("medium")]
+    [InlineData("high")]
+    [InlineData("xhigh")]
+    [InlineData("max")]
+    public void Build_an_effort_is_the_flags_level(string level)
+    {
+        Assert.Equal([level], ValuesAfter(Args(new AgentSessionOptions { Prompt = "hi", Effort = level }), "--effort"));
+        Assert.DoesNotContain("--effort", Args(new AgentSessionOptions { Prompt = "hi" }));
+    }
+
+    [Fact]
+    public void Build_each_plugin_folder_is_its_own_flag_in_order_and_a_repeat_is_dropped()
+    {
+        var a = Path.GetFullPath("plugin-a");
+        var b = Path.GetFullPath("plugin-b");
+
+        var argv = Args(new AgentSessionOptions { Prompt = "hi", PluginDirectories = [a, b, a] });
+
+        Assert.Equal([a, b], ValuesAfter(argv, "--plugin-dir"));
+        Assert.DoesNotContain("--plugin-dir", Args(new AgentSessionOptions { Prompt = "hi" }));
+    }
+
+    private static async Task<(SessionEnded Ended, FakeProcessRunner Runner)> Refused(AgentSessionOptions options, string subtype = AgentProvider.OptionRefusedSubtype)
+    {
+        var runner = new FakeProcessRunner(FullTranscript);
+        var session = new ClaudeAgentSession(runner, new LyntaiOptions(), command: "claude");
+        var ended = Assert.IsType<SessionEnded>(Assert.Single(await session.StreamAsync(options).ToListAsync()));
+        Assert.Equal((ProviderVerdict.Unsupported, subtype), (ended.Verdict, ended.Subtype));
+        Assert.Empty(runner.Calls);
+        return (ended, runner);
+    }
+
+    [Theory]
+    [InlineData("yolo")]
+    [InlineData("")]
+    [InlineData("plan ")]
+    [InlineData("Plan")]
+    public async Task A_mode_the_door_does_not_carry_refuses_the_turn_before_a_spawn_and_names_the_set(string word)
+    {
+        var (ended, _) = await Refused(new AgentSessionOptions { Prompt = "hi", PermissionMode = word });
+
+        Assert.Contains($"permission mode '{word}'", ended.Diagnostic);
+        Assert.Contains("acceptEdits, auto, bypassPermissions, manual, dontAsk, plan", ended.Diagnostic);
+    }
+
+    [Theory]
+    [InlineData("extreme")]
+    [InlineData("HIGH")]
+    [InlineData("")]
+    public async Task An_effort_the_door_does_not_carry_refuses_the_turn_before_a_spawn_and_names_the_set(string word)
+    {
+        var (ended, _) = await Refused(new AgentSessionOptions { Prompt = "hi", Effort = word });
+
+        Assert.Contains($"effort '{word}'", ended.Diagnostic);
+        Assert.Contains("low, medium, high, xhigh, max", ended.Diagnostic);
+    }
+
+    [Theory]
+    [InlineData("relative/plugin")]
+    [InlineData("")]
+    public async Task A_plugin_folder_that_is_not_fully_qualified_refuses_the_turn_before_a_spawn(string folder) =>
+        await Refused(new AgentSessionOptions { Prompt = "hi", PluginDirectories = [folder] });
+
+    [Fact]
+    public async Task A_plugin_folder_with_a_control_character_is_refused() =>
+        await Refused(new AgentSessionOptions { Prompt = "hi", PluginDirectories = [Path.GetFullPath("plugin-a") + "\n--evil"] });
+
+    [Fact]
+    public async Task A_mode_beside_skip_all_permissions_is_a_contradiction_the_door_refuses()
+    {
+        var (ended, _) = await Refused(new ClaudeAgentOptions { Prompt = "hi", PermissionMode = "plan", SkipAllPermissions = true });
+
+        Assert.Contains("SkipAllPermissions", ended.Diagnostic);
+    }
+
+    [Fact]
+    public async Task Through_the_provider_the_claude_door_states_the_three_abilities_supported_and_carries_them_to_the_spawn()
+    {
+        var runner = new FakeProcessRunner(FullTranscript);
+        var services = new ServiceCollection();
+        services.AddSingleton<IProcessRunner>(runner);
+        services.AddLyntai(b => b.AddClaudeCliAgentSession(command: "claude"));
+        using var sp = services.BuildServiceProvider();
+        var provider = sp.GetRequiredService<AgentProviderRegistry>().Get("claude-cli");
+        var door = Assert.Single(provider.Describe().Doors);
+
+        Assert.All(new[] { AgentAbilities.PermissionMode, AgentAbilities.Effort, AgentAbilities.Plugins },
+            ability => Assert.Equal(AgentSupport.Supported, door.SupportFor(ability)));
+
+        await provider.Open("cli").StreamAsync(new AgentSessionOptions
+        {
+            Prompt = "hi", PermissionMode = "plan", Effort = "high", PluginDirectories = [Path.GetFullPath("plugin-a")],
+        }).ToListAsync();
+
+        Assert.Equal("plan", ValueAfter(runner.LastArgs!, "--permission-mode"));
+        Assert.Equal("high", ValueAfter(runner.LastArgs!, "--effort"));
+    }
+
+    // ── a turn's own variables (AG29, D244) ───────────────────────────────────
+
+    [Fact]
+    public async Task A_turns_variable_reaches_the_child_a_null_removes_an_inherited_one_and_the_accounts_home_still_wins()
+    {
+        var runner = new FakeProcessRunner(FullTranscript);
+        var standing = new Dictionary<string, string?> { ["REGISTERED"] = "r", ["TURN_WINS"] = "old", ["INHERITED"] = "x" };
+        var session = new ClaudeAgentSession(runner, new LyntaiOptions(), command: "claude", environment: standing);
+
+        await session.StreamAsync(new AgentSessionOptions
+        {
+            Prompt = "hi",
+            Environment = new Dictionary<string, string?> { ["TURN_VAR"] = "t", ["TURN_WINS"] = "new", ["INHERITED"] = null, ["CLAUDE_CONFIG_DIR"] = "/turn" },
+            Account = new AgentAccount { Provider = "claude-cli", Name = "a", Home = "/accounts/a" },
+        }).ToListAsync();
+
+        var env = runner.Calls[^1].Environment!;
+        Assert.Equal(("r", "t", "new"), (env["REGISTERED"], env["TURN_VAR"], env["TURN_WINS"]));
+        Assert.True(env.ContainsKey("INHERITED") && env["INHERITED"] is null);
+        Assert.Equal("/accounts/a", env["CLAUDE_CONFIG_DIR"]);   // the account is beneath nothing
+    }
+
+    [Fact]
+    public void A_turns_to_string_lists_the_names_of_its_variables_and_never_a_value()
+    {
+        var options = new ClaudeAgentOptions { Prompt = "hi", Environment = new Dictionary<string, string?> { ["API_KEY"] = "s3cr3t-value", ["B"] = null } };
+
+        var text = options.ToString();
+
+        Assert.Contains("Environment = [API_KEY, B]", text);
+        Assert.DoesNotContain("s3cr3t-value", text);
+    }
+
+    [Theory]
+    [InlineData("", "v")]
+    [InlineData("A=B", "v")]
+    [InlineData("NAME", "bad\nvalue")]
+    public async Task A_name_or_value_no_child_can_carry_refuses_the_turn_before_a_spawn_naming_no_value(string name, string value)
+    {
+        var (ended, runner) = await Refused(new AgentSessionOptions { Prompt = "hi", Environment = new Dictionary<string, string?> { [name] = value } }, subtype: "environment-invalid");
+
+        Assert.DoesNotContain("bad", ended.Diagnostic);
+        Assert.Empty(runner.Calls);
+    }
+
+    [Fact]
+    public void The_claude_door_states_the_environment_ability_supported()
+    {
+        Assert.Equal(AgentSupport.Supported, Assert.Single(ClaudeAgentDoor.Describe("claude-cli").Doors).SupportFor(AgentAbilities.Environment));
     }
 
     // ── headless skip-all-permissions ─────────────────────────────────────────

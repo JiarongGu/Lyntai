@@ -81,6 +81,7 @@ sealed class Lyntai.Providers.Acp.AcpUpdateReading
     Events : IReadOnlyList<AgentStreamEvent> { get; init; }
     Failure : AgentFailure { get; init; }
     GetHashCode() : Int32
+    KeepsFailure : Boolean { get; init; }
     ToString() : String
 interface Lyntai.Providers.Acp.IAcpExtensionReader
     ReadError(JsonElement error, TimeProvider time) : AgentFailure

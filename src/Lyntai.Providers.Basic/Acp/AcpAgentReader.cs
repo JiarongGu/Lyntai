@@ -20,7 +20,8 @@ namespace Lyntai.Providers.Acp;
 /// <c>tool_call_update</c> that has finished a <see cref="ToolResult"/>, both carrying the update's own object.
 /// The prompt's <c>usage</c> is <see cref="UsageFinal"/> and <see cref="UsageReading"/>; its <c>stopReason</c> and
 /// any error end the turn. Everything else — a user message chunk, the commands and mode and config updates, a
-/// <c>usage_update</c>'s context figures — is no event, and nothing is inferred.</para>
+/// <c>usage_update</c>'s rate-limit meta read by an extension — is no event but a <c>usage_update</c> is a
+/// <see cref="ContextReading"/>, and nothing is inferred.</para>
 /// <para><b>A load replays the conversation as updates before it answers</b>; they are dropped, so a turn's events
 /// are the prompt's alone.</para></summary>
 internal sealed class AcpAgentReader
@@ -29,6 +30,8 @@ internal sealed class AcpAgentReader
     private const int OpenId = 2;
     private const int PromptId = 3;
     private const int SetModelId = 4;
+    private const int SetModeId = 5;
+    private const int SetEffortId = 6;
     private const int MaxOfferedNamed = 25;
 
     private enum Phase { Initializing, Opening, Configuring, Prompting, Done }
@@ -46,10 +49,19 @@ internal sealed class AcpAgentReader
     private bool _cancelSent;
     private readonly AcpExtensionSet _extensions;
     private AcpModelOption? _modelOption;
+    private AcpModelOption? _effortOption;
+    private readonly Queue<(int Id, string Frame)> _steps = new();
+    private int _pendingStep;
+    private IReadOnlyList<string> _offeredModes = [];
     private readonly IAcpPermissionApprover? _approver;
     private readonly TimeSpan _permissionWindow;
     private readonly ILogger _logger;
     private readonly List<HeldPermission> _held = [];
+    private int _frames;
+    private readonly UnreadFrames _unread = new();
+    private string _line = "";
+    private int _promptFrame = -1;
+    private volatile bool _promptAnswered;
 
     /// <param name="options">The turn.</param>
     /// <param name="cwd">The absolute working directory the session opens in.</param>
@@ -78,6 +90,13 @@ internal sealed class AcpAgentReader
         _extensions = new AcpExtensionSet(extensions, time);
     }
 
+    /// <summary>The place of the prompt's frame among the frames the client has queued (0 is <c>initialize</c>); -1 until
+    /// it is queued. A writer that has asked for the frame after it has written it.</summary>
+    public int PromptFrame => Volatile.Read(ref _promptFrame);
+
+    /// <summary>Whether the agent has answered <c>session/prompt</c>, with a result or an error: it read the prompt.</summary>
+    public bool PromptAnswered => _promptAnswered;
+
     /// <summary>Queue <c>initialize</c>, the first frame.</summary>
     public void Start() => Send(AcpFrames.Initialize(InitializeId, _clientVersion));
 
@@ -95,10 +114,15 @@ internal sealed class AcpAgentReader
         }
     }
 
+    /// <summary>The frames no case here took: a request that is not a permission request, a notification that is not a
+    /// session update, and an update of a kind with no case.</summary>
+    public IReadOnlyList<AgentUnreadFrame> Unread() => _unread.Snapshot();
+
     /// <summary>One line the agent wrote, as 0..N events.</summary>
     public IReadOnlyList<AgentStreamEvent> Read(string line)
     {
         if (string.IsNullOrWhiteSpace(line)) return [];
+        _line = line;
         try
         {
             using var doc = JsonDocument.Parse(line);
@@ -135,6 +159,8 @@ internal sealed class AcpAgentReader
             WireJson.Object(root, "params") is { } parameters && ForThisSession(parameters) &&
             WireJson.Object(parameters, "update") is { } update)
             ReadUpdate(update, events);
+        else if (method != "session/update")
+            _unread.Note("notification", method, _line);
     }
 
     private bool ForThisSession(JsonElement parameters) =>
@@ -167,6 +193,10 @@ internal sealed class AcpAgentReader
                     break;
                 }
 
+                // an open that offers nothing says nothing, so it adds no event
+                var offered = AcpOffers.Read(result);
+                if (offered.Options.Count > 0 || offered.Modes.Count > 0) events.Add(offered);
+
                 if (_options.Model is { Length: > 0 } wanted)
                 {
                     _modelOption = AcpModelOption.Read(result);
@@ -177,24 +207,101 @@ internal sealed class AcpAgentReader
                     }
 
                     if (_modelOption.Current != wanted)
-                    {
-                        _phase = Phase.Configuring;
-                        Send(AcpFrames.SetConfigOption(SetModelId, _sessionId, _modelOption.Id, wanted));
-                        break;
-                    }
+                        _steps.Enqueue((SetModelId, AcpFrames.SetConfigOption(SetModelId, _sessionId, _modelOption.Id, wanted)));
                 }
 
-                StartPrompt(events);
+                if (!QueueModeAndEffort(result, events)) break;
+                NextStep(events);
                 break;
 
-            case SetModelId when _phase == Phase.Configuring:
+            case SetModelId when _phase == Phase.Configuring && _pendingStep == SetModelId:
                 ReadModelSet(error, result, events);
                 break;
 
+            case SetModeId when _phase == Phase.Configuring && _pendingStep == SetModeId:
+                ReadSetAnswer(error, "permission mode", _options.PermissionMode!, "acp.mode.set-refused", events);
+                break;
+
+            case SetEffortId when _phase == Phase.Configuring && _pendingStep == SetEffortId:
+                if (error is null && AcpModelOption.Read(result, AcpModelOption.EffortCategory) is { Current: { } nowEffort }
+                    && nowEffort != _options.Effort && _effortOption!.Offered.Contains(_options.Effort!))
+                    End(events, Refused($"the agent answered effort '{nowEffort}' to a set of '{_options.Effort}', which it lists.", AgentProvider.OptionRefusedSubtype));
+                else
+                    ReadSetAnswer(error, "effort", _options.Effort!, "acp.effort.set-refused", events);
+                break;
+
             case PromptId when _phase == Phase.Prompting:
+                _promptAnswered = true;
                 EndPrompt(error, result, events);
                 break;
         }
+    }
+
+    // A mode is set through session/set_mode with an id the open's modes answer offers, an effort through the config option
+    // of its category, and both are the agent's to accept: an agent that offers neither ends the turn before the prompt.
+    private bool QueueModeAndEffort(JsonElement result, List<AgentStreamEvent> events)
+    {
+        if (_options.PermissionMode is { Length: > 0 } mode)
+        {
+            var modes = WireJson.Object(result, "modes");
+            _offeredModes = modes is { } m && WireJson.Array(m, "availableModes") is { } list
+                ? [.. list.EnumerateArray().Select(x => WireJson.String(x, "id")).OfType<string>()]
+                : [];
+            if (!_offeredModes.Contains(mode, StringComparer.Ordinal))
+            {
+                End(events, Refused(_offeredModes.Count == 0
+                    ? $"the agent states no modes, so permission mode '{mode}' cannot be set on it."
+                    : $"the agent does not offer permission mode '{mode}'. It offers: {string.Join(", ", _offeredModes.Take(MaxOfferedNamed))}.",
+                    AgentProvider.OptionRefusedSubtype));
+                return false;
+            }
+
+            if (modes is { } current && WireJson.String(current, "currentModeId") != mode)
+                _steps.Enqueue((SetModeId, AcpFrames.SetMode(SetModeId, _sessionId!, mode)));
+        }
+
+        if (_options.Effort is { Length: > 0 } effort)
+        {
+            _effortOption = AcpModelOption.Read(result, AcpModelOption.EffortCategory);
+            if (_effortOption is null)
+            {
+                End(events, Refused($"the agent states no effort option (a config option of category {AcpModelOption.EffortCategory}), so effort '{effort}' cannot be set on it.",
+                    AgentProvider.OptionRefusedSubtype));
+                return false;
+            }
+
+            if (_effortOption.Current != effort)
+                _steps.Enqueue((SetEffortId, AcpFrames.SetConfigOption(SetEffortId, _sessionId!, _effortOption.Id, effort)));
+        }
+        return true;
+    }
+
+    // the next set the turn needs, or the prompt
+    private void NextStep(List<AgentStreamEvent> events)
+    {
+        if (!_steps.TryDequeue(out var step))
+        {
+            StartPrompt(events);
+            return;
+        }
+
+        _phase = Phase.Configuring;
+        _pendingStep = step.Id;
+        Send(step.Frame);
+    }
+
+    // the agent's answer to a set is the verdict: an error refuses it, unless the agent states a limit or a sign-in there
+    private void ReadSetAnswer(JsonElement? error, string what, string wanted, string by, List<AgentStreamEvent> events)
+    {
+        if (error is { } setError)
+        {
+            var failure = AcpFailure.FromError(setError, _extensions, _time, out var words);
+            if (failure.Kind != AgentFailureKind.Fatal) End(events, FailedByError(setError));
+            else End(events, Refused($"the agent refused {what} '{wanted}': {words}", AgentProvider.OptionRefusedSubtype));
+            return;
+        }
+
+        NextStep(events);
     }
 
     // The session is announced only once it is ready to be prompted, so a turn refused before this point shows the
@@ -206,6 +313,7 @@ internal sealed class AcpAgentReader
         string[] blocks = string.IsNullOrEmpty(_options.SystemPrompt)
             ? [_options.Prompt]
             : [_options.SystemPrompt, _options.Prompt];
+        Volatile.Write(ref _promptFrame, Volatile.Read(ref _frames));
         Send(AcpFrames.Prompt(PromptId, _sessionId!, blocks));
     }
 
@@ -238,7 +346,7 @@ internal sealed class AcpAgentReader
             return;
         }
 
-        StartPrompt(events);
+        NextStep(events);
     }
 
     private string OfferedWords()
@@ -293,6 +401,7 @@ internal sealed class AcpAgentReader
     {
         if (method != "session/request_permission")
         {
+            _unread.Note("request", method, _line);
             Send(AcpFrames.MethodNotFound(id, method));
             return;
         }
@@ -395,12 +504,13 @@ internal sealed class AcpAgentReader
         switch (WireJson.String(update, "sessionUpdate"))
         {
             case "agent_message_chunk" when ChunkText(update) is { } text:
-                _answer.Append(text);
-                events.Add(new TextDelta(text));
+                // a stamped chunk is a child's: it is not the session's answer
+                if (ParentOf(update) is not { } textParent) _answer.Append(text);
+                events.Add(new TextDelta(text) { ParentCallId = ParentOf(update) });
                 break;
 
             case "agent_thought_chunk" when ChunkText(update) is { } thought:
-                events.Add(new Thinking(thought));
+                events.Add(new Thinking(thought) { ParentCallId = ParentOf(update) });
                 break;
 
             case "plan":
@@ -414,10 +524,35 @@ internal sealed class AcpAgentReader
             case "tool_call_update":
                 ReadToolUpdate(update, events);
                 break;
+
+            case "usage_update":
+                AddContext(update, events);
+                break;
+
+            // known updates that carry nothing a turn reports
+            case "user_message_chunk" or "available_commands_update" or "current_mode_update" or "config_option_update"
+                or "session_info_update":
+                break;
+
+            case { } other:
+                _unread.Note("session/update", other, _line);
+                break;
         }
 
         _extensions.ReadUpdate(update, events);
     }
+
+    private void AddContext(JsonElement update, List<AgentStreamEvent> events)
+    {
+        long? used = WireJson.Int64(update, "used"), size = WireJson.Int64(update, "size");
+        if (used is not null || size is not null) events.Add(new ContextReading(used, size, _time.GetUtcNow()));
+    }
+
+    // claude-agent-acp stamps what a child it did not declare as a session sends on the root session with the call that spawned it
+    private static string? ParentOf(JsonElement update) =>
+        WireJson.Object(update, "_meta") is { } meta && WireJson.Object(meta, "claudeCode") is { } claude
+            ? WireJson.String(claude, "parentToolUseId")
+            : null;
 
     private static string? ChunkText(JsonElement update) =>
         WireJson.Object(update, "content") is { } content && WireJson.String(content, "type") == "text"
@@ -441,16 +576,16 @@ internal sealed class AcpAgentReader
     private void ReadToolCall(JsonElement update, List<AgentStreamEvent> events)
     {
         if (WireJson.String(update, "toolCallId") is not { } id) return;
-        if (_startedTools.Add(id)) events.Add(new ToolCall(ToolName(update), update.GetRawText(), id));
-        if (IsFinished(update, out var failed)) events.Add(new ToolResult(id, update.GetRawText(), failed));
+        if (_startedTools.Add(id)) events.Add(new ToolCall(ToolName(update), update.GetRawText(), id) { ParentCallId = ParentOf(update) });
+        if (IsFinished(update, out var failed)) events.Add(new ToolResult(id, update.GetRawText(), failed) { ParentCallId = ParentOf(update) });
     }
 
     private void ReadToolUpdate(JsonElement update, List<AgentStreamEvent> events)
     {
         if (WireJson.String(update, "toolCallId") is not { } id) return;
         if (!IsFinished(update, out var failed)) return;
-        if (_startedTools.Add(id)) events.Add(new ToolCall(ToolName(update), update.GetRawText(), id));   // never seen start: still visible
-        events.Add(new ToolResult(id, update.GetRawText(), failed));
+        if (_startedTools.Add(id)) events.Add(new ToolCall(ToolName(update), update.GetRawText(), id) { ParentCallId = ParentOf(update) });   // never seen start: still visible
+        events.Add(new ToolResult(id, update.GetRawText(), failed) { ParentCallId = ParentOf(update) });
     }
 
     private static string ToolName(JsonElement update) =>
@@ -538,5 +673,8 @@ internal sealed class AcpAgentReader
         _outbox.TryComplete();
     }
 
-    private void Send(string frame) => _outbox.TryWrite(frame);
+    private void Send(string frame)
+    {
+        if (_outbox.TryWrite(frame)) Interlocked.Increment(ref _frames);
+    }
 }

@@ -15,40 +15,26 @@ LLM-ops layer (prompt registry, scoring, traces, memory). `AddLyntai(...)` and g
 
 <!-- open-items:begin — GENERATED. Edit the per-item `item:` markers, never this table. -->
 
-## Open items — 27 across 5 Parts: 21 startable, 3 blocked, 3 watch
+## Open items — 13 across 5 Parts: 6 startable, 4 blocked, 3 watch
 
 _Generated from the per-item `<!-- item: … -->` markers by `node devtools/dev.mjs check-backlog --write`._
 _Edit a marker, never this table — `verify` fails the moment the two disagree._
 
 | line | Part | item | state | waiting on |
 | ---: | ---: | --- | --- | --- |
-| 128 | 33 | GEN-VERIFY-FAL, the last line — the Hugging Face route | blocked · env | an hf_ token for the router route |
-| 169 | 75 | Decide what an aggregator's in-band `code` means | blocked · env+data | two or three real aggregators to measure an in-band code against |
-| 196 | 99 | `verify`'s test step intermittently fails EXACTLY 9 tests, and once aborted… | watch · data | the same nine tests to recur — the fix is unconfirmed as the cure, and a gr… |
-| 255 | 99 | `InputSegmenterTests.Counting_NFKC_is_LINEAR_in_the_length_of_the_text` fai… | watch · data | a recurrence under the full parallel run, with the ratio it read — the mess… |
-| 273 | 99 | `AgentUsageProcessTests.A_server_that_never_answers_is_ended_with_its_child… | watch · data | a recurrence under the full parallel run, with the load it ran under; it fa… |
-| 311 | 417 | MC8 — run the wrong-end instrument on an adjudicated corpus, with a bar wri… | blocked · decision+data | two reviewers' independent labels on a sample of the pairs, and a bar a per… |
-| 337 | 446 | AG43 — a hold's identity is never reused, and a report resolves only a leas… | startable |  |
-| 346 | 446 | AG37 — a prompt's delivery is what its turn showed after the write | startable |  |
-| 355 | 446 | AG38 — a permission request waits for the person when the host says so | startable |  |
-| 364 | 446 | AG25 — a permission mode is carried by the CLI doors, or refused | startable |  |
-| 373 | 446 | AG26 — an effort is carried by the CLI doors, or refused | startable |  |
-| 379 | 446 | AG27 — plugin folders are handed to the Claude door, or refused | startable |  |
-| 385 | 446 | AG28 — the protocol door carries a permission mode and an effort | startable |  |
-| 391 | 446 | AG29 — a turn's own variables | startable |  |
-| 397 | 446 | AG30 — a child's words carry the call that spawned it, and its life is writ… | startable |  |
-| 404 | 446 | AG31 — the protocol door keeps a child's stamped lines apart | startable |  |
-| 411 | 446 | AG32 — an unread frame leaves a bounded trace | startable |  |
-| 417 | 446 | AG33 — the Claude door states a turn's own report: denials and usage by mod… | startable |  |
-| 423 | 446 | AG34 — the protocol door states the context figures its updates report | startable |  |
-| 427 | 446 | AG35 — a session start says whether the agent announced it | startable |  |
-| 432 | 446 | AG36 — the protocol door states what the open offered | startable |  |
-| 438 | 446 | AG40 — why a person must act, and what kind of access failed | startable |  |
-| 444 | 446 | AG41 — a limit names its window and a stated reset keeps its parts | startable |  |
-| 451 | 446 | AG42 — every allowance report is an event | startable |  |
-| 457 | 446 | AG44 — the restriction rules are public over a snapshot the host stores | startable |  |
-| 463 | 446 | AG45 — a host's line reader runs under the CLI turn's rules | startable |  |
-| 469 | 446 | AG39 — a run kept across turns: the design | startable |  |
+| 114 | 33 | GEN-VERIFY-FAL, the last line — the Hugging Face route | blocked · env | an hf_ token for the router route |
+| 155 | 75 | Decide what an aggregator's in-band `code` means | blocked · env+data | two or three real aggregators to measure an in-band code against |
+| 182 | 99 | `verify`'s test step intermittently fails EXACTLY 9 tests, and once aborted… | watch · data | the same nine tests to recur — the fix is unconfirmed as the cure, and a gr… |
+| 241 | 99 | `InputSegmenterTests.Counting_NFKC_is_LINEAR_in_the_length_of_the_text` fai… | watch · data | a recurrence under the full parallel run, with the ratio it read — the mess… |
+| 259 | 99 | `AgentUsageProcessTests.A_server_that_never_answers_is_ended_with_its_child… | watch · data | a recurrence under the full parallel run, with the load it ran under; it fa… |
+| 297 | 417 | MC8 — run the wrong-end instrument on an adjudicated corpus, with a bar wri… | blocked · decision+data | two reviewers' independent labels on a sample of the pairs, and a bar a per… |
+| 323 | 446 | AG38 — a permission request waits for the person when the host says so | startable |  |
+| 332 | 446 | AG40 — why a person must act, and what kind of access failed | startable |  |
+| 338 | 446 | AG41 — a limit names its window and a stated reset keeps its parts | startable |  |
+| 345 | 446 | AG44 — the restriction rules are public over a snapshot the host stores | startable |  |
+| 351 | 446 | AG45 — a host's line reader runs under the CLI turn's rules | startable |  |
+| 357 | 446 | AG42, the rest — an allowance report's use and its overage and credit state | blocked · data | a real rate_limit_event frame, from a signed-in account, that carries a use… |
+| 363 | 446 | AG39 — a run kept across turns: the design | startable |  |
 
 <!-- open-items:end -->
 
@@ -334,24 +320,6 @@ a SOURCE-DERIVED one rests on Daoris's recorded captures, which a real one repla
 in built code), AG37 before AG36 and AG42, AG25 to AG27 before AG28, AG30 before AG31, AG40 before AG41, AG43 before AG44, and AG39
 last because it designs the largest piece; the rest in any order. No row spends an account or calls a paid service._
 
-- [ ] **AG43 — a hold's identity is never reused, and a report resolves only a lease it still owns** (lane `platform`, **D247**). <!-- item: state=startable -->
-  `AgentPoolReducer.Hold` gives revision 1 to an id no longer held, so a clear naming an old revision 1 matches a hold recreated at
-  revision 1; `Succeed` removes the hold whose revision matches without checking that the reporting pick's token still owns the lease
-  (read from the source, not run). **Contract.** The snapshot keeps the highest revision a removed id reached, written through the
-  store as a small record and read back, so a recreated hold continues from it; `Succeed` and `Unlease` act on a lease only while its
-  token owns it. Nothing public changes. **Proof.** Tests that fail today: remove a hold and recreate it, then clear by the old
-  revision (false); expire a lease, take it with a second pick, report the first pick's success (the hold stays); a restart reads the
-  retained revision back.
-
-- [ ] **AG37 — a prompt's delivery is what its turn showed after the write** (lanes `inference` + `platform`, **D248**). <!-- item: state=startable -->
-  `AcpAgentReader.StartPrompt` yields `SessionStarted` and writes the prompt in one call, and `CliAgentLoop.Stamp` counts any event
-  but the terminal, so a protocol turn that dies right after the open reads `Taken` with the prompt unread. **Contract.** The loop
-  does not count a session start on a door that announces it before the write (the protocol door), nor an event that is not the
-  agent's answer to the prompt (the offers of AG36, an allowance report of AG42); `SessionEnded` gains `Turn`, a record of whether the
-  write completed and, by kind, which events came after it (text, thinking, tool call, tool result, usage, plan). `AgentDelivery`
-  and `RetryingAgentSession` are unchanged. **Proof.** A stub that dies after the open reads `NeverSent`, one that streams one
-  text delta reads `Taken` with that kind listed, a CLI door's reading is unchanged, and the retry test for a protocol door resends.
-
 - [ ] **AG38 — a permission request waits for the person when the host says so** (lanes `inference` + `platform`, **D248**). <!-- item: state=startable -->
   `IAcpPermissionApprover` refuses at half the turn's inactivity window and the runner's clock ends a silent agent. **Contract.** An
   `AddAcpAgentSession` option states the wait is the approver's: a request waits as long as the approver holds it and the runner is
@@ -360,80 +328,6 @@ last because it designs the largest piece; the rest in any order. No row spends 
   stand-in that asks and stays silent: answered after longer than the window by a held approver (the turn goes on), refused at half
   the window without the option, and the cancelled outcome on a cancelled turn; the shipped runner honours the member under a short
   window.
-
-- [ ] **AG25 — a permission mode is carried by the CLI doors, or refused** (lanes `platform` + `inference`, **D244**). <!-- item: state=startable -->
-  First step: read `claude --help` for the modes and say, in the row's evidence, whether `--permission-mode bypassPermissions` equals
-  the skip flag. **Contract.** `AgentSessionOptions` gains `PermissionMode` (the agent's word, null = the `ToolPolicy` mapping) and the ability
-  `permission-mode` (a name in `AgentAbilities.All`, `Needed` when set): the Claude door renders the measured set and refuses another
-  word before a spawn, naming the set; a mode beside `SkipAllPermissions` is refused; with a mode set, `ToolPolicy`'s mode mapping
-  and read-only denial are not applied while `DisallowedTools` and the always-denied tools stand. The Codex door states `Unsupported`
-  (its gate is its sandbox option). **Proof.** Argv for each measured mode, a refused word, the contradiction, a read-only default
-  unchanged when no mode is named, and `Describe()` stating the ability on both doors.
-
-- [ ] **AG26 — an effort is carried by the CLI doors, or refused** (lanes `platform` + `inference`, **D244**). <!-- item: state=startable -->
-  **Contract.** `AgentSessionOptions.Effort` and the ability `effort`; `AgentPick.Apply` sets it from `AgentChoice.Effort` (whose
-  XML doc stops saying no option carries it). The Claude door renders `--effort` for the levels `--help` lists and refuses another
-  word before a spawn; the Codex door renders the config override if the row measures one, else states `Unsupported`. **Proof.** Argv
-  per level, a refused word, `Apply` carrying a choice's effort, and a door stating `Unsupported` refusing a turn that names one.
-
-- [ ] **AG27 — plugin folders are handed to the Claude door, or refused** (lanes `platform` + `inference`, **D244**). <!-- item: state=startable -->
-  **Contract.** `AgentSessionOptions` gains `PluginDirectories` and the ability `plugins`: the Claude door renders `--plugin-dir` per entry
-  (each fully qualified, no control character, a duplicate dropped, its contents never read); the Codex, protocol and HTTP doors
-  state `Unsupported`. **Proof.** Argv for two folders, a relative path refused before a spawn, a refusal on each other door, and
-  the baseline moved.
-
-- [ ] **AG28 — the protocol door carries a permission mode and an effort** (lane `inference`, after AG25 and AG26, **D244**). <!-- item: state=startable -->
-  **Contract.** As the model is (**D243**): a mode is set through `session/set_mode` with an id the open's `modes` answer offers, an
-  effort through the config option of its category; the agent's answer decides, a refusal ends the turn before the prompt
-  (`option-unsupported`, `NeverSent`), and an agent that offers neither ends it the same way. Both abilities are `Unknown`,
-  `Negotiated`. **Proof.** SOURCE-DERIVED opens from Daoris's recorded captures: set and taken, set and refused, no such option.
-
-- [ ] **AG29 — a turn's own variables** (lanes `platform` + `inference`, **D244**). <!-- item: state=startable -->
-  **Contract.** `AgentSessionOptions.Environment` (a null value removes) and the ability `environment`, applied over the
-  registration's environment and beneath the account's on the CLI and protocol doors; the HTTP door states `Unsupported`. A value is
-  a secret and follows `AgentAccount.Environment`'s rules (never argv, a log line or an event). **Proof.** A turn's variable reaches
-  the child, a null removes an inherited one, the account's home still wins, and `ToString` lists no value.
-
-- [ ] **AG30 — a child's words carry the call that spawned it, and its life is written down** (lane `inference`, **D245**). <!-- item: state=startable -->
-  `StreamJsonAgentReader.ReadAssistant` drops a subagent's `text` and reads no `thinking` block. **Contract.** `TextDelta` and
-  `Thinking` gain `ParentCallId` (additive, init); a subagent's complete message yields one of each per block, with the parent, and
-  never a plan, usage or fallback text of the session's. `docs/guide.md` states how a consumer reads a child's start (its first
-  event with a parent) and end (the `AgentTaskEnded` of the task opened for that call, else the call's `ToolResult`). **Proof.**
-  The AG10 capture's shapes: an asynchronous child's words, a synchronous child with no task, and the end by each rule.
-
-- [ ] **AG31 — the protocol door keeps a child's stamped lines apart** (lane `inference`, after AG30, **D245**). <!-- item: state=startable -->
-  A child the client did not declare as a session carries `_meta.claudeCode.parentToolUseId` on the root session (Daoris's record of
-  `claude-agent-acp`), and `AcpAgentReader` reads none of it, so its calls read as the session's: AG10's defect on this door.
-  **Contract.** A stamped `tool_call`, `tool_call_update` and message chunk carry `ParentCallId`; nothing else of the session's moves.
-  Declaring child sessions at `initialize` is **not** this row (the adapter then removes the spawning call from the parent's
-  stream). **Proof.** SOURCE-DERIVED captures of a stamped child's call and words beside the parent's own, held both ways.
-
-- [ ] **AG32 — an unread frame leaves a bounded trace** (lane `inference`, **D245**). <!-- item: state=startable -->
-  **Contract.** `SessionEnded` gains `Unread`: for each frame type and subtype no reader case took, a count and one sample, at most 16
-  entries of 512 characters; the readers stay tolerant and add no event. It lists what the reader read nothing from, so a frame it
-  turned into an event is not here. **Proof.** A stream with three unknown types and a flood of one: three entries, one bounded
-  sample each, the count exact, and a stream with none leaves `Unread` empty on both CLI doors and the protocol door.
-
-- [ ] **AG33 — the Claude door states a turn's own report: denials and usage by model** (lane `inference`, **D245**). <!-- item: state=startable -->
-  **Contract.** An event for each tool call the harness denied (`permission_denials`: the tool, its call id, the reason where the
-  field gives one, else null), and a usage-by-model reading from `modelUsage`: each model's tokens and context window, the
-  session's model marked, a subagent's and the harness's own left as the rows they are. `UsageFinal.Model` keeps its meaning. No cost
-  field. **Proof.** SOURCE-DERIVED `result` frames with one model and with three, a denial with and without a reason.
-
-- [ ] **AG34 — the protocol door states the context figures its updates report** (lane `inference`, **D245**). <!-- item: state=startable -->
-  **Contract.** A `usage_update`'s used and size figures as a context reading beside the existing usage readings, each null when
-  not sent, never inferred. **Proof.** SOURCE-DERIVED `usage_update` frames from both measured agents.
-
-- [ ] **AG35 — a session start says whether the agent announced it** (lane `inference`, **D245**). <!-- item: state=startable -->
-  **Contract.** `SessionStarted` gains `Announced` (true for the agent's own `init`, the protocol door's open answer and the Codex
-  thread start; false for a later `system` frame that only carries a new id); the reader still yields once per id. **Proof.** An
-  `init`, then a `thinking_tokens` tick with a changed id: the first true, the second false.
-
-- [ ] **AG36 — the protocol door states what the open offered** (lane `inference`, after AG37, **D245**). <!-- item: state=startable -->
-  **Contract.** An event after the open's answer and before any set or prompt: each option the agent offered (category, id, current
-  value, values) and each mode, bounded as `MaxOfferedNamed` bounds the diagnostic; a refused turn carries it too. It never counts
-  toward delivery. **Proof.** SOURCE-DERIVED open answers from both measured agents, a turn refused on a model still delivering the
-  offers, and the delivery unchanged.
 
 - [ ] **AG40 — why a person must act, and what kind of access failed** (lane `platform` + `inference`, **D246**). <!-- item: state=startable -->
   **Contract.** `RestrictionRecovery.Reason` for an owner action (refill, sign in, grant, configure, unknown), from fields only; an
@@ -448,12 +342,6 @@ last because it designs the largest piece; the rest in any order. No row spends 
   each sentence shape (moment, date and time, weekday and time, time of day, wait) with its parts, a zone the machine lacks keeping
   its parts, and a clock handed to the session reaching the reading.
 
-- [ ] **AG42 — every allowance report is an event** (lanes `platform` + `inference`, after AG37, **D246**). <!-- item: state=startable -->
-  **Contract.** An event per `rate_limit_event` frame, allowed or rejected, carrying the window as `AgentAllowanceWindow` states it,
-  the report's standing and the overage and credit state it names, on the Claude door and from the protocol door's
-  `_claude/rateLimit` update; the rejected frame still ends a failing turn as today. **Proof.** SOURCE-DERIVED allowed, warning and
-  rejected frames, a frame with a use and no reset, and the turn's delivery unchanged by a report.
-
 - [ ] **AG44 — the restriction rules are public over a snapshot the host stores** (lane `platform`, after AG43, **D247**). <!-- item: state=startable -->
   **Contract.** An immutable snapshot and the operations **D247** lists, as pure functions returning the next snapshot and an
   outcome, with the pool rebuilt on them; an evidence observation names the hold's id, revision and subject key and the recovery
@@ -465,6 +353,12 @@ last because it designs the largest piece; the rest in any order. No row spends 
   terminal or none); the loop keeps one terminal, the fault terminal and the delivery stamp, and the built-in doors run through the
   same path. **Proof.** A plain-line stand-in that exits 0 with no terminal (the reader's end yields success), one that exits 2
   (the reader's terminal or the fatal default), one that prints a terminal and then more, and every existing door test unchanged.
+
+- [ ] **AG42, the rest — an allowance report's use and its overage and credit state** (lanes `platform` + `inference`, **D246**). <!-- item: state=blocked kind=data needs="a real rate_limit_event frame, from a signed-in account, that carries a use figure and the overage or credit fields, so the scale and the names are read rather than guessed" -->
+  `AgentAllowanceReport` carries the standing, the window, the limit scope and `isUsingOverage` / `overageResetsAt` (the fields the
+  rejected-frame tests already name). **Contract.** Carry the report's use through `AgentAllowanceWindow.UsedPercent` (with its step) and
+  the overage and credit state it names, each null when not sent. **Proof.** A frame with a use and no reset, and one naming an overage
+  state, read from a capture; the use's scale is stated by the capture, never assumed.
 
 - [ ] **AG39 — a run kept across turns: the design** (lanes `platform` + `inference`, last, **D248**). <!-- item: state=startable -->
   A study and a decision, no code. **Contract.** From Daoris's recorded measurements of which agents accept a word mid-turn, a stop

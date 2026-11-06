@@ -6642,3 +6642,83 @@ Proof: `DialectStandIn` has a wire of its own and one plantable flaw per rule (`
 lines the doors' own tests pin. Landed in `08b41270`; the row stayed open in `TASKS.md` until this move. Nothing shipped in `src/`, so no baseline moved. Lanes `platform` + `tools`.
 
 - AG16 — the event-stream rules, held by one theory
+
+## Part 447 — AG43: a hold's identity is never reused, and a report resolves only a lease it still owns (2026-11-07)
+
+✅ done 2026-11-07 — **Outcome:** `AgentPoolReducer` works on a `PoolState` (the holds and, per removed id, the highest revision it reached): `Hold` continues from that revision, so a clear naming an older one matches nothing, and `Succeed` removes a hold only while the reporting pick's token still owns its lease. `AgentAccountPool` writes the retained revisions as one record beside the holds (`lyntai:agent-pool:<name>:revisions`) before it writes the holds, and reads it back on load; a record that does not read is skipped with a warning, as a hold is. Nothing public changed and no baseline moved. **Read here:** `Unlease` already acted by token, so that half of the row's contract needed no change and a test now pins it; a removed hold now leaves one key (the revisions record) where `The_store_holds_one_key_per_hold…` used to expect none, and that fact was rewritten, the only existing test touched. The defect is in `docs/FIXES.md` (2026-11-07). No decision recorded: **D247** states it. Lane `platform`.
+
+- AG43 — a hold's identity is never reused, and a report resolves only a lease it still owns
+
+## Part 448 — AG25, AG26, AG27: a permission mode, an effort and plugin folders are carried by the CLI doors, or refused (2026-11-07)
+
+✅ done 2026-11-07 — **Outcome:** `AgentSessionOptions` gained `PermissionMode`, `Effort` and `PluginDirectories`, and `AgentAbilities` the abilities `permission-mode`, `effort` and `plugins` (in `All`, and in `Needed` when set), so every door and the conformance stand-in states three more. The Claude door renders `--permission-mode`, `--effort` and `--plugin-dir` per entry, and `ClaudeAgentArgs.TryBuild` gained a refusal subtype so a word it does not carry, a mode beside `SkipAllPermissions` and a relative or control-character folder end the turn before a spawn as `option-unsupported`, naming the set; a named mode skips the `acceptEdits` mapping and the read-only write-tool denial, and the deny lists stand. The Codex door and `CodexAgentSession` (which refuses rather than drops, unlike `DisallowedTools`), the protocol door and the HTTP door state all three `Unsupported`; `AgentPick.Apply` sets `Effort` from the choice. **Measured:** `claude --help` 2.1.319 lists the modes `acceptEdits`, `auto`, `bypassPermissions`, `manual`, `dontAsk`, `plan` and the levels `low` to `max`; it does not say `bypassPermissions` equals `--dangerously-skip-permissions`, so no equality is claimed. **Not measured:** codex is not installed on this machine, so its `Unsupported` claims say no flag was measured, not that none exists; the protocol door's flips to `Unknown`, `Negotiated` with AG28. Baseline moved, additions only. No decision recorded: **D244** states it. Lanes `platform` + `inference`.
+
+- AG25 — a permission mode is carried by the CLI doors, or refused
+- AG26 — an effort is carried by the CLI doors, or refused
+- AG27 — plugin folders are handed to the Claude door, or refused
+
+## Part 449 — AG37: a prompt's delivery is what its turn showed after the write (2026-11-07)
+
+✅ done 2026-11-07 — **Outcome:** `CliAgentLoop` stamps delivery from a `TurnWatch`: a session start counts only on a door that announces it after the write (`announcesBeforeWrite` is true for the protocol door), the agent's own answer to the prompt counts too (`AcpAgentReader.PromptAnswered`, an error included), and an event that says nothing of the prompt is never counted, which is where AG36's offers and AG42's allowance report join. `SessionEnded.Turn` is a new `AgentTurnEvidence` (`Written`, `Shown` as `AgentShownKind`s in first-shown order), set on every terminal; `AgentDelivery` and `RetryingAgentSession` are untouched, and a protocol turn that stalls after the open now resends instead of resuming (tested). **Read here:** `Written` is null on the CLI doors, which hand the prompt to the child at its spawn and have no write to watch, and on the protocol door it is a wrapper around the runner's stdin sequence (`PromptWriteWatch`: a frame is written when the runner asks for the next), true also once the agent has answered; `Shown` carries a `Task` kind beyond the row's six, because task events already counted toward `Taken`. The one existing fact that changed is `DIE_EARLY` (`Taken` to `NeverSent`), the row's own case. Baseline moved, additions only. No decision recorded: **D248** states it. Lanes `inference` + `platform`.
+
+- AG37 — a prompt's delivery is what its turn showed after the write
+
+## Part 450 — AG35: a session start says whether the agent announced it (2026-11-07)
+
+✅ done 2026-11-07 — **Outcome:** `SessionStarted.Announced` (an init property, default true). `StreamJsonAgentReader` sets it true for a `system` frame whose subtype is `init`, or the first frame when it names none (an emitter that sets no subtype), and false for a later frame that only carries a new id; the protocol door and the Codex thread start are true. Still one start per id. Proof: `StreamJsonAgentReaderTests` (an `init`, then a `thinking_tokens` tick with a changed id: true, false), `CodexAgentSessionTests` and `AcpAgentSessionTests`. Baseline moved, additions only. No decision recorded: **D245** states it. Lane `inference`.
+
+- AG35 — a session start says whether the agent announced it
+
+## Part 451 — AG34: the protocol door states the context figures its updates report (2026-11-07)
+
+✅ done 2026-11-07 — **Outcome:** `ContextReading(UsedTokens, WindowTokens, MeasuredAt)`, a new `AgentStreamEvent` yielded for a `usage_update` frame that carries `used`, `size` or both; a figure not sent, or not a number, is null, and a frame with neither is no event. `AcpAgentReader` reads it beside the existing usage readings; the loop counts it as the `Usage` kind of a turn's `Turn.Shown`. The proof is `AcpAgentSessionTests` over SOURCE-DERIVED frames (both figures, one each, neither, a malformed one); the old fact that expected a `usage_update` to be no event now leaves it out. **Not done:** captures from both measured agents are not recorded in this tree, so the frames are the shape the existing stand-in and the guide already state, not a capture of each agent. `The_hierarchy_is_exactly_the_known_sealed_events` names the new type. Baseline moved, additions only. No decision recorded: **D245** states it. Lane `inference`.
+
+- AG34 — the protocol door states the context figures its updates report
+
+## Part 452 — AG30: a child's words carry the call that spawned it, and its life is written down (2026-11-07)
+
+✅ done 2026-11-07 — **Outcome:** `TextDelta.ParentCallId` and `Thinking.ParentCallId` (init, null on the session's own); `StreamJsonAgentReader.ReadAssistant` yields, for a message carrying a `parent_tool_use_id`, one `TextDelta` per non-empty `text` block and one `Thinking` per `thinking` block in block order with its tool calls, and still no plan, usage tick, model, error or fallback text; the session's own message still yields neither (its words stream as deltas). `docs/guide.md` states the child's start (its first event with a parent) and end (the `AgentTaskEnded` of the task opened for that call, else the call's `ToolResult`). Proof: `StreamJsonAgentReaderTests` over the existing SOURCE-DERIVED AG10 shapes plus a thinking block, and a synchronous child with no task. **Not seen:** a nested child (`parent_tool_use_id` naming another child's call) is read the same way and is not captured. Baseline moved, additions only. No decision recorded: **D245** states it. Lane `inference`.
+
+- AG30 — a child's words carry the call that spawned it, and its life is written down
+
+## Part 453 — AG31: the protocol door keeps a child's stamped lines apart (2026-11-07)
+
+✅ done 2026-11-07 — **Outcome:** `AcpAgentReader` reads `_meta.claudeCode.parentToolUseId` (`ParentOf`) on a `tool_call`, a `tool_call_update` and an `agent_message_chunk` or `agent_thought_chunk`, and sets `ParentCallId` on the `ToolCall`, `ToolResult`, `TextDelta` or `Thinking` it yields; a stamped chunk is left out of the session's `FinalText`, and nothing else of the session's moves. Proof: `A_stamped_childs_calls_and_words_carry_the_parent_and_the_sessions_own_do_not`, a SOURCE-DERIVED capture held both ways (the stamp's shape is Daoris's record of `claude-agent-acp`, and no real capture of a stamped child is in this tree). No baseline moved. No decision recorded: **D245** states it. Lane `inference`.
+
+- AG31 — the protocol door keeps a child's stamped lines apart
+
+## Part 454 — AG32: an unread frame leaves a bounded trace (2026-11-07)
+
+✅ done 2026-11-07 — **Outcome:** `SessionEnded.Unread` (`AgentUnreadFrame`: `Type`, `Subtype`, `Count`, `Sample`), filled by each door's reader through `UnreadFrames` (16 entries, 512 characters, a surrogate pair never split, the count exact) and stamped on every terminal by `CliAgentLoop` (a new `unread` parameter). What counts as unread is each reader's own: Claude, a `type` with no case and a streamed event outside the message envelope; Codex, an envelope type outside the named ones and the known notices (a tool step is read by elimination, so an unknown item type is never unread); the protocol door, a request that is not a permission request, a notification that is not a session update, and an update of a kind with no case or with a guard that did not match (an image chunk). **Read here:** the known envelope words (`message_start`, `turn.started`, `available_commands_update` and their kind) are taken as read, or every turn would list them. Proof: `StreamJsonAgentReaderTests` (three unknown kinds and a flood of one), `CodexAgentSessionTests`, `AcpAgentSessionTests`, and a clean stream on each leaving it empty. Baseline moved, additions only. No decision recorded: **D245** states it. Lane `inference`.
+
+- AG32 — an unread frame leaves a bounded trace
+
+## Part 455 — AG33: the Claude door states a turn's own report, denials and usage by model (2026-11-07)
+
+✅ done 2026-11-07 — **Outcome:** `AgentToolDenied(Tool, CallId, Reason)` and `AgentModelUsage(Models, MeasuredAt)` with `AgentModelUsageEntry` rows (tokens, `ContextWindow`, `IsSessionModel`), new `AgentStreamEvent`s yielded by `StreamJsonAgentReader.ReadResult` after the usage readings and before the terminal; the reason is read from a `reason` field where the denial carries one, else null, and a denial naming no tool is skipped. `UsageFinal.Model` is untouched and `costUSD` is not read. Proof: `StreamJsonAgentReaderTests` over SOURCE-DERIVED `result` frames with one model and with three (the session's marked), a denial with and without a reason, and a result with neither. **Not established:** the real field that carries a denial's reason (none is recorded here, so `reason` is the guess the row allows and is null in every captured shape); the shapes are Daoris's records, not a capture. The door's `Turn.Shown` does not count these events, which arrive with the result. Baseline moved, additions only. No decision recorded: **D245** states it. Lane `inference`.
+
+- AG33 — the Claude door states a turn's own report: denials and usage by model
+
+## Part 456 — AG28: the protocol door carries a permission mode and an effort (2026-11-07)
+
+✅ done 2026-11-07 — **Outcome:** `AcpAgentReader` sets, after the open and before the prompt, the model (as before), then a mode (`session/set_mode`, the id checked against the open's `modes.availableModes`) and an effort (`session/set_config_option` on the option of category `thought_level`), through a queue of steps instead of the model's single one; each answer decides, a refusal ends the turn `option-unsupported` before the prompt, and a limit or a sign-in an agent states there is that and not a refusal. The door's two claims are `Unknown`, `Negotiated`. Proof: `AcpAgentSessionTests` over SOURCE-DERIVED opens (set and taken, already current and not re-set, set and refused, an id the open does not offer, no modes, no effort option, a refused effort). **Not established:** the category word `thought_level` is the ACP schema's, and no real agent's open is recorded here, so a real capture should replace the invented ids; an unlisted effort value is left to the agent as an unlisted model id is. No baseline moved. No decision recorded: **D244** states it. Lane `inference`.
+
+- AG28 — the protocol door carries a permission mode and an effort
+
+## Part 457 — AG29: a turn's own variables (2026-11-07)
+
+✅ done 2026-11-07 — **Outcome:** `AgentSessionOptions.Environment` (`IReadOnlyDictionary<string, string?>`, empty by default) and the ability `environment` (in `All`, and in `Needed` when non-empty). The Claude, Codex and protocol sessions check it (`AgentAccounts.TryCheckTurn`, subtype `environment-invalid`) and layer the child's environment as registration, then the turn's (`MergeTurn`, a null carried as a removal), then on Codex the MCP bearer variables, then the account's. `AgentSessionOptions` gained a `PrintMembers` that prints the names of `Environment` and no value, as `AgentAccount` does. The HTTP door and the stand-in state it `Unsupported`; the three process doors `Supported`. Proof: tests on each process door that a turn's variable reaches the child, a null is carried as a removal, and the account's home wins; `ToString` lists no value; a bad name or value is refused before a spawn without naming the value; and the conformance theory over every door. Baseline moved, additions only. **Read here:** the turn's variables sit beneath the Codex door's MCP bearer variables too, since those are what make the rendered argv mean what it says. No decision recorded: **D244** states it. Lanes `platform` + `inference`.
+
+- AG29 — a turn's own variables
+
+## Part 458 — AG36: the protocol door states what the open offered (2026-11-07)
+
+✅ done 2026-11-07 — **Outcome:** `AgentOffers(Options, Modes, CurrentModeId, Truncated)` with `AgentOfferedOption` and `AgentOfferedMode`, read from the open's `configOptions` and `modes` by `AcpOffers` (25 entries per list, the bound the model refusal's diagnostic already keeps) and yielded by `AcpAgentReader` right after the session id is known, so a turn refused on a model, a mode or an effort still delivers it. The loop's delivery watch maps it to no kind, so a turn that dies after it reads `NeverSent` with nothing shown. Proof: `AcpAgentSessionTests` over SOURCE-DERIVED opens (the offers before the start, a model-refused turn still delivering them and reading `NeverSent`, the bound, an open that offers nothing). **Read here:** an open that offers neither an option nor a mode yields no event, rather than an empty one; the existing protocol-door facts that expected a refused turn's single terminal or the start as the first event now skip the offers. Captures from both measured agents are not recorded in this tree. Baseline moved, additions only. No decision recorded: **D245** states it. Lane `inference`.
+
+- AG36 — the protocol door states what the open offered
+
+## Part 459 — AG42: every allowance report is an event (2026-11-07)
+
+✅ done 2026-11-07 — **Outcome:** `AgentAllowanceReport(Status, Window, LimitScope, IsUsingOverage, OverageResetsAt)`, yielded by `StreamJsonAgentReader` for every `rate_limit_info` (`StreamJsonFailure.ReadReport`, which also serves the protocol door's Claude extension reader). `AcpUpdateReading` gained `KeepsFailure` so an extension that reports an allowed frame says nothing of the failure it holds and clears none. The turn's failure reading is unchanged (the rejected frame is still kept and read), and the loop's delivery watch maps the event to no kind. **Not established:** the frame's use figure (a `utilization`-like field) has no scale recorded here, so the window's `UsedPercent` is null and no use is carried, which is one half of what the row's proof names (a frame with a use and no reset); the overage and credit state beyond `isUsingOverage` and `overageResetsAt` (no `overageStatus` or credit-balance field is recorded here either). The shapes are the field names the rejected-frame tests already carry, SOURCE-DERIVED, not captures. Baseline moved, additions only. No decision recorded: **D246** states it. Lanes `platform` + `inference`.
+
+- AG42 — every allowance report is an event

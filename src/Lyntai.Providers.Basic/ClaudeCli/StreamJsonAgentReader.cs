@@ -19,15 +19,22 @@ internal sealed class StreamJsonAgentReader
     private string? _lastAssistantText;
     private string? _assistantError;
     private RejectedLimit? _rejectedLimit;
+    private readonly UnreadFrames _unread = new();
+    private string _line = "";
 
     /// <param name="time">The clock a <see cref="UsageReading.MeasuredAt"/> is stamped from; null = the system
     /// clock.</param>
     public StreamJsonAgentReader(TimeProvider? time = null) => _time = time ?? TimeProvider.System;
 
+    /// <summary>The frames no case here took, by type: a type this reader has no case for, and a streamed event it
+    /// has no case for.</summary>
+    public IReadOnlyList<AgentUnreadFrame> Unread() => _unread.Snapshot();
+
     /// <summary>Translates one stream-json line into 0..N events. Never throws.</summary>
     public IReadOnlyList<AgentStreamEvent> Read(string line)
     {
         if (string.IsNullOrWhiteSpace(line)) return [];
+        _line = line;
         try
         {
             // materialized inside the using: every element read belongs to the document
@@ -53,17 +60,26 @@ internal sealed class StreamJsonAgentReader
         "user" => ReadUser(root, WireJson.String(root, "parent_tool_use_id")),
         "result" => ReadResult(root),
         "rate_limit_event" => NoteRateLimit(root),
-        // Any other type → nothing.
-        _ => [],
+        // Any other type → nothing, and kept as unread
+        var type => NoteUnread(type, null),
     };
 
-    // `rate_limit_info` is not surfaced as an event (no AgentStreamEvent carries it); a REJECTED one is kept so a
-    // failing result can name the limit and when it renews. An `allowed` frame, which is every ordinary one, is
-    // never kept.
+    private IEnumerable<AgentStreamEvent> NoteUnread(string? type, string? subtype)
+    {
+        if (type is not null) _unread.Note(type, subtype, _line);
+        return [];
+    }
+
+    // the envelope of every streamed message, which carries nothing a reader would read
+    private static readonly HashSet<string> KnownStreamEvents = new(StringComparer.Ordinal)
+        { "message_start", "content_block_start", "content_block_stop", "message_delta", "message_stop", "content_block_delta" };
+
+    // every `rate_limit_info` is an AgentAllowanceReport; a REJECTED one is also kept so a failing result can name the
+    // limit and when it renews. An `allowed` frame, which is every ordinary one, is never kept as a failure.
     private IEnumerable<AgentStreamEvent> NoteRateLimit(JsonElement root)
     {
         _rejectedLimit = StreamJsonFailure.ReadRejection(root) ?? _rejectedLimit;
-        return [];
+        return WireJson.Object(root, "rate_limit_info") is { } info ? [StreamJsonFailure.ReadReport(info)] : [];
     }
 
     // ── system/init ──────────────────────────────────────────────────────────
@@ -80,8 +96,10 @@ internal sealed class StreamJsonAgentReader
         if (root.TryGetProperty("session_id", out var sidEl) && sidEl.ValueKind == JsonValueKind.String &&
             sidEl.GetString() is { } sessionId && sessionId != _sessionId)
         {
+            // the agent's own start is its init (or a first frame that names no subtype); a later frame carrying a new id only reports one
+            var announced = WireJson.String(root, "subtype") == "init" || (_sessionId is null && WireJson.String(root, "subtype") is null);
             _sessionId = sessionId;
-            yield return new SessionStarted(sessionId);
+            yield return new SessionStarted(sessionId) { Announced = announced };
         }
     }
 
@@ -107,7 +125,7 @@ internal sealed class StreamJsonAgentReader
 
     // ── stream_event (partial content deltas) ────────────────────────────────
 
-    private static IEnumerable<AgentStreamEvent> ReadStreamEvent(JsonElement root)
+    private IEnumerable<AgentStreamEvent> ReadStreamEvent(JsonElement root)
     {
         if (!root.TryGetProperty("event", out var eventEl) || eventEl.ValueKind != JsonValueKind.Object)
             yield break;
@@ -117,7 +135,10 @@ internal sealed class StreamJsonAgentReader
 
         // Only content_block_delta carries text/thinking deltas we care about
         if (!eventTypeEl.ValueEquals("content_block_delta"))
+        {
+            if (!KnownStreamEvents.Contains(eventTypeEl.GetString()!)) _unread.Note("stream_event", eventTypeEl.GetString(), _line);
             yield break;
+        }
 
         if (!eventEl.TryGetProperty("delta", out var deltaEl) || deltaEl.ValueKind != JsonValueKind.Object)
             yield break;
@@ -157,7 +178,7 @@ internal sealed class StreamJsonAgentReader
         if (own)
             _assistantError = WireJson.String(root, "error");
 
-        var toolCalls = new List<ToolCall>();
+        var blocks = new List<AgentStreamEvent>();
         PlanUpdated? plan = null;
         StringBuilder? text = null;
         if (msg.TryGetProperty("content", out var content) && content.ValueKind == JsonValueKind.Array)
@@ -172,6 +193,13 @@ internal sealed class StreamJsonAgentReader
                     // (truncation / older CLI / provider variant) can fall back to it (see ReadResult).
                     if (own && block.TryGetProperty("text", out var textEl) && textEl.ValueKind == JsonValueKind.String)
                         (text ??= new StringBuilder()).Append(textEl.GetString());
+                    // a subagent's words arrive once, whole, and have no stream of their own to be read from
+                    else if (!own && WireJson.String(block, "text") is { Length: > 0 } childText)
+                        blocks.Add(new TextDelta(childText) { ParentCallId = parentCallId });
+                }
+                else if (blockType == "thinking" && !own && WireJson.String(block, "thinking") is { Length: > 0 } childThought)
+                {
+                    blocks.Add(new Thinking(childThought) { ParentCallId = parentCallId });
                 }
                 else if (blockType == "tool_use")
                 {
@@ -184,7 +212,7 @@ internal sealed class StreamJsonAgentReader
                     var argsJson = block.TryGetProperty("input", out var inputEl)
                         ? inputEl.GetRawText()
                         : "{}";
-                    toolCalls.Add(new ToolCall(name, argsJson, id) { ParentCallId = parentCallId });
+                    blocks.Add(new ToolCall(name, argsJson, id) { ParentCallId = parentCallId });
                     if (own && name == TodoWriteTool && ReadTodoPlan(block) is { } todoPlan)
                         plan = todoPlan;   // the last list in a message is the plan as it now stands
                 }
@@ -195,8 +223,8 @@ internal sealed class StreamJsonAgentReader
         if (text is { Length: > 0 })
             _lastAssistantText = text.ToString();
 
-        foreach (var tc in toolCalls)
-            yield return tc;
+        foreach (var block in blocks)
+            yield return block;
 
         if (plan is not null)
             yield return plan;
@@ -264,6 +292,34 @@ internal sealed class StreamJsonAgentReader
 
     // ── result (terminal) ────────────────────────────────────────────────────
 
+    // the result's own list of the tool calls its harness denied
+    private static IEnumerable<AgentToolDenied> ReadDenials(JsonElement root)
+    {
+        if (WireJson.Array(root, "permission_denials") is not { } list) yield break;
+        foreach (var entry in list.EnumerateArray())
+        {
+            if (WireJson.String(entry, "tool_name") is { Length: > 0 } tool)
+                yield return new AgentToolDenied(tool, WireJson.String(entry, "tool_use_id"), WireJson.String(entry, "reason"));
+        }
+    }
+
+    // the result's usage by model; cost is in the report and is deliberately not carried
+    private AgentModelUsage? ReadModelUsage(JsonElement root)
+    {
+        if (WireJson.Object(root, "modelUsage") is not { } byModel) return null;
+        var entries = new List<AgentModelUsageEntry>();
+        foreach (var model in byModel.EnumerateObject())
+        {
+            if (model.Value.ValueKind != JsonValueKind.Object) continue;
+            var row = model.Value;
+            entries.Add(new AgentModelUsageEntry(
+                model.Name, WireJson.Int64(row, "inputTokens"), WireJson.Int64(row, "outputTokens"),
+                WireJson.Int64(row, "cacheReadInputTokens"), WireJson.Int64(row, "cacheCreationInputTokens"),
+                WireJson.Int64(row, "contextWindow"), string.Equals(model.Name, _model, StringComparison.Ordinal)));
+        }
+        return entries.Count == 0 ? null : new AgentModelUsage(entries, _time.GetUtcNow());
+    }
+
     private IEnumerable<AgentStreamEvent> ReadResult(JsonElement root)
     {
         var isError = root.TryGetProperty("is_error", out var isErrorEl) && isErrorEl.ValueKind == JsonValueKind.True;
@@ -296,6 +352,9 @@ internal sealed class StreamJsonAgentReader
         if (StreamJsonFields.ReadUsageCounts(root) is { } counts)
             yield return new UsageReading(counts.Input, counts.Output, counts.CacheRead, counts.CacheCreate,
                 UsageReading.Tokens, UsageScope.Turn, _time.GetUtcNow());
+
+        foreach (var denied in ReadDenials(root)) yield return denied;
+        if (ReadModelUsage(root) is { } byModel) yield return byModel;
 
         // classified, never hand-rolled, so an expired login is AuthFailed and a 429 RateLimited; the door's own
         // fields decide before its words, and Failed only when neither reads

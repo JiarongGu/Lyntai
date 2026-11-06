@@ -27,7 +27,7 @@ internal sealed class AcpExtensionSet
         for (var i = 0; i < _readers.Count; i++)
         {
             if (Guard(() => _readers[i].ReadUpdate(update, _time)) is not { } reading) continue;
-            _held[i] = reading.Failure;
+            if (!reading.KeepsFailure) _held[i] = reading.Failure;
             if (reading.Events is null) continue;
             events.AddRange(reading.Events.Where(e => e is not (SessionStarted or SessionEnded)));
         }

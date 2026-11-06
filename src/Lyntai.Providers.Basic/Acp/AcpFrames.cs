@@ -49,6 +49,9 @@ internal static class AcpFrames
         return Request(id, method, parameters);
     }
 
+    public static string SetMode(int id, string sessionId, string modeId) =>
+        Request(id, "session/set_mode", new JsonObject { ["sessionId"] = sessionId, ["modeId"] = modeId });
+
     public static string SetConfigOption(int id, string sessionId, string configId, string value) =>
         Request(id, "session/set_config_option", new JsonObject
         {

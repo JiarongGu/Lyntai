@@ -46,11 +46,20 @@ public sealed record AgentAllowanceWindow(string Name, double? UsedPercent, Time
 /// <summary>One limit row the server stated beside its windows (Claude's <c>rate_limits.limits[]</c>), as it wrote it.
 /// The server's severity for the row is its judgement and is not carried.</summary>
 /// <param name="Kind">The server's word for the limit (<c>"session"</c>, <c>"weekly_all"</c>); not a value to parse.</param>
-/// <param name="Scope">What the row limits when it is not the account's own limit; null for the account's own.</param>
+/// <param name="Scope">What the row limits when it is not the account's own limit, as a word: a string scope as written,
+/// or the id of the model an object scope names. Null for the account's own limit and for a row scoped by a surface alone.</param>
 /// <param name="UsedPercent">The use the row states, from 0 to 100, kept as written; null when it stated none.</param>
 /// <param name="UsedStep">The least difference the written digits show, as <see cref="AgentAllowanceWindow.UsedStep"/>.</param>
 /// <param name="ResetsAt">When the row resets, when the server states it.</param>
-public sealed record AgentAllowanceLimit(string Kind, string? Scope, double? UsedPercent, double? UsedStep, DateTimeOffset? ResetsAt);
+public sealed record AgentAllowanceLimit(string Kind, string? Scope, double? UsedPercent, double? UsedStep, DateTimeOffset? ResetsAt)
+{
+    /// <summary>The display name the server gave the model <see cref="Scope"/> names; null when it gave none or the scope
+    /// is not a model.</summary>
+    public string? ScopeName { get; init; }
+
+    /// <summary>The surface an object scope names, as written; null when the scope states none.</summary>
+    public string? Surface { get; init; }
+}
 
 /// <summary>Why a reading is unknown. The values are stable words for a host to branch on or log; none is a format
 /// to parse beyond equality.</summary>

@@ -373,6 +373,37 @@ public class AgentUsageDialectTests
     }
 
     [Fact]
+    public void Claude_a_row_scoped_by_an_object_keeps_its_model_and_surface_and_the_windows_stay()
+    {
+        var reading = Claude.Read([UsageCaptures.ClaudeObjectScope_2_1_296], Now);
+        var reset = new DateTimeOffset(2026, 10, 15, 9, 30, 0, TimeSpan.Zero);
+
+        Assert.True(reading.IsKnown);
+        Assert.Equal([AgentAllowanceWindow.FiveHour, AgentAllowanceWindow.Weekly], reading.Windows.Select(w => w.Name).ToArray());
+        Assert.Equal(
+            [
+                new AgentAllowanceLimit("weekly_all", null, 60, 1, reset),
+                new AgentAllowanceLimit("weekly_scoped", "claude-opus-example", 100, 1, reset) { ScopeName = "Opus Example" },
+                new AgentAllowanceLimit("weekly_scoped", null, 12, 1, reset) { Surface = "example-surface" },
+                new AgentAllowanceLimit("session", null, 40, 1, new DateTimeOffset(2026, 10, 12, 14, 0, 0, TimeSpan.Zero)),
+            ],
+            reading.Limits);
+    }
+
+    [Theory]
+    [InlineData("""{"model":3,"surface":null}""")]
+    [InlineData("""{"model":{"display_name":"no id"},"surface":null}""")]
+    [InlineData("""{"model":null,"surface":7}""")]
+    [InlineData("""[]""")]
+    public void Claude_an_object_scope_this_reader_cannot_read_still_reads_unknown(string scope)
+    {
+        var reading = Claude.Read(
+            [ClaudeLimits("""{"five_hour":{"utilization":5},"limits":[{"kind":"session","scope":""" + scope + "}]}")], Now);
+
+        Assert.Equal(AgentAllowanceUnknown.Unrecognised, reading.UnknownReason);
+    }
+
+    [Fact]
     public void Claude_a_window_with_a_use_and_no_reset_is_kept_and_so_is_one_with_a_reset_and_no_use()
     {
         var reading = Claude.Read(

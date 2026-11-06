@@ -28,12 +28,17 @@ public static class AcpExtensionReaders
     private sealed class ClaudeExtensions : IAcpExtensionReader
     {
         // claude-agent-acp forwards the CLI's rate_limit_info here unchanged; an "allowed" frame says nothing, so it clears nothing
-        public AcpUpdateReading? ReadUpdate(JsonElement update, TimeProvider time) =>
-            WireJson.String(update, "sessionUpdate") == "usage_update" &&
-            WireJson.Object(update, "_meta") is { } meta && WireJson.Object(meta, "_claude/rateLimit") is { } info &&
-            StreamJsonFailure.ReadRejectionInfo(info) is { } rejected
-                ? new AcpUpdateReading(Failure: StreamJsonFailure.FromRejection(rejected)! with { By = "acp.usage_update._claude/rateLimit.rejected" })
-                : null;
+        // every frame is an AgentAllowanceReport; a rejected one also holds the failure, and any other holds none and clears none
+        public AcpUpdateReading? ReadUpdate(JsonElement update, TimeProvider time)
+        {
+            if (WireJson.String(update, "sessionUpdate") != "usage_update" ||
+                WireJson.Object(update, "_meta") is not { } meta || WireJson.Object(meta, "_claude/rateLimit") is not { } info)
+                return null;
+            var report = StreamJsonFailure.ReadReport(info);
+            return StreamJsonFailure.ReadRejectionInfo(info) is { } rejected
+                ? new AcpUpdateReading([report], StreamJsonFailure.FromRejection(rejected)! with { By = "acp.usage_update._claude/rateLimit.rejected" })
+                : new AcpUpdateReading([report]) { KeepsFailure = true };
+        }
 
         public AgentFailure? ReadError(JsonElement error, TimeProvider time)
         {

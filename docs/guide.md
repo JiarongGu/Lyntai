@@ -1072,6 +1072,12 @@ calls) and `AgentTaskEnded` (the id and the agent's status word, uninterpreted).
 ended after the turn's one `SessionEnded`: read on past the terminal if you want its end. Codex and the ACP doors
 emit neither. What to show of a task is yours.
 
+**A subagent's words and life** (D245). A subagent's complete message yields one `TextDelta` or `Thinking` per block, each with
+the `ParentCallId` of the call that spawned it (null on the session's own, which arrive as stream deltas), and never a plan, a
+usage tick or the session's fallback text. No `ChildStarted` or `ChildEnded` event exists, by design: a child **starts** at its
+first event with a parent, and **ends** at the `AgentTaskEnded` of the task opened for that call (`AgentTaskStarted.CallId`), else at the
+`ToolResult` of the call itself (a synchronous child opens no task).
+
 **Why a turn failed** (`SessionEnded.Failure`, set on every failed terminal of both CLI sessions, null on a good
 one). `AgentFailure.Kind` is `Limit`, `Access`, `Transient` or `Fatal`, read from the door's OWN failure — a
 rejected `rate_limit_event`, a result's `api_error_status`, a failed turn's message — and never from what the agent
@@ -1112,6 +1118,25 @@ to another provider (subtype `account-other-provider`), when the door states `ac
 not one the provider reads (`account-invalid`, which the door's own session raises too); each is one `SessionEnded` with
 `ProviderVerdict.Unsupported` and `NeverSent`. The keyed `IAgentSession` checks only the account's own shape, not whose
 it is, so go through the provider when the account may be the wrong one.
+
+**A permission mode, an effort and plugin folders** (`PermissionMode`, `Effort`, `PluginDirectories`, **D244**). Each is
+the agent's own word, passed through and never interpreted, with an ability a door states. The claude door carries
+`--permission-mode` for the words its `--help` lists (`acceptEdits`, `auto`, `bypassPermissions`, `manual`, `dontAsk`,
+`plan`; 2.1.319), `--effort` for `low`, `medium`, `high`, `xhigh` and `max`, and one `--plugin-dir` per fully qualified
+folder (a repeat dropped, the contents never read); any other word, a relative folder, or a mode beside `SkipAllPermissions`
+ends the turn before a spawn with `option-unsupported` and names what the door carries. **A named mode is your own gate:**
+the turn's `ToolPolicy` mapping (`acceptEdits`) and its read-only write-tool denial are not applied beside it, while
+`DisallowedTools` and the tools a headless turn always denies stand. The codex and HTTP doors state all three
+`Unsupported` and refuse a turn that names one; the protocol door states a mode and an effort `Unknown`, `Negotiated` (a mode is
+set through `session/set_mode` with an id the open's `modes` offers, an effort through the config option of category
+`thought_level`, and an agent that refuses either, or offers none, ends the turn before the prompt) and plugins `Unsupported`; `AgentPick.Apply` sets `Effort` from the pool choice's.
+
+**A turn's own variables** (`AgentSessionOptions.Environment`, **D244**). A turn can hand its child variables of its own, a null
+removing one it would inherit. They sit over the registration's `environment` and beneath the account's, so a pool's account home
+and keys still win, and the codex door sets its MCP bearer variables above them. The same rules as an account's `Environment` hold
+for a value: it is a secret that goes into the child's environment and nowhere else, and `AgentSessionOptions.ToString()` lists the
+names only. A name no environment can carry, or a value with a control character, ends the turn before a spawn
+(`environment-invalid`); the HTTP door has no process and states `environment` `Unsupported`.
 
 **An account that is a key** (AG17). `Home` may be left out, and `Environment` carries variables for that turn's child
 only: an API key, a gateway's base address. Each name must be one the provider declares it reads
@@ -1205,7 +1230,8 @@ door states `model` as `Unknown`, `Negotiated` for the same reason. The mapping 
 `tool_call_update` a `ToolResult` (the name is the protocol's `kind`, the payload the update's own object, so read
 `title` and `rawInput` from it), and the prompt's `usage` is a `UsageFinal` and a `UsageReading`. A count the agent
 does not send is `null` on the reading; counts are the agent's own (`codex-acp`'s input excludes what it read from a
-cache). `usage_update` carries the context window, not counts, so no `UsageLive` is emitted.
+cache). The open's answer is an `AgentOffers` event before any set or the prompt (the config options with category, id, current value and values, the modes, each list cut to 25), yielded on a refused turn too and never counted toward delivery. `usage_update` carries the context window, not counts, so no `UsageLive` is emitted: it is a `ContextReading` (`UsedTokens`,
+`WindowTokens`), each figure null when the agent did not send it.
 
 A failure is read from the agent's own fields, never its prose: the JSON-RPC error's code (`-32000` is access) and
 `data` — `errorKind` from `claude-agent-acp` (the same categories the claude door reads), `codexErrorInfo` with the

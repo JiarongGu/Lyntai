@@ -8,6 +8,20 @@ internal sealed record HoldRow(
     string Id, long Revision, string Scope, AgentRestriction Restriction, DateTimeOffset ObservedAt,
     DateTimeOffset? ReleasedAt, DateTimeOffset? LeaseUntil, string? LeaseToken);
 
+/// <summary>The holds and, for each id a hold was removed under, the highest revision it reached: a hold recreated
+/// under that id continues from it, so a clear naming an older revision matches nothing.</summary>
+internal sealed record PoolState(ImmutableDictionary<string, HoldRow> Holds, ImmutableDictionary<string, long> Retired)
+{
+    public static readonly PoolState Empty = new(
+        ImmutableDictionary<string, HoldRow>.Empty.WithComparers(StringComparer.Ordinal),
+        ImmutableDictionary<string, long>.Empty.WithComparers(StringComparer.Ordinal));
+
+    public PoolState Remove(string id) =>
+        Holds.TryGetValue(id, out var hold)
+            ? new PoolState(Holds.Remove(id), Retired.SetItem(id, Math.Max(hold.Revision, Retired.GetValueOrDefault(id))))
+            : this;
+}
+
 internal readonly record struct PoolRules(TimeSpan AttemptLease, TimeSpan? UnknownProbeAfter);
 
 /// <summary>Whether a seat is permitted: every covering hold must be released and free of an attempt. When not,
@@ -143,23 +157,23 @@ internal static class AgentPoolReducer
     }
 
     /// <summary>The attempt succeeded: a hold it was admitted under is removed — only if no newer failure has
-    /// restated it since (its revision is the one the attempt saw).</summary>
-    public static ImmutableDictionary<string, HoldRow> Succeed(
-        ImmutableDictionary<string, HoldRow> holds, IEnumerable<(string Id, long Revision)> leases, string token)
+    /// restated it since (its revision is the one the attempt saw) and the attempt's token still owns its lease, which
+    /// another pick took once this one's ran out.</summary>
+    public static PoolState Succeed(PoolState state, IEnumerable<(string Id, long Revision)> leases, string token)
     {
         foreach (var (id, revision) in leases)
-            if (holds.TryGetValue(id, out var hold) && hold.Revision == revision) holds = holds.Remove(id);
-        return Unlease(holds, token);
+            if (state.Holds.TryGetValue(id, out var hold) && hold.Revision == revision && hold.LeaseToken == token)
+                state = state.Remove(id);
+        return state with { Holds = Unlease(state.Holds, token) };
     }
 
-    /// <summary>A failure restates the hold of its scope and cause: a new one at revision 1, or the same one
-    /// one revision up, with its recovery replaced and any release or attempt dropped.</summary>
-    public static ImmutableDictionary<string, HoldRow> Hold(
-        ImmutableDictionary<string, HoldRow> holds, string scope, AgentRestriction restriction, DateTimeOffset now)
+    /// <summary>A failure restates the hold of its scope and cause: a new one one revision above the highest this
+    /// id ever reached, or the same one one revision up, with its recovery replaced and any release or attempt dropped.</summary>
+    public static PoolState Hold(PoolState state, string scope, AgentRestriction restriction, DateTimeOffset now)
     {
         var id = scope + "|" + restriction.Cause.ToString().ToLowerInvariant();
-        var revision = holds.TryGetValue(id, out var old) ? old.Revision + 1 : 1;
-        return holds.SetItem(id, new HoldRow(id, revision, scope, restriction, now, null, null, null));
+        var revision = Math.Max(state.Holds.TryGetValue(id, out var old) ? old.Revision : 0, state.Retired.GetValueOrDefault(id)) + 1;
+        return state with { Holds = state.Holds.SetItem(id, new HoldRow(id, revision, scope, restriction, now, null, null, null)) };
     }
 
     /// <summary>The host clears a hold it names by id and revision: it becomes released (one attempt, not free
@@ -175,20 +189,20 @@ internal static class AgentPoolReducer
     /// (or the allowance it draws on) — but only holds seen BEFORE it was measured. A reading that is not strictly
     /// newer than a hold, or says nothing (<paramref name="hasRoom"/> null) or no room, changes nothing, and an
     /// owner action or an unknown recovery is never lifted by one.</summary>
-    public static (ImmutableDictionary<string, HoldRow> Holds, int Lifted) Lift(
-        ImmutableDictionary<string, HoldRow> holds, IReadOnlyList<string> scopes, DateTimeOffset measuredAt, bool? hasRoom)
+    public static (PoolState State, int Lifted) Lift(
+        PoolState state, IReadOnlyList<string> scopes, DateTimeOffset measuredAt, bool? hasRoom)
     {
-        if (hasRoom != true) return (holds, 0);
+        if (hasRoom != true) return (state, 0);
         var lifted = 0;
-        foreach (var hold in holds.Values.ToList())
+        foreach (var hold in state.Holds.Values.ToList())
         {
             if (!scopes.Contains(hold.Scope, StringComparer.Ordinal)) continue;
             if (hold.Restriction.Recovery.Kind is not (RecoveryKind.ResetAt or RecoveryKind.RetryNotBefore)) continue;
             if (measuredAt <= hold.ObservedAt) continue;
-            holds = holds.Remove(hold.Id);
+            state = state.Remove(hold.Id);
             lifted++;
         }
-        return (holds, lifted);
+        return (state, lifted);
     }
 
     /// <summary>What a failed turn restricts, and where. A limit or an access failure restricts something even when

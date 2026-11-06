@@ -154,14 +154,37 @@ internal sealed partial class ClaudeUsageDialect(string providerId) : IUsageDial
         foreach (var row in array.EnumerateArray())
         {
             if (row.ValueKind != JsonValueKind.Object || WireJson.String(row, "kind") is not { Length: > 0 } kind) return false;
-            string? scope = null;
-            if (row.TryGetProperty("scope", out var scoped) && scoped.ValueKind != JsonValueKind.Null)
-            {
-                if (scoped.ValueKind != JsonValueKind.String) return false;
-                scope = scoped.GetString();
-            }
+            string? scope = null, scopeName = null, surface = null;
+            if (row.TryGetProperty("scope", out var scoped) && scoped.ValueKind != JsonValueKind.Null
+                && !Scope(scoped, out scope, out scopeName, out surface))
+                return false;
             if (!WireJson.Percent(row, "percent", out var used, out var step) || !Moment(row, "resets_at", out var resetsAt)) return false;
-            rows.Add(new AgentAllowanceLimit(kind, scope, used, step, resetsAt));
+            rows.Add(new AgentAllowanceLimit(kind, scope, used, step, resetsAt) { ScopeName = scopeName, Surface = surface });
+        }
+        return true;
+    }
+
+    // a scope is a string, or an object {"model": {"id", "display_name"} | null, "surface": string | null}; an object naming
+    // neither is the account's own, and a present model or surface of another shape is unrecognised, not dropped
+    private static bool Scope(JsonElement scoped, out string? scope, out string? name, out string? surface)
+    {
+        scope = name = surface = null;
+        if (scoped.ValueKind == JsonValueKind.String)
+        {
+            scope = scoped.GetString();
+            return true;
+        }
+        if (scoped.ValueKind != JsonValueKind.Object) return false;
+        if (scoped.TryGetProperty("model", out var model) && model.ValueKind != JsonValueKind.Null)
+        {
+            if (model.ValueKind != JsonValueKind.Object || WireJson.String(model, "id") is not { Length: > 0 } id) return false;
+            scope = id;
+            name = WireJson.String(model, "display_name");
+        }
+        if (scoped.TryGetProperty("surface", out var surfaced) && surfaced.ValueKind != JsonValueKind.Null)
+        {
+            if (surfaced.ValueKind != JsonValueKind.String) return false;
+            surface = surfaced.GetString();
         }
         return true;
     }

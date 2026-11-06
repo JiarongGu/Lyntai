@@ -520,6 +520,72 @@ public class CodexAgentSessionTests
         Assert.DoesNotContain("--disallowed-tools", runner.LastArgs!);   // codex has no such flag to invent
     }
 
+    [Theory]
+    [InlineData("permission-mode")]
+    [InlineData("effort")]
+    [InlineData("plugins")]
+    public async Task A_mode_an_effort_or_a_plugin_folder_is_refused_before_a_spawn_where_the_door_states_it_unsupported(string ability)
+    {
+        var runner = new FakeProcessRunner(MeasuredSuccess);
+        var options = ability switch
+        {
+            "permission-mode" => Ask() with { PermissionMode = "plan" },
+            "effort" => Ask() with { Effort = "high" },
+            _ => Ask() with { PluginDirectories = [Path.GetFullPath("plugin-a")] },
+        };
+
+        var ended = Assert.IsType<SessionEnded>(Assert.Single(await Session(runner).StreamAsync(options).ToListAsync()));
+
+        Assert.Equal((ProviderVerdict.Unsupported, AgentProvider.OptionRefusedSubtype), (ended.Verdict, ended.Subtype));
+        Assert.Contains(ability, ended.Diagnostic);
+        Assert.Empty(runner.Calls);
+        Assert.Equal(AgentSupport.Unsupported, CodexAgentDoor.Describe("codex-cli").Doors[0].SupportFor(ability));
+    }
+
+    [Fact]
+    public async Task A_turns_variable_reaches_the_codex_child_beneath_the_account_home()
+    {
+        var runner = new FakeProcessRunner(MeasuredSuccess);
+
+        await Session(runner).StreamAsync(Ask() with
+        {
+            Environment = new Dictionary<string, string?> { ["TURN_VAR"] = "t", ["CODEX_HOME"] = "/turn" },
+            Account = new AgentAccount { Provider = "codex-cli", Name = "a", Home = "/accounts/a" },
+        }).ToListAsync();
+
+        var env = runner.Calls[^1].Environment!;
+        Assert.Equal(("t", "/accounts/a"), (env["TURN_VAR"], env["CODEX_HOME"]));
+    }
+
+    [Fact]
+    public void A_codex_thread_start_is_the_agents_own_announcement()
+    {
+        var reader = new CodexAgentReader(TimeProvider.System);
+
+        var started = Assert.IsType<SessionStarted>(Assert.Single(reader.Read("""{"type":"thread.started","thread_id":"t-1"}""")));
+
+        Assert.True(started.Announced);
+    }
+
+    [Fact]
+    public void An_envelope_type_no_case_took_is_unread_and_a_known_notice_or_a_tool_step_is_not()
+    {
+        var reader = new CodexAgentReader(TimeProvider.System);
+        string[] lines =
+        [
+            """{"type":"thread.started","thread_id":"t"}""", """{"type":"turn.started"}""", """{"type":"error","message":"warn"}""",
+            """{"type":"item.completed","item":{"id":"i1","type":"web_search","query":"q"}}""",
+            """{"type":"future.thing","n":1}""", """{"type":"future.thing","n":2}""", "not json at all",
+            """{"type":"turn.completed","usage":{"input_tokens":1,"output_tokens":1}}""",
+        ];
+
+        _ = lines.SelectMany(reader.Read).ToList();
+
+        var unread = Assert.Single(reader.Unread());
+        Assert.Equal(("future.thing", (string?)null, 2), (unread.Type, unread.Subtype, unread.Count));
+        Assert.Contains("\"n\":1", unread.Sample);
+    }
+
     // ── the host application's own MCP servers ───────────────────────────────
 
     /// <summary>MEASURED turn-free against codex-cli 0.146.0: `codex exec --help` documents

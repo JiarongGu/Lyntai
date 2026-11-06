@@ -7,6 +7,46 @@ to `.agents/knowledge/pitfalls.md`; the release-facing line goes to `CHANGELOG.m
 
 ---
 
+## 2026-11-07 — a recreated pool hold reused revision 1, and a late success removed a hold another pick was probing
+
+**Symptom.** Read from the source, then pinned by tests, not seen in a run: after a hold was removed and the same failure recreated it, `AgentAccountPool.ClearAsync`
+naming the OLD revision 1 matched the new hold and released it; and a pick whose attempt lease had run out, reporting success after a second pick took the seat, removed
+the hold the second pick was still probing.
+
+**Root cause.** `AgentPoolReducer.Hold` gave revision 1 to any id not currently held, so a hold's identity was forgotten the moment it was removed. `Succeed` compared
+the revision the attempt saw and never the lease token, so an attempt whose lease another pick had taken still removed the hold at that revision.
+
+**Fix.** The pool state keeps the highest revision each removed id reached, written through the store as one record (`lyntai:agent-pool:<name>:revisions`) and read
+back on load, and a recreated hold continues from it; `Succeed` removes a hold only while its lease token is the reporting pick's (`src/Lyntai.Core/Agents/AgentPoolReducer.cs`,
+`AgentAccountPool.cs`; **D247**).
+
+**Verify.** `AgentAccountPoolTests`: `A_removed_holds_identity_is_not_reused_…`, `A_restart_reads_the_retained_revision_back_…`, `A_hold_a_reading_lifted_keeps_its_identity_too`
+and `A_success_reported_by_a_pick_that_lost_its_lease_removes_nothing`. They were written before the change and not run against the old code.
+
+**Introduced by.** `03a17e96` (2026-10-28), AG6: the pool and its reducer.
+
+---
+
+## 2026-11-07 — a Claude limit row whose scope is an object read the whole usage answer as unrecognised
+
+**Symptom.** A consumer measured the installed Claude usage server's `get_usage` answer, whose `rate_limits.limits[]` rows carry a `scope` shaped
+`{"model":{"id":…,"display_name":…},"surface":null}`, and the layer's reading was `unrecognised-answer` with no windows, where the consumer's own reader kept
+the five-hour and weekly windows and every row. Starting the server with or without `-p` changed nothing.
+
+**Root cause.** `ClaudeUsageDialect.Rows` accepted a string or null `scope` and returned false for any other present value, which D237 makes the whole
+reading unknown. The capture the row test was written from had a string scope (`"opus"`), and its doc already said a scoped row's real shape was not established.
+
+**Fix.** A scope is read as a string, or as an object: the model's id is the row's `Scope`, with `ScopeName` and `Surface` as new init properties of `AgentAllowanceLimit`
+(`src/Lyntai.Providers.Basic/ClaudeCli/ClaudeUsageDialect.cs`). An object naming neither is the account's own limit; a model or surface of another shape, and a scope of
+another kind (a number, an array), still read unknown (**D222**, **D237**).
+
+**Verify.** `Claude_a_row_scoped_by_an_object_keeps_its_model_and_surface_and_the_windows_stay` (a SOURCE-DERIVED capture of the measured shape) and
+`Claude_an_object_scope_this_reader_cannot_read_still_reads_unknown`; the first was written before the change but not run against the old code (which returned false for every object scope). The shape is the consumer's measurement, not a run of the binary here.
+
+**Introduced by.** `0a28653e` (2026-11-02), AG23: the limit rows were read from a capture whose scope was a string.
+
+---
+
 ## 2026-11-01 — racing keyed supersessions on Postgres: five of six callers answered "not applied" instead of the winner's receipt
 
 **Symptom.** `PostgresStorageTests.Graph_store_satisfies_the_contract("Racing_keyed_supersessions_land_once")` failed in the full `verify` run

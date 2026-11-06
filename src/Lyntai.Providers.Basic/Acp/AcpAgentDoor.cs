@@ -49,6 +49,12 @@ internal static class AcpAgentDoor
                         permissionApprover
                             ? "each session/request_permission of a write turn is put to the registered IAcpPermissionApprover; a read-only turn rejects it unasked, and no answer within half the inactivity window is a refusal"
                             : "no IAcpPermissionApprover is registered, so the turn's tool policy answers every request"),
+                    new AgentAbility(AgentAbilities.PermissionMode, AgentSupport.Unknown, AgentAbilitySource.Negotiated)
+                        { Evidence = "per agent from session/new: the modes answer's availableModes, set by session/set_mode before the prompt; an agent that offers no such id ends the turn before the prompt" },
+                    new AgentAbility(AgentAbilities.Effort, AgentSupport.Unknown, AgentAbilitySource.Negotiated)
+                        { Evidence = "per agent from session/new: a config option of category thought_level, set by session/set_config_option before the prompt; none ends the turn before the prompt" },
+                    Declared(AgentAbilities.Plugins, AgentSupport.Unsupported, "the protocol names no plugin folder; the agent loads what its own configuration says"),
+                    Declared(AgentAbilities.Environment, AgentSupport.Supported, "the turn's variables in the agent process's environment, over the registration's and beneath the account's; a null removes one"),
                 ],
             },
         ],
