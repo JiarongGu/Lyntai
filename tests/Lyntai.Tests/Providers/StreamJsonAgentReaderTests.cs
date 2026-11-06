@@ -18,9 +18,46 @@ public class StreamJsonAgentReaderTests
 
         var events = reader.Read(line).ToList();
 
-        var evt = Assert.Single(events);
-        var started = Assert.IsType<SessionStarted>(evt);
-        Assert.Equal("abc-123", started.SessionId);
+        Assert.Equal(2, events.Count);
+        Assert.Equal("abc-123", Assert.IsType<SessionStarted>(events[0]).SessionId);
+        Assert.IsType<AgentLoaded>(events[1]);
+    }
+
+    [Fact]
+    public void SystemInit_reads_what_was_loaded_from_bare_names_and_from_objects()
+    {
+        var reader = new StreamJsonAgentReader();
+        const string line = """{"type":"system","subtype":"init","session_id":"s","tools":["Read","Bash"],"mcp_servers":[{"name":"daoris","status":"connected"},{"name":"idle"},{"status":"x"}],"skills":[{"name":"review"},"plan",""],"plugins":[{"name":"p1","path":"/p"}]}""";
+
+        var loaded = Assert.Single(reader.Read(line).OfType<AgentLoaded>());
+
+        Assert.Equal(["Read", "Bash"], loaded.Tools);
+        Assert.Equal([new AgentLoadedServer("daoris", "connected"), new AgentLoadedServer("idle", null)], loaded.McpServers);
+        Assert.Equal(["review", "plan"], loaded.Skills);
+        Assert.Equal(["p1"], loaded.Plugins);
+    }
+
+    [Fact]
+    public void SystemInit_with_none_of_the_four_lists_reads_no_loaded_event_and_a_missing_list_reads_empty()
+    {
+        var reader = new StreamJsonAgentReader();
+
+        Assert.Empty(reader.Read("""{"type":"system","subtype":"init","session_id":"a"}""").OfType<AgentLoaded>());
+
+        var loaded = Assert.Single(reader.Read("""{"type":"system","subtype":"init","session_id":"b","tools":["Read"]}""").OfType<AgentLoaded>());
+        Assert.Empty(loaded.McpServers);
+        Assert.Empty(loaded.Skills);
+        Assert.Empty(loaded.Plugins);
+    }
+
+    [Fact]
+    public void A_later_system_frame_is_no_loaded_reading()
+    {
+        var reader = new StreamJsonAgentReader();
+
+        var events = reader.Read("""{"type":"system","subtype":"thinking_tokens","session_id":"s","tools":["Read"]}""");
+
+        Assert.DoesNotContain(events, e => e is AgentLoaded);
     }
 
     [Fact]
@@ -319,16 +356,16 @@ public class StreamJsonAgentReaderTests
     // ── assistant (complete message) ─────────────────────────────────────────
 
     [Fact]
-    public void Assistant_with_text_and_tool_use_yields_ToolCall_and_UsageLive_but_no_TextDelta()
+    public void Assistant_with_text_and_tool_use_and_no_partial_deltas_yields_its_words_then_ToolCall_and_UsageLive()
     {
         var reader = new StreamJsonAgentReader();
         const string line = """{"type":"assistant","message":{"model":"claude-opus-4-8","content":[{"type":"text","text":"I'll read it."},{"type":"tool_use","id":"toolu_1","name":"Read","input":{"file_path":"/x/a.txt"}}],"usage":{"input_tokens":100,"output_tokens":20,"cache_read_input_tokens":50,"cache_creation_input_tokens":10}}}""";
 
         var events = reader.Read(line).ToList();
 
-        // Must have exactly a ToolCall and a UsageLive; no TextDelta
-        Assert.Equal(2, events.Count);
-        Assert.DoesNotContain(events, e => e is TextDelta);
+        // no stream_event delta came before it, so its words are the message's own, ahead of its call
+        Assert.Equal(3, events.Count);
+        Assert.Equal("I'll read it.", Assert.IsType<TextDelta>(events[0]).Text);
 
         var toolCall = Assert.Single(events.OfType<ToolCall>());
         Assert.Equal("Read", toolCall.Name);
@@ -692,14 +729,101 @@ public class StreamJsonAgentReaderTests
     }
 
     [Fact]
-    public void The_sessions_own_message_still_yields_no_text_event_and_no_thinking_event()
+    public void The_sessions_own_whole_message_yields_its_words_and_no_thinking_event()
     {
         var reader = new StreamJsonAgentReader();
 
         var events = reader.Read(
             """{"type":"assistant","message":{"content":[{"type":"thinking","thinking":"own"},{"type":"text","text":"own words"}]},"parent_tool_use_id":null}""");
 
-        Assert.Empty(events);
+        Assert.Equal("own words", Assert.IsType<TextDelta>(Assert.Single(events)).Text);
+    }
+
+    [Fact]
+    public void Words_a_partial_delta_streamed_are_not_yielded_again_by_the_message_that_carries_them()
+    {
+        var reader = new StreamJsonAgentReader();
+
+        var events = FullTurn.SelectMany(reader.Read).OfType<TextDelta>().ToList();
+
+        Assert.Equal(["hi"], events.Select(e => e.Text));
+    }
+
+    [Fact]
+    public void A_later_message_with_no_deltas_is_read_whole_even_after_an_earlier_one_streamed()
+    {
+        var reader = new StreamJsonAgentReader();
+        string[] lines =
+        [
+            """{"type":"stream_event","event":{"type":"message_start"}}""",
+            """{"type":"stream_event","event":{"type":"content_block_delta","delta":{"type":"text_delta","text":"one"}}}""",
+            """{"type":"assistant","message":{"content":[{"type":"text","text":"one"}]}}""",
+            """{"type":"assistant","message":{"content":[{"type":"text","text":"two"}]}}""",
+        ];
+
+        var words = lines.SelectMany(reader.Read).OfType<TextDelta>().Select(e => e.Text).ToList();
+
+        Assert.Equal(["one", "two"], words);
+    }
+
+    // ── a clean end with no result frame ─────────────────────────────────────
+
+    [Fact]
+    public void A_clean_exit_after_an_answer_with_no_result_frame_ends_the_turn_on_the_last_text()
+    {
+        var reader = new StreamJsonAgentReader();
+        _ = reader.Read("""{"type":"system","subtype":"init","session_id":"s"}""").ToList();
+        _ = reader.Read("""{"type":"assistant","message":{"content":[{"type":"text","text":"the answer"}]}}""").ToList();
+
+        var ended = reader.ReadEnd(0);
+
+        Assert.NotNull(ended);
+        Assert.Equal(ProviderVerdict.Ok, ended.Verdict);
+        Assert.False(ended.IsError);
+        Assert.Equal("no-result-frame", ended.Subtype);
+        Assert.Equal("the answer", ended.FinalText);
+        Assert.Equal("s", ended.SessionId);
+    }
+
+    [Fact]
+    public void A_clean_exit_with_a_tool_call_never_answered_stays_the_loops_failed_turn()
+    {
+        var reader = new StreamJsonAgentReader();
+        _ = reader.Read("""{"type":"assistant","message":{"content":[{"type":"text","text":"looking"},{"type":"tool_use","id":"t1","name":"Read","input":{}}]}}""").ToList();
+
+        Assert.Null(reader.ReadEnd(0));
+
+        _ = reader.Read("""{"type":"user","message":{"content":[{"type":"tool_result","tool_use_id":"t1","content":"ok"}]}}""").ToList();
+
+        Assert.NotNull(reader.ReadEnd(0));
+    }
+
+    [Fact]
+    public void A_clean_exit_with_nothing_read_or_after_a_result_or_a_nonzero_exit_adds_no_ending()
+    {
+        Assert.Null(new StreamJsonAgentReader().ReadEnd(0));
+
+        var withResult = new StreamJsonAgentReader();
+        _ = FullTurn.SelectMany(withResult.Read).ToList();
+        Assert.Null(withResult.ReadEnd(0));
+
+        var crashed = new StreamJsonAgentReader();
+        _ = crashed.Read("""{"type":"assistant","message":{"content":[{"type":"text","text":"half"}]}}""").ToList();
+        Assert.Null(crashed.ReadEnd(1));
+    }
+
+    [Fact]
+    public void A_clean_exit_after_an_assistant_message_that_was_an_api_error_ends_failed_by_that_error()
+    {
+        var reader = new StreamJsonAgentReader();
+        _ = reader.Read("""{"type":"assistant","message":{"content":[{"type":"text","text":"Please run /login"}]},"error":"authentication_failed"}""").ToList();
+
+        var ended = reader.ReadEnd(0);
+
+        Assert.NotNull(ended);
+        Assert.True(ended.IsError);
+        Assert.Equal(ProviderVerdict.AuthFailed, ended.Verdict);
+        Assert.NotNull(ended.Failure);
     }
 
     [Fact]

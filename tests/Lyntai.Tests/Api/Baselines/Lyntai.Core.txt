@@ -325,6 +325,29 @@ struct Lyntai.Agents.AgentLease
     HoldId : String { get; init; }
     Revision : Int64 { get; init; }
     ToString() : String
+sealed class Lyntai.Agents.AgentLoaded
+    .ctor(IReadOnlyList<String> Tools, IReadOnlyList<AgentLoadedServer> McpServers, IReadOnlyList<String> Skills, IReadOnlyList<String> Plugins)
+    Deconstruct(IReadOnlyList`1& Tools, IReadOnlyList`1& McpServers, IReadOnlyList`1& Skills, IReadOnlyList`1& Plugins) : Void
+    EqualityContract : Type { protected get; }
+    Equals(AgentLoaded other) : Boolean
+    Equals(AgentStreamEvent other) : Boolean
+    Equals(Object obj) : Boolean
+    GetHashCode() : Int32
+    McpServers : IReadOnlyList<AgentLoadedServer> { get; init; }
+    Plugins : IReadOnlyList<String> { get; init; }
+    PrintMembers(StringBuilder builder) : Boolean
+    Skills : IReadOnlyList<String> { get; init; }
+    ToString() : String
+    Tools : IReadOnlyList<String> { get; init; }
+sealed class Lyntai.Agents.AgentLoadedServer
+    .ctor(String Name, String Status)
+    Deconstruct(String& Name, String& Status) : Void
+    Equals(AgentLoadedServer other) : Boolean
+    Equals(Object obj) : Boolean
+    GetHashCode() : Int32
+    Name : String { get; init; }
+    Status : String { get; init; }
+    ToString() : String
 sealed class Lyntai.Agents.AgentMcpServer
     .ctor()
     Arguments : IReadOnlyList<String> { get; init; }

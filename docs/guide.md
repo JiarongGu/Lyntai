@@ -1073,10 +1073,18 @@ ended after the turn's one `SessionEnded`: read on past the terminal if you want
 emit neither. What to show of a task is yours.
 
 **A subagent's words and life** (D245). A subagent's complete message yields one `TextDelta` or `Thinking` per block, each with
-the `ParentCallId` of the call that spawned it (null on the session's own, which arrive as stream deltas), and never a plan, a
+the `ParentCallId` of the call that spawned it (null on the session's own, which arrive as stream deltas, or whole from their message when no delta preceded it), and never a plan, a
 usage tick or the session's fallback text. No `ChildStarted` or `ChildEnded` event exists, by design: a child **starts** at its
 first event with a parent, and **ends** at the `AgentTaskEnded` of the task opened for that call (`AgentTaskStarted.CallId`), else at the
 `ToolResult` of the call itself (a synchronous child opens no task).
+
+**What the Claude door's init says it loaded, and the ends it reads** (**D252**). The `system/init` frame is also an `AgentLoaded` event
+after that frame's `SessionStarted`: the `Tools`, `McpServers` (a name and the agent's own word for its state), `Skills` and `Plugins` the
+agent lists, a missing list empty, and none at all when the frame carries none of the four. It is the agent's reading of itself, never the
+host's request. An own assistant message whose words no stream delta carried yields them as one `TextDelta`, and a message whose words were
+streamed yields none. A process that exits 0 after an assistant message with no `result` frame ends the turn `Ok` with subtype
+`no-result-frame` and the last assistant text as `FinalText` (null if it had none): not a failure, unless an own tool call was never answered
+(the turn stays `no-terminal-event`) or the message was an API error (it ends failed by that error). A non-zero exit is unchanged.
 
 **Why a turn failed** (`SessionEnded.Failure`, set on every failed terminal of both CLI sessions, null on a good
 one). `AgentFailure.Kind` is `Limit`, `Access`, `Transient` or `Fatal`, read from the door's OWN failure — a
@@ -1122,7 +1130,7 @@ it is, so go through the provider when the account may be the wrong one.
 **A permission mode, an effort and plugin folders** (`PermissionMode`, `Effort`, `PluginDirectories`, **D244**). Each is
 the agent's own word, passed through and never interpreted, with an ability a door states. The claude door carries
 `--permission-mode` for the words its `--help` lists (`acceptEdits`, `auto`, `bypassPermissions`, `manual`, `dontAsk`,
-`plan`; 2.1.319), `--effort` for `low`, `medium`, `high`, `xhigh` and `max`, and one `--plugin-dir` per fully qualified
+`plan`; 2.1.319) and `default`, which that version accepts without listing, `--effort` for `low`, `medium`, `high`, `xhigh` and `max`, and one `--plugin-dir` per fully qualified
 folder (a repeat dropped, the contents never read); any other word, a relative folder, or a mode beside `SkipAllPermissions`
 ends the turn before a spawn with `option-unsupported` and names what the door carries. **A named mode is your own gate:**
 the turn's `ToolPolicy` mapping (`acceptEdits`) and its read-only write-tool denial are not applied beside it, while

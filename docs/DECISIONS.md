@@ -321,8 +321,9 @@ new decision overturns an old one, rewrite the old entry as a stub pointing here
 | [D249](#d249--a-hosts-own-cli-agent-runs-under-the-librarys-turn-rules-and-a-built-in-door-is-not-constructed-by-hand-2026-11-06) | 2026-11-06 | a host's own CLI agent runs under the library's turn rules, and a built-in door is not constructe… |
 | [D250](#d250--a-limit-row-the-reader-cannot-read-is-skipped-and-a-window-it-cannot-read-still-makes-the-reading-unknown-2026-11-07) | 2026-11-07 | a limit row the reader cannot read is skipped, and a window it cannot read still makes the readin… |
 | [D251](#d251--a-run-kept-across-turns-is-a-separate-optional-type-built-first-for-the-one-door-with-a-measured-record-and-a-door-states-unknown-where-no-record-shows-it-2026-11-07) | 2026-11-07 | a run kept across turns is a separate optional type, built first for the one door with a measured… |
+| [D252](#d252--the-claude-door-reads-its-init-as-an-event-reads-an-answer-that-arrived-whole-ends-a-clean-exit-with-no-result-frame-and-carries-default-2026-11-07) | 2026-11-07 | the Claude door reads its init as an event, reads an answer that arrived whole, ends a clean exit… |
 
-**246 live decisions.** The rest are stubs — `D<n>` is a permanent identifier, so a number is never reused or renumbered (5): [D36](#d36--a-translation-between-two-verdict-taxonomies-gets-one-arm-per-member-gated-by-a-test-2026-08-05) → D136 · [D80](#d80--merged-into-d77-2026-08-16-folded-2026-08-17) → D77 · [D131](#d131--a-backends-produces-is-derived-from-its-configuration-so-a-modality-is-a-field-2026-09-14) → D133 · [D134](#d134--a-registration-names-the-backend-the-provider-suffix-is-gone-from-all-seventeen-2026-09-14) → D137 · [D145](#d145--the-microsoftextensionsai-module-is-a-bridge-not-a-provider-2026-09-15) → D146
+**247 live decisions.** The rest are stubs — `D<n>` is a permanent identifier, so a number is never reused or renumbered (5): [D36](#d36--a-translation-between-two-verdict-taxonomies-gets-one-arm-per-member-gated-by-a-test-2026-08-05) → D136 · [D80](#d80--merged-into-d77-2026-08-16-folded-2026-08-17) → D77 · [D131](#d131--a-backends-produces-is-derived-from-its-configuration-so-a-modality-is-a-field-2026-09-14) → D133 · [D134](#d134--a-registration-names-the-backend-the-provider-suffix-is-gone-from-all-seventeen-2026-09-14) → D137 · [D145](#d145--the-microsoftextensionsai-module-is-a-bridge-not-a-provider-2026-09-15) → D146
 
 <!-- index:end -->
 
@@ -7276,3 +7277,30 @@ unknowns are the ones whose wrong answer loses a word or hangs a turn (a held re
 
 **Re-opens** when a record shows a door's `Unknown` either way, when a stop is shown to keep the conversation, or when the type cannot
 sit beside the one-turn model without changing it (**D248**).
+
+## D252 — the Claude door reads its init as an event, reads an answer that arrived whole, ends a clean exit with no result frame, and carries `default` (2026-11-07)
+
+**Standing.** Written from Daoris's request for four differences its driven sessions see; built, frozen from release (**D70**).
+
+**Decided.**
+- **The init frame is an `AgentLoaded` event** after the `SessionStarted` of the same frame: the tools, MCP servers (name and the agent's
+  word for state), skills and plugins the agent lists, a name read the same as a bare string or an object's `name`. Yielded only when
+  the frame carries at least one of the four lists; a missing list reads empty.
+- **An own assistant message's text is a `TextDelta` when no text delta streamed since the last `message_start` or own assistant message.**
+  A message whose words were streamed yields none, so a host never sees an answer twice.
+- **A process that exits 0 after an own assistant message, with no `result` frame, ends the turn** `Ok` with subtype `no-result-frame`
+  and the last assistant text as its words (the reader's `ReadEnd`, **D249**). It stays the loop's failed turn when an own tool call was
+  never answered (the agent was cut off mid-step); an assistant message that was an API error ends it failed by that error's own fields;
+  a non-zero exit stays the process fault.
+- **`default` is a word the Claude door carries**: `claude` 2.1.319 accepts it though `--help` lists `manual` and not `default`, measured
+  with `claude --permission-mode default --version`; the claim says so.
+
+**Why.** The init is the one place the agent states what it started with, and a new event costs no other door a member where a field on
+`SessionStarted` would. A message is the agent's own last word, so a turn that ends cleanly on one is an answer whose terminal frame never
+came, which only a cut-off step contradicts.
+
+**Rejected.** Fields on `SessionStarted` (a positional record every door yields). Leaving the clean exit a failed turn (the library's own
+fold then reports a finished answer as `no-terminal-event`). Ending it `Ok` whatever the last message was (an unanswered call is not an
+ending). Reading `default` as an alias the library maps to `manual` (it is the agent's word, **D244**).
+
+**Re-opens** when a version of `claude` stops accepting `default`, or when a record shows a clean exit mid-turn that is a failure.

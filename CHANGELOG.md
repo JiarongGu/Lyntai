@@ -96,6 +96,12 @@ every addition.
 
 ### Added
 
+- **The Claude door reads its init as `AgentLoaded`, reads an answer that arrived whole, ends a clean exit with no result frame, and
+  carries `default`** (**D252**). The new `AgentLoaded` event follows the `SessionStarted` of the `system/init` frame with the tools,
+  MCP servers (name and the agent's word for state), skills and plugins it lists. An own assistant message whose words no stream
+  delta carried now yields them as a `TextDelta`; one that was streamed yields none. A process that exits 0 after an assistant
+  message with no `result` frame ends the turn `Ok` with subtype `no-result-frame` and the last text, where it was a failed
+  `no-terminal-event` turn; an unanswered tool call or an API-error message still fails it. `PermissionMode` accepts `default`.
 - **A host states its own policy for a version the library has not validated** (**D236**). `AgentUsageReadingOptions.VersionPolicy`
   takes an `IAgentUsageVersionPolicy`: whether the binary is asked its version, and, given an `AgentUsageVersionQuery` (the
   provider, the account, the version read and whether the library validated it), whether the vendor's server starts. The default

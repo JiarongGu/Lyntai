@@ -1,5 +1,6 @@
 using Lyntai.Inference;
 using Lyntai.Agents;
+using Lyntai.Processes;
 using Lyntai.Providers.ClaudeCli;
 using Lyntai.Tests.Fakes;
 
@@ -41,6 +42,39 @@ public class ClaudeAgentSessionTerminalTests
         Assert.Equal(ProviderVerdict.Ok, ended.Verdict);   // the FIRST terminal wins
         Assert.False(ended.IsError);
         Assert.Equal("Done", ended.FinalText);
+    }
+
+    [Fact]
+    public async Task A_clean_exit_after_the_last_message_with_no_result_frame_is_an_ended_turn_not_a_failed_one()
+    {
+        var runner = new FakeProcessRunner([
+            """{"type":"system","subtype":"init","session_id":"sess-1"}""",
+            """{"type":"assistant","message":{"content":[{"type":"text","text":"All done"}]}}""",
+        ]);
+
+        var events = await Session(runner).StreamAsync(Ask()).ToListAsync();
+
+        var ended = Assert.Single(events.OfType<SessionEnded>());
+        Assert.Equal(ProviderVerdict.Ok, ended.Verdict);
+        Assert.False(ended.IsError);
+        Assert.Null(ended.Failure);
+        Assert.Equal("no-result-frame", ended.Subtype);
+        Assert.Equal("All done", ended.FinalText);
+        Assert.Equal("sess-1", ended.SessionId);
+        Assert.Equal("All done", Assert.Single(events.OfType<TextDelta>()).Text);
+    }
+
+    [Fact]
+    public async Task A_nonzero_exit_with_no_result_frame_is_still_the_process_fault()
+    {
+        var runner = new FakeProcessRunner(
+            ["""{"type":"assistant","message":{"content":[{"type":"text","text":"half"}]}}"""],
+            new ProcessRunException("claude", 1, "boom"));
+
+        var events = await Session(runner).StreamAsync(Ask()).ToListAsync();
+
+        var ended = Assert.Single(events.OfType<SessionEnded>());
+        Assert.True(ended.IsError);
     }
 
     [Fact]

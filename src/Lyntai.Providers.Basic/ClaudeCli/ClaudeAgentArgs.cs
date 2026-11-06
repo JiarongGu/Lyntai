@@ -14,8 +14,9 @@ internal static class ClaudeAgentArgs
     // Denied when the caller opts into ReadOnly policy (no filesystem writes).
     private static readonly string[] ReadOnlyDenied = ["Edit", "Write", "NotebookEdit"];
 
-    /// <summary>The words <c>--permission-mode</c> carries, as <c>claude --help</c> lists them (2.1.319).</summary>
-    internal static readonly IReadOnlyList<string> PermissionModes = ["acceptEdits", "auto", "bypassPermissions", "manual", "dontAsk", "plan"];
+    /// <summary>The words <c>--permission-mode</c> carries: the ones <c>claude --help</c> lists (2.1.319), and <c>default</c>, which
+    /// that version accepts without listing (measured against <c>claude --permission-mode default --version</c>).</summary>
+    internal static readonly IReadOnlyList<string> PermissionModes = ["acceptEdits", "auto", "bypassPermissions", "default", "manual", "dontAsk", "plan"];
 
     /// <summary>The levels <c>--effort</c> carries, as <c>claude --help</c> lists them (2.1.319).</summary>
     internal static readonly IReadOnlyList<string> EffortLevels = ["low", "medium", "high", "xhigh", "max"];
