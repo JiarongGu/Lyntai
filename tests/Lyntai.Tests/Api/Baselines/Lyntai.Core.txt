@@ -76,6 +76,8 @@ sealed class Lyntai.Agents.AgentAllowanceLimit
     Kind : String { get; init; }
     ResetsAt : Nullable<DateTimeOffset> { get; init; }
     Scope : String { get; init; }
+    ScopeName : String { get; init; }
+    Surface : String { get; init; }
     ToString() : String
     UsedPercent : Nullable<Double> { get; init; }
     UsedStep : Nullable<Double> { get; init; }

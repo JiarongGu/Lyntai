@@ -38,6 +38,12 @@ internal static class UsageCaptures
     public const string ClaudeScopedWeekFull_2_1_296 =
         """{"type":"control_response","response":{"subtype":"success","request_id":"usage","response":{"subscription_type":"max","rate_limits_available":true,"rate_limits":{"five_hour":{"utilization":40,"resets_at":"2026-10-12T14:00:00.000000+00:00"},"seven_day":{"utilization":60,"resets_at":"2026-10-15T09:30:00.000000+00:00"},"seven_day_opus":{"utilization":100,"resets_at":"2026-10-15T09:30:00.000000+00:00"},"seven_day_sonnet":null,"limits":[{"kind":"weekly_all","percent":60,"severity":"normal","resets_at":"2026-10-15T09:30:00.000000+00:00","scope":null},{"kind":"weekly_scoped","percent":100,"severity":"critical","resets_at":"2026-10-15T09:30:00.000000+00:00","scope":"opus"}]}}}}""";
 
+    /// <summary>SOURCE-DERIVED, claude 2.1.296: the installed server's limit rows, whose <c>scope</c> is an object
+    /// naming a model (<c>{"model":{"id":…,"display_name":…},"surface":null}</c>) beside rows whose scope is null,
+    /// from the shape a sibling repository's evidence notes record on a real signed-in account (values invented).</summary>
+    public const string ClaudeObjectScope_2_1_296 =
+        """{"type":"control_response","response":{"subtype":"success","request_id":"usage","response":{"subscription_type":"max","rate_limits_available":true,"rate_limits":{"five_hour":{"utilization":40,"resets_at":"2026-10-12T14:00:00.000000+00:00"},"seven_day":{"utilization":60,"resets_at":"2026-10-15T09:30:00.000000+00:00"},"limits":[{"kind":"weekly_all","percent":60,"severity":"normal","resets_at":"2026-10-15T09:30:00.000000+00:00","scope":null},{"kind":"weekly_scoped","percent":100,"severity":"critical","resets_at":"2026-10-15T09:30:00.000000+00:00","scope":{"model":{"id":"claude-opus-example","display_name":"Opus Example"},"surface":null}},{"kind":"weekly_scoped","percent":12,"resets_at":"2026-10-15T09:30:00.000000+00:00","scope":{"model":null,"surface":"example-surface"}},{"kind":"session","percent":40,"resets_at":"2026-10-12T14:00:00.000000+00:00","scope":{"model":null,"surface":null}}]}}}}""";
+
     // ── codex ─────────────────────────────────────────────────────────────────────────────────────────
 
     /// <summary>SOURCE-DERIVED, codex-cli 0.160.0: a fractional use on each window (1.5 and 15.25).</summary>

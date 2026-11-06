@@ -7,6 +7,26 @@ to `.agents/knowledge/pitfalls.md`; the release-facing line goes to `CHANGELOG.m
 
 ---
 
+## 2026-11-07 — a Claude limit row whose scope is an object read the whole usage answer as unrecognised
+
+**Symptom.** A consumer measured the installed Claude usage server's `get_usage` answer, whose `rate_limits.limits[]` rows carry a `scope` shaped
+`{"model":{"id":…,"display_name":…},"surface":null}`, and the layer's reading was `unrecognised-answer` with no windows, where the consumer's own reader kept
+the five-hour and weekly windows and every row. Starting the server with or without `-p` changed nothing.
+
+**Root cause.** `ClaudeUsageDialect.Rows` accepted a string or null `scope` and returned false for any other present value, which D237 makes the whole
+reading unknown. The capture the row test was written from had a string scope (`"opus"`), and its doc already said a scoped row's real shape was not established.
+
+**Fix.** A scope is read as a string, or as an object: the model's id is the row's `Scope`, with `ScopeName` and `Surface` as new init properties of `AgentAllowanceLimit`
+(`src/Lyntai.Providers.Basic/ClaudeCli/ClaudeUsageDialect.cs`). An object naming neither is the account's own limit; a model or surface of another shape, and a scope of
+another kind (a number, an array), still read unknown (**D222**, **D237**).
+
+**Verify.** `Claude_a_row_scoped_by_an_object_keeps_its_model_and_surface_and_the_windows_stay` (a SOURCE-DERIVED capture of the measured shape) and
+`Claude_an_object_scope_this_reader_cannot_read_still_reads_unknown`; the first was written before the change but not run against the old code (which returned false for every object scope). The shape is the consumer's measurement, not a run of the binary here.
+
+**Introduced by.** `0a28653e` (2026-11-02), AG23: the limit rows were read from a capture whose scope was a string.
+
+---
+
 ## 2026-11-01 — racing keyed supersessions on Postgres: five of six callers answered "not applied" instead of the winner's receipt
 
 **Symptom.** `PostgresStorageTests.Graph_store_satisfies_the_contract("Racing_keyed_supersessions_land_once")` failed in the full `verify` run
