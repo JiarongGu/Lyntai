@@ -1007,6 +1007,7 @@ sealed class Lyntai.Agents.TextDelta
     Equals(Object obj) : Boolean
     Equals(TextDelta other) : Boolean
     GetHashCode() : Int32
+    MessageId : String { get; init; }
     ParentCallId : String { get; init; }
     PrintMembers(StringBuilder builder) : Boolean
     Text : String { get; init; }

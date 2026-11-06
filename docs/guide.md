@@ -1078,6 +1078,10 @@ usage tick or the session's fallback text. No `ChildStarted` or `ChildEnded` eve
 first event with a parent, and **ends** at the `AgentTaskEnded` of the task opened for that call (`AgentTaskStarted.CallId`), else at the
 `ToolResult` of the call itself (a synchronous child opens no task).
 
+**Which message said the words** (`TextDelta.MessageId`). Through the Claude door each `TextDelta` carries the `message.id` of the frame that
+said it, so words can be grouped by message: a streamed delta has the id of the `message_start` before it, a whole message (a subagent's
+too) its own. Null where the frame states none, and on every other door; it is never inferred.
+
 **What the Claude door's init says it loaded, and the ends it reads** (**D252**). The `system/init` frame is also an `AgentLoaded` event
 after that frame's `SessionStarted`: the `Tools`, `McpServers` (a name and the agent's own word for its state), `Skills` and `Plugins` the
 agent lists, a missing list empty, and none at all when the frame carries none of the four. It is the agent's reading of itself, never the

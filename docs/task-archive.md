@@ -6770,3 +6770,9 @@ lines the doors' own tests pin. Landed in `08b41270`; the row stayed open in `TA
 ✅ done 2026-11-07 — **Outcome:** the Claude door yields an `AgentLoaded` event from the init frame, reads an own assistant message's words when no delta streamed them, ends a clean exit with no `result` frame as `Ok` (subtype `no-result-frame`) unless an own tool call was never answered or the message was an API error, and carries `default` (measured accepted by 2.1.319, unlisted by `--help`). **D252** records the choices and what they rejected; the guide and changelog state the behaviour. Proof: `StreamJsonAgentReaderTests` and `ClaudeAgentSessionTerminalTests` for each, `ClaudeAgentSessionTests` for the mode, the `Lyntai.Core` baseline moved by two additions. Lane `inference`.
 
 - the four differences, as asked
+
+## Part 468 — a message id on an agent's words through the Claude door (2026-11-07)
+
+✅ done 2026-11-07 — **Outcome:** `TextDelta.MessageId` carries the stream-json `message.id` of the frame that said the words: a streamed delta takes its `message_start`'s id, a whole message (a subagent's too) its own, null where the frame states none and on every other door. Proof: three `StreamJsonAgentReaderTests`; the `Lyntai.Core` baseline moved by one addition. No decision: an optional init property beside `ParentCallId`, with no alternative that constrains later work. Lane `inference`.
+
+- the message id, as asked

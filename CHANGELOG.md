@@ -96,6 +96,10 @@ every addition.
 
 ### Added
 
+- **`TextDelta` carries the id of the message that said its words.** `TextDelta.MessageId` is the stream-json `message.id` of the frame
+  that carried them: a streamed delta takes the id its `message_start` stated, a whole message (the session's own, or a subagent's)
+  its own `message.id`. It is null where the frame states none, and never made up or carried over from an earlier message. Other
+  doors leave it null.
 - **The Claude door reads its init as `AgentLoaded`, reads an answer that arrived whole, ends a clean exit with no result frame, and
   carries `default`** (**D252**). The new `AgentLoaded` event follows the `SessionStarted` of the `system/init` frame with the tools,
   MCP servers (name and the agent's word for state), skills and plugins it lists. An own assistant message whose words no stream
