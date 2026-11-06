@@ -113,6 +113,29 @@ public sealed record UsageReading(
     public const string Tokens = "tokens";
 }
 
+/// <summary>One option an agent offered when it opened the session (the protocol door's config option).</summary>
+/// <param name="Category">The agent's category word for it (<c>model</c>, <c>thought_level</c>…); null when it stated none.</param>
+/// <param name="Id">What the option is set by.</param>
+/// <param name="Current">The value it holds now; null when the agent stated none.</param>
+/// <param name="Values">The values it may be set to, grouped choices flattened, in the agent's order, at most 25.</param>
+public sealed record AgentOfferedOption(string? Category, string Id, string? Current, IReadOnlyList<string> Values);
+
+/// <summary>One mode an agent offered when it opened the session.</summary>
+/// <param name="Id">What <c>session/set_mode</c> names it by.</param>
+/// <param name="Name">The agent's name for it; null when it stated none.</param>
+public sealed record AgentOfferedMode(string Id, string? Name);
+
+/// <summary>What the protocol door's agent offered in its open answer: yielded after the open and before any set or the
+/// prompt, on a turn that is then refused too, so a host can say what the agent would have taken. It is not the agent's
+/// answer to the prompt and never counts toward a prompt's delivery. Every list is at most 25 long, and nothing is inferred.</summary>
+/// <param name="Options">The config options, at most 25.</param>
+/// <param name="Modes">The modes, at most 25.</param>
+/// <param name="CurrentModeId">The mode the agent is in; null when it stated none.</param>
+/// <param name="Truncated">Whether any list was cut to its bound.</param>
+public sealed record AgentOffers(
+    IReadOnlyList<AgentOfferedOption> Options, IReadOnlyList<AgentOfferedMode> Modes, string? CurrentModeId, bool Truncated)
+    : AgentStreamEvent;
+
 /// <summary>A tool call the agent's harness denied, as the turn's own report states it (Claude's
 /// <c>permission_denials</c>): the turn went on without the tool's result.</summary>
 /// <param name="Tool">The agent's name for the tool.</param>

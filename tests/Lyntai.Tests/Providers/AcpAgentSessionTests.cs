@@ -187,7 +187,7 @@ public class AcpAgentSessionTests
 
         var events = await Run(Stub(caps: "", log: log), Ask() with { ResumeToken = "conv-1" });
 
-        var ended = Assert.IsType<SessionEnded>(Assert.Single(events));
+        var ended = Assert.IsType<SessionEnded>(Assert.Single(events.Where(e => e is not AgentOffers)));
         Assert.Equal(ProviderVerdict.Unsupported, ended.Verdict);
         Assert.Equal(AgentProvider.OptionRefusedSubtype, ended.Subtype);
         Assert.Contains("resume", ended.Diagnostic);
@@ -231,7 +231,7 @@ public class AcpAgentSessionTests
 
     private static void AssertEndedBeforeThePrompt(IReadOnlyList<AgentStreamEvent> events, List<JsonNode> sent)
     {
-        var ended = Assert.IsType<SessionEnded>(Assert.Single(events));   // no SessionStarted: the session was never ready to prompt
+        var ended = Assert.IsType<SessionEnded>(Assert.Single(events.Where(e => e is not AgentOffers)));   // no SessionStarted: the session was never ready to prompt
         Assert.Equal(ProviderVerdict.Unsupported, ended.Verdict);
         Assert.True(ended.IsError);
         Assert.Equal(AgentProvider.OptionRefusedSubtype, ended.Subtype);
@@ -271,7 +271,7 @@ public class AcpAgentSessionTests
         Assert.Equal("acp-stub-session-1", set["sessionId"]!.GetValue<string>());
         Assert.Equal("model", set["configId"]!.GetValue<string>());
         Assert.Equal("opus", set["value"]!.GetValue<string>());
-        Assert.IsType<SessionStarted>(events[0]);
+        Assert.IsType<SessionStarted>(events.First(e => e is not AgentOffers));
         Assert.Equal("model: opus", Ended(events).FinalText);
         Assert.Equal(ProviderVerdict.Ok, Ended(events).Verdict);
     }
@@ -389,7 +389,7 @@ public class AcpAgentSessionTests
 
         var events = await Run(Scripted(runner), AskOn("b"));
 
-        var ended = Assert.IsType<SessionEnded>(Assert.Single(events));
+        var ended = Assert.IsType<SessionEnded>(Assert.Single(events.Where(e => e is not AgentOffers)));
         Assert.Equal(kind, ended.Failure!.Kind);
         Assert.NotEqual(AgentProvider.OptionRefusedSubtype, ended.Subtype);
         Assert.Equal(AgentDelivery.NeverSent, ended.Failure.Delivery);
@@ -761,7 +761,7 @@ public class AcpAgentSessionTests
 
         var events = await Run(Scripted(runner), Ask());
 
-        var ended = Assert.IsType<SessionEnded>(Assert.Single(events));
+        var ended = Assert.IsType<SessionEnded>(Assert.Single(events.Where(e => e is not AgentOffers)));
         Assert.Equal(ProviderVerdict.Unsupported, ended.Verdict);
         Assert.Contains("version 2", ended.Diagnostic);
         Assert.Equal(["initialize"], runner.Exchanged.Select(l => Method(JsonNode.Parse(l)!)));
@@ -794,7 +794,7 @@ public class AcpAgentSessionTests
 
         var events = await Run(Scripted(runner), Ask());
 
-        var ended = Assert.IsType<SessionEnded>(Assert.Single(events));
+        var ended = Assert.IsType<SessionEnded>(Assert.Single(events.Where(e => e is not AgentOffers)));
         Assert.Equal(ProviderVerdict.AuthFailed, ended.Verdict);
         Assert.Equal("Authentication required", ended.Diagnostic);
         Assert.Equal(AgentFailureKind.Access, ended.Failure!.Kind);
@@ -995,7 +995,7 @@ public class AcpAgentSessionTests
 
         var events = await Run(Stub(loggedOut: true, log: log), Ask());
 
-        var ended = Assert.IsType<SessionEnded>(Assert.Single(events));
+        var ended = Assert.IsType<SessionEnded>(Assert.Single(events.Where(e => e is not AgentOffers)));
         Assert.Equal(ProviderVerdict.AuthFailed, ended.Verdict);
         Assert.Equal(AgentDelivery.NeverSent, ended.Failure!.Delivery);
         Assert.DoesNotContain(Sent(log), f => Method(f) == "session/prompt");
@@ -1116,7 +1116,7 @@ public class AcpAgentSessionTests
     {
         var events = await Run(Scripted(OpenedAgent(_ => null!)), Ask());
 
-        Assert.IsType<SessionStarted>(events[0]);
+        Assert.IsType<SessionStarted>(events.First(e => e is not AgentOffers));
         var ended = Ended(events);
         Assert.Equal(AgentDelivery.NeverSent, ended.Failure!.Delivery);
         Assert.Equal(new AgentTurnEvidence(false, []), ended.Turn, new TurnComparer());
@@ -1324,6 +1324,51 @@ public class AcpAgentSessionTests
 
         var env = runner.Exchanges[0].Environment!;
         Assert.Equal(("t", "/accounts/a"), (env["TURN_VAR"], env["AGENT_HOME"]));
+    }
+
+    // ── what the open offered (AG36, D245) ────────────────────────────────────
+
+    [Fact]
+    public async Task The_offers_come_after_the_open_and_before_the_start_and_the_prompt_and_do_not_count_toward_delivery()
+    {
+        var runner = ModeAgent(ModesAndEffort);
+
+        var events = await Run(Scripted(runner), Ask());
+
+        var offers = Assert.IsType<AgentOffers>(events[0]);
+        Assert.IsType<SessionStarted>(events[1]);
+        Assert.Equal(("default", false), (offers.CurrentModeId, offers.Truncated));
+        Assert.Equal([("default", "Default"), ("plan", "Plan")], offers.Modes.Select(m => (m.Id, m.Name)).ToArray());
+        var option = Assert.Single(offers.Options);
+        Assert.Equal(("thought_level", "thinking", "medium"), (option.Category, option.Id, option.Current));
+        Assert.Equal(["low", "medium", "high"], option.Values);
+        Assert.DoesNotContain(AgentShownKind.Usage, Ended(events).Turn!.Shown);
+    }
+
+    [Fact]
+    public async Task A_turn_refused_on_a_model_still_delivers_the_offers_and_reads_never_sent()
+    {
+        var runner = ModeAgent(ModesAndEffort);
+
+        var events = await Run(Scripted(runner), Ask() with { Model = "nope" });
+
+        Assert.IsType<AgentOffers>(events[0]);
+        var ended = Ended(events);
+        Assert.Equal(AgentProvider.OptionRefusedSubtype, ended.Subtype);
+        Assert.Equal(AgentDelivery.NeverSent, ended.Failure!.Delivery);
+        Assert.Empty(ended.Turn!.Shown);
+    }
+
+    [Fact]
+    public async Task The_offers_are_bounded_and_an_open_that_offers_nothing_adds_no_event()
+    {
+        var many = string.Join(",", Enumerable.Range(0, 40).Select(i => "{\"id\":\"m" + i + "\"}"));
+        var values = string.Join(",", Enumerable.Range(0, 40).Select(i => "{\"value\":\"v" + i + "\"}"));
+        var bounded = ModeAgent("\"modes\":{\"availableModes\":[" + many + "]},\"configOptions\":[{\"id\":\"o\",\"category\":\"model\",\"options\":[" + values + "]}]");
+        var offers = Assert.IsType<AgentOffers>((await Run(Scripted(bounded), Ask()))[0]);
+        Assert.Equal((25, 25, true), (offers.Modes.Count, offers.Options[0].Values.Count, offers.Truncated));
+
+        Assert.DoesNotContain(await Run(Scripted(ModeAgent("\"x\":1")), Ask()), e => e is AgentOffers);   // an open that offers nothing says nothing
     }
 
     private sealed class TurnComparer : IEqualityComparer<AgentTurnEvidence?>

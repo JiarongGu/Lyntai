@@ -302,6 +302,40 @@ sealed class Lyntai.Agents.AgentModelUsageEntry
     Model : String { get; init; }
     OutputTokens : Nullable<Int64> { get; init; }
     ToString() : String
+sealed class Lyntai.Agents.AgentOfferedMode
+    .ctor(String Id, String Name)
+    Deconstruct(String& Id, String& Name) : Void
+    Equals(AgentOfferedMode other) : Boolean
+    Equals(Object obj) : Boolean
+    GetHashCode() : Int32
+    Id : String { get; init; }
+    Name : String { get; init; }
+    ToString() : String
+sealed class Lyntai.Agents.AgentOfferedOption
+    .ctor(String Category, String Id, String Current, IReadOnlyList<String> Values)
+    Category : String { get; init; }
+    Current : String { get; init; }
+    Deconstruct(String& Category, String& Id, String& Current, IReadOnlyList`1& Values) : Void
+    Equals(AgentOfferedOption other) : Boolean
+    Equals(Object obj) : Boolean
+    GetHashCode() : Int32
+    Id : String { get; init; }
+    ToString() : String
+    Values : IReadOnlyList<String> { get; init; }
+sealed class Lyntai.Agents.AgentOffers
+    .ctor(IReadOnlyList<AgentOfferedOption> Options, IReadOnlyList<AgentOfferedMode> Modes, String CurrentModeId, Boolean Truncated)
+    CurrentModeId : String { get; init; }
+    Deconstruct(IReadOnlyList`1& Options, IReadOnlyList`1& Modes, String& CurrentModeId, Boolean& Truncated) : Void
+    EqualityContract : Type { protected get; }
+    Equals(AgentOffers other) : Boolean
+    Equals(AgentStreamEvent other) : Boolean
+    Equals(Object obj) : Boolean
+    GetHashCode() : Int32
+    Modes : IReadOnlyList<AgentOfferedMode> { get; init; }
+    Options : IReadOnlyList<AgentOfferedOption> { get; init; }
+    PrintMembers(StringBuilder builder) : Boolean
+    ToString() : String
+    Truncated : Boolean { get; init; }
 sealed class Lyntai.Agents.AgentPick
     Apply(AgentSessionOptions options) : AgentSessionOptions
     Seat : AgentSeat { get; }

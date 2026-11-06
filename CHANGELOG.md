@@ -169,6 +169,11 @@ every addition.
   pool's account home and keys still win; the HTTP door states it `Unsupported`. A name no environment can carry, or a value with a control
   character, refuses the turn before a spawn (`environment-invalid`, naming the variable and never a value). A value is a secret: not argv, a
   log line or an event, and `AgentSessionOptions.ToString()` lists the names only (it had printed every member).
+- **The protocol door states what the open offered** (**D245**). A new `AgentOffers` event, yielded after the agent's open answer and before any
+  set or the prompt (and on a turn that is then refused too), lists each config option the agent offered (`AgentOfferedOption`: category, id, current
+  value, values) and each mode (`AgentOfferedMode`) with the current mode, every list cut to 25 and `Truncated` saying so. An open that offers
+  nothing adds no event. It is the open's, not the agent's answer to the prompt, so it never counts toward delivery; a host that matches
+  on the first event of a protocol turn now meets it before `SessionStarted`.
 - **A scope dense in ended entries still returns its current ones** (**D241**). A `Current` or as-of recall dropped the ended
   entries after the candidate window was cut, so 100 ended entries matching a query better than 5 current ones returned none of the
   5. When a seed source fills its window and the reading drops some of what it returned, the engine now asks again with a window four

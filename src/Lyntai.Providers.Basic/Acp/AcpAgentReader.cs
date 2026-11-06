@@ -193,6 +193,10 @@ internal sealed class AcpAgentReader
                     break;
                 }
 
+                // an open that offers nothing says nothing, so it adds no event
+                var offered = AcpOffers.Read(result);
+                if (offered.Options.Count > 0 || offered.Modes.Count > 0) events.Add(offered);
+
                 if (_options.Model is { Length: > 0 } wanted)
                 {
                     _modelOption = AcpModelOption.Read(result);

@@ -32,7 +32,7 @@ internal sealed record AcpModelOption(string Id, string? Current, IReadOnlyList<
         return null;
     }
 
-    private static IEnumerable<string> Values(JsonElement choices)
+    internal static IEnumerable<string> Values(JsonElement choices)
     {
         foreach (var choice in choices.EnumerateArray())
         {
