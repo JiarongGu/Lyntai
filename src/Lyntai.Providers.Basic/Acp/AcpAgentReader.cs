@@ -52,6 +52,8 @@ internal sealed class AcpAgentReader
     private readonly ILogger _logger;
     private readonly List<HeldPermission> _held = [];
     private int _frames;
+    private readonly UnreadFrames _unread = new();
+    private string _line = "";
     private int _promptFrame = -1;
     private volatile bool _promptAnswered;
 
@@ -106,10 +108,15 @@ internal sealed class AcpAgentReader
         }
     }
 
+    /// <summary>The frames no case here took: a request that is not a permission request, a notification that is not a
+    /// session update, and an update of a kind with no case.</summary>
+    public IReadOnlyList<AgentUnreadFrame> Unread() => _unread.Snapshot();
+
     /// <summary>One line the agent wrote, as 0..N events.</summary>
     public IReadOnlyList<AgentStreamEvent> Read(string line)
     {
         if (string.IsNullOrWhiteSpace(line)) return [];
+        _line = line;
         try
         {
             using var doc = JsonDocument.Parse(line);
@@ -146,6 +153,8 @@ internal sealed class AcpAgentReader
             WireJson.Object(root, "params") is { } parameters && ForThisSession(parameters) &&
             WireJson.Object(parameters, "update") is { } update)
             ReadUpdate(update, events);
+        else if (method != "session/update")
+            _unread.Note("notification", method, _line);
     }
 
     private bool ForThisSession(JsonElement parameters) =>
@@ -306,6 +315,7 @@ internal sealed class AcpAgentReader
     {
         if (method != "session/request_permission")
         {
+            _unread.Note("request", method, _line);
             Send(AcpFrames.MethodNotFound(id, method));
             return;
         }
@@ -431,6 +441,15 @@ internal sealed class AcpAgentReader
 
             case "usage_update":
                 AddContext(update, events);
+                break;
+
+            // known updates that carry nothing a turn reports
+            case "user_message_chunk" or "available_commands_update" or "current_mode_update" or "config_option_update"
+                or "session_info_update":
+                break;
+
+            case { } other:
+                _unread.Note("session/update", other, _line);
                 break;
         }
 

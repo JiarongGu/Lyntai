@@ -184,7 +184,7 @@ public sealed class AcpAgentSession : IAgentSession
         try
         {
             await foreach (var evt in CliAgentLoop.RunLinesAsync(
-                lines, endAtTerminal: true, reader.Read, _logger, "acp", announcesBeforeWrite: true, () => watch.Written, () => reader.PromptAnswered, ct).ConfigureAwait(false))
+                lines, endAtTerminal: true, reader.Read, reader.Unread, _logger, "acp", announcesBeforeWrite: true, () => watch.Written, () => reader.PromptAnswered, ct).ConfigureAwait(false))
             {
                 // a cancelled caller never receives the agent's answer to its cancel as if it were a result
                 ct.ThrowIfCancellationRequested();

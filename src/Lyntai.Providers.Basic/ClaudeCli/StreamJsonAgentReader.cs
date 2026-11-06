@@ -19,15 +19,22 @@ internal sealed class StreamJsonAgentReader
     private string? _lastAssistantText;
     private string? _assistantError;
     private RejectedLimit? _rejectedLimit;
+    private readonly UnreadFrames _unread = new();
+    private string _line = "";
 
     /// <param name="time">The clock a <see cref="UsageReading.MeasuredAt"/> is stamped from; null = the system
     /// clock.</param>
     public StreamJsonAgentReader(TimeProvider? time = null) => _time = time ?? TimeProvider.System;
 
+    /// <summary>The frames no case here took, by type: a type this reader has no case for, and a streamed event it
+    /// has no case for.</summary>
+    public IReadOnlyList<AgentUnreadFrame> Unread() => _unread.Snapshot();
+
     /// <summary>Translates one stream-json line into 0..N events. Never throws.</summary>
     public IReadOnlyList<AgentStreamEvent> Read(string line)
     {
         if (string.IsNullOrWhiteSpace(line)) return [];
+        _line = line;
         try
         {
             // materialized inside the using: every element read belongs to the document
@@ -53,9 +60,19 @@ internal sealed class StreamJsonAgentReader
         "user" => ReadUser(root, WireJson.String(root, "parent_tool_use_id")),
         "result" => ReadResult(root),
         "rate_limit_event" => NoteRateLimit(root),
-        // Any other type → nothing.
-        _ => [],
+        // Any other type → nothing, and kept as unread
+        var type => NoteUnread(type, null),
     };
+
+    private IEnumerable<AgentStreamEvent> NoteUnread(string? type, string? subtype)
+    {
+        if (type is not null) _unread.Note(type, subtype, _line);
+        return [];
+    }
+
+    // the envelope of every streamed message, which carries nothing a reader would read
+    private static readonly HashSet<string> KnownStreamEvents = new(StringComparer.Ordinal)
+        { "message_start", "content_block_start", "content_block_stop", "message_delta", "message_stop", "content_block_delta" };
 
     // `rate_limit_info` is not surfaced as an event (no AgentStreamEvent carries it); a REJECTED one is kept so a
     // failing result can name the limit and when it renews. An `allowed` frame, which is every ordinary one, is
@@ -109,7 +126,7 @@ internal sealed class StreamJsonAgentReader
 
     // ── stream_event (partial content deltas) ────────────────────────────────
 
-    private static IEnumerable<AgentStreamEvent> ReadStreamEvent(JsonElement root)
+    private IEnumerable<AgentStreamEvent> ReadStreamEvent(JsonElement root)
     {
         if (!root.TryGetProperty("event", out var eventEl) || eventEl.ValueKind != JsonValueKind.Object)
             yield break;
@@ -119,7 +136,10 @@ internal sealed class StreamJsonAgentReader
 
         // Only content_block_delta carries text/thinking deltas we care about
         if (!eventTypeEl.ValueEquals("content_block_delta"))
+        {
+            if (!KnownStreamEvents.Contains(eventTypeEl.GetString()!)) _unread.Note("stream_event", eventTypeEl.GetString(), _line);
             yield break;
+        }
 
         if (!eventEl.TryGetProperty("delta", out var deltaEl) || deltaEl.ValueKind != JsonValueKind.Object)
             yield break;

@@ -102,7 +102,7 @@ public sealed class ClaudeAgentSession : IAgentSession
             var (exe, prefixArgs) = CliCommand.Resolve(_command, Backend);
             var reader = new StreamJsonAgentReader();
             var turn = CliAgentLoop.RunAsync(_runner, exe, [.. prefixArgs, .. agentArgs], options.Prompt,
-                _options.ResolveTimeout(options.TimeoutSeconds), options, AgentAccounts.Merge(_environment, accountEnvironment), reader.Read, _logger,
+                _options.ResolveTimeout(options.TimeoutSeconds), options, AgentAccounts.Merge(_environment, accountEnvironment), reader.Read, reader.Unread, _logger,
                 "claude", ct);
             await foreach (var evt in turn.ConfigureAwait(false))
                 yield return evt;

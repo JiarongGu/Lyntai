@@ -84,6 +84,49 @@ public class StreamJsonAgentReaderTests
         Assert.True(new SessionStarted("x").Announced);
     }
 
+    // ── frames no case took (AG32) ───────────────────────────────────────────
+
+    [Fact]
+    public void Three_unknown_types_and_a_flood_of_one_leave_three_entries_with_an_exact_count_and_one_bounded_sample()
+    {
+        var reader = new StreamJsonAgentReader();
+        var flood = "{\"type\":\"telemetry\",\"blob\":\"" + new string('x', 2000) + "\"}";
+        string[] lines = [..Enumerable.Repeat(flood, 500), """{"type":"surprise","n":1}""", """{"type":"stream_event","event":{"type":"novel_event"}}""",
+            """{"type":"system","subtype":"init","session_id":"s"}""", """{"type":"result","subtype":"success","is_error":false,"result":"ok","session_id":"s"}"""];
+
+        var events = lines.SelectMany(reader.Read).ToList();
+        var unread = reader.Unread();
+
+        Assert.Equal([("telemetry", (string?)null, 500), ("surprise", null, 1), ("stream_event", "novel_event", 1)],
+            unread.Select(u => (u.Type, u.Subtype, u.Count)).ToArray());
+        Assert.All(unread, u => Assert.True(u.Sample.Length <= 512));
+        Assert.Equal(512, unread[0].Sample.Length);
+        Assert.Equal(2, events.Count);   // the start and the terminal: nothing was added for the unread ones
+    }
+
+    [Fact]
+    public void A_stream_with_nothing_unknown_leaves_unread_empty_and_the_entries_are_capped_at_sixteen()
+    {
+        var reader = new StreamJsonAgentReader();
+        _ = FullTurn.SelectMany(reader.Read).ToList();
+        Assert.Empty(reader.Unread());
+
+        for (var i = 0; i < 40; i++) _ = reader.Read("{\"type\":\"kind" + i + "\"}");
+        Assert.Equal(16, reader.Unread().Count);
+        Assert.Equal("kind0", reader.Unread()[0].Type);
+    }
+
+    private static readonly string[] FullTurn =
+    [
+        """{"type":"system","subtype":"init","session_id":"s"}""",
+        """{"type":"stream_event","event":{"type":"message_start"}}""",
+        """{"type":"stream_event","event":{"type":"content_block_delta","delta":{"type":"text_delta","text":"hi"}}}""",
+        """{"type":"stream_event","event":{"type":"message_stop"}}""",
+        """{"type":"assistant","message":{"content":[{"type":"text","text":"hi"}]}}""",
+        """{"type":"rate_limit_event","rate_limit_info":{"status":"allowed"}}""",
+        """{"type":"result","subtype":"success","is_error":false,"result":"hi","session_id":"s"}""",
+    ];
+
     // ── stream_event (partial deltas) ────────────────────────────────────────
 
     [Fact]

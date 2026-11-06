@@ -150,6 +150,11 @@ every addition.
   `_meta.claudeCode.parentToolUseId` (what `claude-agent-acp` stamps on a child it did not declare as a session) carry that call as `ParentCallId`, as
   the Claude CLI door's do; a stamped chunk is not the session's answer text. Declaring child sessions at `initialize` is not done, since the
   adapter then removes the spawning call from the parent's stream.
+- **An unread frame leaves a bounded trace** (**D245**). `SessionEnded` gains `Unread`, an `AgentUnreadFrame` (type, subtype, an exact count and
+  the first frame as written, cut to 512 characters) for each kind of frame no reader case took, at most 16 entries (a later new kind is dropped whole),
+  on both CLI doors and the protocol door. The readers stay tolerant and add no event; a frame turned into an event is not listed, and neither is a
+  known one that carries nothing a turn reports (a streamed message's envelope, `turn.started`, an ACP `available_commands_update`). A sample is the
+  agent's own text and may hold what it was asked: a host that logs it decides who reads the log.
 - **A scope dense in ended entries still returns its current ones** (**D241**). A `Current` or as-of recall dropped the ended
   entries after the candidate window was cut, so 100 ended entries matching a query better than 5 current ones returned none of the
   5. When a seed source fills its window and the reading drops some of what it returned, the engine now asks again with a window four

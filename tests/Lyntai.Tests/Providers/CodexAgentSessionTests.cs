@@ -552,6 +552,25 @@ public class CodexAgentSessionTests
         Assert.True(started.Announced);
     }
 
+    [Fact]
+    public void An_envelope_type_no_case_took_is_unread_and_a_known_notice_or_a_tool_step_is_not()
+    {
+        var reader = new CodexAgentReader(TimeProvider.System);
+        string[] lines =
+        [
+            """{"type":"thread.started","thread_id":"t"}""", """{"type":"turn.started"}""", """{"type":"error","message":"warn"}""",
+            """{"type":"item.completed","item":{"id":"i1","type":"web_search","query":"q"}}""",
+            """{"type":"future.thing","n":1}""", """{"type":"future.thing","n":2}""", "not json at all",
+            """{"type":"turn.completed","usage":{"input_tokens":1,"output_tokens":1}}""",
+        ];
+
+        _ = lines.SelectMany(reader.Read).ToList();
+
+        var unread = Assert.Single(reader.Unread());
+        Assert.Equal(("future.thing", (string?)null, 2), (unread.Type, unread.Subtype, unread.Count));
+        Assert.Contains("\"n\":1", unread.Sample);
+    }
+
     // ── the host application's own MCP servers ───────────────────────────────
 
     /// <summary>MEASURED turn-free against codex-cli 0.146.0: `codex exec --help` documents

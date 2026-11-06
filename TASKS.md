@@ -15,31 +15,30 @@ LLM-ops layer (prompt registry, scoring, traces, memory). `AddLyntai(...)` and g
 
 <!-- open-items:begin — GENERATED. Edit the per-item `item:` markers, never this table. -->
 
-## Open items — 18 across 5 Parts: 12 startable, 3 blocked, 3 watch
+## Open items — 17 across 5 Parts: 11 startable, 3 blocked, 3 watch
 
 _Generated from the per-item `<!-- item: … -->` markers by `node devtools/dev.mjs check-backlog --write`._
 _Edit a marker, never this table — `verify` fails the moment the two disagree._
 
 | line | Part | item | state | waiting on |
 | ---: | ---: | --- | --- | --- |
-| 119 | 33 | GEN-VERIFY-FAL, the last line — the Hugging Face route | blocked · env | an hf_ token for the router route |
-| 160 | 75 | Decide what an aggregator's in-band `code` means | blocked · env+data | two or three real aggregators to measure an in-band code against |
-| 187 | 99 | `verify`'s test step intermittently fails EXACTLY 9 tests, and once aborted… | watch · data | the same nine tests to recur — the fix is unconfirmed as the cure, and a gr… |
-| 246 | 99 | `InputSegmenterTests.Counting_NFKC_is_LINEAR_in_the_length_of_the_text` fai… | watch · data | a recurrence under the full parallel run, with the ratio it read — the mess… |
-| 264 | 99 | `AgentUsageProcessTests.A_server_that_never_answers_is_ended_with_its_child… | watch · data | a recurrence under the full parallel run, with the load it ran under; it fa… |
-| 302 | 417 | MC8 — run the wrong-end instrument on an adjudicated corpus, with a bar wri… | blocked · decision+data | two reviewers' independent labels on a sample of the pairs, and a bar a per… |
-| 328 | 446 | AG38 — a permission request waits for the person when the host says so | startable |  |
-| 337 | 446 | AG28 — the protocol door carries a permission mode and an effort | startable |  |
-| 343 | 446 | AG29 — a turn's own variables | startable |  |
-| 349 | 446 | AG32 — an unread frame leaves a bounded trace | startable |  |
-| 355 | 446 | AG33 — the Claude door states a turn's own report: denials and usage by mod… | startable |  |
-| 361 | 446 | AG36 — the protocol door states what the open offered | startable |  |
-| 367 | 446 | AG40 — why a person must act, and what kind of access failed | startable |  |
-| 373 | 446 | AG41 — a limit names its window and a stated reset keeps its parts | startable |  |
-| 380 | 446 | AG42 — every allowance report is an event | startable |  |
-| 386 | 446 | AG44 — the restriction rules are public over a snapshot the host stores | startable |  |
-| 392 | 446 | AG45 — a host's line reader runs under the CLI turn's rules | startable |  |
-| 398 | 446 | AG39 — a run kept across turns: the design | startable |  |
+| 118 | 33 | GEN-VERIFY-FAL, the last line — the Hugging Face route | blocked · env | an hf_ token for the router route |
+| 159 | 75 | Decide what an aggregator's in-band `code` means | blocked · env+data | two or three real aggregators to measure an in-band code against |
+| 186 | 99 | `verify`'s test step intermittently fails EXACTLY 9 tests, and once aborted… | watch · data | the same nine tests to recur — the fix is unconfirmed as the cure, and a gr… |
+| 245 | 99 | `InputSegmenterTests.Counting_NFKC_is_LINEAR_in_the_length_of_the_text` fai… | watch · data | a recurrence under the full parallel run, with the ratio it read — the mess… |
+| 263 | 99 | `AgentUsageProcessTests.A_server_that_never_answers_is_ended_with_its_child… | watch · data | a recurrence under the full parallel run, with the load it ran under; it fa… |
+| 301 | 417 | MC8 — run the wrong-end instrument on an adjudicated corpus, with a bar wri… | blocked · decision+data | two reviewers' independent labels on a sample of the pairs, and a bar a per… |
+| 327 | 446 | AG38 — a permission request waits for the person when the host says so | startable |  |
+| 336 | 446 | AG28 — the protocol door carries a permission mode and an effort | startable |  |
+| 342 | 446 | AG29 — a turn's own variables | startable |  |
+| 348 | 446 | AG33 — the Claude door states a turn's own report: denials and usage by mod… | startable |  |
+| 354 | 446 | AG36 — the protocol door states what the open offered | startable |  |
+| 360 | 446 | AG40 — why a person must act, and what kind of access failed | startable |  |
+| 366 | 446 | AG41 — a limit names its window and a stated reset keeps its parts | startable |  |
+| 373 | 446 | AG42 — every allowance report is an event | startable |  |
+| 379 | 446 | AG44 — the restriction rules are public over a snapshot the host stores | startable |  |
+| 385 | 446 | AG45 — a host's line reader runs under the CLI turn's rules | startable |  |
+| 391 | 446 | AG39 — a run kept across turns: the design | startable |  |
 
 <!-- open-items:end -->
 
@@ -345,12 +344,6 @@ last because it designs the largest piece; the rest in any order. No row spends 
   registration's environment and beneath the account's on the CLI and protocol doors; the HTTP door states `Unsupported`. A value is
   a secret and follows `AgentAccount.Environment`'s rules (never argv, a log line or an event). **Proof.** A turn's variable reaches
   the child, a null removes an inherited one, the account's home still wins, and `ToString` lists no value.
-
-- [ ] **AG32 — an unread frame leaves a bounded trace** (lane `inference`, **D245**). <!-- item: state=startable -->
-  **Contract.** `SessionEnded` gains `Unread`: for each frame type and subtype no reader case took, a count and one sample, at most 16
-  entries of 512 characters; the readers stay tolerant and add no event. It lists what the reader read nothing from, so a frame it
-  turned into an event is not here. **Proof.** A stream with three unknown types and a flood of one: three entries, one bounded
-  sample each, the count exact, and a stream with none leaves `Unread` empty on both CLI doors and the protocol door.
 
 - [ ] **AG33 — the Claude door states a turn's own report: denials and usage by model** (lane `inference`, **D245**). <!-- item: state=startable -->
   **Contract.** An event for each tool call the harness denied (`permission_denials`: the tool, its call id, the reason where the

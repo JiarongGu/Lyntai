@@ -141,7 +141,20 @@ public sealed record SessionEnded(
     /// read from. Set by every door's loop on its terminal, failed or not; null on a terminal a door built before any
     /// turn ran (a refusal).</summary>
     public AgentTurnEvidence? Turn { get; init; }
+
+    /// <summary>The frames of the turn that no reader case took, by type and subtype (see <see cref="AgentUnreadFrame"/>):
+    /// what the door read nothing from, so a frame it turned into an event is not here. At most 16 entries, empty when
+    /// the door read every frame it was sent. The readers stay tolerant and add no event for these.</summary>
+    public IReadOnlyList<AgentUnreadFrame> Unread { get; init; } = [];
 }
+
+/// <summary>One kind of frame a door's reader read nothing from.</summary>
+/// <param name="Type">The frame's own type word (a stream-json type, a JSON-RPC method, a session update's kind).</param>
+/// <param name="Subtype">Its subtype where the wire has one, else null.</param>
+/// <param name="Count">How many such frames the turn carried, exact.</param>
+/// <param name="Sample">The first such frame as written, cut to 512 characters. It is the agent's own text and may hold
+/// what the agent was asked or answered: a host that logs it decides who may read the log.</param>
+public sealed record AgentUnreadFrame(string Type, string? Subtype, int Count, string Sample);
 
 /// <summary>The kinds of event a turn can show after its prompt was written. A session start the door announces
 /// before it writes the prompt, and an event that is not the agent's answer to the prompt, are none of these.</summary>

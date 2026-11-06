@@ -1185,6 +1185,28 @@ public class AcpAgentSessionTests
         Assert.Equal(2, runner.Exchanges.Count(c => true));
     }
 
+    [Fact] // a notification, a request and an update of a kind with no case are unread; the turn's own frames are not
+    public async Task A_protocol_turn_lists_the_frames_no_case_took_on_its_terminal()
+    {
+        var runner = OpenedAgent(_ =>
+        [
+            """{"jsonrpc":"2.0","method":"telemetry/ping","params":{"n":1}}""",
+            """{"jsonrpc":"2.0","id":"r1","method":"fs/read_text_file","params":{}}""",
+            Update("novel_update", """{"x":1}"""), Update("novel_update", """{"x":2}"""),
+            Update("available_commands_update", """{"availableCommands":[]}"""),
+            Update("agent_message_chunk", """{"content":{"type":"text","text":"ok"}}"""),
+            PromptEnded("end_turn"),
+        ]);
+
+        var ended = Ended(await Run(Scripted(runner), Ask()));
+
+        Assert.Equal(
+            [("notification", (string?)"telemetry/ping", 1), ("request", "fs/read_text_file", 1), ("session/update", "novel_update", 2)],
+            ended.Unread.Select(u => (u.Type, u.Subtype, u.Count)).ToArray());
+        var clean = Ended(await Run(Scripted(OpenedAgent(_ => [PromptEnded("end_turn")])), Ask()));
+        Assert.Empty(clean.Unread);
+    }
+
     private sealed class TurnComparer : IEqualityComparer<AgentTurnEvidence?>
     {
         public bool Equals(AgentTurnEvidence? a, AgentTurnEvidence? b) =>

@@ -33,6 +33,8 @@ internal sealed class CodexAgentReader
     private readonly StringBuilder _answer = new();
     private readonly TimeProvider _time;
     private string? _threadId;
+    private readonly UnreadFrames _unread = new();
+    private string _line = "";
 
     /// <param name="time">The clock a <see cref="UsageReading.MeasuredAt"/> is stamped from; null = the system
     /// clock.</param>
@@ -42,10 +44,15 @@ internal sealed class CodexAgentReader
     /// fabricate after a process-level fault.</summary>
     public string? ThreadId => _threadId;
 
+    /// <summary>The envelope types no case here took. A known notice (<c>turn.started</c>, <c>error</c>) is no case and is
+    /// not unread, and an item of a type with no name here is a tool step, so it never is.</summary>
+    public IReadOnlyList<AgentUnreadFrame> Unread() => _unread.Snapshot();
+
     /// <summary>Translates one JSONL line into 0..N events. Never throws.</summary>
     public IReadOnlyList<AgentStreamEvent> Read(string line)
     {
         if (string.IsNullOrWhiteSpace(line)) return [];
+        _line = line;
         try
         {
             // materialized inside the using: every element read belongs to the document
@@ -108,9 +115,16 @@ internal sealed class CodexAgentReader
                 { Failure = failure };
                 break;
 
-            // Everything else — `turn.started`, a bare `error` NOTICE, an `item.updated` that is not a plan (a
-            // partial whose accumulation rule is unmeasured, so counting it would risk duplicating the answer),
-            // and any future envelope type — is deliberately ignored.
+            // `turn.started` and a bare `error` NOTICE are known and deliberately ignored; an `item.updated` that is not a plan is a partial whose
+            // accumulation rule is unmeasured, so counting it would risk duplicating the answer) are known and
+            // deliberately ignored
+            case "turn.started" or "error":
+                break;
+
+            // any future envelope type is ignored too, and kept as unread
+            case { } other:
+                _unread.Note(other, null, _line);
+                break;
         }
     }
 

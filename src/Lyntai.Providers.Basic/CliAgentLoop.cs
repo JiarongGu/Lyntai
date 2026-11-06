@@ -36,7 +36,7 @@ internal static class CliAgentLoop
     // took it; nothing at all shows no sign it was read. The turn's evidence rides every terminal.
     private static SessionEnded Stamp(SessionEnded ended, TurnWatch watch)
     {
-        var withTurn = ended with { Turn = watch.Evidence() };
+        var withTurn = ended with { Turn = watch.Evidence(), Unread = watch.Unread() };
         if (!ended.IsError) return withTurn;
         var failure = ended.Failure ?? new AgentFailure(AgentFailureKind.Fatal, "no-failure-fields");
         var delivery = watch.SawTool ? AgentDelivery.Uncertain : watch.SawAnswer ? AgentDelivery.Taken : AgentDelivery.NeverSent;
@@ -46,7 +46,8 @@ internal static class CliAgentLoop
     // The events that show the agent read the prompt. A session start is not one where the door announces it before it
     // writes the prompt (the protocol door), and an event that says nothing of the prompt (an offer, an allowance
     // report) is not one on any door.
-    private sealed class TurnWatch(bool announcesBeforeWrite, Func<bool?> written, Func<bool> answered)
+    private sealed class TurnWatch(
+        bool announcesBeforeWrite, Func<bool?> written, Func<bool> answered, Func<IReadOnlyList<AgentUnreadFrame>> unread)
     {
         private readonly List<AgentShownKind> _shown = [];
         private bool _sawAnswer;
@@ -69,6 +70,8 @@ internal static class CliAgentLoop
         }
 
         public AgentTurnEvidence Evidence() => new(written(), [.. _shown]);
+
+        public IReadOnlyList<AgentUnreadFrame> Unread() => unread();
     }
 
     private static AgentShownKind? Kind(AgentStreamEvent evt) => evt switch
@@ -103,17 +106,19 @@ internal static class CliAgentLoop
     /// <param name="options">The turn — its working directory.</param>
     /// <param name="environment">Extra environment variables for the spawn.</param>
     /// <param name="read">The backend's line reader: 0..N events per line, never a throw.</param>
+    /// <param name="unread">What the reader read nothing from, asked when a terminal is stamped.</param>
     /// <param name="logger">Where a turn with no terminal is reported.</param>
     /// <param name="backend">The CLI's name, for the diagnostic.</param>
     /// <param name="ct">Cancels the turn and kills the process tree.</param>
     public static IAsyncEnumerable<AgentStreamEvent> RunAsync(
         IProcessRunner runner, string exe, IReadOnlyList<string> argv, string stdin, TimeSpan timeout,
         AgentSessionOptions options, IReadOnlyDictionary<string, string?>? environment,
-        Func<string, IReadOnlyList<AgentStreamEvent>> read, ILogger logger, string backend, CancellationToken ct) =>
+        Func<string, IReadOnlyList<AgentStreamEvent>> read, Func<IReadOnlyList<AgentUnreadFrame>> unread, ILogger logger, string backend,
+        CancellationToken ct) =>
         RunLinesAsync(
             runner.StreamLinesAsync(exe, argv, stdin: stdin, inactivityTimeout: timeout,
                 workingDirectory: options.WorkingDirectory, environment: environment, ct: ct),
-            endAtTerminal: false, read, logger, backend, announcesBeforeWrite: false, written: static () => null, answered: static () => false, ct);
+            endAtTerminal: false, read, unread, logger, backend, announcesBeforeWrite: false, written: static () => null, answered: static () => false, ct);
 
     /// <summary>The loop over lines already being read: <see cref="RunAsync"/>'s own, and a protocol door's,
     /// whose process is spoken to as it answers. <paramref name="endAtTerminal"/> ends the turn at its
@@ -123,6 +128,7 @@ internal static class CliAgentLoop
     /// <param name="endAtTerminal">Stop at the terminal event, and leave cancelling the read to whoever built
     /// <paramref name="lines"/>.</param>
     /// <param name="read">The backend's line reader: 0..N events per line, never a throw.</param>
+    /// <param name="unread">What the reader read nothing from, asked when a terminal is stamped.</param>
     /// <param name="logger">Where a turn with no terminal is reported.</param>
     /// <param name="backend">The CLI's name, for the diagnostic.</param>
     /// <param name="announcesBeforeWrite">True for a door that yields its session start before it writes the prompt: the
@@ -134,13 +140,13 @@ internal static class CliAgentLoop
     /// <param name="ct">Cancels the turn.</param>
     public static async IAsyncEnumerable<AgentStreamEvent> RunLinesAsync(
         IAsyncEnumerable<string> lines, bool endAtTerminal,
-        Func<string, IReadOnlyList<AgentStreamEvent>> read, ILogger logger, string backend,
+        Func<string, IReadOnlyList<AgentStreamEvent>> read, Func<IReadOnlyList<AgentUnreadFrame>> unread, ILogger logger, string backend,
         bool announcesBeforeWrite, Func<bool?> written, Func<bool> answered,
         [EnumeratorCancellation] CancellationToken ct)
     {
         var sawTerminal = false;
         var sawContent = false;
-        var watch = new TurnWatch(announcesBeforeWrite, written, answered);
+        var watch = new TurnWatch(announcesBeforeWrite, written, answered, unread);
         string? sessionId = null;
 
         // a protocol door cancels its own runner, once the agent has heard session/cancel: the caller's token must not

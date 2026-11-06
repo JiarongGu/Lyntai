@@ -466,6 +466,17 @@ sealed class Lyntai.Agents.AgentTurnEvidence
     Shown : IReadOnlyList<AgentShownKind> { get; init; }
     ToString() : String
     Written : Nullable<Boolean> { get; init; }
+sealed class Lyntai.Agents.AgentUnreadFrame
+    .ctor(String Type, String Subtype, Int32 Count, String Sample)
+    Count : Int32 { get; init; }
+    Deconstruct(String& Type, String& Subtype, Int32& Count, String& Sample) : Void
+    Equals(AgentUnreadFrame other) : Boolean
+    Equals(Object obj) : Boolean
+    GetHashCode() : Int32
+    Sample : String { get; init; }
+    Subtype : String { get; init; }
+    ToString() : String
+    Type : String { get; init; }
 sealed class Lyntai.Agents.AgentUsageReadingOptions
     .ctor()
     ClientName : String { get; set; }
@@ -699,6 +710,7 @@ sealed class Lyntai.Agents.SessionEnded
     Subtype : String { get; init; }
     ToString() : String
     Turn : AgentTurnEvidence { get; init; }
+    Unread : IReadOnlyList<AgentUnreadFrame> { get; init; }
     Verdict : ProviderVerdict { get; init; }
 sealed class Lyntai.Agents.SessionStarted
     .ctor(String SessionId)
