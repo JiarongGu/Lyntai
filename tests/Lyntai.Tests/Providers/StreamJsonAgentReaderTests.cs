@@ -766,6 +766,58 @@ public class StreamJsonAgentReaderTests
         Assert.Equal(["one", "two"], words);
     }
 
+    // ── the message a TextDelta's words belong to ────────────────────────────
+
+    [Fact]
+    public void A_streamed_delta_carries_the_id_its_message_start_stated_and_a_later_message_its_own()
+    {
+        var reader = new StreamJsonAgentReader();
+        string[] lines =
+        [
+            """{"type":"stream_event","event":{"type":"message_start","message":{"id":"msg_1"}}}""",
+            """{"type":"stream_event","event":{"type":"content_block_delta","delta":{"type":"text_delta","text":"a"}}}""",
+            """{"type":"stream_event","event":{"type":"content_block_delta","delta":{"type":"text_delta","text":"b"}}}""",
+            """{"type":"assistant","message":{"id":"msg_1","content":[{"type":"text","text":"ab"}]}}""",
+            """{"type":"stream_event","event":{"type":"message_start","message":{"id":"msg_2"}}}""",
+            """{"type":"stream_event","event":{"type":"content_block_delta","delta":{"type":"text_delta","text":"c"}}}""",
+        ];
+
+        var words = lines.SelectMany(reader.Read).OfType<TextDelta>().Select(e => (e.Text, e.MessageId)).ToList();
+
+        Assert.Equal([("a", "msg_1"), ("b", "msg_1"), ("c", "msg_2")], words);
+    }
+
+    [Fact]
+    public void A_whole_message_and_a_subagents_words_carry_the_id_of_the_message_that_said_them()
+    {
+        var reader = new StreamJsonAgentReader();
+
+        var own = Assert.IsType<TextDelta>(Assert.Single(reader.Read(
+            """{"type":"assistant","message":{"id":"msg_own","content":[{"type":"text","text":"own"}]}}""")));
+        var child = Assert.IsType<TextDelta>(Assert.Single(reader.Read(
+            """{"type":"assistant","parent_tool_use_id":"task-1","message":{"id":"msg_child","content":[{"type":"text","text":"kid"}]}}""")));
+
+        Assert.Equal("msg_own", own.MessageId);
+        Assert.Equal("msg_child", child.MessageId);
+    }
+
+    [Fact]
+    public void Words_from_a_frame_that_states_no_message_id_carry_none_and_never_the_last_ones()
+    {
+        var reader = new StreamJsonAgentReader();
+        string[] lines =
+        [
+            """{"type":"stream_event","event":{"type":"message_start","message":{"id":"msg_1"}}}""",
+            """{"type":"stream_event","event":{"type":"message_start"}}""",
+            """{"type":"stream_event","event":{"type":"content_block_delta","delta":{"type":"text_delta","text":"a"}}}""",
+            """{"type":"assistant","message":{"content":[{"type":"text","text":"whole"}]}}""",
+        ];
+
+        var words = lines.SelectMany(reader.Read).OfType<TextDelta>().ToList();
+
+        Assert.All(words, w => Assert.Null(w.MessageId));
+    }
+
     // ── a clean end with no result frame ─────────────────────────────────────
 
     [Fact]

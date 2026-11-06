@@ -39,6 +39,10 @@ public sealed record TextDelta(string Text) : AgentStreamEvent
     /// <summary>The <see cref="ToolCall.CallId"/> of the call that spawned the subagent speaking; null for the session's
     /// own words, and for a door that does not say. A subagent's words arrive whole, one event per block.</summary>
     public string? ParentCallId { get; init; }
+
+    /// <summary>The id of the agent's message these words belong to, as the frame that carried them states it (Claude's
+    /// <c>message.id</c>), so a consumer can group a message's words; null where the door's wire states none. Never made up.</summary>
+    public string? MessageId { get; init; }
 }
 
 /// <summary>A chunk of assistant reasoning/thinking text.</summary>

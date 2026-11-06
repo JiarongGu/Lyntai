@@ -24,6 +24,8 @@ internal sealed class StreamJsonAgentReader : ICliAgentLineReader
 
     // a streamed text delta since the last own assistant message (or message_start): that message's words were already yielded
     private bool _streamedText;
+    // the id the last message_start stated: a content_block_delta names no message of its own
+    private string? _streamMessageId;
     private bool _readAssistant;
     private bool _readResult;
     private readonly HashSet<string> _pendingCalls = new(StringComparer.Ordinal);
@@ -202,7 +204,11 @@ internal sealed class StreamJsonAgentReader : ICliAgentLineReader
         // Only content_block_delta carries text/thinking deltas we care about
         if (!eventTypeEl.ValueEquals("content_block_delta"))
         {
-            if (eventTypeEl.ValueEquals("message_start")) _streamedText = false;
+            if (eventTypeEl.ValueEquals("message_start"))
+            {
+                _streamedText = false;
+                _streamMessageId = WireJson.Object(eventEl, "message") is { } started ? WireJson.String(started, "id") : null;
+            }
             if (!KnownStreamEvents.Contains(eventTypeEl.GetString()!)) _unread.Note("stream_event", eventTypeEl.GetString(), _line);
             yield break;
         }
@@ -219,7 +225,7 @@ internal sealed class StreamJsonAgentReader : ICliAgentLineReader
             if (deltaEl.TryGetProperty("text", out var textEl) && textEl.ValueKind == JsonValueKind.String)
             {
                 _streamedText = true;
-                yield return new TextDelta(textEl.GetString()!);
+                yield return new TextDelta(textEl.GetString()!) { MessageId = _streamMessageId };
             }
         }
         else if (deltaType == "thinking_delta")
@@ -238,6 +244,7 @@ internal sealed class StreamJsonAgentReader : ICliAgentLineReader
             yield break;
 
         var own = parentCallId is null;
+        var messageId = WireJson.String(msg, "id");
 
         // Update model if present on the message
         if (own && msg.TryGetProperty("model", out var modelEl) && modelEl.ValueKind == JsonValueKind.String)
@@ -265,7 +272,7 @@ internal sealed class StreamJsonAgentReader : ICliAgentLineReader
                         (text ??= new StringBuilder()).Append(textEl.GetString());
                     // a subagent's words arrive once, whole, and have no stream of their own to be read from
                     else if (!own && WireJson.String(block, "text") is { Length: > 0 } childText)
-                        blocks.Add(new TextDelta(childText) { ParentCallId = parentCallId });
+                        blocks.Add(new TextDelta(childText) { ParentCallId = parentCallId, MessageId = messageId });
                 }
                 else if (blockType == "thinking" && !own && WireJson.String(block, "thinking") is { Length: > 0 } childThought)
                 {
@@ -298,7 +305,7 @@ internal sealed class StreamJsonAgentReader : ICliAgentLineReader
         if (own)
         {
             _readAssistant = true;
-            if (text is { Length: > 0 } && !_streamedText) yield return new TextDelta(text.ToString());
+            if (text is { Length: > 0 } && !_streamedText) yield return new TextDelta(text.ToString()) { MessageId = messageId };
             _streamedText = false;
         }
 
