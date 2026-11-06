@@ -519,6 +519,38 @@ public class AcpAgentSessionTests
         Assert.Equal(AgentShownKind.Usage, Assert.Single(Ended(events).Turn!.Shown));
     }
 
+    [Fact] // SOURCE-DERIVED: claude-agent-acp's stamp on what a child it did not declare as a session sends on the root session
+    public async Task A_stamped_childs_calls_and_words_carry_the_parent_and_the_sessions_own_do_not()
+    {
+        const string stamp = ",\"_meta\":{\"claudeCode\":{\"parentToolUseId\":\"task-1\"}}";
+        static string Stamped(string body) => body[..^1] + stamp + "}";
+        var runner = Agent(new()
+        {
+            ["initialize"] = _ => [Initialized()],
+            ["session/new"] = _ => [OpenedId(2)],
+            ["session/prompt"] = _ =>
+            [
+                Update("tool_call", """{"toolCallId":"task-1","title":"Task","kind":"other","status":"pending"}"""),
+                Update("tool_call", Stamped("""{"toolCallId":"c1","title":"Read","kind":"read","status":"pending"}""")),
+                Update("tool_call_update", Stamped("""{"toolCallId":"c1","status":"completed"}""")),
+                Update("agent_thought_chunk", Stamped("""{"content":{"type":"text","text":"child thinks"}}""")),
+                Update("agent_message_chunk", Stamped("""{"content":{"type":"text","text":"child says"}}""")),
+                Update("agent_message_chunk", """{"content":{"type":"text","text":"parent says"}}"""),
+                PromptEnded("end_turn"),
+            ],
+        });
+
+        var events = await Run(Scripted(runner), Ask());
+
+        Assert.Equal(
+            [("ToolCall", null), ("ToolCall", "task-1"), ("ToolResult", "task-1"), ("Thinking", "task-1"), ("TextDelta", "task-1"), ("TextDelta", null)],
+            events.Where(e => e is not (SessionStarted or SessionEnded)).Select(e => (e.GetType().Name, e switch
+            {
+                ToolCall c => c.ParentCallId, ToolResult r => r.ParentCallId, TextDelta t => t.ParentCallId, Thinking h => h.ParentCallId, _ => "?",
+            })).ToArray());
+        Assert.Equal("parent says", Ended(events).FinalText);   // the child's words are not the session's answer
+    }
+
     [Fact] // SOURCE-DERIVED: a tool_call that arrives already finished, and an update for a call never seen start
     public async Task A_finished_tool_is_visible_even_when_its_start_was_not_seen()
     {

@@ -408,12 +408,13 @@ internal sealed class AcpAgentReader
         switch (WireJson.String(update, "sessionUpdate"))
         {
             case "agent_message_chunk" when ChunkText(update) is { } text:
-                _answer.Append(text);
-                events.Add(new TextDelta(text));
+                // a stamped chunk is a child's: it is not the session's answer
+                if (ParentOf(update) is not { } textParent) _answer.Append(text);
+                events.Add(new TextDelta(text) { ParentCallId = ParentOf(update) });
                 break;
 
             case "agent_thought_chunk" when ChunkText(update) is { } thought:
-                events.Add(new Thinking(thought));
+                events.Add(new Thinking(thought) { ParentCallId = ParentOf(update) });
                 break;
 
             case "plan":
@@ -442,6 +443,12 @@ internal sealed class AcpAgentReader
         if (used is not null || size is not null) events.Add(new ContextReading(used, size, _time.GetUtcNow()));
     }
 
+    // claude-agent-acp stamps what a child it did not declare as a session sends on the root session with the call that spawned it
+    private static string? ParentOf(JsonElement update) =>
+        WireJson.Object(update, "_meta") is { } meta && WireJson.Object(meta, "claudeCode") is { } claude
+            ? WireJson.String(claude, "parentToolUseId")
+            : null;
+
     private static string? ChunkText(JsonElement update) =>
         WireJson.Object(update, "content") is { } content && WireJson.String(content, "type") == "text"
             ? WireJson.String(content, "text")
@@ -464,16 +471,16 @@ internal sealed class AcpAgentReader
     private void ReadToolCall(JsonElement update, List<AgentStreamEvent> events)
     {
         if (WireJson.String(update, "toolCallId") is not { } id) return;
-        if (_startedTools.Add(id)) events.Add(new ToolCall(ToolName(update), update.GetRawText(), id));
-        if (IsFinished(update, out var failed)) events.Add(new ToolResult(id, update.GetRawText(), failed));
+        if (_startedTools.Add(id)) events.Add(new ToolCall(ToolName(update), update.GetRawText(), id) { ParentCallId = ParentOf(update) });
+        if (IsFinished(update, out var failed)) events.Add(new ToolResult(id, update.GetRawText(), failed) { ParentCallId = ParentOf(update) });
     }
 
     private void ReadToolUpdate(JsonElement update, List<AgentStreamEvent> events)
     {
         if (WireJson.String(update, "toolCallId") is not { } id) return;
         if (!IsFinished(update, out var failed)) return;
-        if (_startedTools.Add(id)) events.Add(new ToolCall(ToolName(update), update.GetRawText(), id));   // never seen start: still visible
-        events.Add(new ToolResult(id, update.GetRawText(), failed));
+        if (_startedTools.Add(id)) events.Add(new ToolCall(ToolName(update), update.GetRawText(), id) { ParentCallId = ParentOf(update) });   // never seen start: still visible
+        events.Add(new ToolResult(id, update.GetRawText(), failed) { ParentCallId = ParentOf(update) });
     }
 
     private static string ToolName(JsonElement update) =>

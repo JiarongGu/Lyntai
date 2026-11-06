@@ -146,6 +146,10 @@ every addition.
   own). The Claude door's reader, which dropped a subagent's text and read no thinking, yields one of each per block of a subagent's
   complete message with the parent, and never a plan, usage tick or fallback text of the session's. `docs/guide.md` states how to read
   a child's start and end from events that already exist; no child event is added.
+- **The protocol door keeps a child's stamped lines apart** (**D245**). A `tool_call`, a `tool_call_update` and a message chunk carrying
+  `_meta.claudeCode.parentToolUseId` (what `claude-agent-acp` stamps on a child it did not declare as a session) carry that call as `ParentCallId`, as
+  the Claude CLI door's do; a stamped chunk is not the session's answer text. Declaring child sessions at `initialize` is not done, since the
+  adapter then removes the spawning call from the parent's stream.
 - **A scope dense in ended entries still returns its current ones** (**D241**). A `Current` or as-of recall dropped the ended
   entries after the candidate window was cut, so 100 ended entries matching a query better than 5 current ones returned none of the
   5. When a seed source fills its window and the reading drops some of what it returned, the engine now asks again with a window four
