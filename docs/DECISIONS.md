@@ -320,8 +320,9 @@ new decision overturns an old one, rewrite the old entry as a stub pointing here
 | [D248](#d248--a-prompts-delivery-is-what-its-turn-showed-after-the-write-a-request-waits-for-the-person-when-the-host-says-so-and-a-kept-run-is-designed-before-it-is-built-2026-11-06) | 2026-11-06 | a prompt's delivery is what its turn showed after the write, a request waits for the person when… |
 | [D249](#d249--a-hosts-own-cli-agent-runs-under-the-librarys-turn-rules-and-a-built-in-door-is-not-constructed-by-hand-2026-11-06) | 2026-11-06 | a host's own CLI agent runs under the library's turn rules, and a built-in door is not constructe… |
 | [D250](#d250--a-limit-row-the-reader-cannot-read-is-skipped-and-a-window-it-cannot-read-still-makes-the-reading-unknown-2026-11-07) | 2026-11-07 | a limit row the reader cannot read is skipped, and a window it cannot read still makes the readin… |
+| [D251](#d251--a-run-kept-across-turns-is-a-separate-optional-type-built-first-for-the-one-door-with-a-measured-record-and-a-door-states-unknown-where-no-record-shows-it-2026-11-07) | 2026-11-07 | a run kept across turns is a separate optional type, built first for the one door with a measured… |
 
-**245 live decisions.** The rest are stubs — `D<n>` is a permanent identifier, so a number is never reused or renumbered (5): [D36](#d36--a-translation-between-two-verdict-taxonomies-gets-one-arm-per-member-gated-by-a-test-2026-08-05) → D136 · [D80](#d80--merged-into-d77-2026-08-16-folded-2026-08-17) → D77 · [D131](#d131--a-backends-produces-is-derived-from-its-configuration-so-a-modality-is-a-field-2026-09-14) → D133 · [D134](#d134--a-registration-names-the-backend-the-provider-suffix-is-gone-from-all-seventeen-2026-09-14) → D137 · [D145](#d145--the-microsoftextensionsai-module-is-a-bridge-not-a-provider-2026-09-15) → D146
+**246 live decisions.** The rest are stubs — `D<n>` is a permanent identifier, so a number is never reused or renumbered (5): [D36](#d36--a-translation-between-two-verdict-taxonomies-gets-one-arm-per-member-gated-by-a-test-2026-08-05) → D136 · [D80](#d80--merged-into-d77-2026-08-16-folded-2026-08-17) → D77 · [D131](#d131--a-backends-produces-is-derived-from-its-configuration-so-a-modality-is-a-field-2026-09-14) → D133 · [D134](#d134--a-registration-names-the-backend-the-provider-suffix-is-gone-from-all-seventeen-2026-09-14) → D137 · [D145](#d145--the-microsoftextensionsai-module-is-a-bridge-not-a-provider-2026-09-15) → D146
 
 <!-- index:end -->
 
@@ -7241,3 +7242,37 @@ on a real account.
 unseen shape loses an answer whose windows read fine). A count of skipped rows on the reading (nothing needs it; add one when a host asks).
 
 **Re-opens** when a row feeds a judgement of room, which would make a dropped one misleading.
+
+## D251 — a run kept across turns is a separate optional type, built first for the one door with a measured record, and a door states `Unknown` where no record shows it (2026-11-07)
+
+**Standing.** As **D248** (A-LQ3's third step); written from `docs/agent-provider-daoris-study.md` §11, which holds the table of doors
+and what it rests on. A working position, nothing built, frozen from release once it is (**D70**). It meets **D233**'s trigger and
+keeps that entry's other half: a hosted agent stays out.
+
+**Decided.**
+- **A kept run is an optional `IAgentRunProvider` on a provider that opens an `IAgentRun`**; `IAgentSession` gains no member. A turn
+  of a run is the one-turn stream hosts read today, with one `SessionEnded`, so delivery, failure and usage mean what they do now.
+- **Only a door with a measured record states a capability `Supported`; one with none states `Unknown`, and one whose source or
+  records show it cannot states `Unsupported`.** Built first for the Claude protocol door (turns in one process, a word queued
+  mid-turn, background work read until it ends, a woken turn: all REAL). The Claude CLI with stdin held open and every other door are
+  not built: their records are partial or absent.
+- **A word taken mid-turn** folds the earlier turn (subtype `folded`, success, usage 0) and the later owns the rest; the run never
+  cancels with a word on its way, and refuses `SendAsync` while a permission request is held or a woken turn runs, since no record
+  shows either together with a word.
+- **A woken turn** is surfaced on the run and ended only by a host-set quiet bound, which has no default.
+- **A replayed frame is not an event, and an open is never repeated by the library**: a failed open ends the run and the host opens a
+  new one. The two capabilities are stated `Unknown` until a run shows them.
+
+**Why.** The first door's records are the only ones that show a second prompt on one process, a fold, and an unprompted turn, each
+run once by a host. A type that states what a door was seen doing, and `Unknown` otherwise, is the layer's rule (**D219**), and the
+unknowns are the ones whose wrong answer loses a word or hangs a turn (a held request with a word on its way, a prompt into a woken turn).
+
+**Rejected.**
+- **A new `IAgentSession` method** (a break for every BYO session, **D70**).
+- **Building every door's kept run from its source** (the Codex protocol door's steering and the native door's mid-turn line were never
+  run, and a claim read from source is not a measurement).
+- **No kept run** (it leaves **D233**'s trigger met and unserved, and keeps a host's own transport on the one door with a record).
+- **A default quiet bound for a woken turn** (a deadline the library invents, **D219**).
+
+**Re-opens** when a record shows a door's `Unknown` either way, when a stop is shown to keep the conversation, or when the type cannot
+sit beside the one-turn model without changing it (**D248**).

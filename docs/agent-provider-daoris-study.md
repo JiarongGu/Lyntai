@@ -1,6 +1,6 @@
 # The agent-provider layer against Daoris's accepted provider design — a study
 
-**Status: a study (`docs/documents.md`), 2026-10-29; AG20, AG11, AG12, AG10, AG13, AG14, AG15, AG16, AG17, AG18 and AG19 are built, the rest is not; §10 answers a later request, A-LQ3 to A-LQ17, by rows AG25 to AG45, none built.** It reads Lyntai's layer
+**Status: a study (`docs/documents.md`), 2026-10-29; AG20, AG11, AG12, AG10, AG13, AG14, AG15, AG16, AG17, AG18 and AG19 are built, the rest is not; §10 answers a later request, A-LQ3 to A-LQ17, by rows AG25 to AG45; §11 designs the run kept across turns (AG39, **D251**) and files AG46 to AG48, none built.** It reads Lyntai's layer
 (`docs/agent-provider-layer.md`, **D219**, rows AG1 to AG9 closed in `docs/task-archive.md`) against two designs
 Daoris has since accepted, and files what a host that runs coding agents still needs from the layer as rows AG10 to
 AG20 in `TASKS.md` (all closed in `docs/task-archive.md` since) and **D233**. AG20 was ruled and built as **D234**, and §9 states how a host
@@ -308,3 +308,76 @@ It read the code and Daoris's checked-in records and ran nothing. A wire fact a 
 on Daoris's capture, and the row says so in its proof. Whether a Codex or protocol agent emits a child frame the layer should read
 stays as §8 left it. What the installed `claude` lists for modes, effort levels and `--plugin-dir` is the first step of AG25, AG26
 and AG27: a `--help` read, no spend.
+
+## 11. A run kept across turns: the design (AG39, **D251**)
+
+**What this reads.** Daoris's recorded measurements of the agents it keeps a process open on, as its second request (§10) points
+to them: its design's §5.1, its steer, stream-json, console-streams and model-effort evidence notes, and the fix log's BGWAIT2 entry.
+It read them and ran nothing. **REAL** below is a note's own "measured" (a run Daoris took), **SOURCE-DERIVED** its "read" (an
+agent's source or schema, no run), and **Unknown** is no record at all. Daoris's line citations no longer resolve at its head (its
+protocol door was split into several files since), so the evidence is cited by note, not by line.
+
+### 11.1 Which doors can carry a kept run
+
+| Capability | Claude protocol door | Claude CLI, stdin held open | Codex protocol door | Codex CLI (`exec`) | dsh over the protocol |
+|---|---|---|---|---|---|
+| **Turns in one process** | Supported, REAL (a second prompt on one process, steer note) | Supported, REAL (two turns, one process, stream-json note) | Unknown | **Unsupported**, SOURCE-DERIVED: the prompt is taken once; a resume is a new process | Unknown (one scripted prompt then close, REAL) |
+| **A word taken mid-turn** | Supported, REAL: queued and folded at the next step; the earlier prompt answers `end_turn` with every usage count 0 | Unknown: bundle-derived only, never run | **Unsupported by a second prompt**, SOURCE-DERIVED (it replaces the tracked one); its `_session/steering` is advertised and never run, so Unknown | Unsupported (no input after the start) | Unknown |
+| **A stop that keeps the conversation** | Unknown: a cancelled turn's zero counts are REAL, a usable next turn is not recorded, and cancel with a word on its way loses its answer (SOURCE-DERIVED) | Supported, REAL (an interrupt, then an ordinary turn) | Unknown | Unknown | Unknown (SOURCE-DERIVED mapping only) |
+| **The model re-asked between turns** | Unknown: REAL only after `session/new` and before the first prompt | Unknown, not offered | Unknown: the same, before the first prompt | Unknown | Not offered |
+| **Background work read until it ends** | Supported, REAL (the task frames, and a subagent as a session of its own) | Unknown: on `-p` the binary ends it with the turn (REAL); held stdin never probed | Unknown | Unknown | Unknown |
+| **A turn a task's end wakes** | Supported, REAL (the agent spoke again 1.6 and 2.4 s after the response); a prompt sent into the woken turn was **never answered** (REAL, BGWAIT2) | Unknown | Unknown | Unknown | Unknown |
+| **A replayed frame told from a live one** | Unknown: `session/load` replays and `session/resume` does not (SOURCE-DERIVED) | Unknown (a flag is read from `--help`) | Unknown (SOURCE-DERIVED, as the left) | Unknown | Unknown |
+| **A repeatable open** | Unknown: the raw open repeats in Daoris's stand-in only, and the handshake refuses a second | **Unsupported**: no open exists, a new open is a new process | Unknown | Unsupported (a new process) | Unknown |
+| **A request held for the person, process kept** | Unknown: a request arrives (REAL) and is answered, held for minutes never run | Unknown (`-p` refuses what it does not allow, SOURCE-DERIVED) | Unknown | Unknown | Unknown |
+
+**The library's own HTTP door** carries no kept run: a turn is one tool loop and the conversation is the host's messages.
+**Not established** (Daoris's own list, and this study's): whether any CLI door accepts input mid-turn; whether Codex's adapter
+takes a word mid-turn by steering; a stop against a session with background work running; a request held for minutes; and any dsh
+row beyond one scripted prompt. **Two records contradict their text** and the table follows the record: Daoris's design says the
+native door "takes a framed message" mid-turn, and its stream-json note measured messages between turns and an interrupt, with the
+mid-turn line stated as not measured; and a conversation's background work "may outlive a turn" is stated where the native note says
+it was not probed.
+
+### 11.2 What a YES does to the library and what a NO does
+
+**A YES** adds one optional capability beside `IAgentSession` and leaves that interface and its one-turn model as they are: a run
+type and an optional provider interface (§11.3), a turn event or two, and the abilities of §11.1 stated on each door, all frozen
+from release (**D70**). It rebuilds `AcpAgentReader`'s per-turn state as per-run state for the one door with a REAL record, the Claude
+protocol door, over the live-stdin runner member that exists. It costs three rows (AG46 to AG48), no account and no model call. It is
+what lets Daoris move its conversations (its moves 1e and 1f-i) off its own transport for that door; every other door keeps the
+one-turn model, stating `Unknown` or `Unsupported`.
+**A NO** adds nothing and spends nothing: the one-turn model serves a host that never takes a word mid-turn, and Daoris keeps its
+own transport on the doors where it keeps a process across turns, as §10 said a declined need does. It also leaves **D233**'s
+re-open condition (a host that needs a word taken mid-turn) met and unserved, which is the cost this study weighs.
+
+### 11.3 The shape
+
+- **A separate pair, found by type test.** An optional `IAgentRunProvider` on a provider (as `IAgentAllowanceSource` is) opens an
+  `IAgentRun`; no member is added to `IAgentSession`, whose BYO implementations would all break (**D70**). A provider without it
+  states `kept-run` `Unsupported` or `Unknown` as §11.1 says.
+- **A turn is the stream a host reads today.** `IAgentRun.SendAsync(prompt)` returns an `AgentRunTurn` whose events are the same
+  events with exactly one `SessionEnded`, so delivery, failure and usage read as they do per turn. The run is one account for its
+  life: a host takes one pick for it and gives it back at the end (**D227**).
+- **A word mid-turn** (`SendAsync` while a turn runs) is taken only on a door stating `queued-words` Supported. The earlier turn then
+  ends with a `SessionEnded` of subtype `folded`, success, every usage count 0, as the record shows the agent answers it; the later
+  turn owns the rest. The run never sends `session/cancel` while a word is on its way.
+- **A stop that keeps the conversation** is `StopAsync`: a cancel as the one-turn door sends it, the turn ending as a cancelled one
+  ends today. The door states `keeping-stop` `Unknown` until a record shows a usable turn after it, and the run states no more.
+- **A held permission request** is the same approver seam and the same wait (**D248**, AG38). The run refuses `SendAsync` while one
+  is held, because no record shows a folded word and a held request together: an `Unknown` is not offered.
+- **A repeatable open** is not offered, and **the library never repeats an open itself** (**D248**). An open that fails ends the run
+  with a typed failure and the host opens another run, a new process; a raw `session/new` re-sent on the live process is Daoris's
+  own and rests on a stand-in.
+- **A replayed frame** is not an event. The updates a `session/load` streams before it answers are the conversation's history, dropped
+  as the one-turn door drops them; `session/resume` sends none. The door states `replay-told` `Unknown` because no run showed the load.
+- **The turn a task's end wakes** is surfaced as a woken `AgentRunTurn` on the run's `WokenTurns`, ended by silence only after a
+  host-set `WokenTurnQuiet` (no default: the library invents no deadline) with subtype `quiet`. `SendAsync` is refused during one, as
+  the record shows a prompt sent into it is never answered. Background work's end is read as `AgentTaskEnded` events that may come
+  after the turn that started it.
+
+### 11.4 The rows
+
+AG46 (the type, the open, a turn, a stop and the abilities of §11.1, on the Claude protocol door), then AG47 (a word taken mid-turn
+and the refusals above) and AG48 (the woken turn and background work read until it ends) in `TASKS.md` Part 446. Their captures are
+SOURCE-DERIVED from Daoris's notes, which a real one replaces when it arrives, and none spends an account.
