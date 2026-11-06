@@ -164,6 +164,11 @@ every addition.
   answer decides, a refusal, an agent that offers no such id or option, or an error ends the turn before the prompt as `option-unsupported`
   with `NeverSent` and holds nothing against the model, and a value the agent already has is not set again. The door states
   `permission-mode` and `effort` `Unknown`, `Negotiated` (they were `Unsupported` before this entry), so a turn naming one reaches the agent.
+- **A turn's own variables** (**D244**). `AgentSessionOptions.Environment` (a null value removes a variable the child would inherit) and the
+  ability `environment` start the CLI and protocol doors' child with them, over the registration's environment and beneath the account's, so a
+  pool's account home and keys still win; the HTTP door states it `Unsupported`. A name no environment can carry, or a value with a control
+  character, refuses the turn before a spawn (`environment-invalid`, naming the variable and never a value). A value is a secret: not argv, a
+  log line or an event, and `AgentSessionOptions.ToString()` lists the names only (it had printed every member).
 - **A scope dense in ended entries still returns its current ones** (**D241**). A `Current` or as-of recall dropped the ended
   entries after the candidate window was cut, so 100 ended entries matching a query better than 5 current ones returned none of the
   5. When a seed source fills its window and the reading drops some of what it returned, the engine now asks again with a window four

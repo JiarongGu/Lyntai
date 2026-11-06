@@ -1310,6 +1310,22 @@ public class AcpAgentSessionTests
         });
     }
 
+    [Fact]
+    public async Task A_turns_variable_reaches_the_protocol_agents_environment_beneath_the_accounts_home()
+    {
+        var runner = OpenedAgent(_ => [PromptEnded("end_turn")]);
+        var session = new AcpAgentSession(runner, new LyntaiOptions(), "agent", accountHomeVariable: "AGENT_HOME");
+
+        await Run(session, Ask() with
+        {
+            Environment = new Dictionary<string, string?> { ["TURN_VAR"] = "t", ["AGENT_HOME"] = "/turn" },
+            Account = new AgentAccount { Provider = "agent", Name = "a", Home = "/accounts/a" },
+        });
+
+        var env = runner.Exchanges[0].Environment!;
+        Assert.Equal(("t", "/accounts/a"), (env["TURN_VAR"], env["AGENT_HOME"]));
+    }
+
     private sealed class TurnComparer : IEqualityComparer<AgentTurnEvidence?>
     {
         public bool Equals(AgentTurnEvidence? a, AgentTurnEvidence? b) =>

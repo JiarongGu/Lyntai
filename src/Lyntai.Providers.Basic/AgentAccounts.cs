@@ -13,6 +13,10 @@ internal static class AgentAccounts
     /// the child as given.</summary>
     internal const string RefusedSubtype = "account-invalid";
 
+    /// <summary>The <see cref="SessionEnded.Subtype"/> of a turn refused because its own environment holds a name or value no
+    /// child can be started with.</summary>
+    internal const string EnvironmentRefusedSubtype = "environment-invalid";
+
     /// <summary>The per-turn environment an account asks for: the home variable set to the home, then the account's
     /// entries, or nothing when there is no account. False with a caller-actionable <paramref name="refusal"/> when
     /// the name is blank, the account has neither a home nor an entry, the home is blank or holds a control
@@ -54,6 +58,33 @@ internal static class AgentAccounts
         foreach (var (name, value) in entries) set[name] = value;
         environment = set;
         return true;
+    }
+
+    /// <summary>The names a turn's own <see cref="AgentSessionOptions.Environment"/> may carry: any a child can have.
+    /// False with a <paramref name="refusal"/> naming a variable and never a value.</summary>
+    internal static bool TryCheckTurn(IReadOnlyDictionary<string, string?> environment, out string? refusal)
+    {
+        refusal = null;
+        foreach (var (name, value) in environment)
+        {
+            if (string.IsNullOrWhiteSpace(name) || name.Contains('=') || name.Any(char.IsControl))
+                refusal = $"'{name}' is not a name an environment variable can have.";
+            else if (value is not null && value.Any(char.IsControl))
+                refusal = $"the value of {name} holds a control character.";
+            if (refusal is not null) return false;
+        }
+        return true;
+    }
+
+    /// <summary>The standing environment with the turn's own variables over it; a null value is a removal and is carried.</summary>
+    internal static IReadOnlyDictionary<string, string?>? MergeTurn(
+        IReadOnlyDictionary<string, string?>? standing, IReadOnlyDictionary<string, string?> turn)
+    {
+        if (turn.Count == 0) return standing;
+        var merged = new Dictionary<string, string?>(StringComparer.Ordinal);
+        if (standing is not null) foreach (var (key, value) in standing) merged[key] = value;
+        foreach (var (key, value) in turn) merged[key] = value;
+        return merged;
     }
 
     /// <summary>A session's standing environment plus what this TURN adds. The turn's entries win on a collision,

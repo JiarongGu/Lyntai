@@ -52,6 +52,7 @@ internal static class CodexAgentDoor
                     Declared(AgentAbilities.PermissionMode, AgentSupport.Unsupported, "its gate is the sandbox option (CodexAgentOptions.SandboxMode), not a permission mode"),
                     Declared(AgentAbilities.Effort, AgentSupport.Unsupported, "no flag or override for an effort is measured here"),
                     Declared(AgentAbilities.Plugins, AgentSupport.Unsupported, "no plugin flag is measured here"),
+                    Declared(AgentAbilities.Environment, AgentSupport.Supported, "the turn's variables in the child's environment, over the registration's and beneath the MCP bearer variables and the account's; a null removes one"),
                 ],
             },
         ],

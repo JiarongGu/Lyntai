@@ -40,6 +40,7 @@ internal static class HttpAgentDoor
                     Declared(AgentAbilities.PermissionMode, AgentSupport.Unsupported, "the endpoint has no permission mode: a call is put to the registered IToolApprovers"),
                     Declared(AgentAbilities.Effort, AgentSupport.Unsupported, "the request carries no effort field"),
                     Declared(AgentAbilities.Plugins, AgentSupport.Unsupported, "the model's tools are the registered tools; a turn loads no plugin"),
+                    Declared(AgentAbilities.Environment, AgentSupport.Unsupported, "the door starts no process: a turn has no child to give variables to"),
                 ],
             },
         ],

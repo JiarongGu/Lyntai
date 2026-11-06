@@ -55,6 +55,7 @@ internal static class ClaudeAgentDoor
                     Claim(AgentAbilities.Effort, AgentSupport.Supported,
                         "--effort with a level `claude --help` lists (2.1.319): " + string.Join(", ", ClaudeAgentArgs.EffortLevels) + "; any other refuses the turn"),
                     Claim(AgentAbilities.Plugins, AgentSupport.Supported, "--plugin-dir per fully qualified folder; its contents are never read"),
+                    Claim(AgentAbilities.Environment, AgentSupport.Supported, "the turn's variables in the child's environment, over the registration's and beneath the account's; a null removes one"),
                 ],
             },
         ],

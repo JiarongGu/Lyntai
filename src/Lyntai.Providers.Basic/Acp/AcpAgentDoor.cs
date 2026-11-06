@@ -54,6 +54,7 @@ internal static class AcpAgentDoor
                     new AgentAbility(AgentAbilities.Effort, AgentSupport.Unknown, AgentAbilitySource.Negotiated)
                         { Evidence = "per agent from session/new: a config option of category thought_level, set by session/set_config_option before the prompt; none ends the turn before the prompt" },
                     Declared(AgentAbilities.Plugins, AgentSupport.Unsupported, "the protocol names no plugin folder; the agent loads what its own configuration says"),
+                    Declared(AgentAbilities.Environment, AgentSupport.Supported, "the turn's variables in the agent process's environment, over the registration's and beneath the account's; a null removes one"),
                 ],
             },
         ],

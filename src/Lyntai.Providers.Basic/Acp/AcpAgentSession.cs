@@ -119,6 +119,12 @@ public sealed class AcpAgentSession : IAgentSession
             yield break;
         }
 
+        if (!AgentAccounts.TryCheckTurn(options.Environment, out var environmentRefusal))
+        {
+            yield return CliAgentLoop.Refused(AgentAccounts.EnvironmentRefusedSubtype, environmentRefusal);
+            yield break;
+        }
+
         IReadOnlyDictionary<string, string> accountEnvironment = new Dictionary<string, string>(0);
         string? accountRefusal = null;
         if (options.Account is not null && _accounts is null)
@@ -168,7 +174,7 @@ public sealed class AcpAgentSession : IAgentSession
         {
             lines = _runner.ExchangeLinesAsync(tokens[0], [.. tokens.Skip(1), .. _arguments],
                 watch.Frames(outbox.Reader.ReadAllAsync(CancellationToken.None)), inactivity,
-                workingDirectory: cwd, environment: AgentAccounts.Merge(_environment, accountEnvironment), ct: kill.Token);
+                workingDirectory: cwd, environment: AgentAccounts.Merge(AgentAccounts.MergeTurn(_environment, options.Environment), accountEnvironment), ct: kill.Token);
         }
         catch (NotSupportedException ex)
         {

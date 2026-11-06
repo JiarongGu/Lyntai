@@ -395,12 +395,12 @@ public class ClaudeAgentSessionTests
         Assert.DoesNotContain("--plugin-dir", Args(new AgentSessionOptions { Prompt = "hi" }));
     }
 
-    private static async Task<(SessionEnded Ended, FakeProcessRunner Runner)> Refused(AgentSessionOptions options)
+    private static async Task<(SessionEnded Ended, FakeProcessRunner Runner)> Refused(AgentSessionOptions options, string subtype = AgentProvider.OptionRefusedSubtype)
     {
         var runner = new FakeProcessRunner(FullTranscript);
         var session = new ClaudeAgentSession(runner, new LyntaiOptions(), command: "claude");
         var ended = Assert.IsType<SessionEnded>(Assert.Single(await session.StreamAsync(options).ToListAsync()));
-        Assert.Equal((ProviderVerdict.Unsupported, AgentProvider.OptionRefusedSubtype), (ended.Verdict, ended.Subtype));
+        Assert.Equal((ProviderVerdict.Unsupported, subtype), (ended.Verdict, ended.Subtype));
         Assert.Empty(runner.Calls);
         return (ended, runner);
     }
@@ -469,6 +469,57 @@ public class ClaudeAgentSessionTests
 
         Assert.Equal("plan", ValueAfter(runner.LastArgs!, "--permission-mode"));
         Assert.Equal("high", ValueAfter(runner.LastArgs!, "--effort"));
+    }
+
+    // ── a turn's own variables (AG29, D244) ───────────────────────────────────
+
+    [Fact]
+    public async Task A_turns_variable_reaches_the_child_a_null_removes_an_inherited_one_and_the_accounts_home_still_wins()
+    {
+        var runner = new FakeProcessRunner(FullTranscript);
+        var standing = new Dictionary<string, string?> { ["REGISTERED"] = "r", ["TURN_WINS"] = "old", ["INHERITED"] = "x" };
+        var session = new ClaudeAgentSession(runner, new LyntaiOptions(), command: "claude", environment: standing);
+
+        await session.StreamAsync(new AgentSessionOptions
+        {
+            Prompt = "hi",
+            Environment = new Dictionary<string, string?> { ["TURN_VAR"] = "t", ["TURN_WINS"] = "new", ["INHERITED"] = null, ["CLAUDE_CONFIG_DIR"] = "/turn" },
+            Account = new AgentAccount { Provider = "claude-cli", Name = "a", Home = "/accounts/a" },
+        }).ToListAsync();
+
+        var env = runner.Calls[^1].Environment!;
+        Assert.Equal(("r", "t", "new"), (env["REGISTERED"], env["TURN_VAR"], env["TURN_WINS"]));
+        Assert.True(env.ContainsKey("INHERITED") && env["INHERITED"] is null);
+        Assert.Equal("/accounts/a", env["CLAUDE_CONFIG_DIR"]);   // the account is beneath nothing
+    }
+
+    [Fact]
+    public void A_turns_to_string_lists_the_names_of_its_variables_and_never_a_value()
+    {
+        var options = new ClaudeAgentOptions { Prompt = "hi", Environment = new Dictionary<string, string?> { ["API_KEY"] = "s3cr3t-value", ["B"] = null } };
+
+        var text = options.ToString();
+
+        Assert.Contains("Environment = [API_KEY, B]", text);
+        Assert.DoesNotContain("s3cr3t-value", text);
+    }
+
+    [Theory]
+    [InlineData("", "v")]
+    [InlineData("A=B", "v")]
+    [InlineData("NAME", "bad\nvalue")]
+    public async Task A_name_or_value_no_child_can_carry_refuses_the_turn_before_a_spawn_naming_no_value(string name, string value)
+    {
+        var (ended, runner) = await Refused(new AgentSessionOptions { Prompt = "hi", Environment = new Dictionary<string, string?> { [name] = value } }, subtype: "environment-invalid");
+
+        Assert.DoesNotContain("bad", ended.Diagnostic);
+        Assert.Empty(runner.Calls);
+    }
+
+    [Fact]
+    public void The_claude_door_states_the_environment_ability_supported()
+    {
+        Assert.Equal(AgentSupport.Supported, Assert.Single(ClaudeAgentDoor.Describe("claude-cli").Doors).SupportFor(AgentAbilities.Environment));
     }
 
     // ── headless skip-all-permissions ─────────────────────────────────────────

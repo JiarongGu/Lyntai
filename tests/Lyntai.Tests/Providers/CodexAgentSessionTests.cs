@@ -543,6 +543,21 @@ public class CodexAgentSessionTests
     }
 
     [Fact]
+    public async Task A_turns_variable_reaches_the_codex_child_beneath_the_account_home()
+    {
+        var runner = new FakeProcessRunner(MeasuredSuccess);
+
+        await Session(runner).StreamAsync(Ask() with
+        {
+            Environment = new Dictionary<string, string?> { ["TURN_VAR"] = "t", ["CODEX_HOME"] = "/turn" },
+            Account = new AgentAccount { Provider = "codex-cli", Name = "a", Home = "/accounts/a" },
+        }).ToListAsync();
+
+        var env = runner.Calls[^1].Environment!;
+        Assert.Equal(("t", "/accounts/a"), (env["TURN_VAR"], env["CODEX_HOME"]));
+    }
+
+    [Fact]
     public void A_codex_thread_start_is_the_agents_own_announcement()
     {
         var reader = new CodexAgentReader(TimeProvider.System);

@@ -1131,6 +1131,13 @@ the turn's `ToolPolicy` mapping (`acceptEdits`) and its read-only write-tool den
 set through `session/set_mode` with an id the open's `modes` offers, an effort through the config option of category
 `thought_level`, and an agent that refuses either, or offers none, ends the turn before the prompt) and plugins `Unsupported`; `AgentPick.Apply` sets `Effort` from the pool choice's.
 
+**A turn's own variables** (`AgentSessionOptions.Environment`, **D244**). A turn can hand its child variables of its own, a null
+removing one it would inherit. They sit over the registration's `environment` and beneath the account's, so a pool's account home
+and keys still win, and the codex door sets its MCP bearer variables above them. The same rules as an account's `Environment` hold
+for a value: it is a secret that goes into the child's environment and nowhere else, and `AgentSessionOptions.ToString()` lists the
+names only. A name no environment can carry, or a value with a control character, ends the turn before a spawn
+(`environment-invalid`); the HTTP door has no process and states `environment` `Unsupported`.
+
 **An account that is a key** (AG17). `Home` may be left out, and `Environment` carries variables for that turn's child
 only: an API key, a gateway's base address. Each name must be one the provider declares it reads
 (`Describe().Accounts.Variables`, the home variable first; claude: `ANTHROPIC_API_KEY`, `ANTHROPIC_AUTH_TOKEN`,

@@ -63,6 +63,7 @@ internal static class DialectStandIn
                         Claim(AgentAbilities.PermissionMode, AgentSupport.Unsupported, AgentAbilitySource.Declared),
                         Claim(AgentAbilities.Effort, AgentSupport.Unsupported, AgentAbilitySource.Declared),
                         Claim(AgentAbilities.Plugins, AgentSupport.Unsupported, AgentAbilitySource.Declared),
+                        Claim(AgentAbilities.Environment, AgentSupport.Unsupported, AgentAbilitySource.Declared),
                     ],
                 },
             ],

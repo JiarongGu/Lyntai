@@ -2,6 +2,7 @@ static class Lyntai.Agents.AgentAbilities
     Accounts : String const
     DisallowedTools : String const
     Effort : String const
+    Environment : String const
     LiveUsage : String const
     McpServers : String const
     Model : String const
@@ -377,6 +378,7 @@ class Lyntai.Agents.AgentSessionOptions
     Account : AgentAccount { get; init; }
     DisallowedTools : IReadOnlyList<String> { get; init; }
     Effort : String { get; init; }
+    Environment : IReadOnlyDictionary<String,String> { get; init; }
     EqualityContract : Type { protected get; }
     Equals(AgentSessionOptions other) : Boolean
     Equals(Object obj) : Boolean
