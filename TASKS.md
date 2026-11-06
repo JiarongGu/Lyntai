@@ -15,30 +15,29 @@ LLM-ops layer (prompt registry, scoring, traces, memory). `AddLyntai(...)` and g
 
 <!-- open-items:begin — GENERATED. Edit the per-item `item:` markers, never this table. -->
 
-## Open items — 17 across 5 Parts: 11 startable, 3 blocked, 3 watch
+## Open items — 16 across 5 Parts: 10 startable, 3 blocked, 3 watch
 
 _Generated from the per-item `<!-- item: … -->` markers by `node devtools/dev.mjs check-backlog --write`._
 _Edit a marker, never this table — `verify` fails the moment the two disagree._
 
 | line | Part | item | state | waiting on |
 | ---: | ---: | --- | --- | --- |
-| 118 | 33 | GEN-VERIFY-FAL, the last line — the Hugging Face route | blocked · env | an hf_ token for the router route |
-| 159 | 75 | Decide what an aggregator's in-band `code` means | blocked · env+data | two or three real aggregators to measure an in-band code against |
-| 186 | 99 | `verify`'s test step intermittently fails EXACTLY 9 tests, and once aborted… | watch · data | the same nine tests to recur — the fix is unconfirmed as the cure, and a gr… |
-| 245 | 99 | `InputSegmenterTests.Counting_NFKC_is_LINEAR_in_the_length_of_the_text` fai… | watch · data | a recurrence under the full parallel run, with the ratio it read — the mess… |
-| 263 | 99 | `AgentUsageProcessTests.A_server_that_never_answers_is_ended_with_its_child… | watch · data | a recurrence under the full parallel run, with the load it ran under; it fa… |
-| 301 | 417 | MC8 — run the wrong-end instrument on an adjudicated corpus, with a bar wri… | blocked · decision+data | two reviewers' independent labels on a sample of the pairs, and a bar a per… |
-| 327 | 446 | AG38 — a permission request waits for the person when the host says so | startable |  |
-| 336 | 446 | AG28 — the protocol door carries a permission mode and an effort | startable |  |
-| 342 | 446 | AG29 — a turn's own variables | startable |  |
-| 348 | 446 | AG33 — the Claude door states a turn's own report: denials and usage by mod… | startable |  |
-| 354 | 446 | AG36 — the protocol door states what the open offered | startable |  |
-| 360 | 446 | AG40 — why a person must act, and what kind of access failed | startable |  |
-| 366 | 446 | AG41 — a limit names its window and a stated reset keeps its parts | startable |  |
-| 373 | 446 | AG42 — every allowance report is an event | startable |  |
-| 379 | 446 | AG44 — the restriction rules are public over a snapshot the host stores | startable |  |
-| 385 | 446 | AG45 — a host's line reader runs under the CLI turn's rules | startable |  |
-| 391 | 446 | AG39 — a run kept across turns: the design | startable |  |
+| 117 | 33 | GEN-VERIFY-FAL, the last line — the Hugging Face route | blocked · env | an hf_ token for the router route |
+| 158 | 75 | Decide what an aggregator's in-band `code` means | blocked · env+data | two or three real aggregators to measure an in-band code against |
+| 185 | 99 | `verify`'s test step intermittently fails EXACTLY 9 tests, and once aborted… | watch · data | the same nine tests to recur — the fix is unconfirmed as the cure, and a gr… |
+| 244 | 99 | `InputSegmenterTests.Counting_NFKC_is_LINEAR_in_the_length_of_the_text` fai… | watch · data | a recurrence under the full parallel run, with the ratio it read — the mess… |
+| 262 | 99 | `AgentUsageProcessTests.A_server_that_never_answers_is_ended_with_its_child… | watch · data | a recurrence under the full parallel run, with the load it ran under; it fa… |
+| 300 | 417 | MC8 — run the wrong-end instrument on an adjudicated corpus, with a bar wri… | blocked · decision+data | two reviewers' independent labels on a sample of the pairs, and a bar a per… |
+| 326 | 446 | AG38 — a permission request waits for the person when the host says so | startable |  |
+| 335 | 446 | AG28 — the protocol door carries a permission mode and an effort | startable |  |
+| 341 | 446 | AG29 — a turn's own variables | startable |  |
+| 347 | 446 | AG36 — the protocol door states what the open offered | startable |  |
+| 353 | 446 | AG40 — why a person must act, and what kind of access failed | startable |  |
+| 359 | 446 | AG41 — a limit names its window and a stated reset keeps its parts | startable |  |
+| 366 | 446 | AG42 — every allowance report is an event | startable |  |
+| 372 | 446 | AG44 — the restriction rules are public over a snapshot the host stores | startable |  |
+| 378 | 446 | AG45 — a host's line reader runs under the CLI turn's rules | startable |  |
+| 384 | 446 | AG39 — a run kept across turns: the design | startable |  |
 
 <!-- open-items:end -->
 
@@ -344,12 +343,6 @@ last because it designs the largest piece; the rest in any order. No row spends 
   registration's environment and beneath the account's on the CLI and protocol doors; the HTTP door states `Unsupported`. A value is
   a secret and follows `AgentAccount.Environment`'s rules (never argv, a log line or an event). **Proof.** A turn's variable reaches
   the child, a null removes an inherited one, the account's home still wins, and `ToString` lists no value.
-
-- [ ] **AG33 — the Claude door states a turn's own report: denials and usage by model** (lane `inference`, **D245**). <!-- item: state=startable -->
-  **Contract.** An event for each tool call the harness denied (`permission_denials`: the tool, its call id, the reason where the
-  field gives one, else null), and a usage-by-model reading from `modelUsage`: each model's tokens and context window, the
-  session's model marked, a subagent's and the harness's own left as the rows they are. `UsageFinal.Model` keeps its meaning. No cost
-  field. **Proof.** SOURCE-DERIVED `result` frames with one model and with three, a denial with and without a reason.
 
 - [ ] **AG36 — the protocol door states what the open offered** (lane `inference`, after AG37, **D245**). <!-- item: state=startable -->
   **Contract.** An event after the open's answer and before any set or prompt: each option the agent offered (category, id, current

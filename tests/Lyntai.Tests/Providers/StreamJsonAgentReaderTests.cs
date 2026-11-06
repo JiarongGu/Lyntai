@@ -84,6 +84,62 @@ public class StreamJsonAgentReaderTests
         Assert.True(new SessionStarted("x").Announced);
     }
 
+    // ── a turn's own report: denials and usage by model (AG33) ───────────────
+
+    // SOURCE-DERIVED: the shape of a host's record of a result frame (values invented, field names theirs)
+    private const string ThreeModelResult =
+        """{"type":"result","subtype":"success","is_error":false,"result":"done","session_id":"s","usage":{"input_tokens":30,"output_tokens":9},"modelUsage":{"claude-opus-4-8":{"inputTokens":20,"outputTokens":5,"cacheReadInputTokens":100,"cacheCreationInputTokens":7,"contextWindow":200000,"costUSD":0.5},"claude-haiku-4-5":{"inputTokens":10,"outputTokens":4,"contextWindow":200000,"costUSD":0.01},"claude-sub-1":{"inputTokens":1}},"permission_denials":[{"tool_name":"Bash","tool_use_id":"toolu_1","tool_input":{"command":"rm"}},{"tool_name":"Edit","tool_use_id":"toolu_2","reason":"read-only turn"},{"tool_input":{}}]}""";
+
+    [Fact]
+    public void A_results_usage_by_model_marks_the_sessions_model_and_leaves_the_others_as_rows_with_no_cost()
+    {
+        var reader = new StreamJsonAgentReader(new FixedTime());
+        _ = reader.Read("""{"type":"system","subtype":"init","session_id":"s","model":"claude-opus-4-8"}""").ToList();
+
+        var usage = Assert.Single(reader.Read(ThreeModelResult).OfType<AgentModelUsage>());
+
+        Assert.Equal(
+            [("claude-opus-4-8", 20L, 5L, 100L, 7L, 200000L, true), ("claude-haiku-4-5", 10L, 4L, null, null, 200000L, false),
+             ("claude-sub-1", 1L, null, null, null, null, false)],
+            usage.Models.Select(m => (m.Model, m.InputTokens, m.OutputTokens, m.CacheReadTokens, m.CacheCreateTokens, m.ContextWindow, m.IsSessionModel)).ToArray());
+        Assert.DoesNotContain("0.5", usage.ToString());
+    }
+
+    [Fact]
+    public void A_single_model_result_and_one_with_no_model_usage_each_read_as_they_are()
+    {
+        var reader = new StreamJsonAgentReader();
+        var one = Assert.Single(reader.Read(
+            """{"type":"result","subtype":"success","is_error":false,"result":"ok","session_id":"s","modelUsage":{"m1":{"inputTokens":3,"outputTokens":4}}}""")
+            .OfType<AgentModelUsage>());
+
+        Assert.Equal(("m1", 3L, 4L, false), (one.Models[0].Model, one.Models[0].InputTokens, one.Models[0].OutputTokens, one.Models[0].IsSessionModel));
+        Assert.Empty(new StreamJsonAgentReader().Read("""{"type":"result","subtype":"success","is_error":false,"result":"ok","session_id":"s"}""").OfType<AgentModelUsage>());
+    }
+
+    [Fact]
+    public void A_denied_tool_call_is_an_event_with_the_reason_only_where_the_field_gives_one()
+    {
+        var denied = new StreamJsonAgentReader().Read(ThreeModelResult).OfType<AgentToolDenied>().ToList();
+
+        Assert.Equal([new AgentToolDenied("Bash", "toolu_1", null), new AgentToolDenied("Edit", "toolu_2", "read-only turn")], denied);
+    }
+
+    [Fact]
+    public void The_report_comes_before_the_terminal_and_does_not_change_it()
+    {
+        var events = new StreamJsonAgentReader().Read(ThreeModelResult);
+
+        Assert.IsType<SessionEnded>(events[^1]);
+        Assert.Equal(1, events.OfType<SessionEnded>().Count());
+        Assert.Equal(ProviderVerdict.Ok, ((SessionEnded)events[^1]).Verdict);
+    }
+
+    private sealed class FixedTime : TimeProvider
+    {
+        public override DateTimeOffset GetUtcNow() => new(2026, 11, 7, 12, 0, 0, TimeSpan.Zero);
+    }
+
     // ── frames no case took (AG32) ───────────────────────────────────────────
 
     [Fact]

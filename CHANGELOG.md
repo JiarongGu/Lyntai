@@ -155,6 +155,10 @@ every addition.
   on both CLI doors and the protocol door. The readers stay tolerant and add no event; a frame turned into an event is not listed, and neither is a
   known one that carries nothing a turn reports (a streamed message's envelope, `turn.started`, an ACP `available_commands_update`). A sample is the
   agent's own text and may hold what it was asked: a host that logs it decides who reads the log.
+- **The Claude door states a turn's own report: denials and usage by model** (**D245**). A result's `permission_denials` is one
+  `AgentToolDenied` per denied call (the tool, its call id, and the reason where the field gives one, else null), and its `modelUsage` is an
+  `AgentModelUsage` of `AgentModelUsageEntry` rows (each model's tokens and context window, the session's model marked, a subagent's and the
+  harness's own left as the rows they are), both before the terminal. `UsageFinal.Model` keeps its meaning and no cost is carried.
 - **A scope dense in ended entries still returns its current ones** (**D241**). A `Current` or as-of recall dropped the ended
   entries after the candidate window was cut, so 100 ended entries matching a query better than 5 current ones returned none of the
   5. When a seed source fills its window and the reading drops some of what it returned, the engine now asks again with a window four

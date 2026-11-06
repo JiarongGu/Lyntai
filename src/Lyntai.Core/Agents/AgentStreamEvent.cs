@@ -113,6 +113,33 @@ public sealed record UsageReading(
     public const string Tokens = "tokens";
 }
 
+/// <summary>A tool call the agent's harness denied, as the turn's own report states it (Claude's
+/// <c>permission_denials</c>): the turn went on without the tool's result.</summary>
+/// <param name="Tool">The agent's name for the tool.</param>
+/// <param name="CallId">The <see cref="ToolCall.CallId"/> of the denied call; null when the report names none.</param>
+/// <param name="Reason">The reason, where the report's field gives one; null otherwise, never guessed.</param>
+public sealed record AgentToolDenied(string Tool, string? CallId, string? Reason) : AgentStreamEvent;
+
+/// <summary>One model's share of a turn, as the agent's own report states it. A count the report did not send is null.</summary>
+/// <param name="Model">The model id as the report spells it: the session's, a subagent's, or one the harness used for itself.</param>
+/// <param name="InputTokens">Input count, null = not reported.</param>
+/// <param name="OutputTokens">Output count, null = not reported.</param>
+/// <param name="CacheReadTokens">Count served from a cache, null = not reported.</param>
+/// <param name="CacheCreateTokens">Count written to a cache, null = not reported.</param>
+/// <param name="ContextWindow">The model's context window in tokens, null = not reported.</param>
+/// <param name="IsSessionModel">Whether this is the model the session ran on (<see cref="UsageFinal.Model"/>); the other
+/// rows are what a subagent or the harness used, left as the rows they are.</param>
+public sealed record AgentModelUsageEntry(
+    string Model, long? InputTokens, long? OutputTokens, long? CacheReadTokens, long? CacheCreateTokens, long? ContextWindow,
+    bool IsSessionModel);
+
+/// <summary>A turn's usage split by model, as the agent's own report states it (Claude's <c>modelUsage</c>), beside the
+/// totals of <see cref="UsageReading"/>. No cost is carried: the host prices from its own table. Absent when the
+/// report carries none.</summary>
+/// <param name="Models">One entry per model the report lists, in its order.</param>
+/// <param name="MeasuredAt">When the library read the report off the wire, on its own clock.</param>
+public sealed record AgentModelUsage(IReadOnlyList<AgentModelUsageEntry> Models, DateTimeOffset MeasuredAt) : AgentStreamEvent;
+
 /// <summary>How full the agent's context window is, as the agent reported it mid-turn (the protocol door's
 /// <c>usage_update</c>). These are context figures, not the token counts of a <see cref="UsageReading"/>, and each is the
 /// agent's own. A figure the agent did not send is null: never inferred from the other, and never 0.</summary>

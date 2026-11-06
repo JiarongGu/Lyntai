@@ -293,6 +293,34 @@ internal sealed class StreamJsonAgentReader
 
     // ── result (terminal) ────────────────────────────────────────────────────
 
+    // the result's own list of the tool calls its harness denied
+    private static IEnumerable<AgentToolDenied> ReadDenials(JsonElement root)
+    {
+        if (WireJson.Array(root, "permission_denials") is not { } list) yield break;
+        foreach (var entry in list.EnumerateArray())
+        {
+            if (WireJson.String(entry, "tool_name") is { Length: > 0 } tool)
+                yield return new AgentToolDenied(tool, WireJson.String(entry, "tool_use_id"), WireJson.String(entry, "reason"));
+        }
+    }
+
+    // the result's usage by model; cost is in the report and is deliberately not carried
+    private AgentModelUsage? ReadModelUsage(JsonElement root)
+    {
+        if (WireJson.Object(root, "modelUsage") is not { } byModel) return null;
+        var entries = new List<AgentModelUsageEntry>();
+        foreach (var model in byModel.EnumerateObject())
+        {
+            if (model.Value.ValueKind != JsonValueKind.Object) continue;
+            var row = model.Value;
+            entries.Add(new AgentModelUsageEntry(
+                model.Name, WireJson.Int64(row, "inputTokens"), WireJson.Int64(row, "outputTokens"),
+                WireJson.Int64(row, "cacheReadInputTokens"), WireJson.Int64(row, "cacheCreationInputTokens"),
+                WireJson.Int64(row, "contextWindow"), string.Equals(model.Name, _model, StringComparison.Ordinal)));
+        }
+        return entries.Count == 0 ? null : new AgentModelUsage(entries, _time.GetUtcNow());
+    }
+
     private IEnumerable<AgentStreamEvent> ReadResult(JsonElement root)
     {
         var isError = root.TryGetProperty("is_error", out var isErrorEl) && isErrorEl.ValueKind == JsonValueKind.True;
@@ -325,6 +353,9 @@ internal sealed class StreamJsonAgentReader
         if (StreamJsonFields.ReadUsageCounts(root) is { } counts)
             yield return new UsageReading(counts.Input, counts.Output, counts.CacheRead, counts.CacheCreate,
                 UsageReading.Tokens, UsageScope.Turn, _time.GetUtcNow());
+
+        foreach (var denied in ReadDenials(root)) yield return denied;
+        if (ReadModelUsage(root) is { } byModel) yield return byModel;
 
         // classified, never hand-rolled, so an expired login is AuthFailed and a 429 RateLimited; the door's own
         // fields decide before its words, and Failed only when neither reads

@@ -275,6 +275,32 @@ sealed class Lyntai.Agents.AgentMcpServer
     Url : String { get; init; }
     static Http(String name, String url, String authToken = null) : AgentMcpServer
     static Stdio(String name, String command, IEnumerable<String> arguments = null, IReadOnlyDictionary<String,String> environment = null) : AgentMcpServer
+sealed class Lyntai.Agents.AgentModelUsage
+    .ctor(IReadOnlyList<AgentModelUsageEntry> Models, DateTimeOffset MeasuredAt)
+    Deconstruct(IReadOnlyList`1& Models, DateTimeOffset& MeasuredAt) : Void
+    EqualityContract : Type { protected get; }
+    Equals(AgentModelUsage other) : Boolean
+    Equals(AgentStreamEvent other) : Boolean
+    Equals(Object obj) : Boolean
+    GetHashCode() : Int32
+    MeasuredAt : DateTimeOffset { get; init; }
+    Models : IReadOnlyList<AgentModelUsageEntry> { get; init; }
+    PrintMembers(StringBuilder builder) : Boolean
+    ToString() : String
+sealed class Lyntai.Agents.AgentModelUsageEntry
+    .ctor(String Model, Nullable<Int64> InputTokens, Nullable<Int64> OutputTokens, Nullable<Int64> CacheReadTokens, Nullable<Int64> CacheCreateTokens, Nullable<Int64> ContextWindow, Boolean IsSessionModel)
+    CacheCreateTokens : Nullable<Int64> { get; init; }
+    CacheReadTokens : Nullable<Int64> { get; init; }
+    ContextWindow : Nullable<Int64> { get; init; }
+    Deconstruct(String& Model, Nullable`1& InputTokens, Nullable`1& OutputTokens, Nullable`1& CacheReadTokens, Nullable`1& CacheCreateTokens, Nullable`1& ContextWindow, Boolean& IsSessionModel) : Void
+    Equals(AgentModelUsageEntry other) : Boolean
+    Equals(Object obj) : Boolean
+    GetHashCode() : Int32
+    InputTokens : Nullable<Int64> { get; init; }
+    IsSessionModel : Boolean { get; init; }
+    Model : String { get; init; }
+    OutputTokens : Nullable<Int64> { get; init; }
+    ToString() : String
 sealed class Lyntai.Agents.AgentPick
     Apply(AgentSessionOptions options) : AgentSessionOptions
     Seat : AgentSeat { get; }
@@ -438,6 +464,19 @@ sealed class Lyntai.Agents.AgentTaskStarted
     PrintMembers(StringBuilder builder) : Boolean
     TaskId : String { get; init; }
     ToString() : String
+sealed class Lyntai.Agents.AgentToolDenied
+    .ctor(String Tool, String CallId, String Reason)
+    CallId : String { get; init; }
+    Deconstruct(String& Tool, String& CallId, String& Reason) : Void
+    EqualityContract : Type { protected get; }
+    Equals(AgentStreamEvent other) : Boolean
+    Equals(AgentToolDenied other) : Boolean
+    Equals(Object obj) : Boolean
+    GetHashCode() : Int32
+    PrintMembers(StringBuilder builder) : Boolean
+    Reason : String { get; init; }
+    ToString() : String
+    Tool : String { get; init; }
 enum Lyntai.Agents.AgentToolPolicy
     ReadOnly : AgentToolPolicy const
     Write : AgentToolPolicy const
