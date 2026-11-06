@@ -102,5 +102,6 @@ public static class CodexCliBuilderExtensions
             sp.GetRequiredService<LyntaiOptions>(),
             sp.GetService<ILogger<CodexAgentSession>>(),
             command,
-            environment);
+            environment,
+            sp.GetService<TimeProvider>());
 }

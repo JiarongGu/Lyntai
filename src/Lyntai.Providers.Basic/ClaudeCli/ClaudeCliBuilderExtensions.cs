@@ -113,5 +113,6 @@ public static class ClaudeCliBuilderExtensions
             sp.GetRequiredService<LyntaiOptions>(),
             sp.GetService<ILogger<ClaudeAgentSession>>(),
             command,
-            environment);
+            environment,
+            sp.GetService<TimeProvider>());
 }

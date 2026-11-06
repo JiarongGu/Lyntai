@@ -98,12 +98,65 @@ public enum OwnerActionReason
     Configure,
 }
 
+/// <summary>How a restriction's end was written.</summary>
+public enum StatedTimeShape
+{
+    /// <summary>An instant, as a field states one (a frame's Unix seconds, a <c>Retry-After</c> date).</summary>
+    Moment = 1,
+
+    /// <summary>A date and a time (<c>Oct 3rd, 2026 4:05 PM</c>).</summary>
+    DateAndTime,
+
+    /// <summary>A weekday and a time (<c>Mon 12:00am</c>).</summary>
+    WeekdayAndTime,
+
+    /// <summary>A time of day alone (<c>3:45pm</c>), whose day the sentence leaves to the reader.</summary>
+    TimeOfDay,
+
+    /// <summary>A wait (<c>retry after 60s</c>, a <c>Retry-After</c> in seconds).</summary>
+    Wait,
+}
+
+/// <summary>What a failure stated of when its restriction ends, apart from the library's resolution of it
+/// (<see cref="RestrictionRecovery.At"/>). A host with its own policy for a time that has passed, or its own naming of a
+/// window, applies it to these parts. Only the parts the <see cref="Shape"/> writes are set.</summary>
+/// <param name="Shape">How it was written.</param>
+public sealed record StatedRecoveryParts(StatedTimeShape Shape)
+{
+    /// <summary>The instant, for <see cref="StatedTimeShape.Moment"/>.</summary>
+    public DateTimeOffset? Moment { get; init; }
+
+    /// <summary>The date, for <see cref="StatedTimeShape.DateAndTime"/>.</summary>
+    public DateOnly? Date { get; init; }
+
+    /// <summary>The weekday, for <see cref="StatedTimeShape.WeekdayAndTime"/>.</summary>
+    public DayOfWeek? Weekday { get; init; }
+
+    /// <summary>The time of day, for every shape that writes one.</summary>
+    public TimeOnly? Time { get; init; }
+
+    /// <summary>The zone of that time: the name the sentence gave, else the clock's local zone, which
+    /// <see cref="ZoneNamed"/> tells apart. Null for a moment and a wait.</summary>
+    public string? Zone { get; init; }
+
+    /// <summary>True when the sentence named <see cref="Zone"/>; false when the clock's local zone stood in for none.</summary>
+    public bool ZoneNamed { get; init; }
+
+    /// <summary>The wait, for <see cref="StatedTimeShape.Wait"/>.</summary>
+    public TimeSpan? Wait { get; init; }
+}
+
 /// <summary>A restriction's way out: a stated moment, or the absence of one.</summary>
 /// <param name="Kind">How it ends.</param>
 /// <param name="At">The moment, for <see cref="RecoveryKind.ResetAt"/> and <see cref="RecoveryKind.RetryNotBefore"/>;
 /// null otherwise.</param>
 public sealed record RestrictionRecovery(RecoveryKind Kind, DateTimeOffset? At = null)
 {
+    /// <summary>What the failure stated, beside <see cref="At"/>, which is the library's resolution of it under its one
+    /// rule (the next occurrence, a minute of skew allowed). A stated zone the machine lacks leaves the kind
+    /// <see cref="RecoveryKind.Unknown"/> with these parts kept. Null where nothing was stated.</summary>
+    public StatedRecoveryParts? Stated { get; init; }
+
     /// <summary>Which action the person must take, for <see cref="RecoveryKind.OwnerAction"/>;
     /// <see cref="OwnerActionReason.Unknown"/> for every other kind and where no field said.</summary>
     public OwnerActionReason Reason { get; init; }
@@ -128,7 +181,14 @@ public sealed record RestrictionRecovery(RecoveryKind Kind, DateTimeOffset? At =
 /// <param name="Cause">What ran out.</param>
 /// <param name="Subject">What it holds back.</param>
 /// <param name="Recovery">How it ends.</param>
-public sealed record AgentRestriction(RestrictionCause Cause, RestrictionSubject Subject, RestrictionRecovery Recovery);
+public sealed record AgentRestriction(RestrictionCause Cause, RestrictionSubject Subject, RestrictionRecovery Recovery)
+{
+    /// <summary>The window the door named, in its own words (<c>five_hour</c>, <c>seven_day</c>); null where it named none.</summary>
+    public string? Window { get; init; }
+
+    /// <summary>The scope the door named, in its own words (a <c>limitScope</c>); null where it named none.</summary>
+    public string? Scope { get; init; }
+}
 
 /// <summary>Whether the turn's prompt reached the agent — the fact a retry has to know. It is independent of
 /// <see cref="AgentFailureKind"/>: a limit that arrives after the door answered is no proof the prompt was

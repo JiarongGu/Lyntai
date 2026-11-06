@@ -830,8 +830,10 @@ public class AcpAgentSessionTests
         var failure = ended.Failure!;
         Assert.Equal(AgentFailureKind.Limit, failure.Kind);
         Assert.Equal("acp.usage_update._claude/rateLimit.rejected", failure.By);
+        var reset = DateTimeOffset.FromUnixTimeSeconds(1893456000);
         Assert.Equal(new AgentRestriction(RestrictionCause.Quota, RestrictionSubject.Account,
-            RestrictionRecovery.ResetAt(DateTimeOffset.FromUnixTimeSeconds(1893456000))), failure.Restriction);
+            RestrictionRecovery.ResetAt(reset) with { Stated = new StatedRecoveryParts(StatedTimeShape.Moment) { Moment = reset } })
+            { Window = "five_hour" }, failure.Restriction);
     }
 
     [Fact] // SOURCE-DERIVED: codex-acp's limit has the message "Internal error" and the sentence in data.message

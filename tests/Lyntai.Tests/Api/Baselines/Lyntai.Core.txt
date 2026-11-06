@@ -416,8 +416,10 @@ sealed class Lyntai.Agents.AgentRestriction
     Equals(Object obj) : Boolean
     GetHashCode() : Int32
     Recovery : RestrictionRecovery { get; init; }
+    Scope : String { get; init; }
     Subject : RestrictionSubject { get; init; }
     ToString() : String
+    Window : String { get; init; }
 sealed class Lyntai.Agents.AgentRetryOptions
     .ctor()
     ContinueWord : String { get; set; }
@@ -792,6 +794,7 @@ sealed class Lyntai.Agents.RestrictionRecovery
     GetHashCode() : Int32
     Kind : RecoveryKind { get; init; }
     Reason : OwnerActionReason { get; init; }
+    Stated : StatedRecoveryParts { get; init; }
     ToString() : String
     static OwnerAction : RestrictionRecovery { get; }
     static OwnerActionFor(OwnerActionReason reason) : RestrictionRecovery
@@ -839,6 +842,28 @@ sealed class Lyntai.Agents.SessionStarted
     PrintMembers(StringBuilder builder) : Boolean
     SessionId : String { get; init; }
     ToString() : String
+sealed class Lyntai.Agents.StatedRecoveryParts
+    .ctor(StatedTimeShape Shape)
+    Date : Nullable<DateOnly> { get; init; }
+    Deconstruct(StatedTimeShape& Shape) : Void
+    Equals(Object obj) : Boolean
+    Equals(StatedRecoveryParts other) : Boolean
+    GetHashCode() : Int32
+    Moment : Nullable<DateTimeOffset> { get; init; }
+    Shape : StatedTimeShape { get; init; }
+    Time : Nullable<TimeOnly> { get; init; }
+    ToString() : String
+    Wait : Nullable<TimeSpan> { get; init; }
+    Weekday : Nullable<DayOfWeek> { get; init; }
+    Zone : String { get; init; }
+    ZoneNamed : Boolean { get; init; }
+enum Lyntai.Agents.StatedTimeShape
+    DateAndTime : StatedTimeShape const
+    Moment : StatedTimeShape const
+    TimeOfDay : StatedTimeShape const
+    Wait : StatedTimeShape const
+    WeekdayAndTime : StatedTimeShape const
+    value__ : Int32
 sealed class Lyntai.Agents.TextDelta
     .ctor(String Text)
     Deconstruct(String& Text) : Void

@@ -192,6 +192,15 @@ every addition.
   door defines stated (`ByField`: the protocol's authentication-required code is `AccessReason.SignInAgain`, a 401 and codex's
   `unauthorized` are `CredentialRefused`) and what the words implied (`ByWords`), each null when it said nothing. There is no winner,
   and `Kind` stays what the fields decided. No Claude `error` category and no 403 states which, so those readings are null.
+- **A limit names its window, and a stated reset keeps its parts** (**D246**). `AgentRestriction` gains `Window` and `Scope`, the
+  door's own words (a rejected Claude frame's `five_hour` and `limitScope`). `RestrictionRecovery` gains `Stated`, a
+  `StatedRecoveryParts` beside the resolution in `At`: the shape (`StatedTimeShape`: a moment, a date and time, a weekday and time, a
+  time of day, a wait), the date, weekday and time as written, the zone as the sentence named it or as the clock's local zone stood
+  in (`ZoneNamed` tells them apart), and the wait; a host with its own policy for a time that has passed re-resolves from them. A
+  sentence naming a zone the machine lacks is a `Unknown` recovery with the parts kept, where it was no recovery at all. A
+  `Retry-After` carries its wait or its moment the same way. `ClaudeAgentSession` and `CodexAgentSession` take an optional
+  `TimeProvider` in a new constructor, which the DI registration fills from the container, so the clock a sentence's time of day is
+  read against is the host's; the earlier constructors are unchanged.
 - **A scope dense in ended entries still returns its current ones** (**D241**). A `Current` or as-of recall dropped the ended
   entries after the candidate window was cut, so 100 ended entries matching a query better than 5 current ones returned none of the
   5. When a seed source fills its window and the reading drops some of what it returned, the engine now asks again with a window four

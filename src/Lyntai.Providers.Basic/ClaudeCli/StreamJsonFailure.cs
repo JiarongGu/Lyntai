@@ -116,7 +116,11 @@ internal static class StreamJsonFailure
             Restriction = new AgentRestriction(
                 held is { Cause: not RestrictionCause.Unknown } ? held.Cause : said.Cause,
                 held is { Subject: not RestrictionSubject.Unknown } ? held.Subject : said.Subject,
-                held is { Recovery.Kind: not RecoveryKind.Unknown } ? held.Recovery : said.Recovery),
+                held is { Recovery.Kind: not RecoveryKind.Unknown } ? held.Recovery : said.Recovery)
+            {
+                Window = held?.Window,
+                Scope = held?.Scope,
+            },
         };
     }
 
@@ -133,7 +137,12 @@ internal static class StreamJsonFailure
         Restriction = new AgentRestriction(
             r.Type == "overage" ? RestrictionCause.Credit : RestrictionCause.Quota,
             r.Scope == "group_pool" ? RestrictionSubject.Pool : RestrictionSubject.Account,
-            r.ResetsAt is { } at ? RestrictionRecovery.ResetAt(at) : RestrictionRecovery.Unknown),
+            r.ResetsAt is { } at ? RestrictionRecovery.ResetAt(at) with { Stated = new StatedRecoveryParts(StatedTimeShape.Moment) { Moment = at } }
+                : RestrictionRecovery.Unknown)
+        {
+            Window = r.Type,
+            Scope = r.Scope,
+        },
     };
 
     private static AgentFailure? FromStatus(int? status)

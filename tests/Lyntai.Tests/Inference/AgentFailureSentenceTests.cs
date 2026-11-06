@@ -129,6 +129,44 @@ public class AgentFailureSentenceTests
             Read("You've hit your limit · resets 3:45pm (Not/AZone)").Restriction!.Recovery.Kind);
     }
 
+    [Fact] // the parts a sentence states survive beside the resolution, so a host with its own policy re-resolves from them
+    public void A_stated_time_keeps_its_parts_for_each_sentence_shape()
+    {
+        var timeOfDay = Read("You've hit your limit · resets 3:45pm").Restriction!.Recovery;
+        Assert.Equal(new StatedRecoveryParts(StatedTimeShape.TimeOfDay) { Time = new TimeOnly(15, 45), Zone = "fixed", ZoneNamed = false }, timeOfDay.Stated);
+        Assert.Equal(RecoveryKind.ResetAt, timeOfDay.Kind);
+
+        var weekday = Read("You've hit your weekly limit · resets Mon 12:00am").Restriction!.Recovery;
+        Assert.Equal(new StatedRecoveryParts(StatedTimeShape.WeekdayAndTime)
+            { Weekday = DayOfWeek.Monday, Time = new TimeOnly(0, 0), Zone = "fixed", ZoneNamed = false }, weekday.Stated);
+
+        var dated = Read("You’ve hit your usage limit. Try again at Oct 3rd, 2026 4:05 PM.").Restriction!.Recovery;
+        Assert.Equal(new StatedRecoveryParts(StatedTimeShape.DateAndTime)
+            { Date = new DateOnly(2026, 10, 3), Time = new TimeOnly(16, 5), Zone = "fixed", ZoneNamed = false }, dated.Stated);
+
+        var named = Read("You've hit your limit · resets 3:45pm (Europe/London)").Restriction!.Recovery;
+        Assert.Equal(new StatedRecoveryParts(StatedTimeShape.TimeOfDay) { Time = new TimeOnly(15, 45), Zone = "Europe/London", ZoneNamed = true }, named.Stated);
+
+        var wait = Read("Rate limit exceeded, retry after 60s").Restriction!.Recovery;
+        Assert.Equal(new StatedRecoveryParts(StatedTimeShape.Wait) { Wait = TimeSpan.FromSeconds(60) }, wait.Stated);
+    }
+
+    [Fact] // an unresolved zone is an unknown recovery that still carries what the sentence stated, the zone as written
+    public void A_zone_the_machine_lacks_keeps_its_parts_in_an_unknown_recovery()
+    {
+        var recovery = Read("You've hit your limit · resets 3:45pm (Not/AZone)").Restriction!.Recovery;
+
+        Assert.Equal(RecoveryKind.Unknown, recovery.Kind);
+        Assert.Null(recovery.At);
+        Assert.Equal(new StatedRecoveryParts(StatedTimeShape.TimeOfDay) { Time = new TimeOnly(15, 45), Zone = "Not/AZone", ZoneNamed = true }, recovery.Stated);
+    }
+
+    [Fact] // a sentence that states no time leaves nothing stated, rather than an empty set of parts
+    public void A_limit_that_states_no_time_has_no_stated_parts()
+    {
+        Assert.Null(Read("You’ve hit your usage limit. Upgrade to Pro, or try again later.").Restriction!.Recovery.Stated);
+    }
+
     [Fact] // a retry-after is a duration from now, never a guessed deadline
     public void A_retry_after_is_not_before_now_plus_the_duration()
     {

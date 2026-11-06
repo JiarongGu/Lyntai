@@ -28,6 +28,7 @@ public sealed class ClaudeAgentSession : IAgentSession
     private readonly ILogger _logger;
     private readonly string? _command;
     private readonly IReadOnlyDictionary<string, string?>? _environment;
+    private readonly TimeProvider _time;
 
     /// <param name="runner">Spawns the CLI.</param>
     /// <param name="options">Platform options; supplies the timeout resolution.</param>
@@ -44,12 +45,31 @@ public sealed class ClaudeAgentSession : IAgentSession
         ILogger<ClaudeAgentSession>? logger = null,
         string? command = null,
         IReadOnlyDictionary<string, string?>? environment = null)
+        : this(runner, options, logger, command, environment, null)
+    {
+    }
+
+    /// <summary>As the other constructor, with the clock a failure sentence's time of day is read against.</summary>
+    /// <param name="runner">As the other constructor.</param>
+    /// <param name="options">As the other constructor.</param>
+    /// <param name="logger">As the other constructor.</param>
+    /// <param name="command">As the other constructor.</param>
+    /// <param name="environment">As the other constructor.</param>
+    /// <param name="time">The clock a sentence that states a time of day, a weekday or a wait is read against, in its local zone; null reads the system's.</param>
+    public ClaudeAgentSession(
+        IProcessRunner runner,
+        LyntaiOptions options,
+        ILogger<ClaudeAgentSession>? logger,
+        string? command,
+        IReadOnlyDictionary<string, string?>? environment,
+        TimeProvider? time)
     {
         _runner = runner;
         _options = options;
         _logger = logger ?? NullLogger<ClaudeAgentSession>.Instance;
         _command = command;
         _environment = environment;
+        _time = time ?? TimeProvider.System;
     }
 
     /// <summary>Run one claude turn and stream what the agent does.</summary>
@@ -106,7 +126,7 @@ public sealed class ClaudeAgentSession : IAgentSession
         try
         {
             var (exe, prefixArgs) = CliCommand.Resolve(_command, Backend);
-            var reader = new StreamJsonAgentReader();
+            var reader = new StreamJsonAgentReader(_time);
             var turn = CliAgentLoop.RunAsync(_runner, exe, [.. prefixArgs, .. agentArgs], options.Prompt,
                 _options.ResolveTimeout(options.TimeoutSeconds), options, AgentAccounts.Merge(AgentAccounts.MergeTurn(_environment, options.Environment), accountEnvironment), reader.Read, reader.Unread, _logger,
                 "claude", ct);

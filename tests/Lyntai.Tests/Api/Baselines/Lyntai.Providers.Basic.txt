@@ -106,6 +106,7 @@ sealed class Lyntai.Providers.ClaudeCli.ClaudeAgentOptions
     ToString() : String
 sealed class Lyntai.Providers.ClaudeCli.ClaudeAgentSession
     .ctor(IProcessRunner runner, LyntaiOptions options, ILogger<ClaudeAgentSession> logger = null, String command = null, IReadOnlyDictionary<String,String> environment = null)
+    .ctor(IProcessRunner runner, LyntaiOptions options, ILogger<ClaudeAgentSession> logger, String command, IReadOnlyDictionary<String,String> environment, TimeProvider time)
     StreamAsync(AgentSessionOptions options, CancellationToken ct = default) : IAsyncEnumerable<AgentStreamEvent>
 sealed class Lyntai.Providers.ClaudeCli.ClaudeCliBackend
     .ctor()
@@ -166,6 +167,7 @@ sealed class Lyntai.Providers.CodexCli.CodexAgentOptions
     ToString() : String
 sealed class Lyntai.Providers.CodexCli.CodexAgentSession
     .ctor(IProcessRunner runner, LyntaiOptions options, ILogger<CodexAgentSession> logger = null, String command = null, IReadOnlyDictionary<String,String> environment = null)
+    .ctor(IProcessRunner runner, LyntaiOptions options, ILogger<CodexAgentSession> logger, String command, IReadOnlyDictionary<String,String> environment, TimeProvider time)
     StreamAsync(AgentSessionOptions options, CancellationToken ct = default) : IAsyncEnumerable<AgentStreamEvent>
 sealed class Lyntai.Providers.CodexCli.CodexCliBackend
     .ctor()

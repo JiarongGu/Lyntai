@@ -131,10 +131,13 @@ public static partial class ProviderVerdictClassifier
         if (string.IsNullOrEmpty(value)) return null;
 
         if (int.TryParse(value, NumberStyles.None, CultureInfo.InvariantCulture, out var seconds))
-            return RestrictionRecovery.RetryNotBefore(time.GetUtcNow().AddSeconds(seconds));
+            return RestrictionRecovery.RetryNotBefore(time.GetUtcNow().AddSeconds(seconds)) with
+            {
+                Stated = new StatedRecoveryParts(StatedTimeShape.Wait) { Wait = TimeSpan.FromSeconds(seconds) },
+            };
         return DateTimeOffset.TryParseExact(value, HttpDateFormats, CultureInfo.InvariantCulture,
             DateTimeStyles.AssumeUniversal | DateTimeStyles.AllowWhiteSpaces, out var at)
-            ? RestrictionRecovery.RetryNotBefore(at)
+            ? RestrictionRecovery.RetryNotBefore(at) with { Stated = new StatedRecoveryParts(StatedTimeShape.Moment) { Moment = at } }
             : null;
     }
 

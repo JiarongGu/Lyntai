@@ -64,6 +64,58 @@ public class ClaudeAgentFailureTests
         Assert.Equal(DateTimeOffset.FromUnixTimeSeconds(ResetsAt), failure.Restriction.Recovery.At);
     }
 
+    [Fact] // the window and scope are the frame's own words, beside the moment it states
+    public void A_rejected_frame_names_its_window_and_scope_in_the_doors_own_words()
+    {
+        var ended = Last(Init,
+            $$$"""{"type":"rate_limit_event","rate_limit_info":{"status":"rejected","resetsAt":{{{ResetsAt}}},"rateLimitType":"five_hour","limitScope":"group_pool"}}""",
+            Result("""
+                "subtype":"success","is_error":true,"api_error_status":429,"result":"You've hit your limit · resets 4pm"
+                """));
+
+        var restriction = ended.Failure!.Restriction!;
+        Assert.Equal(("five_hour", "group_pool"), (restriction.Window, restriction.Scope));
+        var at = DateTimeOffset.FromUnixTimeSeconds(ResetsAt);
+        Assert.Equal(new StatedRecoveryParts(StatedTimeShape.Moment) { Moment = at }, restriction.Recovery.Stated);
+    }
+
+    [Fact] // a status that names no window leaves it null, and the sentence that fills the recovery keeps the frame's window
+    public void A_window_survives_a_sentence_that_fills_what_the_frame_left_open()
+    {
+        var open = Last(Init, Result("""
+            "subtype":"success","is_error":true,"api_error_status":429,"result":"You've hit your weekly limit · resets Mon 12:00am"
+            """)).Failure!.Restriction!;
+        Assert.Equal((null, null), (open.Window, open.Scope));
+        Assert.Equal(StatedTimeShape.WeekdayAndTime, open.Recovery.Stated!.Shape);
+
+        var framed = Last(Init,
+            """{"type":"rate_limit_event","rate_limit_info":{"status":"rejected","rateLimitType":"seven_day"}}""",
+            Result("""
+                "subtype":"success","is_error":true,"api_error_status":429,"result":"You've hit your weekly limit · resets Mon 12:00am"
+                """)).Failure!.Restriction!;
+        Assert.Equal("seven_day", framed.Window);
+        Assert.Equal(new DateTimeOffset(2026, 11, 2, 0, 0, 0, TimeSpan.FromHours(11)), framed.Recovery.At);
+    }
+
+    [Fact] // the session hands its own clock to the reader, so a host's clock decides the day a time of day means
+    public async Task A_clock_handed_to_the_session_reaches_the_reading()
+    {
+        var runner = new FakeProcessRunner(
+        [
+            Init,
+            Result("""
+                "subtype":"success","is_error":true,"api_error_status":429,"result":"You've hit your limit · resets 3am"
+                """),
+        ]);
+        var session = new ClaudeAgentSession(runner, new LyntaiOptions(), logger: null, command: "claude", environment: null, time: FixedLocalClock.Wednesday);
+
+        var events = await session.StreamAsync(new AgentSessionOptions { Prompt = "hi" }).ToListAsync();
+
+        var recovery = events.OfType<SessionEnded>().Single().Failure!.Restriction!.Recovery;
+        Assert.Equal(new DateTimeOffset(2026, 10, 29, 3, 0, 0, TimeSpan.FromHours(11)), recovery.At);   // 10:00 has passed 3am, so tomorrow's
+        Assert.Equal("fixed", recovery.Stated!.Zone);
+    }
+
     [Fact] // a 429 with no frame: the status decides the kind and the sentence fills what it left open
     public void A_429_takes_its_cause_and_reset_from_the_sentence_that_agrees()
     {
