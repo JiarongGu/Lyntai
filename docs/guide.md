@@ -1215,7 +1215,8 @@ door states `model` as `Unknown`, `Negotiated` for the same reason. The mapping 
 `tool_call_update` a `ToolResult` (the name is the protocol's `kind`, the payload the update's own object, so read
 `title` and `rawInput` from it), and the prompt's `usage` is a `UsageFinal` and a `UsageReading`. A count the agent
 does not send is `null` on the reading; counts are the agent's own (`codex-acp`'s input excludes what it read from a
-cache). `usage_update` carries the context window, not counts, so no `UsageLive` is emitted.
+cache). `usage_update` carries the context window, not counts, so no `UsageLive` is emitted: it is a `ContextReading` (`UsedTokens`,
+`WindowTokens`), each figure null when the agent did not send it.
 
 A failure is read from the agent's own fields, never its prose: the JSON-RPC error's code (`-32000` is access) and
 `data` — `errorKind` from `claude-agent-acp` (the same categories the claude door reads), `codexErrorInfo` with the

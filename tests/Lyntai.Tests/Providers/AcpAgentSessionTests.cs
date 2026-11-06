@@ -479,7 +479,6 @@ public class AcpAgentSessionTests
                 Update("user_message_chunk", """{"content":{"type":"text","text":"an echo"}}"""),
                 Update("available_commands_update", """{"availableCommands":[]}"""),
                 Update("current_mode_update", """{"currentModeId":"agent"}"""),
-                Update("usage_update", """{"used":51200,"size":200000}"""),
                 Update("agent_message_chunk", """{"content":{"type":"image","data":"AAAA","mimeType":"image/png"}}"""),
                 "this line is not JSON",
                 Update("agent_message_chunk", """{"content":{"type":"text","text":"done"}}"""),
@@ -490,6 +489,34 @@ public class AcpAgentSessionTests
         var events = await Run(Scripted(runner), Ask());
 
         Assert.Equal(["SessionStarted", "TextDelta", "SessionEnded"], events.Select(e => e.GetType().Name));
+    }
+
+    [Fact] // SOURCE-DERIVED: a usage_update carries context figures, not counts; each is null when not sent, never inferred
+    public async Task A_usage_update_is_a_context_reading_with_each_figure_only_when_the_agent_sent_it()
+    {
+        var clock = new ManualTimeProvider();
+        var runner = Agent(new()
+        {
+            ["initialize"] = _ => [Initialized()],
+            ["session/new"] = _ => [OpenedId(2)],
+            ["session/prompt"] = _ =>
+            [
+                Update("usage_update", """{"used":51200,"size":200000}"""),
+                Update("usage_update", """{"used":60000}"""),
+                Update("usage_update", """{"size":200000}"""),
+                Update("usage_update", """{"cost":{"amount":1}}"""),
+                Update("usage_update", """{"used":"many","size":null}"""),
+                PromptEnded("end_turn"),
+            ],
+        });
+
+        var events = await Run(new AcpAgentSession(runner, new LyntaiOptions(), "agent", time: clock), Ask());
+
+        Assert.Equal(
+            [(51200L, 200000L), (60000L, null), (null, 200000L)],
+            events.OfType<ContextReading>().Select(r => (r.UsedTokens, r.WindowTokens)).ToArray());
+        Assert.All(events.OfType<ContextReading>(), r => Assert.Equal(clock.GetUtcNow(), r.MeasuredAt));
+        Assert.Equal(AgentShownKind.Usage, Assert.Single(Ended(events).Turn!.Shown));
     }
 
     [Fact] // SOURCE-DERIVED: a tool_call that arrives already finished, and an update for a call never seen start

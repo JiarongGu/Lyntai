@@ -77,7 +77,7 @@ internal static class CliAgentLoop
         Thinking => AgentShownKind.Thinking,
         ToolCall => AgentShownKind.ToolCall,
         ToolResult => AgentShownKind.ToolResult,
-        UsageLive or UsageFinal or UsageReading => AgentShownKind.Usage,
+        UsageLive or UsageFinal or UsageReading or ContextReading => AgentShownKind.Usage,
         PlanUpdated => AgentShownKind.Plan,
         AgentTaskStarted or AgentTaskEnded => AgentShownKind.Task,
         _ => null,

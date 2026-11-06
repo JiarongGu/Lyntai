@@ -103,6 +103,14 @@ public sealed record UsageReading(
     public const string Tokens = "tokens";
 }
 
+/// <summary>How full the agent's context window is, as the agent reported it mid-turn (the protocol door's
+/// <c>usage_update</c>). These are context figures, not the token counts of a <see cref="UsageReading"/>, and each is the
+/// agent's own. A figure the agent did not send is null: never inferred from the other, and never 0.</summary>
+/// <param name="UsedTokens">What the context holds now.</param>
+/// <param name="WindowTokens">The context window's size.</param>
+/// <param name="MeasuredAt">When the library read the figures off the door's wire, on its own clock.</param>
+public sealed record ContextReading(long? UsedTokens, long? WindowTokens, DateTimeOffset MeasuredAt) : AgentStreamEvent;
+
 /// <summary>The single terminal event, and it ends the TURN: a turn is one <see cref="IAgentSession.StreamAsync"/>
 /// call, and a door that adapts a CLI ends it with exactly one of these. The CONVERSATION is not ended by it —
 /// <see cref="SessionId"/> is the resume token that carries the conversation into the next turn

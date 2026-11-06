@@ -531,6 +531,19 @@ sealed class Lyntai.Agents.CliToolSession
     .ctor(IReadOnlyList<String> extraArgs, Func<ValueTask> dispose = null)
     DisposeAsync() : ValueTask
     ExtraArgs : IReadOnlyList<String> { get; }
+sealed class Lyntai.Agents.ContextReading
+    .ctor(Nullable<Int64> UsedTokens, Nullable<Int64> WindowTokens, DateTimeOffset MeasuredAt)
+    Deconstruct(Nullable`1& UsedTokens, Nullable`1& WindowTokens, DateTimeOffset& MeasuredAt) : Void
+    EqualityContract : Type { protected get; }
+    Equals(AgentStreamEvent other) : Boolean
+    Equals(ContextReading other) : Boolean
+    Equals(Object obj) : Boolean
+    GetHashCode() : Int32
+    MeasuredAt : DateTimeOffset { get; init; }
+    PrintMembers(StringBuilder builder) : Boolean
+    ToString() : String
+    UsedTokens : Nullable<Int64> { get; init; }
+    WindowTokens : Nullable<Int64> { get; init; }
 sealed class Lyntai.Agents.FunctionTool
     .ctor(String name, Func<String,CancellationToken,Task<String>> invoke, String description = null, String parametersJsonSchema = null)
     Description : String { get; }

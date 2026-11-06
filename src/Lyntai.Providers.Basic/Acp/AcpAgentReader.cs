@@ -20,7 +20,8 @@ namespace Lyntai.Providers.Acp;
 /// <c>tool_call_update</c> that has finished a <see cref="ToolResult"/>, both carrying the update's own object.
 /// The prompt's <c>usage</c> is <see cref="UsageFinal"/> and <see cref="UsageReading"/>; its <c>stopReason</c> and
 /// any error end the turn. Everything else — a user message chunk, the commands and mode and config updates, a
-/// <c>usage_update</c>'s context figures — is no event, and nothing is inferred.</para>
+/// <c>usage_update</c>'s rate-limit meta read by an extension — is no event but a <c>usage_update</c> is a
+/// <see cref="ContextReading"/>, and nothing is inferred.</para>
 /// <para><b>A load replays the conversation as updates before it answers</b>; they are dropped, so a turn's events
 /// are the prompt's alone.</para></summary>
 internal sealed class AcpAgentReader
@@ -426,9 +427,19 @@ internal sealed class AcpAgentReader
             case "tool_call_update":
                 ReadToolUpdate(update, events);
                 break;
+
+            case "usage_update":
+                AddContext(update, events);
+                break;
         }
 
         _extensions.ReadUpdate(update, events);
+    }
+
+    private void AddContext(JsonElement update, List<AgentStreamEvent> events)
+    {
+        long? used = WireJson.Int64(update, "used"), size = WireJson.Int64(update, "size");
+        if (used is not null || size is not null) events.Add(new ContextReading(used, size, _time.GetUtcNow()));
     }
 
     private static string? ChunkText(JsonElement update) =>

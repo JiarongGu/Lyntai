@@ -6668,3 +6668,9 @@ lines the doors' own tests pin. Landed in `08b41270`; the row stayed open in `TA
 ✅ done 2026-11-07 — **Outcome:** `SessionStarted.Announced` (an init property, default true). `StreamJsonAgentReader` sets it true for a `system` frame whose subtype is `init`, or the first frame when it names none (an emitter that sets no subtype), and false for a later frame that only carries a new id; the protocol door and the Codex thread start are true. Still one start per id. Proof: `StreamJsonAgentReaderTests` (an `init`, then a `thinking_tokens` tick with a changed id: true, false), `CodexAgentSessionTests` and `AcpAgentSessionTests`. Baseline moved, additions only. No decision recorded: **D245** states it. Lane `inference`.
 
 - AG35 — a session start says whether the agent announced it
+
+## Part 451 — AG34: the protocol door states the context figures its updates report (2026-11-07)
+
+✅ done 2026-11-07 — **Outcome:** `ContextReading(UsedTokens, WindowTokens, MeasuredAt)`, a new `AgentStreamEvent` yielded for a `usage_update` frame that carries `used`, `size` or both; a figure not sent, or not a number, is null, and a frame with neither is no event. `AcpAgentReader` reads it beside the existing usage readings; the loop counts it as the `Usage` kind of a turn's `Turn.Shown`. The proof is `AcpAgentSessionTests` over SOURCE-DERIVED frames (both figures, one each, neither, a malformed one); the old fact that expected a `usage_update` to be no event now leaves it out. **Not done:** captures from both measured agents are not recorded in this tree, so the frames are the shape the existing stand-in and the guide already state, not a capture of each agent. `The_hierarchy_is_exactly_the_known_sealed_events` names the new type. Baseline moved, additions only. No decision recorded: **D245** states it. Lane `inference`.
+
+- AG34 — the protocol door states the context figures its updates report
