@@ -1215,6 +1215,22 @@ services.AddLyntai(b => b
     .AddAcpAgentSession("claude-acp", "claude-agent-acp", permissionApprover: askThePerson));
 ```
 
+**A person who takes longer than that** is waited for when the host registers it: `permissionWait:
+AcpPermissionWait.AsLongAsApproverHolds` makes a request wait as long as the approver holds it, with no refusal at half the
+window, and tells the process runner not to read the wait as a silent agent (`InactivityPause`): the runner's window is
+stopped while any request is held and starts again from the answer. The turn is still ended by its caller's cancellation,
+which answers the request `cancelled`. It needs an approver and a runner that says it can be told
+(`IProcessRunner.CanPauseInactivity`; the shipped `ProcessRunner` can), and a session whose runner cannot be told is
+refused when it is first built from the container. The default stays half the window, so an approver registered and forgotten
+never hangs a turn.
+
+<!-- compile-given: IAcpPermissionApprover askThePerson; -->
+```csharp
+services.AddLyntai(b => b
+    .AddAcpAgentSession("claude-acp", "claude-agent-acp",
+        permissionApprover: askThePerson, permissionWait: AcpPermissionWait.AsLongAsApproverHolds));
+```
+
 A turn is `initialize`, then `session/new`, or for a `ResumeToken` `session/resume` where the agent's `initialize`
 answer states `sessionCapabilities.resume` and `session/load` where it states `loadSession`, then `session/prompt`.
 An agent that states neither refuses the turn before the prompt (`option-unsupported`, `NeverSent`), which is why

@@ -15,25 +15,22 @@ LLM-ops layer (prompt registry, scoring, traces, memory). `AddLyntai(...)` and g
 
 <!-- open-items:begin — GENERATED. Edit the per-item `item:` markers, never this table. -->
 
-## Open items — 12 across 5 Parts: 6 startable, 3 blocked, 3 watch
+## Open items — 9 across 5 Parts: 3 startable, 3 blocked, 3 watch
 
 _Generated from the per-item `<!-- item: … -->` markers by `node devtools/dev.mjs check-backlog --write`._
 _Edit a marker, never this table — `verify` fails the moment the two disagree._
 
 | line | Part | item | state | waiting on |
 | ---: | ---: | --- | --- | --- |
-| 113 | 33 | GEN-VERIFY-FAL, the last line — the Hugging Face route | blocked · env | an hf_ token for the router route |
-| 154 | 75 | Decide what an aggregator's in-band `code` means | blocked · env+data | two or three real aggregators to measure an in-band code against |
-| 181 | 99 | `verify`'s test step intermittently fails EXACTLY 9 tests, and once aborted… | watch · data | the same nine tests to recur — the fix is unconfirmed as the cure, and a gr… |
-| 240 | 99 | `InputSegmenterTests.Counting_NFKC_is_LINEAR_in_the_length_of_the_text` fai… | watch · data | a recurrence under the full parallel run, with the ratio it read — the mess… |
-| 258 | 99 | `AgentUsageProcessTests.A_server_that_never_answers_is_ended_with_its_child… | watch · data | a recurrence under the full parallel run, with the load it ran under; it fa… |
-| 296 | 417 | MC8 — run the wrong-end instrument on an adjudicated corpus, with a bar wri… | blocked · decision+data | two reviewers' independent labels on a sample of the pairs, and a bar a per… |
-| 322 | 446 | AG38 — a permission request waits for the person when the host says so | startable |  |
-| 331 | 446 | AG40 — why a person must act, and what kind of access failed | startable |  |
-| 337 | 446 | AG41 — a limit names its window and a stated reset keeps its parts | startable |  |
-| 344 | 446 | AG44 — the restriction rules are public over a snapshot the host stores | startable |  |
-| 350 | 446 | AG45 — a host's line reader runs under the CLI turn's rules | startable |  |
-| 356 | 446 | AG39 — a run kept across turns: the design | startable |  |
+| 110 | 33 | GEN-VERIFY-FAL, the last line — the Hugging Face route | blocked · env | an hf_ token for the router route |
+| 151 | 75 | Decide what an aggregator's in-band `code` means | blocked · env+data | two or three real aggregators to measure an in-band code against |
+| 178 | 99 | `verify`'s test step intermittently fails EXACTLY 9 tests, and once aborted… | watch · data | the same nine tests to recur — the fix is unconfirmed as the cure, and a gr… |
+| 237 | 99 | `InputSegmenterTests.Counting_NFKC_is_LINEAR_in_the_length_of_the_text` fai… | watch · data | a recurrence under the full parallel run, with the ratio it read — the mess… |
+| 255 | 99 | `AgentUsageProcessTests.A_server_that_never_answers_is_ended_with_its_child… | watch · data | a recurrence under the full parallel run, with the load it ran under; it fa… |
+| 293 | 417 | MC8 — run the wrong-end instrument on an adjudicated corpus, with a bar wri… | blocked · decision+data | two reviewers' independent labels on a sample of the pairs, and a bar a per… |
+| 319 | 446 | AG46 — a kept run: its type, the open, a turn and a stop, on the Claude pro… | startable |  |
+| 328 | 446 | AG47 — a word taken mid-turn, and when a run refuses one | startable |  |
+| 335 | 446 | AG48 — the turn a task wakes, and background work read until it ends | startable |  |
 
 <!-- open-items:end -->
 
@@ -311,55 +308,36 @@ unreleased until a release carries it (**D70**, **D235**). **What a YES does to 
 
 ## Part 446 — the agent-provider layer, after Daoris's second request A-LQ3 to A-LQ17 (2026-11-06)
 
-_The study is `docs/agent-provider-daoris-study.md` §10 and the rulings are **D244** to **D249**; A-LQ10 is declined (**D249**) and
-files no row. Every row is one sitting, none is built, and every member a row adds is unreleased until a release carries it
+_The study is `docs/agent-provider-daoris-study.md` §10 and §11 and the rulings are **D244** to **D249** and **D251**; A-LQ10 is
+declined (**D249**) and files no row. Every row is one sitting, none is built, and every member a row adds is unreleased until a release carries it
 (**D70**, **D235**), so its `ApiSurface` baseline moves from the emitted `.actual` with a `CHANGELOG.md` entry under `## Unreleased`.
 Captures a row's tests use are labelled REAL or SOURCE-DERIVED as `tests/Lyntai.Tests/Providers/AcpAgentSessionTests.cs` labels them;
 a SOURCE-DERIVED one rests on Daoris's recorded captures, which a real one replaces when it arrives. Order: AG43 first (a defect
-in built code), AG37 before AG36 and AG42, AG25 to AG27 before AG28, AG30 before AG31, AG40 before AG41, AG43 before AG44, and AG39
-last because it designs the largest piece; the rest in any order. No row spends an account or calls a paid service._
+in built code), AG37 before AG36 and AG42, AG25 to AG27 before AG28, AG30 before AG31, AG40 before AG41, AG43 before AG44, and AG46 before
+AG47 and AG48 (the kept run, designed by AG39 in **D251**); the rest in any order. No row spends an account or calls a paid service._
 
-- [ ] **AG38 — a permission request waits for the person when the host says so** (lanes `inference` + `platform`, **D248**). <!-- item: state=startable -->
-  `IAcpPermissionApprover` refuses at half the turn's inactivity window and the runner's clock ends a silent agent. **Contract.** An
-  `AddAcpAgentSession` option states the wait is the approver's: a request waits as long as the approver holds it and the runner is
-  told, through an optional member of `IProcessRunner` (default: not supported, as `ExchangeLinesAsync` is), not to read that wait as
-  inactivity; a runner that cannot be told refuses the option at registration. The default stays half the window. **Proof.** A
-  stand-in that asks and stays silent: answered after longer than the window by a held approver (the turn goes on), refused at half
-  the window without the option, and the cancelled outcome on a cancelled turn; the shipped runner honours the member under a short
-  window.
+- [ ] **AG46 — a kept run: its type, the open, a turn and a stop, on the Claude protocol door** (lanes `platform` + `inference`, **D251**). <!-- item: state=startable -->
+  **Contract.** `IAgentRunProvider` (an optional interface on a provider, found by type test) opens an `IAgentRun`: `SendAsync` on an
+  idle run returns an `AgentRunTurn` whose events are the one-turn stream, with exactly one `SessionEnded`; `StopAsync` cancels as
+  the one-turn door does; `DisposeAsync` ends the process; one open per run, and a failed open ends it with a typed failure. The Claude
+  protocol door states the abilities of `docs/agent-provider-daoris-study.md` §11.1 (`kept-run` and `queued-words` Supported;
+  `keeping-stop`, `model-reask`, `replay-told` and `repeatable-open` Unknown). **Proof.** A stand-in scripted from Daoris's recorded
+  frames: two turns on one process (one `initialize`, one `session/new`, two prompts), a stop and then a turn, a busy run refusing
+  `SendAsync` where the door does not state words queued, the abilities as the table, and every one-turn test unchanged.
 
-- [ ] **AG40 — why a person must act, and what kind of access failed** (lane `platform` + `inference`, **D246**). <!-- item: state=startable -->
-  **Contract.** `RestrictionRecovery.Reason` for an owner action (refill, sign in, grant, configure, unknown), from fields only; an
-  access failure carries two readings, by a field the door defines and by the words, each a sign-in again, a refused credential or
-  null, with no winner. **Proof.** Each Claude `error` category and the protocol agents' fields reading as today with the reason
-  added, a field and a sentence that disagree both kept, and a failure no field reads leaving the field reading null.
+- [ ] **AG47 — a word taken mid-turn, and when a run refuses one** (lanes `platform` + `inference`, after AG46, **D251**). <!-- item: state=startable -->
+  **Contract.** `SendAsync` on a busy run whose door states `queued-words` Supported sends a second prompt; the earlier turn ends with a
+  `SessionEnded` of subtype `folded` (success, every usage count 0) and the later owns the rest; the run never sends `session/cancel`
+  while a word is on its way, and refuses `SendAsync` while a permission request is held or a woken turn runs. **Proof.** The recorded
+  fold (the earlier prompt answered `end_turn` with zero usage at the next step, SOURCE-DERIVED from Daoris's steer note), a stop with a
+  word on its way sending nothing, and the two refusals.
 
-- [ ] **AG41 — a limit names its window and a stated reset keeps its parts** (lane `platform` + `inference`, after AG40, **D246**). <!-- item: state=startable -->
-  **Contract.** `AgentRestriction` gains `Window` and `Scope` (the door's own words); `RestrictionRecovery` gains the stated parts
-  (shape, date and time parts, zone named or assumed, wait) beside its resolution; an unresolved zone is an unknown recovery with the
-  parts; `ClaudeAgentSession` and the Codex session take a `TimeProvider`. **Proof.** A rejected `five_hour` frame naming its window,
-  each sentence shape (moment, date and time, weekday and time, time of day, wait) with its parts, a zone the machine lacks keeping
-  its parts, and a clock handed to the session reaching the reading.
-
-- [ ] **AG44 — the restriction rules are public over a snapshot the host stores** (lane `platform`, after AG43, **D247**). <!-- item: state=startable -->
-  **Contract.** An immutable snapshot and the operations **D247** lists, as pure functions returning the next snapshot and an
-  outcome, with the pool rebuilt on them; an evidence observation names the hold's id, revision and subject key and the recovery
-  kinds it answers. **Proof.** Every existing pool test unchanged, a stale, wrong-scope and other-subject observation discharging
-  nothing, a lease report by a token that lost it ignored, and a snapshot round-tripped through a host's own serialisation.
-
-- [ ] **AG45 — a host's line reader runs under the CLI turn's rules** (lane `inference`, **D249**). <!-- item: state=startable -->
-  **Contract.** `CliAgentLoop`'s turn is public over `ICliAgentLineReader` (a line to events; the end with its exit code to a
-  terminal or none); the loop keeps one terminal, the fault terminal and the delivery stamp, and the built-in doors run through the
-  same path. **Proof.** A plain-line stand-in that exits 0 with no terminal (the reader's end yields success), one that exits 2
-  (the reader's terminal or the fatal default), one that prints a terminal and then more, and every existing door test unchanged.
-
-- [ ] **AG39 — a run kept across turns: the design** (lanes `platform` + `inference`, last, **D248**). <!-- item: state=startable -->
-  A study and a decision, no code. **Contract.** From Daoris's recorded measurements of which agents accept a word mid-turn, a stop
-  that keeps the conversation, a model re-asked and background work read until it ends, say which doors can carry a kept run, its
-  type beside `IAgentSession`, how a held permission request, a repeatable open, a replayed frame told from a live one and the turn a
-  task's notification wakes are stated, and which of these a door states `Unsupported`. **Proof.** The study names what a YES does
-  to the library and what a NO does before any row it files; a door that cannot be measured from a record is `Unknown` and not
-  filed as supported. **Not established:** whether any CLI door accepts input mid-turn.
+- [ ] **AG48 — the turn a task wakes, and background work read until it ends** (lanes `platform` + `inference`, after AG46, **D251**). <!-- item: state=startable -->
+  **Contract.** A turn the agent starts unprompted after a task's end is an `AgentRunTurn` on `IAgentRun.WokenTurns`, ended by silence only
+  after a host-set `WokenTurnQuiet` (no default) with subtype `quiet`; `AgentTaskEnded` events may come after the turn that started
+  the task. **Proof.** Frames scripted from Daoris's console-streams note (a task spawned, the response, unprompted chunks 1.6 and
+  2.4 s later) and its BGWAIT2 entry (a prompt into the woken turn never answered, so refused), a run with no quiet bound never ending a
+  woken turn itself, and the one-turn door's background reading unchanged.
 
 ## Retired — five Parts that outlived their open work (2026-09-16)
 

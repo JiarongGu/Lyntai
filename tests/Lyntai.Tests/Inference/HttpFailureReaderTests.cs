@@ -127,6 +127,24 @@ public class HttpFailureReaderTests
         Assert.Equal(RecoveryKind.OwnerAction, failure.Restriction.Recovery.Kind);   // Retry-After never turns a balance into a wait
     }
 
+    [Fact] // a 402 is a field that says credit, so the reason is a refill; the same words under a 400 are a sentence and say none
+    public void A_402_is_a_refill_and_a_credit_sentence_alone_states_no_reason()
+    {
+        Assert.Equal(OwnerActionReason.Refill, Read(HttpStatusCode.PaymentRequired, "").Restriction!.Recovery.Reason);
+        Assert.Equal(OwnerActionReason.Unknown, Read(HttpStatusCode.BadRequest, AnthropicCredit).Restriction!.Recovery.Reason);
+    }
+
+    [Theory] // a 401 states a refused credential; a 403 states no action, and the words read apart
+    [InlineData(HttpStatusCode.Unauthorized, "{\"error\":{\"message\":\"Invalid API key provided\"}}", AccessReason.CredentialRefused, AccessReason.CredentialRefused)]
+    [InlineData(HttpStatusCode.Forbidden, "{\"error\":{\"message\":\"Please run /login\"}}", null, AccessReason.SignInAgain)]
+    public void An_access_status_states_its_own_reading_and_the_words_theirs(HttpStatusCode status, string body, AccessReason? byField, AccessReason? byWords)
+    {
+        var failure = Read(status, body);
+
+        Assert.Equal(AgentFailureKind.Access, failure.Kind);
+        Assert.Equal(new AgentAccessReadings(byField, byWords), failure.AccessReadings);
+    }
+
     [Fact]
     public void An_OpenRouter_429_reads_as_a_rate_limit_and_its_metadata_header_is_not_read()
     {

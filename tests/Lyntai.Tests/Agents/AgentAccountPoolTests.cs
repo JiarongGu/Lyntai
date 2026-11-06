@@ -693,6 +693,26 @@ public class AgentAccountPoolTests
         Assert.Null((await third.PickAsync()).Pick);
     }
 
+    [Fact] // an owner action's reason is stored with its hold; a hold stored without one, or with a word this build lacks, reads as none said
+    public async Task A_restart_reads_an_owner_actions_reason_back()
+    {
+        var clock = new ManualTimeProvider();
+        var store = new InMemoryKeyValueStore();
+        var before = Pool(clock, store, Options(null, Choice(null, "claude-cli", "a")));
+        await before.ReportAsync(await Take(before), Limit(RestrictionRecovery.OwnerActionFor(OwnerActionReason.Refill), RestrictionCause.Credit));
+
+        var read = Assert.Single(await Pool(clock, store, Options(null, Choice(null, "claude-cli", "a"))).HoldsAsync());
+        Assert.Equal(OwnerActionReason.Refill, read.Restriction.Recovery.Reason);
+
+        var key = Assert.Single(await store.ListKeysAsync("lyntai:agent-pool:"));
+        var raw = (await store.GetAsync(key))!;
+        Assert.Contains("\"reason\":\"Refill\"", raw);
+        await store.SetAsync(key, raw.Replace("\"reason\":\"Refill\"", "\"reason\":\"FromANewerBuild\""));
+        var newer = Assert.Single(await Pool(clock, store, Options(null, Choice(null, "claude-cli", "a"))).HoldsAsync());
+        Assert.Equal(OwnerActionReason.Unknown, newer.Restriction.Recovery.Reason);
+        Assert.Equal(RecoveryKind.OwnerAction, newer.Restriction.Recovery.Kind);
+    }
+
     [Fact]
     public async Task The_store_holds_one_key_per_hold_under_the_pools_name_and_a_removed_hold_leaves_only_its_revision()
     {

@@ -184,6 +184,47 @@ every addition.
   carried when the report states one: the frame's `utilization` is a fraction from 0 to 1 (a consumer's recorded frame, 2.1.287), read as a
   percent with its step (0.88 is 88, step 1), from the window's own entry among the report's `unifiedWindows` and else the report's own. The
   report also carries the agent's `OverageStatus` and `OverageDisabledReason` as written.
+- **An owner action says which action, and an access failure keeps its two readings apart** (**D246**). `RestrictionRecovery`
+  gains `Reason` (`OwnerActionReason`: `Refill`, `SignIn`, `Grant`, `Configure`, `Unknown`), set only from a field: Claude's
+  `billing_error`, an HTTP 402 or a named credit code read as a refill, a refused model (`model_not_found`, or the protocol door's own
+  refusal) as a configuration change, and the same facts read from a sentence leave it `Unknown`. The pool stores it with the hold, and
+  a hold stored without one reads as none said. `AgentFailure` gains `AccessReadings`, an `AgentAccessReadings` of what a field the
+  door defines stated (`ByField`: the protocol's authentication-required code is `AccessReason.SignInAgain`, a 401 and codex's
+  `unauthorized` are `CredentialRefused`) and what the words implied (`ByWords`), each null when it said nothing. There is no winner,
+  and `Kind` stays what the fields decided. No Claude `error` category and no 403 states which, so those readings are null.
+- **A limit names its window, and a stated reset keeps its parts** (**D246**). `AgentRestriction` gains `Window` and `Scope`, the
+  door's own words (a rejected Claude frame's `five_hour` and `limitScope`). `RestrictionRecovery` gains `Stated`, a
+  `StatedRecoveryParts` beside the resolution in `At`: the shape (`StatedTimeShape`: a moment, a date and time, a weekday and time, a
+  time of day, a wait), the date, weekday and time as written, the zone as the sentence named it or as the clock's local zone stood
+  in (`ZoneNamed` tells them apart), and the wait; a host with its own policy for a time that has passed re-resolves from them. A
+  sentence naming a zone the machine lacks is a `Unknown` recovery with the parts kept, where it was no recovery at all. A
+  `Retry-After` carries its wait or its moment the same way. `ClaudeAgentSession` and `CodexAgentSession` take an optional
+  `TimeProvider` in a new constructor, which the DI registration fills from the container, so the clock a sentence's time of day is
+  read against is the host's; the earlier constructors are unchanged.
+- **The restriction rules are public over a snapshot the host stores** (**D247**). `AgentPoolReducer` is now a public static class
+  whose operations map an immutable `AgentPoolSnapshot` (the holds and each removed id's highest revision, as plain
+  `AgentHoldEntry` rows a host serialises itself and restores through `AgentPoolSnapshot.Create`) and an event to the next
+  snapshot and an outcome (`AgentPoolStep<T>`): `Observe` a failure as a hold, `Admit` a seat over its covering scopes (`Covering`,
+  with a door's allowance among them), `TakeSeat` against the whole applicable state with a lease token, `Succeed` and `Abandon` by
+  that token, `Clear` by id and revision, and `Discharge` on an `AgentPoolEvidence` that names the hold's id, revision and subject
+  key and the recovery kinds it answers. A lease is resolved only by the token that owns it, and a stale, foreign or unanswering
+  observation discharges nothing. `AgentAccountPool` is rebuilt on the same operations and behaves as it did; the stored hold format
+  is unchanged. The host keeps its own store and serialises its own writes.
+- **A host's own CLI agent program runs under the library's turn rules** (**D249**). `CliAgentTurn.RunAsync` runs a program through
+  the `IProcessRunner` as the library starts its own and ends the turn as the built-in CLI doors do, over an `ICliAgentLineReader` the
+  host supplies: `Read` turns a line into events, and `ReadEnd` is told once when the output ends, with the exit code (0 on a clean
+  end, else `ProcessRunException.ExitCode`), and may return the terminal. The turn keeps exactly one terminal (the first any source
+  yields), makes a stall or a non-zero exit with no terminal the process fault, and stamps a failed terminal's delivery from what the
+  turn showed. A clean end that no one ended is a failed turn, and a reader's terminal outranks the fault's default on a non-zero
+  exit. The Claude and Codex readers implement the same interface, so the built-in doors run through the same path.
+- **A permission request waits for the person when the host registers it so** (**D248**). `AddAcpAgentSession` and `AcpAgentSession`
+  take `permissionWait` (`AcpPermissionWait`): the default `HalfTheWindow` is what the door always did, and `AsLongAsApproverHolds`
+  makes a held request wait as long as the approver holds it, with the process runner told not to read the wait as a silent agent. The
+  runner is told through a new optional pair on `IProcessRunner`: `CanPauseInactivity` (default false; the shipped `ProcessRunner`
+  answers true) and an `ExchangeLinesAsync` overload taking an `InactivityPause` (default: not supported, as the live stdin is), whose
+  `Hold()` stops the inactivity window and whose release starts it again from that moment. A maximum duration and the caller's
+  cancellation are unchanged. The option needs an approver, and a runner that cannot be told refuses it when the session is first
+  built from the container. A decorating runner forwards both members, or the runner under it reads as unable.
 - **A scope dense in ended entries still returns its current ones** (**D241**). A `Current` or as-of recall dropped the ended
   entries after the candidate window was cut, so 100 ended entries matching a query better than 5 current ones returned none of the
   5. When a seed source fills its window and the reading drops some of what it returned, the engine now asks again with a window four

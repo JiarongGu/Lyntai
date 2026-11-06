@@ -94,6 +94,34 @@ public interface IProcessRunner
             + "stdin that a fixed string cannot carry, so a runner serving one overrides it (the shipped "
             + "ProcessRunner does)");
 
+    /// <summary>Whether this runner can be told, through an <see cref="InactivityPause"/>, that the child's silence is the
+    /// caller waiting and not the child gone quiet (the <c>pause</c> overload of <see cref="ExchangeLinesAsync(string, IReadOnlyList{string}, IAsyncEnumerable{string}, InactivityPause, TimeSpan?, TimeSpan?, string?, IReadOnlyDictionary{string, string?}?, CancellationToken)"/>).
+    /// A caller that needs it asks before it starts, and refuses an option that depends on it where it is false.</summary>
+    /// <remarks><b>The default is false</b>, so every existing implementer keeps compiling and none is silently
+    /// treated as honouring it; <see cref="ProcessRunner"/> answers true. <b>A decorator forwards both members</b>, or the
+    /// runner under it is reported as unable.</remarks>
+    bool CanPauseInactivity => false;
+
+    /// <summary><see cref="ExchangeLinesAsync(string, IReadOnlyList{string}, IAsyncEnumerable{string}, TimeSpan?, TimeSpan?, string?, IReadOnlyDictionary{string, string?}?, CancellationToken)"/>
+    /// with the inactivity window paused while <paramref name="pause"/> is held: the window is not read as silence during
+    /// the hold, and starts again from its release. The maximum duration and the caller's cancellation are unchanged.</summary>
+    /// <remarks><b>The default body REFUSES</b>, like the live stdin it extends: a runner that does not honour the pause
+    /// would end a turn the caller is waiting on, so it throws <see cref="NotSupportedException"/> rather than ignore it.</remarks>
+    IAsyncEnumerable<string> ExchangeLinesAsync(
+        string command,
+        IReadOnlyList<string> args,
+        IAsyncEnumerable<string> stdinLines,
+        InactivityPause pause,
+        TimeSpan? inactivityTimeout = null,
+        TimeSpan? maxDuration = null,
+        string? workingDirectory = null,
+        IReadOnlyDictionary<string, string?>? environment = null,
+        CancellationToken ct = default) =>
+        throw new NotSupportedException(
+            $"this IProcessRunner does not implement the {nameof(InactivityPause)} overload of {nameof(ExchangeLinesAsync)} — "
+            + "a wait held for a person would be read as a silent child and end the turn, so a runner serving one overrides it "
+            + "(the shipped ProcessRunner does)");
+
     /// <summary>Whether <paramref name="command"/> looks spawnable by THIS runner right now — the presence check
     /// behind a CLI provider's <c>IsAvailable</c>, which lets the router skip a candidate whose binary is missing
     /// instead of failing a turn on it. Presence only: it never runs the command.</summary>

@@ -30,7 +30,8 @@ internal static class AcpFailure
 
         var readings = new List<AgentFailure?>(extensions.Held);
         readings.AddRange(extensions.ReadError(error));
-        readings.Add(code == AuthRequiredCode ? new AgentFailure(AgentFailureKind.Access, $"acp.error.code={code}") : null);
+        // the code ACP defines for an agent that wants a sign-in first states exactly that
+        readings.Add(code == AuthRequiredCode ? StreamJsonFailure.Access($"acp.error.code={code}", AccessReason.SignInAgain) : null);
         return StreamJsonFailure.Merge(readings, ProviderVerdictClassifier.ReadAgentFailure(words, time), $"acp.error.code={code}");
     }
 

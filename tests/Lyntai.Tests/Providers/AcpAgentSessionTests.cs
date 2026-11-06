@@ -237,7 +237,7 @@ public class AcpAgentSessionTests
         Assert.Equal(AgentProvider.OptionRefusedSubtype, ended.Subtype);
         Assert.Equal(AgentFailureKind.Fatal, ended.Failure!.Kind);
         Assert.Equal(AgentDelivery.NeverSent, ended.Failure.Delivery);
-        Assert.Equal(new AgentRestriction(RestrictionCause.Unknown, RestrictionSubject.Model, RestrictionRecovery.OwnerAction), ended.Failure.Restriction);
+        Assert.Equal(new AgentRestriction(RestrictionCause.Unknown, RestrictionSubject.Model, RestrictionRecovery.OwnerActionFor(OwnerActionReason.Configure)), ended.Failure.Restriction);
         Assert.DoesNotContain(sent, f => Method(f) == "session/prompt");
     }
 
@@ -255,7 +255,7 @@ public class AcpAgentSessionTests
 
         Assert.Equal(AgentFailureKind.Fatal, ended.Failure!.Kind);
         Assert.Equal("acp.data.errorKind=model_not_found", ended.Failure.By);
-        Assert.Equal(new AgentRestriction(RestrictionCause.Unknown, RestrictionSubject.Model, RestrictionRecovery.OwnerAction), ended.Failure.Restriction);
+        Assert.Equal(new AgentRestriction(RestrictionCause.Unknown, RestrictionSubject.Model, RestrictionRecovery.OwnerActionFor(OwnerActionReason.Configure)), ended.Failure.Restriction);
     }
 
     [Fact] // SOURCE-DERIVED
@@ -830,8 +830,10 @@ public class AcpAgentSessionTests
         var failure = ended.Failure!;
         Assert.Equal(AgentFailureKind.Limit, failure.Kind);
         Assert.Equal("acp.usage_update._claude/rateLimit.rejected", failure.By);
+        var reset = DateTimeOffset.FromUnixTimeSeconds(1893456000);
         Assert.Equal(new AgentRestriction(RestrictionCause.Quota, RestrictionSubject.Account,
-            RestrictionRecovery.ResetAt(DateTimeOffset.FromUnixTimeSeconds(1893456000))), failure.Restriction);
+            RestrictionRecovery.ResetAt(reset) with { Stated = new StatedRecoveryParts(StatedTimeShape.Moment) { Moment = reset } })
+            { Window = "five_hour" }, failure.Restriction);
     }
 
     [Fact] // SOURCE-DERIVED: codex-acp's limit has the message "Internal error" and the sentence in data.message
@@ -959,6 +961,36 @@ public class AcpAgentSessionTests
 
         Assert.Equal(kind, ended.Failure!.Kind);
         Assert.Equal(by, ended.Failure.By);
+    }
+
+    [Fact] // SOURCE-DERIVED: ACP's own code says a sign-in, codex's 401 a refused credential, and the two door's access category neither
+    public async Task A_protocol_agents_access_fields_state_what_each_says_and_the_words_apart()
+    {
+        // the protocol's code reads as a sign-in by its field; the words' sentence agrees, and reads separately
+        var signIn = Ended(await Run(Stub(), Ask("AUTH_PROMPT"))).Failure!;
+        Assert.Equal(new AgentAccessReadings(AccessReason.SignInAgain, AccessReason.SignInAgain), signIn.AccessReadings);
+
+        // a field and a sentence that disagree are both kept: a 401 field beside a sign-in sentence
+        var runner = Agent(new()
+        {
+            ["initialize"] = _ => [Initialized()],
+            ["session/new"] = _ => [OpenedId(2)],
+            ["session/prompt"] = _ => ["""{"jsonrpc":"2.0","id":3,"error":{"code":-32603,"message":"Authentication required","data":{"codexErrorInfo":"unauthorized"}}}"""],
+        });
+        var disagree = Ended(await Run(Scripted(runner), Ask())).Failure!;
+        Assert.Equal(AgentFailureKind.Access, disagree.Kind);
+        Assert.Equal(new AgentAccessReadings(AccessReason.CredentialRefused, AccessReason.SignInAgain), disagree.AccessReadings);
+
+        // a field that names no action leaves its reading null
+        var none = Agent(new()
+        {
+            ["initialize"] = _ => [Initialized()],
+            ["session/new"] = _ => [OpenedId(2)],
+            ["session/prompt"] = _ => ["""{"jsonrpc":"2.0","id":3,"error":{"code":-32603,"message":"Internal error","data":{"errorKind":"authentication_failed"}}}"""],
+        });
+        var unread = Ended(await Run(Scripted(none), Ask())).Failure!;
+        Assert.Equal(AgentFailureKind.Access, unread.Kind);
+        Assert.Equal(new AgentAccessReadings(null, null), unread.AccessReadings);
     }
 
     [Fact] // the sentence is read only where no field said

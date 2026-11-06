@@ -2,6 +2,7 @@ using Lyntai.Agents;
 using Lyntai.Inference;
 using Lyntai.Providers.CodexCli;
 using Lyntai.Tests.Fakes;
+using Lyntai.Tests.Inference;
 
 namespace Lyntai.Tests.Providers;
 
@@ -82,6 +83,20 @@ public class CodexAgentFailureTests
         Assert.Equal(ProviderVerdict.Ok, ended.Verdict);
         Assert.False(ended.IsError);
         Assert.Null(ended.Failure);
+    }
+
+    [Fact] // the session's clock reaches the sentence: a time of day with no zone is the handed clock's, and says so
+    public async Task A_clock_handed_to_the_session_is_the_one_a_stated_time_is_read_against()
+    {
+        var clock = FixedLocalClock.Wednesday;
+        var session = new CodexAgentSession(new FakeProcessRunner(FailedTurn("You've hit your usage limit. Try again at 4:05 PM.")),
+            new LyntaiOptions(), logger: null, command: "codex", environment: null, time: clock);
+
+        var events = await session.StreamAsync(new AgentSessionOptions { Prompt = "hi" }).ToListAsync();
+
+        var recovery = events.OfType<SessionEnded>().Single().Failure!.Restriction!.Recovery;
+        Assert.Equal(new DateTimeOffset(2026, 10, 28, 16, 5, 0, TimeSpan.FromHours(11)), recovery.At);
+        Assert.Equal(("fixed", false), (recovery.Stated!.Zone, recovery.Stated.ZoneNamed));
     }
 
     [Fact] // …and on a failed turn the failure is the door's sentence, not the agent's words before it

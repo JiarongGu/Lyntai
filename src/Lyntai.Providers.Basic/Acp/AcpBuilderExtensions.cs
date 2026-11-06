@@ -52,10 +52,16 @@ public static class AcpBuilderExtensions
     /// so a person can decide a tool call. Null = the turn's tool policy answers every request, as before, and the door
     /// states <see cref="AgentAbilities.PermissionRequests"/> <see cref="AgentSupport.Unsupported"/>; given, it states
     /// it <see cref="AgentSupport.Supported"/>. Only a write turn asks it.</param>
+    /// <param name="permissionWait">How long a request waits for the approver: by default half of the inactivity window, then a
+    /// refusal; <see cref="AcpPermissionWait.AsLongAsApproverHolds"/> makes the wait the approver's and tells the process
+    /// runner not to read it as a silent agent. Needs <paramref name="permissionApprover"/>.</param>
     /// <exception cref="ArgumentException"><paramref name="agent"/> or <paramref name="accountVariables"/> is given
-    /// without <paramref name="accountHomeVariable"/>, or a variable name is not one an environment can carry.</exception>
+    /// without <paramref name="accountHomeVariable"/>, a variable name is not one an environment can carry, or
+    /// <paramref name="permissionWait"/> asks the approver's wait with no approver.</exception>
     /// <exception cref="InvalidOperationException"><paramref name="agent"/> is shared with a door registered through
-    /// a descriptor that reads the home through another variable.</exception>
+    /// a descriptor that reads the home through another variable, or <paramref name="permissionWait"/> asks the approver's wait
+    /// and the registered <see cref="IProcessRunner"/> cannot be told to pause its window: the session is refused when it
+    /// is first built from the container, before any turn.</exception>
     public static LyntaiBuilder AddAcpAgentSession(
         this LyntaiBuilder builder,
         string id,
@@ -66,9 +72,12 @@ public static class AcpBuilderExtensions
         string? agent = null,
         IEnumerable<string>? accountVariables = null,
         IEnumerable<IAcpExtensionReader>? extensions = null,
-        IAcpPermissionApprover? permissionApprover = null)
+        IAcpPermissionApprover? permissionApprover = null,
+        AcpPermissionWait permissionWait = AcpPermissionWait.HalfTheWindow)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(id);
+        if (permissionWait != AcpPermissionWait.HalfTheWindow && permissionApprover is null)
+            throw new ArgumentException("A wait that is the approver's needs an approver to hold the request.", nameof(permissionWait));
         ArgumentException.ThrowIfNullOrWhiteSpace(command);
         if (agent is not null && accountHomeVariable is null)
             throw new ArgumentException("An agent's accounts are shared through the variable its program reads the home from.", nameof(agent));
@@ -78,7 +87,7 @@ public static class AcpBuilderExtensions
         var readers = extensions?.ToList();
         if (readers is not null && readers.Contains(null!))
             throw new ArgumentException("A reader is null.", nameof(extensions));
-        var descriptor = AcpAgentDoor.Describe(id, accountHomeVariable, agent, accountVariables, permissionApprover is not null);
+        var descriptor = AcpAgentDoor.Describe(id, accountHomeVariable, agent, accountVariables, permissionApprover is not null, permissionWait);
         builder.AddAgentProvider(descriptor, sp => new AgentProvider(descriptor,
             _ => sp.GetRequiredKeyedService<IAgentSession>(id)));
         builder.Services.AddKeyedSingleton<IAgentSession>(id, (sp, _) => new AcpAgentSession(
@@ -91,7 +100,8 @@ public static class AcpBuilderExtensions
             logger: sp.GetService<ILogger<AcpAgentSession>>(),
             accountVariables: accountVariables,
             extensions: readers,
-            permissionApprover: permissionApprover));
+            permissionApprover: permissionApprover,
+            permissionWait: permissionWait));
         return builder;
     }
 }

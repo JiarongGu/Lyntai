@@ -66,7 +66,7 @@ public static class AcpExtensionReaders
                         { Restriction = new(RestrictionCause.Quota, RestrictionSubject.Account, RestrictionRecovery.Unknown) },
                     "rateLimitExceeded" => new AgentFailure(AgentFailureKind.Limit, by)
                         { Restriction = new(RestrictionCause.Rate, RestrictionSubject.Unknown, RestrictionRecovery.Unknown) },
-                    "unauthorized" => new AgentFailure(AgentFailureKind.Access, by),
+                    "unauthorized" => StreamJsonFailure.Access(by, AccessReason.CredentialRefused),
                     "serverOverloaded" => new AgentFailure(AgentFailureKind.Transient, by)
                         { Restriction = new(RestrictionCause.Capacity, RestrictionSubject.Endpoint, RestrictionRecovery.Unknown) },
                     "internalServerError" => new AgentFailure(AgentFailureKind.Transient, by),
@@ -84,7 +84,7 @@ public static class AcpExtensionReaders
                 {
                     case 429: return new AgentFailure(AgentFailureKind.Limit, by)
                         { Restriction = new(RestrictionCause.Rate, RestrictionSubject.Unknown, RestrictionRecovery.Unknown) };
-                    case 401: return new AgentFailure(AgentFailureKind.Access, by);
+                    case 401: return StreamJsonFailure.Access(by, AccessReason.CredentialRefused);
                     case >= 500 and < 600: return new AgentFailure(AgentFailureKind.Transient, by);
                 }
 
@@ -132,7 +132,7 @@ public static class AcpExtensionReaders
                 "limit" => ProviderVerdictClassifier.ReadAgentFailure(typed.Title, time) is { Kind: AgentFailureKind.Limit } limit
                     ? limit with { By = by }
                     : new AgentFailure(AgentFailureKind.Fatal, by),
-                "access" => new AgentFailure(AgentFailureKind.Access, by),
+                "access" => StreamJsonFailure.Access(by),
                 "connection" or "service" => new AgentFailure(AgentFailureKind.Transient, by),
                 "request" => new AgentFailure(AgentFailureKind.Fatal, by),
                 _ => null,

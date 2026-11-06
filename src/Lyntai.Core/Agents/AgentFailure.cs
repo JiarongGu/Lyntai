@@ -78,17 +78,97 @@ public enum RecoveryKind
     OwnerAction,
 }
 
+/// <summary>Which action a person must take when a restriction ends only by one
+/// (<see cref="RecoveryKind.OwnerAction"/>). A reader sets it only from a field the door defines, never from words.</summary>
+public enum OwnerActionReason
+{
+    /// <summary>No field said which action. The default.</summary>
+    Unknown = 0,
+
+    /// <summary>Add credit or raise a spend cap (a billing failure).</summary>
+    Refill,
+
+    /// <summary>Sign in again.</summary>
+    SignIn,
+
+    /// <summary>Grant a permission the agent or account lacks.</summary>
+    Grant,
+
+    /// <summary>Change a configuration, such as a model the agent refused.</summary>
+    Configure,
+}
+
+/// <summary>How a restriction's end was written.</summary>
+public enum StatedTimeShape
+{
+    /// <summary>An instant, as a field states one (a frame's Unix seconds, a <c>Retry-After</c> date).</summary>
+    Moment = 1,
+
+    /// <summary>A date and a time (<c>Oct 3rd, 2026 4:05 PM</c>).</summary>
+    DateAndTime,
+
+    /// <summary>A weekday and a time (<c>Mon 12:00am</c>).</summary>
+    WeekdayAndTime,
+
+    /// <summary>A time of day alone (<c>3:45pm</c>), whose day the sentence leaves to the reader.</summary>
+    TimeOfDay,
+
+    /// <summary>A wait (<c>retry after 60s</c>, a <c>Retry-After</c> in seconds).</summary>
+    Wait,
+}
+
+/// <summary>What a failure stated of when its restriction ends, apart from the library's resolution of it
+/// (<see cref="RestrictionRecovery.At"/>). A host with its own policy for a time that has passed, or its own naming of a
+/// window, applies it to these parts. Only the parts the <see cref="Shape"/> writes are set.</summary>
+/// <param name="Shape">How it was written.</param>
+public sealed record StatedRecoveryParts(StatedTimeShape Shape)
+{
+    /// <summary>The instant, for <see cref="StatedTimeShape.Moment"/>.</summary>
+    public DateTimeOffset? Moment { get; init; }
+
+    /// <summary>The date, for <see cref="StatedTimeShape.DateAndTime"/>.</summary>
+    public DateOnly? Date { get; init; }
+
+    /// <summary>The weekday, for <see cref="StatedTimeShape.WeekdayAndTime"/>.</summary>
+    public DayOfWeek? Weekday { get; init; }
+
+    /// <summary>The time of day, for every shape that writes one.</summary>
+    public TimeOnly? Time { get; init; }
+
+    /// <summary>The zone of that time: the name the sentence gave, else the clock's local zone, which
+    /// <see cref="ZoneNamed"/> tells apart. Null for a moment and a wait.</summary>
+    public string? Zone { get; init; }
+
+    /// <summary>True when the sentence named <see cref="Zone"/>; false when the clock's local zone stood in for none.</summary>
+    public bool ZoneNamed { get; init; }
+
+    /// <summary>The wait, for <see cref="StatedTimeShape.Wait"/>.</summary>
+    public TimeSpan? Wait { get; init; }
+}
+
 /// <summary>A restriction's way out: a stated moment, or the absence of one.</summary>
 /// <param name="Kind">How it ends.</param>
 /// <param name="At">The moment, for <see cref="RecoveryKind.ResetAt"/> and <see cref="RecoveryKind.RetryNotBefore"/>;
 /// null otherwise.</param>
 public sealed record RestrictionRecovery(RecoveryKind Kind, DateTimeOffset? At = null)
 {
+    /// <summary>What the failure stated, beside <see cref="At"/>, which is the library's resolution of it under its one
+    /// rule (the next occurrence, a minute of skew allowed). A stated zone the machine lacks leaves the kind
+    /// <see cref="RecoveryKind.Unknown"/> with these parts kept. Null where nothing was stated.</summary>
+    public StatedRecoveryParts? Stated { get; init; }
+
+    /// <summary>Which action the person must take, for <see cref="RecoveryKind.OwnerAction"/>;
+    /// <see cref="OwnerActionReason.Unknown"/> for every other kind and where no field said.</summary>
+    public OwnerActionReason Reason { get; init; }
+
     /// <summary>Nothing was stated.</summary>
     public static RestrictionRecovery Unknown { get; } = new(RecoveryKind.Unknown);
 
-    /// <summary>A person must act.</summary>
+    /// <summary>A person must act, and which action is not said.</summary>
     public static RestrictionRecovery OwnerAction { get; } = new(RecoveryKind.OwnerAction);
+
+    /// <summary>A person must take the action <paramref name="reason"/> names.</summary>
+    public static RestrictionRecovery OwnerActionFor(OwnerActionReason reason) => new(RecoveryKind.OwnerAction) { Reason = reason };
 
     /// <summary>The allowance renews at <paramref name="at"/>.</summary>
     public static RestrictionRecovery ResetAt(DateTimeOffset at) => new(RecoveryKind.ResetAt, at);
@@ -101,7 +181,14 @@ public sealed record RestrictionRecovery(RecoveryKind Kind, DateTimeOffset? At =
 /// <param name="Cause">What ran out.</param>
 /// <param name="Subject">What it holds back.</param>
 /// <param name="Recovery">How it ends.</param>
-public sealed record AgentRestriction(RestrictionCause Cause, RestrictionSubject Subject, RestrictionRecovery Recovery);
+public sealed record AgentRestriction(RestrictionCause Cause, RestrictionSubject Subject, RestrictionRecovery Recovery)
+{
+    /// <summary>The window the door named, in its own words (<c>five_hour</c>, <c>seven_day</c>); null where it named none.</summary>
+    public string? Window { get; init; }
+
+    /// <summary>The scope the door named, in its own words (a <c>limitScope</c>); null where it named none.</summary>
+    public string? Scope { get; init; }
+}
 
 /// <summary>Whether the turn's prompt reached the agent — the fact a retry has to know. It is independent of
 /// <see cref="AgentFailureKind"/>: a limit that arrives after the door answered is no proof the prompt was
@@ -120,6 +207,24 @@ public enum AgentDelivery
     Taken,
 }
 
+/// <summary>What an access failure asks of the person.</summary>
+public enum AccessReason
+{
+    /// <summary>The account must sign in again.</summary>
+    SignInAgain = 1,
+
+    /// <summary>The service refused the credential presented.</summary>
+    CredentialRefused,
+}
+
+/// <summary>The two readings of an access failure, kept apart: there is no winner and no rule choosing between
+/// them, since a field and a sentence disagree in practice and either may be the right one for a host. Each is
+/// null when its source said nothing about which.</summary>
+/// <param name="ByField">What a field the door defines stated: an HTTP 401 is a refused credential, the protocol's
+/// own authentication-required code a sign-in again.</param>
+/// <param name="ByWords">What the door's words implied.</param>
+public sealed record AgentAccessReadings(AccessReason? ByField, AccessReason? ByWords);
+
 /// <summary>One failed turn, as the door's own fields and words read it. <see cref="SessionEnded.Failure"/>
 /// carries it on every failed terminal the two CLI doors emit.</summary>
 /// <param name="Kind">What kind of failure it was. The order of reading is limit, then access, then
@@ -132,6 +237,10 @@ public sealed record AgentFailure(AgentFailureKind Kind, string By)
     /// (<see cref="RestrictionSubject.Model"/>, <see cref="RecoveryKind.OwnerAction"/>): a pool holds that account and
     /// model and nothing wider until the host clears it.</summary>
     public AgentRestriction? Restriction { get; init; }
+
+    /// <summary>For an <see cref="AgentFailureKind.Access"/> failure, what a field and the words each said of it;
+    /// null for every other kind. <see cref="Kind"/> stays what the fields decided.</summary>
+    public AgentAccessReadings? AccessReadings { get; init; }
 
     /// <summary>Whether the prompt was delivered. The door's session loop sets it from what the turn showed
     /// before it failed; a reader that builds a failure of its own leaves the default.</summary>

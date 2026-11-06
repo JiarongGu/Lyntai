@@ -27,7 +27,7 @@ namespace Lyntai.Providers.CodexCli;
 /// <para><b>The rule that is measured and load-bearing:</b> only <c>turn.failed</c> is terminal. A bare
 /// <c>error</c> line and an <c>error</c> ITEM both appeared in a run that went on to SUCCEED, so failing on
 /// either is wrong.</para></summary>
-internal sealed class CodexAgentReader
+internal sealed class CodexAgentReader : ICliAgentLineReader
 {
     private readonly HashSet<string> _startedItems = new(StringComparer.Ordinal);
     private readonly StringBuilder _answer = new();
@@ -43,6 +43,9 @@ internal sealed class CodexAgentReader
     /// <summary>The session id seen so far (<c>thread.started</c>), for a terminal the runner has to
     /// fabricate after a process-level fault.</summary>
     public string? ThreadId => _threadId;
+
+    /// <summary>The CLI states its own ending in <c>turn.completed</c> and <c>turn.failed</c>, so the end of the stream adds none.</summary>
+    public SessionEnded? ReadEnd(int exitCode) => null;
 
     /// <summary>The envelope types no case here took. A known notice (<c>turn.started</c>, <c>error</c>) is no case and is
     /// not unread, and an item of a type with no name here is a tool step, so it never is.</summary>

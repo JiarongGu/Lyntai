@@ -1,3 +1,7 @@
+enum Lyntai.Agents.AccessReason
+    CredentialRefused : AccessReason const
+    SignInAgain : AccessReason const
+    value__ : Int32
 static class Lyntai.Agents.AgentAbilities
     Accounts : String const
     DisallowedTools : String const
@@ -36,6 +40,15 @@ enum Lyntai.Agents.AgentAbilitySource
     Measured : AgentAbilitySource const
     Negotiated : AgentAbilitySource const
     value__ : Int32
+sealed class Lyntai.Agents.AgentAccessReadings
+    .ctor(Nullable<AccessReason> ByField, Nullable<AccessReason> ByWords)
+    ByField : Nullable<AccessReason> { get; init; }
+    ByWords : Nullable<AccessReason> { get; init; }
+    Deconstruct(Nullable`1& ByField, Nullable`1& ByWords) : Void
+    Equals(AgentAccessReadings other) : Boolean
+    Equals(Object obj) : Boolean
+    GetHashCode() : Int32
+    ToString() : String
 sealed class Lyntai.Agents.AgentAccount
     .ctor()
     Environment : IReadOnlyDictionary<String,String> { get; init; }
@@ -217,6 +230,7 @@ static class Lyntai.Agents.AgentDoorKinds
     Http : String const
 sealed class Lyntai.Agents.AgentFailure
     .ctor(AgentFailureKind Kind, String By)
+    AccessReadings : AgentAccessReadings { get; init; }
     By : String { get; init; }
     Deconstruct(AgentFailureKind& Kind, String& By) : Void
     Delivery : AgentDelivery { get; init; }
@@ -273,11 +287,44 @@ sealed class Lyntai.Agents.AgentHold
     Scope : String { get; init; }
     State : AgentHoldState { get; init; }
     ToString() : String
+sealed class Lyntai.Agents.AgentHoldEntry
+    .ctor(String Id, Int64 Revision, String Scope, AgentRestriction Restriction, DateTimeOffset ObservedAt, Nullable<DateTimeOffset> ReleasedAt, Nullable<DateTimeOffset> LeaseUntil, String LeaseToken)
+    Deconstruct(String& Id, Int64& Revision, String& Scope, AgentRestriction& Restriction, DateTimeOffset& ObservedAt, Nullable`1& ReleasedAt, Nullable`1& LeaseUntil, String& LeaseToken) : Void
+    Equals(AgentHoldEntry other) : Boolean
+    Equals(Object obj) : Boolean
+    GetHashCode() : Int32
+    Id : String { get; init; }
+    LeaseToken : String { get; init; }
+    LeaseUntil : Nullable<DateTimeOffset> { get; init; }
+    ObservedAt : DateTimeOffset { get; init; }
+    ReleasedAt : Nullable<DateTimeOffset> { get; init; }
+    Restriction : AgentRestriction { get; init; }
+    Revision : Int64 { get; init; }
+    Scope : String { get; init; }
+    ToString() : String
+sealed class Lyntai.Agents.AgentHoldRequest
+    .ctor(String Scope, AgentRestriction Restriction)
+    Deconstruct(String& Scope, AgentRestriction& Restriction) : Void
+    Equals(AgentHoldRequest other) : Boolean
+    Equals(Object obj) : Boolean
+    GetHashCode() : Int32
+    Restriction : AgentRestriction { get; init; }
+    Scope : String { get; init; }
+    ToString() : String
 enum Lyntai.Agents.AgentHoldState
     Attempting : AgentHoldState const
     Blocked : AgentHoldState const
     Ready : AgentHoldState const
     value__ : Int32
+struct Lyntai.Agents.AgentLease
+    .ctor(String HoldId, Int64 Revision)
+    Deconstruct(String& HoldId, Int64& Revision) : Void
+    Equals(AgentLease other) : Boolean
+    Equals(Object obj) : Boolean
+    GetHashCode() : Int32
+    HoldId : String { get; init; }
+    Revision : Int64 { get; init; }
+    ToString() : String
 sealed class Lyntai.Agents.AgentMcpServer
     .ctor()
     Arguments : IReadOnlyList<String> { get; init; }
@@ -365,12 +412,66 @@ sealed class Lyntai.Agents.AgentPickResult
     Pick : AgentPick { get; init; }
     ReadyAt : Nullable<DateTimeOffset> { get; init; }
     ToString() : String
+sealed class Lyntai.Agents.AgentPoolEvidence
+    .ctor(String HoldId, Int64 Revision, String SubjectKey, DateTimeOffset MeasuredAt, IReadOnlyCollection<RecoveryKind> Answers)
+    Answers : IReadOnlyCollection<RecoveryKind> { get; init; }
+    Deconstruct(String& HoldId, Int64& Revision, String& SubjectKey, DateTimeOffset& MeasuredAt, IReadOnlyCollection`1& Answers) : Void
+    Equals(AgentPoolEvidence other) : Boolean
+    Equals(Object obj) : Boolean
+    GetHashCode() : Int32
+    HoldId : String { get; init; }
+    MeasuredAt : DateTimeOffset { get; init; }
+    Revision : Int64 { get; init; }
+    SubjectKey : String { get; init; }
+    ToString() : String
 sealed class Lyntai.Agents.AgentPoolOptions
     .ctor()
     AttemptLease : TimeSpan { get; set; }
     Choices : List<AgentChoice> { get; }
     Name : String { get; set; }
     UnknownProbeAfter : Nullable<TimeSpan> { get; set; }
+static class Lyntai.Agents.AgentPoolReducer
+    static Abandon(AgentPoolSnapshot snapshot, String token) : AgentPoolStep<Int32>
+    static AccountScope(String provider, String account) : String
+    static Admit(AgentPoolSnapshot snapshot, IReadOnlyList<String> covering, DateTimeOffset now, AgentPoolTiming timing) : AgentSeatAdmission
+    static AllowanceScope(String allowance) : String
+    static Clear(AgentPoolSnapshot snapshot, String id, Int64 revision, DateTimeOffset now) : AgentPoolStep<Boolean>
+    static Covering(AgentAccount account, String provider, String model, String allowance) : IReadOnlyList<String>
+    static Discharge(AgentPoolSnapshot snapshot, AgentPoolEvidence evidence) : AgentPoolStep<Boolean>
+    static EndpointScope(String provider) : String
+    static HoldOf(AgentFailure failure, AgentAccount account, String provider, String model, String allowance) : AgentHoldRequest
+    static Label(String scope) : String
+    static Observe(AgentPoolSnapshot snapshot, AgentFailure failure, AgentAccount account, String provider, String model, String allowance, DateTimeOffset now) : AgentPoolStep<AgentHoldEntry>
+    static Observe(AgentPoolSnapshot snapshot, String scope, AgentRestriction restriction, DateTimeOffset now) : AgentPoolStep<AgentHoldEntry>
+    static Phase(AgentHoldEntry hold, DateTimeOffset now, AgentPoolTiming timing) : AgentHoldState
+    static ReleaseTime(AgentHoldEntry hold, AgentPoolTiming timing) : Nullable<DateTimeOffset>
+    static SeatScope(String provider, String account, String model) : String
+    static Succeed(AgentPoolSnapshot snapshot, IEnumerable<AgentLease> leases, String token) : AgentPoolStep<IReadOnlyList<String>>
+    static TakeSeat(AgentPoolSnapshot snapshot, IReadOnlyList<String> covering, String token, DateTimeOffset now, AgentPoolTiming timing) : AgentPoolStep<AgentSeatTaken>
+sealed class Lyntai.Agents.AgentPoolSnapshot
+    Holds : IReadOnlyDictionary<String,AgentHoldEntry> { get; }
+    RetiredRevisions : IReadOnlyDictionary<String,Int64> { get; }
+    static Create(IEnumerable<AgentHoldEntry> holds, IReadOnlyDictionary<String,Int64> retiredRevisions = null) : AgentPoolSnapshot
+    static Empty : AgentPoolSnapshot { get; }
+struct Lyntai.Agents.AgentPoolStep`1
+    .ctor(AgentPoolSnapshot Snapshot, T Outcome)
+    Deconstruct(AgentPoolSnapshot& Snapshot, T& Outcome) : Void
+    Equals(AgentPoolStep<T> other) : Boolean
+    Equals(Object obj) : Boolean
+    GetHashCode() : Int32
+    Outcome : T { get; init; }
+    Snapshot : AgentPoolSnapshot { get; init; }
+    ToString() : String
+struct Lyntai.Agents.AgentPoolTiming
+    .ctor(TimeSpan AttemptLease, Nullable<TimeSpan> UnknownProbeAfter)
+    AttemptLease : TimeSpan { get; init; }
+    Deconstruct(TimeSpan& AttemptLease, Nullable`1& UnknownProbeAfter) : Void
+    Equals(AgentPoolTiming other) : Boolean
+    Equals(Object obj) : Boolean
+    GetHashCode() : Int32
+    ToString() : String
+    UnknownProbeAfter : Nullable<TimeSpan> { get; init; }
+    static From(AgentPoolOptions options) : AgentPoolTiming
 sealed class Lyntai.Agents.AgentProvider
     .ctor(AgentProviderDescriptor descriptor, Func<AgentDoor,IAgentSession> sessions)
     AccountRefusedSubtype : String const
@@ -402,8 +503,10 @@ sealed class Lyntai.Agents.AgentRestriction
     Equals(Object obj) : Boolean
     GetHashCode() : Int32
     Recovery : RestrictionRecovery { get; init; }
+    Scope : String { get; init; }
     Subject : RestrictionSubject { get; init; }
     ToString() : String
+    Window : String { get; init; }
 sealed class Lyntai.Agents.AgentRetryOptions
     .ctor()
     ContinueWord : String { get; set; }
@@ -420,6 +523,27 @@ sealed class Lyntai.Agents.AgentSeat
     Equals(Object obj) : Boolean
     GetHashCode() : Int32
     IsProbe : Boolean { get; init; }
+    ToString() : String
+sealed class Lyntai.Agents.AgentSeatAdmission
+    .ctor(Boolean Permitted, IReadOnlyList<AgentHoldEntry> Probing, Nullable<DateTimeOffset> ReadyAt)
+    Deconstruct(Boolean& Permitted, IReadOnlyList`1& Probing, Nullable`1& ReadyAt) : Void
+    Equals(AgentSeatAdmission other) : Boolean
+    Equals(Object obj) : Boolean
+    GetHashCode() : Int32
+    Permitted : Boolean { get; init; }
+    Probing : IReadOnlyList<AgentHoldEntry> { get; init; }
+    ReadyAt : Nullable<DateTimeOffset> { get; init; }
+    ToString() : String
+sealed class Lyntai.Agents.AgentSeatTaken
+    .ctor(Boolean Permitted, IReadOnlyList<AgentLease> Leases, Nullable<DateTimeOffset> ReadyAt)
+    Deconstruct(Boolean& Permitted, IReadOnlyList`1& Leases, Nullable`1& ReadyAt) : Void
+    Equals(AgentSeatTaken other) : Boolean
+    Equals(Object obj) : Boolean
+    GetHashCode() : Int32
+    IsProbe : Boolean { get; }
+    Leases : IReadOnlyList<AgentLease> { get; init; }
+    Permitted : Boolean { get; init; }
+    ReadyAt : Nullable<DateTimeOffset> { get; init; }
     ToString() : String
 static class Lyntai.Agents.AgentSessionExtensions
     static RunAsync(IAgentSession session, AgentSessionOptions options, Action<AgentStreamEvent> onEvent = null, CancellationToken ct = default) : Task<AgentSessionResult>
@@ -681,6 +805,10 @@ interface Lyntai.Agents.IAgentUsageVersionPolicy
     ShouldStart(AgentUsageVersionQuery query) : Boolean
 interface Lyntai.Agents.IChatOrchestrator
     ChatAsync(ChatTurn turn, CancellationToken ct = default) : Task<ChatResult>
+interface Lyntai.Agents.ICliAgentLineReader
+    Read(String line) : IReadOnlyList<AgentStreamEvent>
+    ReadEnd(Int32 exitCode) : SessionEnded
+    Unread() : IReadOnlyList<AgentUnreadFrame>
 interface Lyntai.Agents.ICliToolProvisioner
     ProvisionAsync(CancellationToken ct = default) : Task<CliToolSession>
     ProvisionAsync(CliToolRequest request, CancellationToken ct = default) : Task<CliToolSession>
@@ -719,6 +847,13 @@ sealed class Lyntai.Agents.McpEndpoint
 enum Lyntai.Agents.McpTransport
     Http : McpTransport const
     Stdio : McpTransport const
+    value__ : Int32
+enum Lyntai.Agents.OwnerActionReason
+    Configure : OwnerActionReason const
+    Grant : OwnerActionReason const
+    Refill : OwnerActionReason const
+    SignIn : OwnerActionReason const
+    Unknown : OwnerActionReason const
     value__ : Int32
 sealed class Lyntai.Agents.PlanEntry
     .ctor(String Content, Nullable<PlanEntryStatus> Status)
@@ -770,8 +905,11 @@ sealed class Lyntai.Agents.RestrictionRecovery
     Equals(RestrictionRecovery other) : Boolean
     GetHashCode() : Int32
     Kind : RecoveryKind { get; init; }
+    Reason : OwnerActionReason { get; init; }
+    Stated : StatedRecoveryParts { get; init; }
     ToString() : String
     static OwnerAction : RestrictionRecovery { get; }
+    static OwnerActionFor(OwnerActionReason reason) : RestrictionRecovery
     static ResetAt(DateTimeOffset at) : RestrictionRecovery
     static RetryNotBefore(DateTimeOffset at) : RestrictionRecovery
     static Unknown : RestrictionRecovery { get; }
@@ -816,6 +954,28 @@ sealed class Lyntai.Agents.SessionStarted
     PrintMembers(StringBuilder builder) : Boolean
     SessionId : String { get; init; }
     ToString() : String
+sealed class Lyntai.Agents.StatedRecoveryParts
+    .ctor(StatedTimeShape Shape)
+    Date : Nullable<DateOnly> { get; init; }
+    Deconstruct(StatedTimeShape& Shape) : Void
+    Equals(Object obj) : Boolean
+    Equals(StatedRecoveryParts other) : Boolean
+    GetHashCode() : Int32
+    Moment : Nullable<DateTimeOffset> { get; init; }
+    Shape : StatedTimeShape { get; init; }
+    Time : Nullable<TimeOnly> { get; init; }
+    ToString() : String
+    Wait : Nullable<TimeSpan> { get; init; }
+    Weekday : Nullable<DayOfWeek> { get; init; }
+    Zone : String { get; init; }
+    ZoneNamed : Boolean { get; init; }
+enum Lyntai.Agents.StatedTimeShape
+    DateAndTime : StatedTimeShape const
+    Moment : StatedTimeShape const
+    TimeOfDay : StatedTimeShape const
+    Wait : StatedTimeShape const
+    WeekdayAndTime : StatedTimeShape const
+    value__ : Int32
 sealed class Lyntai.Agents.TextDelta
     .ctor(String Text)
     Deconstruct(String& Text) : Void
@@ -4347,11 +4507,18 @@ static class Lyntai.MemorySeedBuilderExtensions
 static class Lyntai.MemoryVerificationBuilderExtensions
     static AddMemoryVerification(LyntaiBuilder builder, Action<LlmVerificationOptions> configure = null) : LyntaiBuilder
 interface Lyntai.Processes.IProcessRunner
+    CanPauseInactivity : Boolean { get; }
     CommandExists(String command) : Boolean
+    ExchangeLinesAsync(String command, IReadOnlyList<String> args, IAsyncEnumerable<String> stdinLines, InactivityPause pause, Nullable<TimeSpan> inactivityTimeout = null, Nullable<TimeSpan> maxDuration = null, String workingDirectory = null, IReadOnlyDictionary<String,String> environment = null, CancellationToken ct = default) : IAsyncEnumerable<String>
     ExchangeLinesAsync(String command, IReadOnlyList<String> args, IAsyncEnumerable<String> stdinLines, Nullable<TimeSpan> inactivityTimeout = null, Nullable<TimeSpan> maxDuration = null, String workingDirectory = null, IReadOnlyDictionary<String,String> environment = null, CancellationToken ct = default) : IAsyncEnumerable<String>
     RunAsync(String command, IReadOnlyList<String> args, String stdin = null, Nullable<TimeSpan> inactivityTimeout = null, Nullable<TimeSpan> maxDuration = null, String workingDirectory = null, IReadOnlyDictionary<String,String> environment = null, CancellationToken ct = default) : Task<ProcessResult>
     StreamBytesAsync(String command, IReadOnlyList<String> args, String stdin = null, Nullable<TimeSpan> inactivityTimeout = null, Nullable<TimeSpan> maxDuration = null, String workingDirectory = null, IReadOnlyDictionary<String,String> environment = null, CancellationToken ct = default) : IAsyncEnumerable<Byte[]>
     StreamLinesAsync(String command, IReadOnlyList<String> args, String stdin = null, Nullable<TimeSpan> inactivityTimeout = null, Nullable<TimeSpan> maxDuration = null, String workingDirectory = null, IReadOnlyDictionary<String,String> environment = null, CancellationToken ct = default) : IAsyncEnumerable<String>
+sealed class Lyntai.Processes.InactivityPause
+    .ctor()
+    Hold() : IDisposable
+    IsPaused : Boolean { get; }
+    Subscribe(Action changed) : IDisposable
 static class Lyntai.Processes.OwnerOnlyTempFile
     static TryDelete(String path) : Void
     static Write(String kind, String content) : String
@@ -4375,6 +4542,8 @@ sealed class Lyntai.Processes.ProcessRunException
     StdErrTail : String { get; }
 sealed class Lyntai.Processes.ProcessRunner
     .ctor()
+    CanPauseInactivity : Boolean { get; }
+    ExchangeLinesAsync(String command, IReadOnlyList<String> args, IAsyncEnumerable<String> stdinLines, InactivityPause pause, Nullable<TimeSpan> inactivityTimeout = null, Nullable<TimeSpan> maxDuration = null, String workingDirectory = null, IReadOnlyDictionary<String,String> environment = null, CancellationToken ct = default) : IAsyncEnumerable<String>
     ExchangeLinesAsync(String command, IReadOnlyList<String> args, IAsyncEnumerable<String> stdinLines, Nullable<TimeSpan> inactivityTimeout = null, Nullable<TimeSpan> maxDuration = null, String workingDirectory = null, IReadOnlyDictionary<String,String> environment = null, CancellationToken ct = default) : IAsyncEnumerable<String>
     RunAsync(String command, IReadOnlyList<String> args, String stdin = null, Nullable<TimeSpan> inactivityTimeout = null, Nullable<TimeSpan> maxDuration = null, String workingDirectory = null, IReadOnlyDictionary<String,String> environment = null, CancellationToken ct = default) : Task<ProcessResult>
     StreamBytesAsync(String command, IReadOnlyList<String> args, String stdin = null, Nullable<TimeSpan> inactivityTimeout = null, Nullable<TimeSpan> maxDuration = null, String workingDirectory = null, IReadOnlyDictionary<String,String> environment = null, CancellationToken ct = default) : IAsyncEnumerable<Byte[]>

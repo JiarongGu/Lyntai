@@ -81,14 +81,16 @@ public static partial class ProviderVerdictClassifier
             {
                 ProviderVerdict.RateLimited => new AgentFailure(AgentFailureKind.Limit, "sentence:custom-matcher")
                     { Restriction = new(RestrictionCause.Unknown, RestrictionSubject.Unknown, RestrictionRecovery.Unknown) },
-                ProviderVerdict.AuthFailed or ProviderVerdict.NotConfigured => new AgentFailure(AgentFailureKind.Access, "sentence:custom-matcher"),
+                ProviderVerdict.AuthFailed or ProviderVerdict.NotConfigured => new AgentFailure(AgentFailureKind.Access, "sentence:custom-matcher")
+                    { AccessReadings = new(null, ReadAccessWords(text)) },
                 _ => null,
             };
         }
 
         if (RateLimitPattern().IsMatch(text)) return ReadLimit(text, time);
         if (ContextWindowPattern().IsMatch(text)) return null;
-        if (AuthPattern().IsMatch(text)) return new AgentFailure(AgentFailureKind.Access, "sentence:auth");
+        if (AuthPattern().IsMatch(text))
+            return new AgentFailure(AgentFailureKind.Access, "sentence:auth") { AccessReadings = new(null, ReadAccessWords(text)) };
         if (ModelRefusedPattern().IsMatch(text))
             return new AgentFailure(AgentFailureKind.Fatal, "sentence:model-refused")
             {
@@ -120,7 +122,7 @@ public static partial class ProviderVerdictClassifier
 
     // `stated` is a recovery the response carried outside the words (a header); it leads the sentence's own
     private static AgentFailure ReadLimit(string text, TimeProvider time, string? by = null,
-        RestrictionRecovery? stated = null, bool credit = false)
+        RestrictionRecovery? stated = null, bool credit = false, bool creditByField = false)
     {
         credit |= CreditPattern().IsMatch(text);
         var cause = credit ? RestrictionCause.Credit
@@ -131,7 +133,10 @@ public static partial class ProviderVerdictClassifier
             : ModelLimitPattern().IsMatch(text) ? RestrictionSubject.Model
             : cause is RestrictionCause.Credit or RestrictionCause.Quota ? RestrictionSubject.Account
             : RestrictionSubject.Unknown;
-        var recovery = credit ? RestrictionRecovery.OwnerAction : stated ?? StatedRecovery.Read(text, time) ?? RestrictionRecovery.Unknown;
+        // a refill is the reason only where a field (a status, a code) said credit; a sentence leaves it unsaid
+        var recovery = credit
+            ? creditByField ? RestrictionRecovery.OwnerActionFor(OwnerActionReason.Refill) : RestrictionRecovery.OwnerAction
+            : stated ?? StatedRecovery.Read(text, time) ?? RestrictionRecovery.Unknown;
 
         return new AgentFailure(AgentFailureKind.Limit, by ?? $"sentence:limit-{cause.ToString().ToLowerInvariant()}")
         {
@@ -268,6 +273,23 @@ public static partial class ProviderVerdictClassifier
     // auth context (a key/token/credential/401 nearby), mirroring how the rate-limit rule guards 429.
     [GeneratedRegex(@"(?:invalid|incorrect|missing|expired)\s+(?:api[\s_-]?key|token|credential)|api[\s_-]?key\s+(?:not\s+)?(?:valid|found|provided)|authentication\s+(?:failed|error|required)|401\s+unauthorized|(?:api[\s_-]?key|token|credential|access|auth\w*)[\s\S]{0,40}unauthorized|unauthorized[\s\S]{0,40}(?:api[\s_-]?key|token|credential|access|client)|(?:http|status(?:\s+code)?|error|code)\s*[:=]?\s*40[13]\b", RegexOptions.IgnoreCase)]
     private static partial Regex AuthPattern();
+
+    // Claude Code's recorded sign-in sentence is "Authentication required"; the rest are the same ask in other words
+    [GeneratedRegex(@"authentication\s+required|/login\b|(?:not|no\s+longer)\s+(?:logged|signed)\s+in|(?:log|sign)\s*in\s+again", RegexOptions.IgnoreCase)]
+    private static partial Regex SignInPattern();
+
+    // "expired" is left out: an expired key is refused and an expired session is a sign-in, and the words do not say which
+    [GeneratedRegex(@"(?:invalid|incorrect|revoked)\s+(?:api[\s_-]?key|token|credential)|401\s+unauthorized|unauthorized[\s\S]{0,40}(?:api[\s_-]?key|token|credential)|(?:http|status(?:\s+code)?|error|code)\s*[:=]?\s*401\b", RegexOptions.IgnoreCase)]
+    private static partial Regex RefusedCredentialPattern();
+
+    /// <summary>What an access failure's words imply: a sign-in again, a refused credential, or null where they
+    /// say neither. A sentence that says both reads as the sign-in.</summary>
+    internal static AccessReason? ReadAccessWords(string? text)
+    {
+        if (string.IsNullOrWhiteSpace(text)) return null;
+        if (SignInPattern().IsMatch(text)) return AccessReason.SignInAgain;
+        return RefusedCredentialPattern().IsMatch(text) ? AccessReason.CredentialRefused : null;
+    }
 
     [GeneratedRegex(@"content[\s_-]?(?:filter|policy)|policy\s+violation", RegexOptions.IgnoreCase)]
     private static partial Regex RefusalPattern();

@@ -209,7 +209,8 @@ public class HttpAgentSessionTests
         var failure = ended.Failure!;
         Assert.Equal(AgentFailureKind.Limit, failure.Kind);
         Assert.Equal(RestrictionCause.Rate, failure.Restriction!.Cause);
-        Assert.Equal(RestrictionRecovery.RetryNotBefore(clock.GetUtcNow().AddSeconds(120)), failure.Restriction.Recovery);
+        Assert.Equal(RestrictionRecovery.RetryNotBefore(clock.GetUtcNow().AddSeconds(120)) with { Stated = new StatedRecoveryParts(StatedTimeShape.Wait) { Wait = TimeSpan.FromSeconds(120) } },
+            failure.Restriction.Recovery);
         Assert.Equal(AgentDelivery.Taken, failure.Delivery);
         Assert.Single(handler.Requests);   // one pinned route, no fallback and no retry of its own
     }
@@ -273,7 +274,8 @@ public class HttpAgentSessionTests
         var lines = Ended(await Run(Session(streamed, [Tool("lookup")])));
 
         Assert.Equal((ProviderVerdict.RateLimited, AgentFailureKind.Limit), (whole.Verdict, whole.Failure!.Kind));
-        Assert.Equal(RestrictionRecovery.RetryNotBefore(clock.GetUtcNow().AddSeconds(30)), whole.Failure.Restriction!.Recovery);
+        Assert.Equal((RecoveryKind.RetryNotBefore, clock.GetUtcNow().AddSeconds(30)),
+            (whole.Failure.Restriction!.Recovery.Kind, whole.Failure.Restriction.Recovery.At!.Value));
         Assert.Equal((ProviderVerdict.RateLimited, AgentFailureKind.Limit), (lines.Verdict, lines.Failure!.Kind));
     }
 
