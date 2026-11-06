@@ -38,7 +38,7 @@ public sealed class AgentAccountPool
     private readonly record struct Place(AgentSeat Seat, string? Allowance);
 
     private readonly List<Place> _walk = [];
-    private readonly PoolRules _rules;
+    private readonly AgentPoolTiming _rules;
     private readonly string _prefix;
     private readonly string _revisionsKey;
     private readonly IKeyValueStore? _store;
@@ -46,7 +46,7 @@ public sealed class AgentAccountPool
     private readonly IAgentAccountPolicy _policy;
     private readonly ILogger _logger;
     private readonly SemaphoreSlim _gate = new(1, 1);
-    private PoolState _state = PoolState.Empty;
+    private AgentPoolSnapshot _state = AgentPoolSnapshot.Empty;
     private bool _loaded;
 
     /// <param name="options">The choices and bounds, read once.</param>
@@ -72,7 +72,7 @@ public sealed class AgentAccountPool
         var accountKeys = new Dictionary<string, string>(StringComparer.Ordinal);
         foreach (var provider in providers ?? []) accountKeys[provider.Id] = provider.AccountKey;   // a later registration wins, as in the registry
         options.Validate(accountKeys, checkOwners: true);
-        _rules = new PoolRules(options.AttemptLease, options.UnknownProbeAfter);
+        _rules = AgentPoolTiming.From(options);
         _prefix = $"lyntai:agent-pool:{Uri.EscapeDataString(options.Name)}:hold:";
         _revisionsKey = $"lyntai:agent-pool:{Uri.EscapeDataString(options.Name)}:revisions";
         _store = store;
@@ -112,15 +112,15 @@ public sealed class AgentAccountPool
         {
             await LoadAsync(ct).ConfigureAwait(false);
             var now = _time.GetUtcNow();
-            var offered = new List<(AgentSeat Seat, string? Allowance, SeatAdmission Admission)>();
+            var offered = new List<(AgentSeat Seat, string? Allowance)>();
             DateTimeOffset? soonest = null;
             var hostOnly = true;
             foreach (var (seat, allowance) in _walk)
             {
                 var admission = AgentPoolReducer.Admit(
-                    _state.Holds, AgentPoolReducer.Covering(seat.Account, seat.Choice.Provider, seat.Choice.Model, allowance), now, _rules);
+                    _state, AgentPoolReducer.Covering(seat.Account, seat.Choice.Provider, seat.Choice.Model, allowance), now, _rules);
                 if (admission.Permitted)
-                    offered.Add((seat with { IsProbe = admission.Probing.Count > 0 }, allowance, admission));
+                    offered.Add((seat with { IsProbe = admission.Probing.Count > 0 }, allowance));
                 else if (admission.ReadyAt is { } at)
                 {
                     hostOnly = false;
@@ -137,10 +137,12 @@ public sealed class AgentAccountPool
                     $"{_policy.GetType().Name} returned a seat it was not offered: account '{chosen.Account.Name}'.");
 
             var token = Guid.NewGuid().ToString("N");
-            var probing = offered[index].Admission.Probing;
-            await CommitAsync(_state with { Holds = AgentPoolReducer.Lease(_state.Holds, probing, token, now, _rules) }, ct).ConfigureAwait(false);
+            var (taken, allowanceOfSeat) = offered[index];
+            var reserved = AgentPoolReducer.TakeSeat(
+                _state, AgentPoolReducer.Covering(taken.Account, taken.Choice.Provider, taken.Choice.Model, allowanceOfSeat), token, now, _rules);
+            await CommitAsync(reserved.Snapshot, ct).ConfigureAwait(false);
             return new AgentPickResult(
-                new AgentPick(offered[index].Seat, token, [.. probing.Select(h => (h.Id, h.Revision))]), null);
+                new AgentPick(taken, token, [.. reserved.Outcome.Leases.Select(l => (l.HoldId, l.Revision))]), null);
         }
         finally { _gate.Release(); }
     }
@@ -162,15 +164,14 @@ public sealed class AgentAccountPool
             await LoadAsync(ct).ConfigureAwait(false);
             var state = _state;
             if (!ended.IsError)
-                state = AgentPoolReducer.Succeed(state, pick.Leases, pick.Token);
+                state = AgentPoolReducer.Succeed(state, pick.Leases.Select(l => new AgentLease(l.Id, l.Revision)), pick.Token).Snapshot;
             else
             {
-                state = state with { Holds = AgentPoolReducer.Unlease(state.Holds, pick.Token) };
+                state = AgentPoolReducer.Abandon(state, pick.Token).Snapshot;
                 var seat = pick.Seat;
                 var allowance = _walk.First(p => p.Seat.Account == seat.Account).Allowance;
-                if (ended.Failure is { } failure
-                    && AgentPoolReducer.FailureHold(failure, seat.Account, seat.Choice.Provider, seat.Choice.Model, allowance) is { } held)
-                    state = AgentPoolReducer.Hold(state, held.Scope, held.Restriction, _time.GetUtcNow());
+                if (ended.Failure is { } failure)
+                    state = AgentPoolReducer.Observe(state, failure, seat.Account, seat.Choice.Provider, seat.Choice.Model, allowance, _time.GetUtcNow()).Snapshot;
             }
             await CommitAsync(state, ct).ConfigureAwait(false);
         }
@@ -187,7 +188,7 @@ public sealed class AgentAccountPool
         try
         {
             await LoadAsync(ct).ConfigureAwait(false);
-            await CommitAsync(_state with { Holds = AgentPoolReducer.Unlease(_state.Holds, pick.Token) }, ct).ConfigureAwait(false);
+            await CommitAsync(AgentPoolReducer.Abandon(_state, pick.Token).Snapshot, ct).ConfigureAwait(false);
         }
         finally { _gate.Release(); }
     }
@@ -204,8 +205,8 @@ public sealed class AgentAccountPool
         try
         {
             await LoadAsync(ct).ConfigureAwait(false);
-            var (holds, cleared) = AgentPoolReducer.Clear(_state.Holds, id, revision, _time.GetUtcNow());
-            await CommitAsync(_state with { Holds = holds }, ct).ConfigureAwait(false);
+            var (next, cleared) = AgentPoolReducer.Clear(_state, id, revision, _time.GetUtcNow());
+            await CommitAsync(next, ct).ConfigureAwait(false);
             return cleared;
         }
         finally { _gate.Release(); }
@@ -230,7 +231,17 @@ public sealed class AgentAccountPool
             await LoadAsync(ct).ConfigureAwait(false);
             var scopes = new List<string> { AgentPoolReducer.AccountScope(account.Provider, account.Name) };
             if (place.Allowance is not null) scopes.Add(AgentPoolReducer.AllowanceScope(place.Allowance));
-            var (state, lifted) = AgentPoolReducer.Lift(_state, scopes, measuredAt, hasRoom);
+            // a reading of room answers a stated moment and nothing else: no reading frees an owner action or an unknown recovery
+            var state = _state;
+            var lifted = 0;
+            if (hasRoom == true)
+                foreach (var hold in _state.HoldMap.Values.Where(h => scopes.Contains(h.Scope, StringComparer.Ordinal)).ToList())
+                {
+                    var step = AgentPoolReducer.Discharge(state, new AgentPoolEvidence(
+                        hold.Id, hold.Revision, hold.Scope, measuredAt, [RecoveryKind.ResetAt, RecoveryKind.RetryNotBefore]));
+                    state = step.Snapshot;
+                    if (step.Outcome) lifted++;
+                }
             await CommitAsync(state, ct).ConfigureAwait(false);
             return lifted;
         }
@@ -245,7 +256,7 @@ public sealed class AgentAccountPool
         {
             await LoadAsync(ct).ConfigureAwait(false);
             var now = _time.GetUtcNow();
-            return [.. _state.Holds.Values.OrderBy(h => h.Id, StringComparer.Ordinal).Select(h => new AgentHold(
+            return [.. _state.HoldMap.Values.OrderBy(h => h.Id, StringComparer.Ordinal).Select(h => new AgentHold(
                 h.Id, h.Revision, AgentPoolReducer.Label(h.Scope), h.Restriction, h.ObservedAt,
                 AgentPoolReducer.Phase(h, now, _rules), AgentPoolReducer.ReleaseTime(h, _rules)))];
         }
@@ -266,11 +277,11 @@ public sealed class AgentAccountPool
         var state = _state;
         if (_store is not null)
         {
-            var holds = state.Holds;
+            var holds = new List<AgentHoldEntry>();
             foreach (var key in await _store.ListKeysAsync(_prefix, ct).ConfigureAwait(false))
                 if (Parse(key, await _store.GetAsync(key, ct).ConfigureAwait(false)) is { } hold)
-                    holds = holds.SetItem(hold.Id, hold);
-            state = new PoolState(holds, ParseRevisions(await _store.GetAsync(_revisionsKey, ct).ConfigureAwait(false)));
+                    holds.Add(hold);
+            state = AgentPoolSnapshot.Create(holds, ParseRevisions(await _store.GetAsync(_revisionsKey, ct).ConfigureAwait(false)));
         }
         _state = state;
         _loaded = true;
@@ -278,23 +289,23 @@ public sealed class AgentAccountPool
 
     // Memory is the truth in process; the write follows it. A write that throws leaves the new state in force here
     // and unwritten there, and the exception says so to the caller.
-    private async Task CommitAsync(PoolState next, CancellationToken ct)
+    private async Task CommitAsync(AgentPoolSnapshot next, CancellationToken ct)
     {
         var previous = _state;
         _state = next;
         if (_store is null) return;
         // the revisions go first: a hold removed and a restart before its key is gone must not lose where its id stood
-        if (!ReferenceEquals(previous.Retired, next.Retired))
-            await _store.SetAsync(_revisionsKey, WriteRevisions(next.Retired), ct).ConfigureAwait(false);
-        foreach (var (id, hold) in next.Holds)
-            if (!previous.Holds.TryGetValue(id, out var was) || !ReferenceEquals(was, hold))
+        if (!ReferenceEquals(previous.RetiredMap, next.RetiredMap))
+            await _store.SetAsync(_revisionsKey, WriteRevisions(next.RetiredMap), ct).ConfigureAwait(false);
+        foreach (var (id, hold) in next.HoldMap)
+            if (!previous.HoldMap.TryGetValue(id, out var was) || !ReferenceEquals(was, hold))
                 await _store.SetAsync(_prefix + id, Write(hold), ct).ConfigureAwait(false);
-        foreach (var id in previous.Holds.Keys)
-            if (!next.Holds.ContainsKey(id))
+        foreach (var id in previous.HoldMap.Keys)
+            if (!next.HoldMap.ContainsKey(id))
                 await _store.DeleteAsync(_prefix + id, ct).ConfigureAwait(false);
     }
 
-    private static string WriteRevisions(ImmutableDictionary<string, long> retired)
+    private static string WriteRevisions(IReadOnlyDictionary<string, long> retired)
     {
         var o = new JsonObject();
         foreach (var (id, revision) in retired) o[id] = revision;
@@ -302,25 +313,29 @@ public sealed class AgentAccountPool
     }
 
     // a record that does not read costs only the guarantee it kept, and is reported like a hold that does not read
-    private ImmutableDictionary<string, long> ParseRevisions(string? raw)
+    private Dictionary<string, long> ParseRevisions(string? raw)
     {
-        var revisions = PoolState.Empty.Retired;
+        var revisions = new Dictionary<string, long>();
         if (raw is null) return revisions;
         try
         {
             foreach (var (id, revision) in JsonNode.Parse(raw)!.AsObject())
-                revisions = revisions.SetItem(id, revision!.GetValue<long>());
+            {
+                var kept = revision!.GetValue<long>();
+                if (kept < 1) throw new FormatException("a revision below 1");
+                revisions[id] = kept;
+            }
         }
         catch (Exception e) when (e is JsonException or InvalidOperationException or FormatException
                                       or ArgumentException or NullReferenceException or OverflowException)
         {
             _logger.LogWarning(e, "agent pool: skipping '{Key}' — it does not read as retired revisions", _revisionsKey);
-            return PoolState.Empty.Retired;
+            return [];
         }
         return revisions;
     }
 
-    private static string Write(HoldRow hold)
+    private static string Write(AgentHoldEntry hold)
     {
         var o = new JsonObject
         {
@@ -340,7 +355,7 @@ public sealed class AgentAccountPool
         return o.ToJsonString();
     }
 
-    private HoldRow? Parse(string key, string? raw)
+    private AgentHoldEntry? Parse(string key, string? raw)
     {
         if (raw is null) return null;
         try
@@ -350,7 +365,8 @@ public sealed class AgentAccountPool
             var stated = o["at"] is { } at ? Time(at) : (DateTimeOffset?)null;
             if (recovery is RecoveryKind.ResetAt or RecoveryKind.RetryNotBefore && stated is null)
                 throw new FormatException("a stated recovery with no moment");
-            return new HoldRow(
+            if (o["revision"]!.GetValue<long>() < 1) throw new FormatException("a revision below 1");
+            return new AgentHoldEntry(
                 Text(o, "id"), o["revision"]!.GetValue<long>(), Text(o, "scope"),
                 new AgentRestriction(
                     Enum.Parse<RestrictionCause>(Text(o, "cause")), Enum.Parse<RestrictionSubject>(Text(o, "subject")),

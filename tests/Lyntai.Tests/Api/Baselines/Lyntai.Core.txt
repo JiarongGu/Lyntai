@@ -287,11 +287,44 @@ sealed class Lyntai.Agents.AgentHold
     Scope : String { get; init; }
     State : AgentHoldState { get; init; }
     ToString() : String
+sealed class Lyntai.Agents.AgentHoldEntry
+    .ctor(String Id, Int64 Revision, String Scope, AgentRestriction Restriction, DateTimeOffset ObservedAt, Nullable<DateTimeOffset> ReleasedAt, Nullable<DateTimeOffset> LeaseUntil, String LeaseToken)
+    Deconstruct(String& Id, Int64& Revision, String& Scope, AgentRestriction& Restriction, DateTimeOffset& ObservedAt, Nullable`1& ReleasedAt, Nullable`1& LeaseUntil, String& LeaseToken) : Void
+    Equals(AgentHoldEntry other) : Boolean
+    Equals(Object obj) : Boolean
+    GetHashCode() : Int32
+    Id : String { get; init; }
+    LeaseToken : String { get; init; }
+    LeaseUntil : Nullable<DateTimeOffset> { get; init; }
+    ObservedAt : DateTimeOffset { get; init; }
+    ReleasedAt : Nullable<DateTimeOffset> { get; init; }
+    Restriction : AgentRestriction { get; init; }
+    Revision : Int64 { get; init; }
+    Scope : String { get; init; }
+    ToString() : String
+sealed class Lyntai.Agents.AgentHoldRequest
+    .ctor(String Scope, AgentRestriction Restriction)
+    Deconstruct(String& Scope, AgentRestriction& Restriction) : Void
+    Equals(AgentHoldRequest other) : Boolean
+    Equals(Object obj) : Boolean
+    GetHashCode() : Int32
+    Restriction : AgentRestriction { get; init; }
+    Scope : String { get; init; }
+    ToString() : String
 enum Lyntai.Agents.AgentHoldState
     Attempting : AgentHoldState const
     Blocked : AgentHoldState const
     Ready : AgentHoldState const
     value__ : Int32
+struct Lyntai.Agents.AgentLease
+    .ctor(String HoldId, Int64 Revision)
+    Deconstruct(String& HoldId, Int64& Revision) : Void
+    Equals(AgentLease other) : Boolean
+    Equals(Object obj) : Boolean
+    GetHashCode() : Int32
+    HoldId : String { get; init; }
+    Revision : Int64 { get; init; }
+    ToString() : String
 sealed class Lyntai.Agents.AgentMcpServer
     .ctor()
     Arguments : IReadOnlyList<String> { get; init; }
@@ -379,12 +412,66 @@ sealed class Lyntai.Agents.AgentPickResult
     Pick : AgentPick { get; init; }
     ReadyAt : Nullable<DateTimeOffset> { get; init; }
     ToString() : String
+sealed class Lyntai.Agents.AgentPoolEvidence
+    .ctor(String HoldId, Int64 Revision, String SubjectKey, DateTimeOffset MeasuredAt, IReadOnlyCollection<RecoveryKind> Answers)
+    Answers : IReadOnlyCollection<RecoveryKind> { get; init; }
+    Deconstruct(String& HoldId, Int64& Revision, String& SubjectKey, DateTimeOffset& MeasuredAt, IReadOnlyCollection`1& Answers) : Void
+    Equals(AgentPoolEvidence other) : Boolean
+    Equals(Object obj) : Boolean
+    GetHashCode() : Int32
+    HoldId : String { get; init; }
+    MeasuredAt : DateTimeOffset { get; init; }
+    Revision : Int64 { get; init; }
+    SubjectKey : String { get; init; }
+    ToString() : String
 sealed class Lyntai.Agents.AgentPoolOptions
     .ctor()
     AttemptLease : TimeSpan { get; set; }
     Choices : List<AgentChoice> { get; }
     Name : String { get; set; }
     UnknownProbeAfter : Nullable<TimeSpan> { get; set; }
+static class Lyntai.Agents.AgentPoolReducer
+    static Abandon(AgentPoolSnapshot snapshot, String token) : AgentPoolStep<Int32>
+    static AccountScope(String provider, String account) : String
+    static Admit(AgentPoolSnapshot snapshot, IReadOnlyList<String> covering, DateTimeOffset now, AgentPoolTiming timing) : AgentSeatAdmission
+    static AllowanceScope(String allowance) : String
+    static Clear(AgentPoolSnapshot snapshot, String id, Int64 revision, DateTimeOffset now) : AgentPoolStep<Boolean>
+    static Covering(AgentAccount account, String provider, String model, String allowance) : IReadOnlyList<String>
+    static Discharge(AgentPoolSnapshot snapshot, AgentPoolEvidence evidence) : AgentPoolStep<Boolean>
+    static EndpointScope(String provider) : String
+    static HoldOf(AgentFailure failure, AgentAccount account, String provider, String model, String allowance) : AgentHoldRequest
+    static Label(String scope) : String
+    static Observe(AgentPoolSnapshot snapshot, AgentFailure failure, AgentAccount account, String provider, String model, String allowance, DateTimeOffset now) : AgentPoolStep<AgentHoldEntry>
+    static Observe(AgentPoolSnapshot snapshot, String scope, AgentRestriction restriction, DateTimeOffset now) : AgentPoolStep<AgentHoldEntry>
+    static Phase(AgentHoldEntry hold, DateTimeOffset now, AgentPoolTiming timing) : AgentHoldState
+    static ReleaseTime(AgentHoldEntry hold, AgentPoolTiming timing) : Nullable<DateTimeOffset>
+    static SeatScope(String provider, String account, String model) : String
+    static Succeed(AgentPoolSnapshot snapshot, IEnumerable<AgentLease> leases, String token) : AgentPoolStep<IReadOnlyList<String>>
+    static TakeSeat(AgentPoolSnapshot snapshot, IReadOnlyList<String> covering, String token, DateTimeOffset now, AgentPoolTiming timing) : AgentPoolStep<AgentSeatTaken>
+sealed class Lyntai.Agents.AgentPoolSnapshot
+    Holds : IReadOnlyDictionary<String,AgentHoldEntry> { get; }
+    RetiredRevisions : IReadOnlyDictionary<String,Int64> { get; }
+    static Create(IEnumerable<AgentHoldEntry> holds, IReadOnlyDictionary<String,Int64> retiredRevisions = null) : AgentPoolSnapshot
+    static Empty : AgentPoolSnapshot { get; }
+struct Lyntai.Agents.AgentPoolStep`1
+    .ctor(AgentPoolSnapshot Snapshot, T Outcome)
+    Deconstruct(AgentPoolSnapshot& Snapshot, T& Outcome) : Void
+    Equals(AgentPoolStep<T> other) : Boolean
+    Equals(Object obj) : Boolean
+    GetHashCode() : Int32
+    Outcome : T { get; init; }
+    Snapshot : AgentPoolSnapshot { get; init; }
+    ToString() : String
+struct Lyntai.Agents.AgentPoolTiming
+    .ctor(TimeSpan AttemptLease, Nullable<TimeSpan> UnknownProbeAfter)
+    AttemptLease : TimeSpan { get; init; }
+    Deconstruct(TimeSpan& AttemptLease, Nullable`1& UnknownProbeAfter) : Void
+    Equals(AgentPoolTiming other) : Boolean
+    Equals(Object obj) : Boolean
+    GetHashCode() : Int32
+    ToString() : String
+    UnknownProbeAfter : Nullable<TimeSpan> { get; init; }
+    static From(AgentPoolOptions options) : AgentPoolTiming
 sealed class Lyntai.Agents.AgentProvider
     .ctor(AgentProviderDescriptor descriptor, Func<AgentDoor,IAgentSession> sessions)
     AccountRefusedSubtype : String const
@@ -436,6 +523,27 @@ sealed class Lyntai.Agents.AgentSeat
     Equals(Object obj) : Boolean
     GetHashCode() : Int32
     IsProbe : Boolean { get; init; }
+    ToString() : String
+sealed class Lyntai.Agents.AgentSeatAdmission
+    .ctor(Boolean Permitted, IReadOnlyList<AgentHoldEntry> Probing, Nullable<DateTimeOffset> ReadyAt)
+    Deconstruct(Boolean& Permitted, IReadOnlyList`1& Probing, Nullable`1& ReadyAt) : Void
+    Equals(AgentSeatAdmission other) : Boolean
+    Equals(Object obj) : Boolean
+    GetHashCode() : Int32
+    Permitted : Boolean { get; init; }
+    Probing : IReadOnlyList<AgentHoldEntry> { get; init; }
+    ReadyAt : Nullable<DateTimeOffset> { get; init; }
+    ToString() : String
+sealed class Lyntai.Agents.AgentSeatTaken
+    .ctor(Boolean Permitted, IReadOnlyList<AgentLease> Leases, Nullable<DateTimeOffset> ReadyAt)
+    Deconstruct(Boolean& Permitted, IReadOnlyList`1& Leases, Nullable`1& ReadyAt) : Void
+    Equals(AgentSeatTaken other) : Boolean
+    Equals(Object obj) : Boolean
+    GetHashCode() : Int32
+    IsProbe : Boolean { get; }
+    Leases : IReadOnlyList<AgentLease> { get; init; }
+    Permitted : Boolean { get; init; }
+    ReadyAt : Nullable<DateTimeOffset> { get; init; }
     ToString() : String
 static class Lyntai.Agents.AgentSessionExtensions
     static RunAsync(IAgentSession session, AgentSessionOptions options, Action<AgentStreamEvent> onEvent = null, CancellationToken ct = default) : Task<AgentSessionResult>

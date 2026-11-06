@@ -15,23 +15,22 @@ LLM-ops layer (prompt registry, scoring, traces, memory). `AddLyntai(...)` and g
 
 <!-- open-items:begin — GENERATED. Edit the per-item `item:` markers, never this table. -->
 
-## Open items — 10 across 5 Parts: 4 startable, 3 blocked, 3 watch
+## Open items — 9 across 5 Parts: 3 startable, 3 blocked, 3 watch
 
 _Generated from the per-item `<!-- item: … -->` markers by `node devtools/dev.mjs check-backlog --write`._
 _Edit a marker, never this table — `verify` fails the moment the two disagree._
 
 | line | Part | item | state | waiting on |
 | ---: | ---: | --- | --- | --- |
-| 111 | 33 | GEN-VERIFY-FAL, the last line — the Hugging Face route | blocked · env | an hf_ token for the router route |
-| 152 | 75 | Decide what an aggregator's in-band `code` means | blocked · env+data | two or three real aggregators to measure an in-band code against |
-| 179 | 99 | `verify`'s test step intermittently fails EXACTLY 9 tests, and once aborted… | watch · data | the same nine tests to recur — the fix is unconfirmed as the cure, and a gr… |
-| 238 | 99 | `InputSegmenterTests.Counting_NFKC_is_LINEAR_in_the_length_of_the_text` fai… | watch · data | a recurrence under the full parallel run, with the ratio it read — the mess… |
-| 256 | 99 | `AgentUsageProcessTests.A_server_that_never_answers_is_ended_with_its_child… | watch · data | a recurrence under the full parallel run, with the load it ran under; it fa… |
-| 294 | 417 | MC8 — run the wrong-end instrument on an adjudicated corpus, with a bar wri… | blocked · decision+data | two reviewers' independent labels on a sample of the pairs, and a bar a per… |
-| 320 | 446 | AG38 — a permission request waits for the person when the host says so | startable |  |
-| 329 | 446 | AG44 — the restriction rules are public over a snapshot the host stores | startable |  |
-| 335 | 446 | AG45 — a host's line reader runs under the CLI turn's rules | startable |  |
-| 341 | 446 | AG39 — a run kept across turns: the design | startable |  |
+| 110 | 33 | GEN-VERIFY-FAL, the last line — the Hugging Face route | blocked · env | an hf_ token for the router route |
+| 151 | 75 | Decide what an aggregator's in-band `code` means | blocked · env+data | two or three real aggregators to measure an in-band code against |
+| 178 | 99 | `verify`'s test step intermittently fails EXACTLY 9 tests, and once aborted… | watch · data | the same nine tests to recur — the fix is unconfirmed as the cure, and a gr… |
+| 237 | 99 | `InputSegmenterTests.Counting_NFKC_is_LINEAR_in_the_length_of_the_text` fai… | watch · data | a recurrence under the full parallel run, with the ratio it read — the mess… |
+| 255 | 99 | `AgentUsageProcessTests.A_server_that_never_answers_is_ended_with_its_child… | watch · data | a recurrence under the full parallel run, with the load it ran under; it fa… |
+| 293 | 417 | MC8 — run the wrong-end instrument on an adjudicated corpus, with a bar wri… | blocked · decision+data | two reviewers' independent labels on a sample of the pairs, and a bar a per… |
+| 319 | 446 | AG38 — a permission request waits for the person when the host says so | startable |  |
+| 328 | 446 | AG45 — a host's line reader runs under the CLI turn's rules | startable |  |
+| 334 | 446 | AG39 — a run kept across turns: the design | startable |  |
 
 <!-- open-items:end -->
 
@@ -325,12 +324,6 @@ last because it designs the largest piece; the rest in any order. No row spends 
   stand-in that asks and stays silent: answered after longer than the window by a held approver (the turn goes on), refused at half
   the window without the option, and the cancelled outcome on a cancelled turn; the shipped runner honours the member under a short
   window.
-
-- [ ] **AG44 — the restriction rules are public over a snapshot the host stores** (lane `platform`, after AG43, **D247**). <!-- item: state=startable -->
-  **Contract.** An immutable snapshot and the operations **D247** lists, as pure functions returning the next snapshot and an
-  outcome, with the pool rebuilt on them; an evidence observation names the hold's id, revision and subject key and the recovery
-  kinds it answers. **Proof.** Every existing pool test unchanged, a stale, wrong-scope and other-subject observation discharging
-  nothing, a lease report by a token that lost it ignored, and a snapshot round-tripped through a host's own serialisation.
 
 - [ ] **AG45 — a host's line reader runs under the CLI turn's rules** (lane `inference`, **D249**). <!-- item: state=startable -->
   **Contract.** `CliAgentLoop`'s turn is public over `ICliAgentLineReader` (a line to events; the end with its exit code to a
