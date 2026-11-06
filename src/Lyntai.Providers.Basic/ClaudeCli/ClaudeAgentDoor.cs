@@ -50,7 +50,7 @@ internal static class ClaudeAgentDoor
                     },
                     Claim(AgentAbilities.PermissionRequests, AgentSupport.Unsupported, "a turn is one non-interactive process: the tool policy and the deny list decide, and no request reaches the host"),
                     Claim(AgentAbilities.PermissionMode, AgentSupport.Supported,
-                        "--permission-mode with a word `claude --help` lists (2.1.319): " + string.Join(", ", ClaudeAgentArgs.PermissionModes)
+                        "--permission-mode with a word `claude --help` lists (2.1.319), or `default`, which that version accepts unlisted: " + string.Join(", ", ClaudeAgentArgs.PermissionModes)
                         + "; any other word refuses the turn, and the tool policy's own mapping is not applied beside it. `--help` does not say that bypassPermissions equals --dangerously-skip-permissions, so none is claimed"),
                     Claim(AgentAbilities.Effort, AgentSupport.Supported,
                         "--effort with a level `claude --help` lists (2.1.319): " + string.Join(", ", ClaudeAgentArgs.EffortLevels) + "; any other refuses the turn"),

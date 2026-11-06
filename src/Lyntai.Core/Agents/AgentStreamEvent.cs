@@ -15,6 +15,24 @@ public sealed record SessionStarted(string SessionId) : AgentStreamEvent
     public bool Announced { get; init; } = true;
 }
 
+/// <summary>What the agent says it started with, as its own start frame lists it (Claude's <c>system/init</c>): a reading of the
+/// frame, never of what the host handed, so it can differ from the host's request. Yielded after the <see cref="SessionStarted"/>
+/// of the same frame; a door whose start states none of the four lists yields none. A list the frame omits reads empty, and a
+/// name the agent spells as a bare string or as an object's <c>name</c> reads the same. It says nothing of the prompt and never
+/// counts toward its delivery.</summary>
+/// <param name="Tools">The tools the agent says it has, in its order.</param>
+/// <param name="McpServers">The MCP servers it lists, with the agent's own word for each one's state.</param>
+/// <param name="Skills">The skills it lists.</param>
+/// <param name="Plugins">The plugins it lists.</param>
+public sealed record AgentLoaded(
+    IReadOnlyList<string> Tools, IReadOnlyList<AgentLoadedServer> McpServers,
+    IReadOnlyList<string> Skills, IReadOnlyList<string> Plugins) : AgentStreamEvent;
+
+/// <summary>One MCP server an <see cref="AgentLoaded"/> lists.</summary>
+/// <param name="Name">The server's name.</param>
+/// <param name="Status">The agent's own word for its state (<c>connected</c>, <c>failed</c>…), uninterpreted; null when it states none.</param>
+public sealed record AgentLoadedServer(string Name, string? Status);
+
 /// <summary>A chunk of assistant answer text.</summary>
 public sealed record TextDelta(string Text) : AgentStreamEvent
 {

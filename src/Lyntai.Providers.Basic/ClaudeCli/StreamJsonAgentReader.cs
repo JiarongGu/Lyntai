@@ -22,12 +22,39 @@ internal sealed class StreamJsonAgentReader : ICliAgentLineReader
     private readonly UnreadFrames _unread = new();
     private string _line = "";
 
+    // a streamed text delta since the last own assistant message (or message_start): that message's words were already yielded
+    private bool _streamedText;
+    private bool _readAssistant;
+    private bool _readResult;
+    private readonly HashSet<string> _pendingCalls = new(StringComparer.Ordinal);
+
+    /// <summary>The <see cref="SessionEnded.Subtype"/> of a turn the process ended cleanly with no <c>result</c> frame.</summary>
+    internal const string NoResultSubtype = "no-result-frame";
+
     /// <param name="time">The clock a <see cref="UsageReading.MeasuredAt"/> is stamped from; null = the system
     /// clock.</param>
     public StreamJsonAgentReader(TimeProvider? time = null) => _time = time ?? TimeProvider.System;
 
-    /// <summary>The CLI states its own ending in the <c>result</c> line, so the end of the stream adds none.</summary>
-    public SessionEnded? ReadEnd(int exitCode) => null;
+    /// <summary>The CLI states its own ending in the <c>result</c> line, so the end of the stream adds none — except a process
+    /// that exits 0 after an assistant message of its own with no <c>result</c> frame, which ends the turn as
+    /// <see cref="NoResultSubtype"/>: not an error, the last assistant text as its words (null when it had none). It stays
+    /// the loop's failed turn when a tool call of its own was never answered (the agent was cut off mid-step), and an
+    /// assistant message that was an API error ends it with that error's failure. A non-zero exit is the process fault's.</summary>
+    public SessionEnded? ReadEnd(int exitCode)
+    {
+        if (exitCode != 0 || _readResult || !_readAssistant || _pendingCalls.Count > 0) return null;
+        var failure = _assistantError is null
+            ? null
+            : StreamJsonFailure.Read(null, _assistantError, _rejectedLimit, _lastAssistantText, _time);
+        return new SessionEnded(
+            Verdict: failure is null ? ProviderVerdict.Ok : ProviderVerdictClassifier.FromAgentFailure(failure, _lastAssistantText ?? NoResultSubtype),
+            IsError: failure is not null,
+            Subtype: NoResultSubtype,
+            SessionId: _sessionId,
+            FinalText: _lastAssistantText,
+            Diagnostic: null)
+        { Failure = failure };
+    }
 
     /// <summary>The frames no case here took, by type: a type this reader has no case for, and a streamed event it
     /// has no case for.</summary>
@@ -104,6 +131,42 @@ internal sealed class StreamJsonAgentReader : ICliAgentLineReader
             _sessionId = sessionId;
             yield return new SessionStarted(sessionId) { Announced = announced };
         }
+
+        if (WireJson.String(root, "subtype") == "init" && ReadLoaded(root) is { } loaded)
+            yield return loaded;
+    }
+
+    // what the init frame lists; null when it carries none of the four lists, so a bare init yields nothing beyond its start
+    private static AgentLoaded? ReadLoaded(JsonElement root)
+    {
+        if (!HasList(root, "tools") && !HasList(root, "mcp_servers") && !HasList(root, "skills") && !HasList(root, "plugins"))
+            return null;
+
+        var servers = new List<AgentLoadedServer>();
+        if (WireJson.Array(root, "mcp_servers") is { } list)
+        {
+            foreach (var server in list.EnumerateArray())
+            {
+                if (WireJson.String(server, "name") is { Length: > 0 } name)
+                    servers.Add(new AgentLoadedServer(name, WireJson.String(server, "status") is { Length: > 0 } status ? status : null));
+            }
+        }
+        return new AgentLoaded(Names(root, "tools"), servers, Names(root, "skills"), Names(root, "plugins"));
+    }
+
+    private static bool HasList(JsonElement root, string field) => WireJson.Array(root, field) is not null;
+
+    // an entry is a bare string or an object's `name`, by the harness version
+    private static List<string> Names(JsonElement root, string field)
+    {
+        var names = new List<string>();
+        if (WireJson.Array(root, field) is not { } list) return names;
+        foreach (var item in list.EnumerateArray())
+        {
+            var name = item.ValueKind == JsonValueKind.String ? item.GetString() : WireJson.String(item, "name");
+            if (!string.IsNullOrEmpty(name)) names.Add(name);
+        }
+        return names;
     }
 
     // ── task_* (background work) ─────────────────────────────────────────────
@@ -139,6 +202,7 @@ internal sealed class StreamJsonAgentReader : ICliAgentLineReader
         // Only content_block_delta carries text/thinking deltas we care about
         if (!eventTypeEl.ValueEquals("content_block_delta"))
         {
+            if (eventTypeEl.ValueEquals("message_start")) _streamedText = false;
             if (!KnownStreamEvents.Contains(eventTypeEl.GetString()!)) _unread.Note("stream_event", eventTypeEl.GetString(), _line);
             yield break;
         }
@@ -153,7 +217,10 @@ internal sealed class StreamJsonAgentReader : ICliAgentLineReader
         if (deltaType == "text_delta")
         {
             if (deltaEl.TryGetProperty("text", out var textEl) && textEl.ValueKind == JsonValueKind.String)
+            {
+                _streamedText = true;
                 yield return new TextDelta(textEl.GetString()!);
+            }
         }
         else if (deltaType == "thinking_delta")
         {
@@ -191,7 +258,7 @@ internal sealed class StreamJsonAgentReader : ICliAgentLineReader
                 var blockType = WireJson.String(block, "type");
                 if (blockType == "text")
                 {
-                    // text blocks are NOT re-emitted (already streamed via stream_event deltas), but the
+                    // own text is NOT re-emitted when stream_event deltas already carried it (see below), and the
                     // last assistant turn's text is retained so a terminal result that ends empty
                     // (truncation / older CLI / provider variant) can fall back to it (see ReadResult).
                     if (own && block.TryGetProperty("text", out var textEl) && textEl.ValueKind == JsonValueKind.String)
@@ -216,6 +283,7 @@ internal sealed class StreamJsonAgentReader : ICliAgentLineReader
                         ? inputEl.GetRawText()
                         : "{}";
                     blocks.Add(new ToolCall(name, argsJson, id) { ParentCallId = parentCallId });
+                    if (own && id is not null) _pendingCalls.Add(id);
                     if (own && name == TodoWriteTool && ReadTodoPlan(block) is { } todoPlan)
                         plan = todoPlan;   // the last list in a message is the plan as it now stands
                 }
@@ -225,6 +293,14 @@ internal sealed class StreamJsonAgentReader : ICliAgentLineReader
         // Remember the last NON-EMPTY assistant text (a later tool-only turn must not clear it).
         if (text is { Length: > 0 })
             _lastAssistantText = text.ToString();
+
+        // an answer that arrived whole, with no partial delta before it, is read from the message itself
+        if (own)
+        {
+            _readAssistant = true;
+            if (text is { Length: > 0 } && !_streamedText) yield return new TextDelta(text.ToString());
+            _streamedText = false;
+        }
 
         foreach (var block in blocks)
             yield return block;
@@ -264,7 +340,7 @@ internal sealed class StreamJsonAgentReader : ICliAgentLineReader
 
     // ── user (tool results fed back) ─────────────────────────────────────────
 
-    private static IEnumerable<AgentStreamEvent> ReadUser(JsonElement root, string? parentCallId)
+    private IEnumerable<AgentStreamEvent> ReadUser(JsonElement root, string? parentCallId)
     {
         if (!root.TryGetProperty("message", out var msg) || msg.ValueKind != JsonValueKind.Object)
             yield break;
@@ -280,6 +356,8 @@ internal sealed class StreamJsonAgentReader : ICliAgentLineReader
             var callId = block.TryGetProperty("tool_use_id", out var idEl) && idEl.ValueKind == JsonValueKind.String
                 ? idEl.GetString()
                 : null;
+
+            if (parentCallId is null && callId is not null) _pendingCalls.Remove(callId);
 
             var isError = block.TryGetProperty("is_error", out var isErrorEl) && isErrorEl.ValueKind == JsonValueKind.True;
 
@@ -325,6 +403,7 @@ internal sealed class StreamJsonAgentReader : ICliAgentLineReader
 
     private IEnumerable<AgentStreamEvent> ReadResult(JsonElement root)
     {
+        _readResult = true;
         var isError = root.TryGetProperty("is_error", out var isErrorEl) && isErrorEl.ValueKind == JsonValueKind.True;
 
         var subtype = root.TryGetProperty("subtype", out var subtypeEl) && subtypeEl.ValueKind == JsonValueKind.String

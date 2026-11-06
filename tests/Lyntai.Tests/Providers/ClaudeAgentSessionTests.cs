@@ -346,6 +346,7 @@ public class ClaudeAgentSessionTests
     [InlineData("acceptEdits")]
     [InlineData("auto")]
     [InlineData("bypassPermissions")]
+    [InlineData("default")]
     [InlineData("manual")]
     [InlineData("dontAsk")]
     [InlineData("plan")]
@@ -415,7 +416,7 @@ public class ClaudeAgentSessionTests
         var (ended, _) = await Refused(new AgentSessionOptions { Prompt = "hi", PermissionMode = word });
 
         Assert.Contains($"permission mode '{word}'", ended.Diagnostic);
-        Assert.Contains("acceptEdits, auto, bypassPermissions, manual, dontAsk, plan", ended.Diagnostic);
+        Assert.Contains("acceptEdits, auto, bypassPermissions, default, manual, dontAsk, plan", ended.Diagnostic);
     }
 
     [Theory]
