@@ -1,6 +1,6 @@
 # The agent-provider layer against Daoris's accepted provider design — a study
 
-**Status: a study (`docs/documents.md`), 2026-10-29; AG20, AG11, AG12, AG10, AG13, AG14, AG15, AG16, AG17, AG18 and AG19 are built, the rest is not.** It reads Lyntai's layer
+**Status: a study (`docs/documents.md`), 2026-10-29; AG20, AG11, AG12, AG10, AG13, AG14, AG15, AG16, AG17, AG18 and AG19 are built, the rest is not; §10 answers a later request, A-LQ3 to A-LQ17, by rows AG25 to AG45, none built.** It reads Lyntai's layer
 (`docs/agent-provider-layer.md`, **D219**, rows AG1 to AG9 closed in `docs/task-archive.md`) against two designs
 Daoris has since accepted, and files what a host that runs coding agents still needs from the layer as rows AG10 to
 AG20 in `TASKS.md` (all closed in `docs/task-archive.md` since) and **D233**. AG20 was ruled and built as **D234**, and §9 states how a host
@@ -217,3 +217,94 @@ trust file and whether a start with no account runs in its own home, `Reach` and
 provider, the rule language, skills and hooks, the plugin catalogue and its manifest, the census, the eight-fact
 applicability of a measurement, and a plugin door's `Lent` part. **Not filed, with a trigger**: a long-lived run
 (**D233**), provenance on every reading, an offered-model list (§3.1 row n).
+
+## 10. Daoris's second request: what its moves still wait on (A-LQ3 to A-LQ17)
+
+Daoris takes the layer from a pack of a named commit (§9, **D235**) and moves a door onto it only when the layer carries everything
+Daoris does on that door today, case for case. It asked, read at `master` `8aacfb8f`, for twelve needs numbered **A-LQ** (the LQ
+numbers are Daoris's memory requests). Each was read against the code as it stands and put to the generic-library test with the
+asker struck; **none is built**, and a need declined keeps Daoris's own transport on that door. The rulings are **D244** to
+**D249**; the rows are `TASKS.md` Part 446, AG25 to AG45.
+
+| Need | Ruling | Row | Decision |
+|---|---|---|---|
+| **A-LQ4** a permission mode as the agent's own | **taken**: one option carrying the agent's word; a door that cannot carry it states so and is refused before a spawn | AG25 (CLI doors), AG28 (ACP door) | **D244** |
+| **A-LQ5** effort carried or refused | **taken**, the same shape as the model (**D243**) | AG26, AG28 | **D244** |
+| **A-LQ6** plugins handed or refused | **taken** as a neutral option and ability; only the Claude door carries it | AG27 | **D244** |
+| **A-LQ9** a turn's own variables | **taken**, last, as a turn's environment | AG29 | **D244** |
+| **A-LQ7** a child's and a task's life | **taken in part**: a child's words, a protocol child, an unread frame; **answered another way** for a child's start and end; **routed to the kept run** for a woken turn and a replay | AG30, AG31, AG32; AG39 | **D245**, **D248** |
+| **A-LQ17** a turn's own report, a session start as announced | **taken**: denials, usage by model, the context figure, a start told from a frame that carries the id | AG33, AG34, AG35 | **D245** |
+| **A-LQ8** what the open offered | **taken** for the protocol door, as an event before the prompt | AG36 | **D245** |
+| **A-LQ3** a run kept across turns | **taken in three steps**: the prompt's own delivery, a request that waits for the person, then the kept run as a design first | AG37, AG38, AG39 | **D248** |
+| **A-LQ11** why a hold needs a person, what access failed | **taken**: a reason on the owner action, and two readings of an access failure kept apart | AG40 | **D246** |
+| **A-LQ16** a limit's window, the reset as stated, the reports | **taken**: the window on the restriction, the stated parts on the recovery, a report event | AG41, AG42 | **D246** |
+| **A-LQ12** the restriction rules without the walk | **taken**: two defects first, then the rules public over a snapshot the host stores | AG43, AG44 | **D247** |
+| **A-LQ13** the CLI turn's rules over a host's reader | **taken** | AG45 | **D249** |
+| **A-LQ10** a built-in door built without a container | **declined**: the registration is how the door's claims and usage source are wired | none | **D249** |
+
+### 10.1 What each reading rests on
+
+- **A-LQ4.** `ClaudeAgentArgs.Build` writes `--permission-mode acceptEdits` for a write turn and nothing else, and
+  `ClaudeAgentOptions.SkipAllPermissions` replaces it; no option carries a mode, and the ACP reader never sets one. A mode is
+  vendor vocabulary, so the option holds the agent's own word and a door refuses a word it was not measured with: Daoris's
+  "refuse before a spawn", and **D243**'s model shape without its list check, since a CLI has no list to ask. **The second half is
+  not filed**: the always-denied flow tools (`AlwaysDenied`) are a fact about a door, and when Daoris's measurement says whether a
+  driven start should keep them, the door states the set it denies in its claim's evidence, which needs no option.
+- **A-LQ5.** `AgentChoice.Effort` is carried to the host on the pick and no door reads it. The model's shape makes a pool pick drop
+  nothing: `AgentPick.Apply` sets it, and a door that cannot carry it states `Unsupported`. A protocol agent offers effort as a
+  config option of a category, which the door finds as it finds the model.
+- **A-LQ6.** A plugin directory is the agent's own extension folder, so what is in it is never read; a door that does not carry it
+  refuses. Only `claude` has the flag measured by anyone here, so every other door states `Unsupported` until a row measures one.
+- **A-LQ7.** `StreamJsonAgentReader.ReadAssistant` reads a subagent's calls and drops its `text` blocks (the `own` guard), and reads
+  no `thinking` block at all. A subagent's lines are not partial (§4, AG10), so its words arrive whole in the complete message and
+  one `TextDelta` with a parent is the honest shape. **A child's start and end are not new events**: its first event with a
+  `ParentCallId` is its start, and its end is the `AgentTaskEnded` of the task `AgentTaskStarted` opened for that call, else the
+  `ToolResult` of the call, because a background child's call returns at once while it runs on and a synchronous child has no
+  task. Two sources that can disagree are a worse contract than one rule written down and tested, which is AG30's documentation
+  half. The protocol door drops a child's session by id and reads none of the `parentToolUseId` stamp that a child not declared as a
+  session carries on the root session (Daoris's record of `claude-agent-acp`), which is AG10's defect on the other door (AG31). The
+  turn a task's notification wakes exists only when the agent's stdin stays open; today a turn is one process whose end ends its
+  background work, so that and a replayed frame are the kept run's (AG39). Readers are tolerant by design and an unread frame
+  leaves no trace; a bounded count and sample on the terminal is the cheapest trace that cannot flood a stream (AG32).
+- **A-LQ17.** The Claude `result` frame carries `permission_denials`, `modelUsage` (by model, with `contextWindow`) and the usage;
+  the layer reads none of the first two, and `UsageFinal.Model` is the last model the reader remembered. `SessionStarted` is
+  yielded for any `system` frame with a new id, which the reader's own comment says is deliberate; the distinction Daoris needs is a
+  flag on the event, and the host keeps the first one announced. A cost the CLI states is not carried: Lyntai reports a backend's
+  cost only where it is the backend's own figure (`.agents/knowledge/lyntai-computations.md`), and nothing here asks for it.
+- **A-LQ8.** `AcpModelOption` already reads the offers from the open's answer and keeps them for a diagnostic's words. An event
+  before the prompt carries every option the agent offered, its current value and its values, so a refused turn still shows the host
+  what it could have chosen. It must not count as delivery, which is AG37's rule.
+- **A-LQ3.** One `StreamAsync` is one turn and one process, by **D219** §10, and **D233** left a kept run an option with a trigger,
+  met now by a host that needs a word taken mid-turn. Three things in the request do not need a kept run. **Delivery:**
+  `AcpAgentReader.StartPrompt` yields `SessionStarted` and writes the prompt in the same call, and `CliAgentLoop.Stamp` counts any
+  event but the terminal, so a protocol turn whose agent dies right after the open reads `Taken` with the prompt never read. **A
+  request held for the person:** `IAcpPermissionApprover` refuses at half the inactivity window, and the runner's clock ends a
+  silent agent, so waiting as long as the host holds needs the clock told. **A repeatable open** has no meaning before a connection
+  is kept. The kept run itself is a design, and AG39 is the design.
+- **A-LQ11.** `AgentFailureKind.Access` and `RecoveryKind.OwnerAction` say that a person must act and not which action. The door's
+  fields (`error` categories, a status) say an access failure in a word that does not tell a sign-in from a refused credential, and
+  the sentence does; **D219** says only a field classifies, and a sentence may fill a detail the field left open
+  (`StreamJsonFailure.Merge`). Daoris's "never one winner" is kept by carrying both readings and a rule for neither.
+- **A-LQ16.** `RejectedLimit` is internal and keeps a window, a reset and a scope that `AgentRestriction` then cannot state; an
+  `allowed` frame is dropped by `NoteRateLimit`; the session builds its reader with the system clock; and `StatedRecovery.Read`
+  returns null for a zone it cannot find, which drops a stated time whole. **What stays Daoris's**, as it asks: the names it gives a
+  window and its policy for a time that has passed today, because the library states the parts and its own resolution under its one
+  rule (the next occurrence, a minute of skew allowed) and a host re-resolves from the parts.
+- **A-LQ12.** `AgentPoolReducer` is pure and internal, and `AgentAccountPool` is single-process by **D227**, whose re-open condition
+  is this need; the host's store is the host's, so the answer is the rules public over a snapshot and not an atomic store
+  capability. **Two defects came out of the read, both from the source and not run:** `Hold` computes revision 1 for an id no longer
+  held, so a clear that names an old revision 1 matches a hold recreated at revision 1; and `Succeed` removes the hold whose
+  revision matches without asking whether the reporting attempt's lease token still owns it.
+- **A-LQ13.** `CliAgentLoop` is internal. The runner raises `ProcessRunException` with its exit code on a non-zero end and ends the
+  stream silently on zero, so a host's reader needs the end told to it with that code, and a stream that ends with no terminal is
+  fatal only when the reader yielded none.
+- **A-LQ10.** Registration is DI-first by the repository's own rule, and a built-in door's claims, usage source and account mapping
+  are wired by `AddClaudeCliAgentSession` and its siblings; a constructor outside it would be a second place the claims drift from
+  the wire. The cost Daoris names, a private container per start, is a cost and not a blocker.
+
+### 10.2 What this section does not establish
+
+It read the code and Daoris's checked-in records and ran nothing. A wire fact a row needs is labelled SOURCE-DERIVED where it rests
+on Daoris's capture, and the row says so in its proof. Whether a Codex or protocol agent emits a child frame the layer should read
+stays as §8 left it. What the installed `claude` lists for modes, effort levels and `--plugin-dir` is the first step of AG25, AG26
+and AG27: a `--help` read, no spend.

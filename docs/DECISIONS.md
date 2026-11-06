@@ -313,8 +313,14 @@ new decision overturns an old one, rewrite the old entry as a stub pointing here
 | [D241](#d241--a-model-driven-knowledge-systems-memory-is-kept-current-by-an-end-a-confirmer-applies-a-view-that-only-reads-and-a-check-the-host-stands-behind-2026-10-30) | 2026-10-30 | a model-driven knowledge system's memory is kept current by an end a confirmer applies, a view th… |
 | [D242](#d242--a-supersession-can-apply-as-one-change-a-view-over-another-task-only-reads-and-a-callers-key-makes-a-write-answerable-2026-10-31) | 2026-10-31 | a supersession can apply as one change, a view over another task only reads, and a caller's key m… |
 | [D243](#d243--a-model-is-carried-or-the-turn-ends-the-agents-answer-decides-and-a-refused-model-is-a-hold-on-one-seat-2026-11-01) | 2026-11-01 | a model is carried or the turn ends, the agent's answer decides, and a refused model is a hold on… |
+| [D244](#d244--a-permission-mode-an-effort-a-plugin-folder-and-a-turns-variables-are-options-a-door-carries-or-refuses-in-the-agents-own-words-2026-11-06) | 2026-11-06 | a permission mode, an effort, a plugin folder and a turn's variables are options a door carries o… |
+| [D245](#d245--a-childs-life-is-the-events-it-already-has-a-turns-own-report-is-stated-as-the-agent-stated-it-and-an-opens-offers-are-an-event-2026-11-06) | 2026-11-06 | a child's life is the events it already has, a turn's own report is stated as the agent stated it… |
+| [D246](#d246--a-failure-states-why-a-person-must-act-and-what-access-failed-a-limit-states-its-window-and-the-reset-as-said-and-every-allowance-report-is-an-event-2026-11-06) | 2026-11-06 | a failure states why a person must act and what access failed, a limit states its window and the… |
+| [D247](#d247--the-restriction-rules-are-public-over-a-snapshot-the-host-stores-and-a-holds-identity-is-never-reused-2026-11-06) | 2026-11-06 | the restriction rules are public over a snapshot the host stores, and a hold's identity is never… |
+| [D248](#d248--a-prompts-delivery-is-what-its-turn-showed-after-the-write-a-request-waits-for-the-person-when-the-host-says-so-and-a-kept-run-is-designed-before-it-is-built-2026-11-06) | 2026-11-06 | a prompt's delivery is what its turn showed after the write, a request waits for the person when… |
+| [D249](#d249--a-hosts-own-cli-agent-runs-under-the-librarys-turn-rules-and-a-built-in-door-is-not-constructed-by-hand-2026-11-06) | 2026-11-06 | a host's own CLI agent runs under the library's turn rules, and a built-in door is not constructe… |
 
-**238 live decisions.** The rest are stubs — `D<n>` is a permanent identifier, so a number is never reused or renumbered (5): [D36](#d36--a-translation-between-two-verdict-taxonomies-gets-one-arm-per-member-gated-by-a-test-2026-08-05) → D136 · [D80](#d80--merged-into-d77-2026-08-16-folded-2026-08-17) → D77 · [D131](#d131--a-backends-produces-is-derived-from-its-configuration-so-a-modality-is-a-field-2026-09-14) → D133 · [D134](#d134--a-registration-names-the-backend-the-provider-suffix-is-gone-from-all-seventeen-2026-09-14) → D137 · [D145](#d145--the-microsoftextensionsai-module-is-a-bridge-not-a-provider-2026-09-15) → D146
+**244 live decisions.** The rest are stubs — `D<n>` is a permanent identifier, so a number is never reused or renumbered (5): [D36](#d36--a-translation-between-two-verdict-taxonomies-gets-one-arm-per-member-gated-by-a-test-2026-08-05) → D136 · [D80](#d80--merged-into-d77-2026-08-16-folded-2026-08-17) → D77 · [D131](#d131--a-backends-produces-is-derived-from-its-configuration-so-a-modality-is-a-field-2026-09-14) → D133 · [D134](#d134--a-registration-names-the-backend-the-provider-suffix-is-gone-from-all-seventeen-2026-09-14) → D137 · [D145](#d145--the-microsoftextensionsai-module-is-a-bridge-not-a-provider-2026-09-15) → D146
 
 <!-- index:end -->
 
@@ -7050,3 +7056,166 @@ codex CLI's refusal (none was recorded). Reading the older `models` list and `se
 
 **Re-opens** when an agent states its model only through the older list, or when a door's refusal is shown to hold for that door
 alone, which needs a hold that names the door.
+
+## D244 — a permission mode, an effort, a plugin folder and a turn's variables are options a door carries or refuses, in the agent's own words (2026-11-06)
+
+**Standing.** Written from Daoris's second request (`docs/agent-provider-daoris-study.md` §10, A-LQ4, A-LQ5, A-LQ6, A-LQ9), as a
+working position; nothing is built, and reversing it costs a frozen surface once a release carries a member (**D70**).
+
+**Decided.**
+- **Each is a neutral option holding the agent's own word, with an ability a door states**, as the model is (**D243**):
+  `AgentSessionOptions` gains `PermissionMode`, `Effort`, `PluginDirectories` and `Environment`, and the abilities `permission-mode`,
+  `effort`, `plugins` and `environment`. A door that states one `Unsupported` is refused before a spawn like any option, and no
+  door drops one. Nothing interprets the word: a mode and an effort are vendor vocabulary.
+- **A named mode is the host's own gate.** The turn's `ToolPolicy` mapping (the `acceptEdits` mode and the write-tool denial of a
+  read-only turn) is not applied beside it, while `DisallowedTools` and the door's always-denied tools stand; a mode together with
+  the Claude door's `SkipAllPermissions` is refused as a contradiction. A door refuses a mode it was not measured with, stating
+  the ones it carries, since a CLI has no list to ask. `AgentPick.Apply` sets `Effort` from the choice.
+- **A turn's `Environment` applies over the registration's and beneath the account's**, a null removing a variable, so a pool's
+  account home and keys still win. A door with no process states it `Unsupported`.
+- **Plugins are carried by the Claude door alone** (`--plugin-dir` per entry); the rest state `Unsupported` until a row measures a
+  flag. The folder's contents are never read.
+- **Not filed:** the set of tools a headless Claude turn always denies, which Daoris is still measuring. It is a fact about the
+  door and will be stated in the claim's evidence, never an option.
+
+**Why.** The model's shape already says an option is carried or refused and that a pool pick drops nothing, so the same rule
+serves every option a host chooses per turn. A closed enum of modes would put a vendor's vocabulary in Core.
+
+**Rejected.** A neutral permission enum (the three postures are Daoris's, and `AgentToolPolicy`'s two intents already are the
+neutral ones). A mode stacked on `ToolPolicy` (a default read-only policy would silently veto the mode the host named). A plugin
+option on `ClaudeAgentOptions` alone (another door would drop it, which the layer forbids).
+
+**Re-opens** when a host needs a mode or effort word before a door lists it, which needs a set the host names at registration.
+
+## D245 — a child's life is the events it already has, a turn's own report is stated as the agent stated it, and an open's offers are an event (2026-11-06)
+
+**Standing.** As **D244** (A-LQ7, A-LQ8, A-LQ17); a working position, nothing built, frozen from release (**D70**).
+
+**Decided.**
+- **A child's words carry the call that spawned it.** `TextDelta` and `Thinking` gain a `ParentCallId`; the Claude reader reads a
+  subagent's complete `text` and `thinking` blocks as one event each, and the protocol door reads the `parentToolUseId` stamp a
+  child carries on the root session. A child's start is its first event with a parent, and its end is the `AgentTaskEnded` of
+  the task opened for that call, else the `ToolResult` of the call. **No `ChildStarted` or `ChildEnded` event is added.**
+- **An unread frame is counted, not streamed.** `SessionEnded` gains `Unread`, listing by type and subtype, a count and one sample each,
+  bounded in entries and in characters; the readers stay tolerant, and nothing in the stream grows by a frame.
+- **A turn's own report is carried as the agent stated it**: each denied tool call with the tool and the reason where the agent
+  gives one, tokens by the model that spent them with its context window, and the protocol door's context figures. A cost the
+  agent states is not carried (Lyntai never prices, `.agents/knowledge/lyntai-computations.md`).
+- **`SessionStarted` says whether the agent announced the session** (its `init`) **or a later frame merely carried the id**; the
+  host keeps the first announced one.
+- **The protocol door states what the open offered** as an event before the prompt: each option's category, id, current value and
+  values, so a refused turn still shows what was offered. It does not count toward delivery (**D248**).
+
+**Why.** A child's start and end read two ways (a task, or a call and its result) because a background child returns its call at
+once and a synchronous one has no task; one event stating both would be a third source that can disagree with the other two. A
+frame stream that grows an event per unread frame is the flood the readers' tolerance exists to avoid.
+
+**Rejected.** `ChildStarted` and `ChildEnded` events. An unread frame as an event or a log line only (a host cannot read a log).
+A cost field (the layer's rule). Marking provenance on every reading (`docs/agent-provider-daoris-study.md` §3.1 row l keeps its
+trigger).
+
+**Re-opens** when a child's end by the two rules above is shown wrong for a measured child (a nested or a failed one, not seen).
+
+## D246 — a failure states why a person must act and what access failed, a limit states its window and the reset as said, and every allowance report is an event (2026-11-06)
+
+**Standing.** As **D244** (A-LQ11, A-LQ16); a working position, nothing built, frozen from release (**D70**).
+
+**Decided.**
+- **An owner action carries a reason**: `RestrictionRecovery` gains `Reason` (refill, sign in, grant a permission, change a
+  configuration, or unknown), set only from a field the door defines (`billing_error` is a refill, a refused model a
+  configuration change), never from words.
+- **An access failure carries two readings kept apart**: what a field the door defines stated (a sign-in again, or a credential
+  refused) and what the words implied, each null when it said nothing. There is no winner and no rule choosing between them; the
+  failure's `Kind` stays what the fields decided (**D219**).
+- **A restriction names the window and scope the door stated**, in the door's own words (`five_hour`, a `limitScope`), and the
+  recovery keeps what a sentence stated: the parts of a time (a moment, a date and time, a weekday and time, a time of day, a
+  wait), its zone as named or assumed, and the library's own resolution under its one rule. An unresolvable zone returns the parts
+  with an unknown kind, never null. The sessions take the host's `TimeProvider`.
+- **Every `rate_limit_event` frame is an event**, allowed as well as rejected, on both doors that carry one: the window as
+  `AgentAllowanceWindow` states it (value, precision, reset, scope), the report's standing, and the overage and credit state it names.
+- **The host's naming and its policy for an omitted or passed time stay the host's**, which it applies to the parts.
+
+**Why.** An application tells a person what to do about a hold only if the failure says which action, and a host's time of day
+read a minute behind is its policy (tomorrow's), so the stated parts must survive for it. The pair of access readings is kept
+because a field and a sentence disagree in practice and either may be the right one for a host.
+
+**Rejected.** A single access reason resolved by the library (it would be a winner). A public sentence parser (it would freeze the
+two measured grammars as surface). A default for a time that has passed today (**D219**: a default is the host's).
+
+**Re-opens** when a door's field states a sign-in and a refusal apart, which makes the words reading redundant for that door.
+
+## D247 — the restriction rules are public over a snapshot the host stores, and a hold's identity is never reused (2026-11-06)
+
+**Standing.** As **D244** (A-LQ12); a working position, nothing built, frozen from release (**D70**). It answers **D227**'s re-open
+condition ("when two processes must share one pool") by the host's store and not the library's.
+
+**Decided.**
+- **The reducer's operations become public over an immutable snapshot**: a failure observed as a hold (restated at a higher
+  revision when its attempt fails); admission over a seat's covering scopes with a door's allowance among them; a reservation
+  committed against the whole applicable state; a probe lease with its token, resolved by that token only while it still owns it;
+  a clear by id and revision; and an evidence observation with no attempt, naming the hold's identity, revision and subject key.
+  The host stores the snapshot and serialises its writes; `AgentAccountPool` is built on the same operations.
+- **An observation discharges only the recovery kinds its evidence answers**, which the host names; a stale one, one for another
+  scope or another subject discharges nothing.
+- **A hold's identity is never reused after its removal**: the snapshot keeps the highest revision a removed id reached, so a
+  recreated hold continues from it and a stale clear cannot match. A report resolves a lease only while its token owns it.
+
+**Why.** The pool's `Hold` computes revision 1 for an id no longer held and `Succeed` ignores the lease token, so a stale clear or
+a late success can act on a newer hold; both are defects before they are a feature, and they are fixed first.
+
+**Rejected.** An atomic store capability (the host's store is not the library's, and a second store contract is a major-only break,
+**D18**). A shared pool across processes inside the library (**D227**). Identity by a timestamp (clock skew between processes).
+
+**Re-opens** when a host that keeps no store of its own needs the pool shared, which is the atomic capability above.
+
+## D248 — a prompt's delivery is what its turn showed after the write, a request waits for the person when the host says so, and a kept run is designed before it is built (2026-11-06)
+
+**Standing.** As **D244** (A-LQ3, and A-LQ7's woken turn and replay); a working position, nothing built, frozen from release
+(**D70**). It meets **D233**'s trigger for a long-lived run ("a host that needs a word taken mid-turn") and keeps that entry's
+other half: a hosted agent stays out.
+
+**Decided.**
+- **Delivery is stamped from what the turn showed after the prompt was written.** The protocol door announces the session before it
+  writes the prompt, so a session start no longer counts toward `Taken` on a door that does that, and neither do the offers
+  (**D245**) or an allowance report; the terminal also carries, by kind, which of the turn's events came after the write and whether
+  the write completed. `AgentDelivery`'s three values and the retry rule keyed on them are unchanged.
+- **A held permission request waits for the person only when the host registers it so.** The default stays half the inactivity
+  window (`IAcpPermissionApprover`'s own rule); the option makes the request wait as long as the approver holds it, and the process runner is told
+  not to read the wait as a silent agent. A runner that cannot be told refuses the option at registration.
+- **A kept run is a separate optional capability and a design first.** `IAgentSession` and its one-turn model stay as they are; a
+  run kept across turns (a word taken mid-turn, a stop that keeps the conversation, a model re-asked, background work read until it
+  ends, the turn a notification wakes, a replay told from live, an open the host may repeat alone) is designed from Daoris's
+  measured records of which agents accept each, in a study and a decision, before any code. **The library never repeats an open
+  itself.**
+
+**Why.** The first two fix what the one-turn model already gets wrong or cannot wait for and need no kept connection; the third
+is the largest surface the layer has and **D219** §10 deferred it for want of a measurement that now exists.
+
+**Rejected.** Building the kept run now (a design with five open measurements). A new `IAgentSession` method (a break for every
+BYO session, **D70**). An unbounded permission wait as the default (a host that registers an approver and forgets it would hang a
+turn). Changing the delivery enum (the retry rule is keyed on it).
+
+**Re-opens** when the design finds a kept run cannot sit beside the one-turn model without changing it.
+
+## D249 — a host's own CLI agent runs under the library's turn rules, and a built-in door is not constructed by hand (2026-11-06)
+
+**Standing.** As **D244** (A-LQ13, A-LQ10); a working position, nothing built, frozen from release (**D70**).
+
+**Decided.**
+- **The CLI turn's rules are public over a reader the host supplies**: one terminal, a fault made the terminal, delivery stamped
+  from what the turn showed, for a program started as the library starts its own. The reader is told when the stream ends and with
+  which exit code (zero on a clean end, the runner's `ProcessRunException.ExitCode` otherwise), so it can yield its terminal there; a
+  stream that ends with no terminal is fatal only when the reader yielded none.
+- **A built-in door is reached through its registration only.** A host that composes without a container resolves the provider
+  from a registry built by `AddLyntai` and the door's `Add…AgentSession`, which is where its claims, usage source and account
+  mapping are wired.
+
+**Why.** The loop is the one place a turn ends the same way on every door, and a host's own program should end it the same way.
+A door built by hand is a second place its claims could drift from the wire.
+
+**Rejected.** Public constructors for `ClaudeAgentDoor`, `CodexAgentDoor` and `AcpAgentDoor` (the repository's DI-first rule, and the
+claims are the library's measurement). A reader that yields the terminal itself with no end signal (a plain-line program has no
+terminal to find).
+
+**Re-opens** when a host shows the cost of a container per start is the obstacle, which needs a lighter composition root and not a
+public constructor.
