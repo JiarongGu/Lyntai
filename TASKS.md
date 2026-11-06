@@ -15,35 +15,34 @@ LLM-ops layer (prompt registry, scoring, traces, memory). `AddLyntai(...)` and g
 
 <!-- open-items:begin — GENERATED. Edit the per-item `item:` markers, never this table. -->
 
-## Open items — 22 across 5 Parts: 16 startable, 3 blocked, 3 watch
+## Open items — 21 across 5 Parts: 15 startable, 3 blocked, 3 watch
 
 _Generated from the per-item `<!-- item: … -->` markers by `node devtools/dev.mjs check-backlog --write`._
 _Edit a marker, never this table — `verify` fails the moment the two disagree._
 
 | line | Part | item | state | waiting on |
 | ---: | ---: | --- | --- | --- |
-| 123 | 33 | GEN-VERIFY-FAL, the last line — the Hugging Face route | blocked · env | an hf_ token for the router route |
-| 164 | 75 | Decide what an aggregator's in-band `code` means | blocked · env+data | two or three real aggregators to measure an in-band code against |
-| 191 | 99 | `verify`'s test step intermittently fails EXACTLY 9 tests, and once aborted… | watch · data | the same nine tests to recur — the fix is unconfirmed as the cure, and a gr… |
-| 250 | 99 | `InputSegmenterTests.Counting_NFKC_is_LINEAR_in_the_length_of_the_text` fai… | watch · data | a recurrence under the full parallel run, with the ratio it read — the mess… |
-| 268 | 99 | `AgentUsageProcessTests.A_server_that_never_answers_is_ended_with_its_child… | watch · data | a recurrence under the full parallel run, with the load it ran under; it fa… |
-| 306 | 417 | MC8 — run the wrong-end instrument on an adjudicated corpus, with a bar wri… | blocked · decision+data | two reviewers' independent labels on a sample of the pairs, and a bar a per… |
-| 332 | 446 | AG38 — a permission request waits for the person when the host says so | startable |  |
-| 341 | 446 | AG28 — the protocol door carries a permission mode and an effort | startable |  |
-| 347 | 446 | AG29 — a turn's own variables | startable |  |
-| 353 | 446 | AG30 — a child's words carry the call that spawned it, and its life is writ… | startable |  |
-| 360 | 446 | AG31 — the protocol door keeps a child's stamped lines apart | startable |  |
-| 367 | 446 | AG32 — an unread frame leaves a bounded trace | startable |  |
-| 373 | 446 | AG33 — the Claude door states a turn's own report: denials and usage by mod… | startable |  |
-| 379 | 446 | AG34 — the protocol door states the context figures its updates report | startable |  |
-| 383 | 446 | AG35 — a session start says whether the agent announced it | startable |  |
-| 388 | 446 | AG36 — the protocol door states what the open offered | startable |  |
-| 394 | 446 | AG40 — why a person must act, and what kind of access failed | startable |  |
-| 400 | 446 | AG41 — a limit names its window and a stated reset keeps its parts | startable |  |
-| 407 | 446 | AG42 — every allowance report is an event | startable |  |
-| 413 | 446 | AG44 — the restriction rules are public over a snapshot the host stores | startable |  |
-| 419 | 446 | AG45 — a host's line reader runs under the CLI turn's rules | startable |  |
-| 425 | 446 | AG39 — a run kept across turns: the design | startable |  |
+| 122 | 33 | GEN-VERIFY-FAL, the last line — the Hugging Face route | blocked · env | an hf_ token for the router route |
+| 163 | 75 | Decide what an aggregator's in-band `code` means | blocked · env+data | two or three real aggregators to measure an in-band code against |
+| 190 | 99 | `verify`'s test step intermittently fails EXACTLY 9 tests, and once aborted… | watch · data | the same nine tests to recur — the fix is unconfirmed as the cure, and a gr… |
+| 249 | 99 | `InputSegmenterTests.Counting_NFKC_is_LINEAR_in_the_length_of_the_text` fai… | watch · data | a recurrence under the full parallel run, with the ratio it read — the mess… |
+| 267 | 99 | `AgentUsageProcessTests.A_server_that_never_answers_is_ended_with_its_child… | watch · data | a recurrence under the full parallel run, with the load it ran under; it fa… |
+| 305 | 417 | MC8 — run the wrong-end instrument on an adjudicated corpus, with a bar wri… | blocked · decision+data | two reviewers' independent labels on a sample of the pairs, and a bar a per… |
+| 331 | 446 | AG38 — a permission request waits for the person when the host says so | startable |  |
+| 340 | 446 | AG28 — the protocol door carries a permission mode and an effort | startable |  |
+| 346 | 446 | AG29 — a turn's own variables | startable |  |
+| 352 | 446 | AG30 — a child's words carry the call that spawned it, and its life is writ… | startable |  |
+| 359 | 446 | AG31 — the protocol door keeps a child's stamped lines apart | startable |  |
+| 366 | 446 | AG32 — an unread frame leaves a bounded trace | startable |  |
+| 372 | 446 | AG33 — the Claude door states a turn's own report: denials and usage by mod… | startable |  |
+| 378 | 446 | AG34 — the protocol door states the context figures its updates report | startable |  |
+| 382 | 446 | AG36 — the protocol door states what the open offered | startable |  |
+| 388 | 446 | AG40 — why a person must act, and what kind of access failed | startable |  |
+| 394 | 446 | AG41 — a limit names its window and a stated reset keeps its parts | startable |  |
+| 401 | 446 | AG42 — every allowance report is an event | startable |  |
+| 407 | 446 | AG44 — the restriction rules are public over a snapshot the host stores | startable |  |
+| 413 | 446 | AG45 — a host's line reader runs under the CLI turn's rules | startable |  |
+| 419 | 446 | AG39 — a run kept across turns: the design | startable |  |
 
 <!-- open-items:end -->
 
@@ -379,11 +378,6 @@ last because it designs the largest piece; the rest in any order. No row spends 
 - [ ] **AG34 — the protocol door states the context figures its updates report** (lane `inference`, **D245**). <!-- item: state=startable -->
   **Contract.** A `usage_update`'s used and size figures as a context reading beside the existing usage readings, each null when
   not sent, never inferred. **Proof.** SOURCE-DERIVED `usage_update` frames from both measured agents.
-
-- [ ] **AG35 — a session start says whether the agent announced it** (lane `inference`, **D245**). <!-- item: state=startable -->
-  **Contract.** `SessionStarted` gains `Announced` (true for the agent's own `init`, the protocol door's open answer and the Codex
-  thread start; false for a later `system` frame that only carries a new id); the reader still yields once per id. **Proof.** An
-  `init`, then a `thinking_tokens` tick with a changed id: the first true, the second false.
 
 - [ ] **AG36 — the protocol door states what the open offered** (lane `inference`, after AG37, **D245**). <!-- item: state=startable -->
   **Contract.** An event after the open's answer and before any set or prompt: each option the agent offered (category, id, current

@@ -57,6 +57,33 @@ public class StreamJsonAgentReaderTests
         Assert.Equal(["sess-1", "sess-2"], started);
     }
 
+    [Fact]
+    public void A_later_system_frame_that_only_carries_a_new_id_is_not_an_announcement()
+    {
+        var reader = new StreamJsonAgentReader();
+
+        var started = new[]
+            {
+                """{"type":"system","subtype":"init","session_id":"sess-1"}""",
+                """{"type":"system","subtype":"thinking_tokens","estimated_tokens":1,"session_id":"sess-1"}""",
+                """{"type":"system","subtype":"thinking_tokens","estimated_tokens":9,"session_id":"sess-2"}""",
+            }
+            .SelectMany(reader.Read).OfType<SessionStarted>().Select(s => (s.SessionId, s.Announced)).ToList();
+
+        Assert.Equal([("sess-1", true), ("sess-2", false)], started);
+    }
+
+    [Fact]
+    public void A_first_system_frame_that_names_no_subtype_is_the_agents_own_start_and_a_default_is_announced()
+    {
+        var reader = new StreamJsonAgentReader();
+
+        var first = Assert.IsType<SessionStarted>(Assert.Single(reader.Read("""{"type":"system","session_id":"s"}""")));
+
+        Assert.True(first.Announced);
+        Assert.True(new SessionStarted("x").Announced);
+    }
+
     // ── stream_event (partial deltas) ────────────────────────────────────────
 
     [Fact]

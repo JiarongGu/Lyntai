@@ -135,6 +135,10 @@ every addition.
   the write (both CLI doors, unchanged), and the agent's own answer to the prompt, even an error, counts on the protocol door.
   `SessionEnded` gains `Turn`, an `AgentTurnEvidence` of whether the door saw the write complete (null for a CLI door, which hands
   the prompt to the child at its spawn) and, by `AgentShownKind`, which kinds of event followed it. `AgentDelivery` is unchanged.
+- **A session start says whether the agent announced it** (**D245**). `SessionStarted` gains `Announced`: true for the agent's own
+  start (Claude's `init`, or a first frame naming no subtype; the protocol door's open answer; Codex's thread start) and for a
+  start a host builds, false for a later Claude `system` frame that only carries an id the reader had not seen. A door still
+  yields one start per id.
 - **A scope dense in ended entries still returns its current ones** (**D241**). A `Current` or as-of recall dropped the ended
   entries after the candidate window was cut, so 100 ended entries matching a query better than 5 current ones returned none of the
   5. When a seed source fills its window and the reading drops some of what it returned, the engine now asks again with a window four

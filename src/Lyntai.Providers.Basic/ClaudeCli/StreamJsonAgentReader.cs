@@ -80,8 +80,10 @@ internal sealed class StreamJsonAgentReader
         if (root.TryGetProperty("session_id", out var sidEl) && sidEl.ValueKind == JsonValueKind.String &&
             sidEl.GetString() is { } sessionId && sessionId != _sessionId)
         {
+            // the agent's own start is its init (or a first frame that names no subtype); a later frame carrying a new id only reports one
+            var announced = WireJson.String(root, "subtype") == "init" || (_sessionId is null && WireJson.String(root, "subtype") is null);
             _sessionId = sessionId;
-            yield return new SessionStarted(sessionId);
+            yield return new SessionStarted(sessionId) { Announced = announced };
         }
     }
 

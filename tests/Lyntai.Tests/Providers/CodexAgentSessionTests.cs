@@ -542,6 +542,16 @@ public class CodexAgentSessionTests
         Assert.Equal(AgentSupport.Unsupported, CodexAgentDoor.Describe("codex-cli").Doors[0].SupportFor(ability));
     }
 
+    [Fact]
+    public void A_codex_thread_start_is_the_agents_own_announcement()
+    {
+        var reader = new CodexAgentReader(TimeProvider.System);
+
+        var started = Assert.IsType<SessionStarted>(Assert.Single(reader.Read("""{"type":"thread.started","thread_id":"t-1"}""")));
+
+        Assert.True(started.Announced);
+    }
+
     // ── the host application's own MCP servers ───────────────────────────────
 
     /// <summary>MEASURED turn-free against codex-cli 0.146.0: `codex exec --help` documents

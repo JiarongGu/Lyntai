@@ -1061,6 +1061,7 @@ public class AcpAgentSessionTests
         var ended = Ended(events);
         Assert.Equal(AgentDelivery.NeverSent, ended.Failure!.Delivery);
         Assert.Equal(new AgentTurnEvidence(false, []), ended.Turn, new TurnComparer());
+        Assert.True(((SessionStarted)events[0]).Announced);   // the open's own answer
     }
 
     [Fact]

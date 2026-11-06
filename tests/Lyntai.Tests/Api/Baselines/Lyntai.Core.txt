@@ -689,6 +689,7 @@ sealed class Lyntai.Agents.SessionEnded
     Verdict : ProviderVerdict { get; init; }
 sealed class Lyntai.Agents.SessionStarted
     .ctor(String SessionId)
+    Announced : Boolean { get; init; }
     Deconstruct(String& SessionId) : Void
     EqualityContract : Type { protected get; }
     Equals(AgentStreamEvent other) : Boolean

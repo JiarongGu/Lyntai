@@ -7,7 +7,13 @@ namespace Lyntai.Agents;
 public abstract record AgentStreamEvent;
 
 /// <summary>The session id has been established (fed back as a resume token later). </summary>
-public sealed record SessionStarted(string SessionId) : AgentStreamEvent;
+public sealed record SessionStarted(string SessionId) : AgentStreamEvent
+{
+    /// <summary>Whether the agent announced the session: true for the agent's own start (Claude's <c>init</c>, the
+    /// protocol door's open answer, Codex's thread start), false for a later frame that only carries an id the reader had
+    /// not seen. A door yields one per id either way.</summary>
+    public bool Announced { get; init; } = true;
+}
 
 /// <summary>A chunk of assistant answer text.</summary>
 public sealed record TextDelta(string Text) : AgentStreamEvent;
