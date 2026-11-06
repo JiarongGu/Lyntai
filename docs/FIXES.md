@@ -7,6 +7,26 @@ to `.agents/knowledge/pitfalls.md`; the release-facing line goes to `CHANGELOG.m
 
 ---
 
+## 2026-11-07 — a recreated pool hold reused revision 1, and a late success removed a hold another pick was probing
+
+**Symptom.** Read from the source, then pinned by tests, not seen in a run: after a hold was removed and the same failure recreated it, `AgentAccountPool.ClearAsync`
+naming the OLD revision 1 matched the new hold and released it; and a pick whose attempt lease had run out, reporting success after a second pick took the seat, removed
+the hold the second pick was still probing.
+
+**Root cause.** `AgentPoolReducer.Hold` gave revision 1 to any id not currently held, so a hold's identity was forgotten the moment it was removed. `Succeed` compared
+the revision the attempt saw and never the lease token, so an attempt whose lease another pick had taken still removed the hold at that revision.
+
+**Fix.** The pool state keeps the highest revision each removed id reached, written through the store as one record (`lyntai:agent-pool:<name>:revisions`) and read
+back on load, and a recreated hold continues from it; `Succeed` removes a hold only while its lease token is the reporting pick's (`src/Lyntai.Core/Agents/AgentPoolReducer.cs`,
+`AgentAccountPool.cs`; **D247**).
+
+**Verify.** `AgentAccountPoolTests`: `A_removed_holds_identity_is_not_reused_…`, `A_restart_reads_the_retained_revision_back_…`, `A_hold_a_reading_lifted_keeps_its_identity_too`
+and `A_success_reported_by_a_pick_that_lost_its_lease_removes_nothing`. They were written before the change and not run against the old code.
+
+**Introduced by.** `03a17e96` (2026-10-28), AG6: the pool and its reducer.
+
+---
+
 ## 2026-11-07 — a Claude limit row whose scope is an object read the whole usage answer as unrecognised
 
 **Symptom.** A consumer measured the installed Claude usage server's `get_usage` answer, whose `rate_limits.limits[]` rows carry a `scope` shaped

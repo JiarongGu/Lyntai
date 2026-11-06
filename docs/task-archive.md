@@ -6642,3 +6642,9 @@ Proof: `DialectStandIn` has a wire of its own and one plantable flaw per rule (`
 lines the doors' own tests pin. Landed in `08b41270`; the row stayed open in `TASKS.md` until this move. Nothing shipped in `src/`, so no baseline moved. Lanes `platform` + `tools`.
 
 - AG16 — the event-stream rules, held by one theory
+
+## Part 447 — AG43: a hold's identity is never reused, and a report resolves only a lease it still owns (2026-11-07)
+
+✅ done 2026-11-07 — **Outcome:** `AgentPoolReducer` works on a `PoolState` (the holds and, per removed id, the highest revision it reached): `Hold` continues from that revision, so a clear naming an older one matches nothing, and `Succeed` removes a hold only while the reporting pick's token still owns its lease. `AgentAccountPool` writes the retained revisions as one record beside the holds (`lyntai:agent-pool:<name>:revisions`) before it writes the holds, and reads it back on load; a record that does not read is skipped with a warning, as a hold is. Nothing public changed and no baseline moved. **Read here:** `Unlease` already acted by token, so that half of the row's contract needed no change and a test now pins it; a removed hold now leaves one key (the revisions record) where `The_store_holds_one_key_per_hold…` used to expect none, and that fact was rewritten, the only existing test touched. The defect is in `docs/FIXES.md` (2026-11-07). No decision recorded: **D247** states it. Lane `platform`.
+
+- AG43 — a hold's identity is never reused, and a report resolves only a lease it still owns
