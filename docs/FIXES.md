@@ -7,6 +7,25 @@ to `.agents/knowledge/pitfalls.md`; the release-facing line goes to `CHANGELOG.m
 
 ---
 
+## 2026-11-07 — a Claude limit row whose model has a null id, or any row the reader could not read, read the whole usage answer as unrecognised
+
+**Symptom.** A real read on the installed Claude server (2.1.319), made after the object-scope fix, still gave `unrecognised-answer` with no windows: the scoped row's
+model was `{"id":null,"display_name":"…"}`, and the consumer kept its own reader for Claude accounts.
+
+**Root cause.** `ClaudeUsageDialect.Scope` accepted a model only with a non-empty id, and `Rows` returned false for any row it could not read, which made the whole reading
+unknown (**D237**). The id's presence was an assumption of the evidence the earlier fix was written from, which showed `"id": …`.
+
+**Fix.** A model is read by its id, or by its display name when the id is null (`Scope` null, `ScopeName` set); a row the reader cannot read is skipped and the windows and
+other rows are kept, and so is a `limits` that is not an array (`src/Lyntai.Providers.Basic/ClaudeCli/ClaudeUsageDialect.cs`). The windows stay strict, because `HasRoom` reads them (**D250**).
+
+**Verify.** `Claude_a_model_with_a_null_id_is_kept_by_its_display_name_and_the_windows_stay`, `Claude_a_scope_this_reader_cannot_read_skips_that_row_and_keeps_the_rest` and
+`Claude_a_limit_row_it_cannot_read_is_skipped_and_the_windows_are_still_read`; the six row cases that used to read unknown moved from the strict theory into them. The shape is the
+consumer's measurement, not a run of the binary here.
+
+**Introduced by.** `7957c4ef` (2026-11-07): the object scope was read with a required id.
+
+---
+
 ## 2026-11-07 — a recreated pool hold reused revision 1, and a late success removed a hold another pick was probing
 
 **Symptom.** Read from the source, then pinned by tests, not seen in a run: after a hold was removed and the same failure recreated it, `AgentAccountPool.ClearAsync`

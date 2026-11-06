@@ -119,14 +119,23 @@ public sealed record UsageReading(
 /// <param name="Status">The report's standing in the agent's own word (<c>allowed</c>, <c>rejected</c>…); null when it stated none.</param>
 /// <param name="Window">The window it names, as <see cref="AgentAllowanceWindow"/> states one: <see cref="AgentAllowanceWindow.FiveHour"/>
 /// and <see cref="AgentAllowanceWindow.Weekly"/> with their length and a scope for a model's week, any other window by the agent's
-/// own word with no length. Its <see cref="AgentAllowanceWindow.UsedPercent"/> is null: the report states no use this library reads
-/// as a percent. Null when the report names no window.</param>
+/// own word with no length. Its <see cref="AgentAllowanceWindow.UsedPercent"/> is the window's use when the report states one as a
+/// fraction from 0 to 1 (the window's own entry in the report's windows, else the report's own), as a percent with its
+/// <see cref="AgentAllowanceWindow.UsedStep"/>; null when it states none or one out of range. Null when the report names no window.</param>
 /// <param name="LimitScope">The spend limit the report names when it is not the member's own (<c>group_pool</c>), in the agent's word.</param>
 /// <param name="IsUsingOverage">Whether the agent states the account is drawing on overage; null when it states none.</param>
 /// <param name="OverageResetsAt">When the agent states the overage renews; null when it states none.</param>
 public sealed record AgentAllowanceReport(
     string? Status, AgentAllowanceWindow? Window, string? LimitScope, bool? IsUsingOverage, DateTimeOffset? OverageResetsAt)
-    : AgentStreamEvent;
+    : AgentStreamEvent
+{
+    /// <summary>The agent's word for whether overage is open to the account (<c>allowed</c>, <c>rejected</c>…), as written; null
+    /// when it states none.</summary>
+    public string? OverageStatus { get; init; }
+
+    /// <summary>The agent's word for why overage is closed (<c>member_zero_credit_limit</c>…), as written; null when it states none.</summary>
+    public string? OverageDisabledReason { get; init; }
+}
 
 /// <summary>One option an agent offered when it opened the session (the protocol door's config option).</summary>
 /// <param name="Category">The agent's category word for it (<c>model</c>, <c>thought_level</c>…); null when it stated none.</param>

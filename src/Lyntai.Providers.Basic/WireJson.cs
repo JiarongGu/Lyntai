@@ -45,6 +45,23 @@ internal static class WireJson
         return true;
     }
 
+    /// <summary>A use written as a fraction from 0 to 1 (<c>0.375</c>) read as a percent, with the step its digits show
+    /// (<c>0.88</c> shows 1, <c>0.5</c> shows 10; null for exponent form). Null when absent, null, not a number or out of
+    /// range: a report is an event, so a figure it cannot read is left out and the report kept. The digits are read as a
+    /// decimal, so <c>0.88</c> is 88 and not 88.00000000000001.</summary>
+    internal static (double Percent, double? Step)? Fraction(JsonElement parent, string name)
+    {
+        if (Property(parent, name, JsonValueKind.Number) is not { } el) return null;
+        var text = el.GetRawText();
+        if (text.AsSpan().IndexOfAny('e', 'E') >= 0)
+            return el.TryGetDouble(out var wide) && double.IsFinite(wide) && wide is >= 0 and <= 1 ? (wide * 100, null) : null;
+        if (!decimal.TryParse(text, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var number)
+            || number is < 0 or > 1)
+            return null;
+        var point = text.IndexOf('.');
+        return ((double)(number * 100), point < 0 ? 100 : 100.0 / Math.Pow(10, text.Length - point - 1));
+    }
+
     /// <summary>A string-valued property, or null when absent or not a string.</summary>
     internal static string? String(JsonElement parent, string name) =>
         Property(parent, name, JsonValueKind.String)?.GetString();

@@ -98,11 +98,9 @@ internal sealed partial class ClaudeUsageDialect(string providerId) : IUsageDial
                 }
                 if (windows.Count == 0) return unknown(AgentAllowanceUnknown.Unrecognised);
 
-                if (!Rows(limits, out var rows)) return unknown(AgentAllowanceUnknown.Unrecognised);
-
                 return new AgentAllowanceReading
                 {
-                    MeasuredAt = measuredAt, Windows = windows, Limits = rows, Plan = WireJson.String(body, "subscription_type"),
+                    MeasuredAt = measuredAt, Windows = windows, Limits = Rows(limits), Plan = WireJson.String(body, "subscription_type"),
                 };
             }
         }
@@ -145,27 +143,38 @@ internal sealed partial class ClaudeUsageDialect(string providerId) : IUsageDial
 
     private const string ScopedWeekPrefix = "seven_day_";
 
-    // rate_limits.limits[]: each row by kind and scope; the row's severity is the server's judgement and is not read
-    private static bool Rows(JsonElement limits, out List<AgentAllowanceLimit> rows)
+    // rate_limits.limits[]: each row by kind and scope; the row's severity is the server's judgement and is not read. A row this
+    // reader cannot read is skipped and the rest kept: no room is read from a row (HasRoom reads the windows), so a dropped row
+    // cannot make a full account look free, which is why the windows above stay strict and these do not (D250)
+    private static List<AgentAllowanceLimit> Rows(JsonElement limits)
     {
-        rows = [];
-        if (!limits.TryGetProperty("limits", out var array) || array.ValueKind == JsonValueKind.Null) return true;
-        if (array.ValueKind != JsonValueKind.Array) return false;
+        var rows = new List<AgentAllowanceLimit>();
+        if (!limits.TryGetProperty("limits", out var array) || array.ValueKind != JsonValueKind.Array) return rows;
         foreach (var row in array.EnumerateArray())
         {
-            if (row.ValueKind != JsonValueKind.Object || WireJson.String(row, "kind") is not { Length: > 0 } kind) return false;
-            string? scope = null, scopeName = null, surface = null;
-            if (row.TryGetProperty("scope", out var scoped) && scoped.ValueKind != JsonValueKind.Null
-                && !Scope(scoped, out scope, out scopeName, out surface))
-                return false;
-            if (!WireJson.Percent(row, "percent", out var used, out var step) || !Moment(row, "resets_at", out var resetsAt)) return false;
-            rows.Add(new AgentAllowanceLimit(kind, scope, used, step, resetsAt) { ScopeName = scopeName, Surface = surface });
+            try
+            {
+                if (Row(row) is { } read) rows.Add(read);
+            }
+            catch (Exception ex) when (WireJson.IsShapeFault(ex)) { /* a row of a shape no capture shows: skipped */ }
         }
-        return true;
+        return rows;
+    }
+
+    private static AgentAllowanceLimit? Row(JsonElement row)
+    {
+        if (row.ValueKind != JsonValueKind.Object || WireJson.String(row, "kind") is not { Length: > 0 } kind) return null;
+        string? scope = null, scopeName = null, surface = null;
+        if (row.TryGetProperty("scope", out var scoped) && scoped.ValueKind != JsonValueKind.Null
+            && !Scope(scoped, out scope, out scopeName, out surface))
+            return null;
+        if (!WireJson.Percent(row, "percent", out var used, out var step) || !Moment(row, "resets_at", out var resetsAt)) return null;
+        return new AgentAllowanceLimit(kind, scope, used, step, resetsAt) { ScopeName = scopeName, Surface = surface };
     }
 
     // a scope is a string, or an object {"model": {"id", "display_name"} | null, "surface": string | null}; an object naming
-    // neither is the account's own, and a present model or surface of another shape is unrecognised, not dropped
+    // neither is the account's own. A model is read by its id, or by its display name when the id is null (the installed
+    // server's own shape); one naming neither, or a model or surface of another shape, makes the scope unreadable
     private static bool Scope(JsonElement scoped, out string? scope, out string? name, out string? surface)
     {
         scope = name = surface = null;
@@ -177,9 +186,10 @@ internal sealed partial class ClaudeUsageDialect(string providerId) : IUsageDial
         if (scoped.ValueKind != JsonValueKind.Object) return false;
         if (scoped.TryGetProperty("model", out var model) && model.ValueKind != JsonValueKind.Null)
         {
-            if (model.ValueKind != JsonValueKind.Object || WireJson.String(model, "id") is not { Length: > 0 } id) return false;
-            scope = id;
-            name = WireJson.String(model, "display_name");
+            if (model.ValueKind != JsonValueKind.Object) return false;
+            scope = WireJson.String(model, "id") is { Length: > 0 } id ? id : null;
+            name = WireJson.String(model, "display_name") is { Length: > 0 } display ? display : null;
+            if (scope is null && name is null) return false;
         }
         if (scoped.TryGetProperty("surface", out var surfaced) && surfaced.ValueKind != JsonValueKind.Null)
         {

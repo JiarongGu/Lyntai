@@ -112,6 +112,38 @@ public class StreamJsonAgentReaderTests
         Assert.All(reports, r => Assert.Null(r.Window!.UsedPercent));
     }
 
+    // SOURCE-DERIVED from a consumer's recorded frame (claude 2.1.287, one headless turn; the moments invented): a use is a
+    // fraction from 0 to 1 in unifiedWindows, and the overage fields are words
+    private const string RecordedFrame =
+        """{"type":"rate_limit_event","rate_limit_info":{"status":"allowed","resetsAt":1792000000,"rateLimitType":"five_hour","overageStatus":"rejected","overageDisabledReason":"member_zero_credit_limit","isUsingOverage":false,"unifiedWindows":{"five_hour":{"utilization":0.88,"resetsAt":1792000000},"seven_day":{"utilization":0.14,"resetsAt":1792400000}}}}""";
+
+    [Fact]
+    public void A_recorded_frame_states_the_named_windows_use_as_a_percent_and_the_overage_words()
+    {
+        var report = Assert.Single(new StreamJsonAgentReader().Read(RecordedFrame).OfType<AgentAllowanceReport>());
+
+        Assert.Equal((88.0, 1.0), (report.Window!.UsedPercent, report.Window.UsedStep));
+        Assert.Equal(DateTimeOffset.FromUnixTimeSeconds(1792000000), report.Window.ResetsAt);
+        Assert.Equal(("rejected", "member_zero_credit_limit", false), (report.OverageStatus, report.OverageDisabledReason, report.IsUsingOverage));
+    }
+
+    [Theory]
+    [InlineData("""{"status":"allowed","rateLimitType":"seven_day","unifiedWindows":{"seven_day":{"utilization":0.375,"resetsAt":1792400000}}}""", 37.5, 0.1, 1792400000L)]
+    [InlineData("""{"status":"allowed","rateLimitType":"seven_day","utilization":0.5}""", 50.0, 10.0, null)]
+    [InlineData("""{"status":"allowed","rateLimitType":"five_hour","unifiedWindows":{"five_hour":{"utilization":1,"resetsAt":1792000000}}}""", 100.0, 100.0, 1792000000L)]
+    [InlineData("""{"status":"allowed","rateLimitType":"five_hour","unifiedWindows":{"five_hour":{"utilization":5e-1}}}""", 50.0, null, null)]
+    [InlineData("""{"status":"allowed","rateLimitType":"five_hour","unifiedWindows":{"five_hour":{"utilization":88}}}""", null, null, null)]
+    [InlineData("""{"status":"allowed","rateLimitType":"five_hour","unifiedWindows":{"five_hour":{"utilization":"0.5"}}}""", null, null, null)]
+    [InlineData("""{"status":"allowed","rateLimitType":"five_hour","unifiedWindows":[1]}""", null, null, null)]
+    public void A_use_is_kept_as_the_digits_state_it_and_a_use_out_of_range_or_not_a_number_is_left_out(
+        string info, double? percent, double? step, long? reset)
+    {
+        var report = Assert.Single(new StreamJsonAgentReader().Read($$"""{"type":"rate_limit_event","rate_limit_info":{{info}}}""").OfType<AgentAllowanceReport>());
+
+        Assert.Equal((percent, step), (report.Window!.UsedPercent, report.Window.UsedStep));
+        Assert.Equal(reset is { } r ? DateTimeOffset.FromUnixTimeSeconds(r) : (DateTimeOffset?)null, report.Window.ResetsAt);
+    }
+
     [Fact]
     public void A_frame_with_no_reset_and_one_with_no_window_are_kept_in_part_and_the_rejected_frame_still_ends_a_failing_turn_as_before()
     {

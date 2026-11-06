@@ -35,13 +35,18 @@ internal static class StreamJsonFailure
     }
 
     /// <summary>The report a <c>rate_limit_info</c> object states, allowed or rejected; the window is read as
-    /// <see cref="AgentAllowanceWindow"/> states one, and no use is carried (the report's figure has no recorded scale).</summary>
+    /// <see cref="AgentAllowanceWindow"/> states one; its use is a fraction from 0 to 1 in the recorded frames (0.88 is 88%).</summary>
     public static AgentAllowanceReport ReadReport(JsonElement info)
     {
         var type = WireJson.String(info, "rateLimitType");
         var overageResets = WireJson.Int64(info, "overageResetsAt") is { } o ? DateTimeOffset.FromUnixTimeSeconds(o) : (DateTimeOffset?)null;
         var seconds = WireJson.Int64(info, type == "overage" ? "overageResetsAt" : "resetsAt");
         var resets = seconds is { } s ? DateTimeOffset.FromUnixTimeSeconds(s) : (DateTimeOffset?)null;
+        // the window's own entry among the report's windows states its use, and its reset when the report's own states none
+        var entry = type is { Length: > 0 } && WireJson.Object(info, "unifiedWindows") is { } windows ? WireJson.Object(windows, type) : null;
+        if (resets is null && entry is { } own && WireJson.Int64(own, "resetsAt") is { } entryReset)
+            resets = DateTimeOffset.FromUnixTimeSeconds(entryReset);
+        var use = (entry is { } e ? WireJson.Fraction(e, "utilization") : null) ?? WireJson.Fraction(info, "utilization");
         AgentAllowanceWindow? window = type switch
         {
             null or "" => null,
@@ -51,10 +56,15 @@ internal static class StreamJsonFailure
                 new AgentAllowanceWindow(AgentAllowanceWindow.Weekly, null, TimeSpan.FromDays(7), resets) { Scope = type["seven_day_".Length..] },
             _ => new AgentAllowanceWindow(type, null, null, resets),
         };
+        if (window is not null && use is { } read) window = window with { UsedPercent = read.Percent, UsedStep = read.Step };
         bool? overage = info.TryGetProperty("isUsingOverage", out var flag) && flag.ValueKind is JsonValueKind.True or JsonValueKind.False
             ? flag.ValueKind == JsonValueKind.True
             : null;
-        return new AgentAllowanceReport(WireJson.String(info, "status"), window, WireJson.String(info, "limitScope"), overage, overageResets);
+        return new AgentAllowanceReport(WireJson.String(info, "status"), window, WireJson.String(info, "limitScope"), overage, overageResets)
+        {
+            OverageStatus = WireJson.String(info, "overageStatus"),
+            OverageDisabledReason = WireJson.String(info, "overageDisabledReason"),
+        };
     }
 
     /// <summary>The failure of an errored <c>result</c>: the most severe reading among the door's fields
