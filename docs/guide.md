@@ -1126,8 +1126,10 @@ the agent's own word, passed through and never interpreted, with an ability a do
 folder (a repeat dropped, the contents never read); any other word, a relative folder, or a mode beside `SkipAllPermissions`
 ends the turn before a spawn with `option-unsupported` and names what the door carries. **A named mode is your own gate:**
 the turn's `ToolPolicy` mapping (`acceptEdits`) and its read-only write-tool denial are not applied beside it, while
-`DisallowedTools` and the tools a headless turn always denies stand. The codex, protocol and HTTP doors state all three
-`Unsupported` and refuse a turn that names one; `AgentPick.Apply` sets `Effort` from the pool choice's.
+`DisallowedTools` and the tools a headless turn always denies stand. The codex and HTTP doors state all three
+`Unsupported` and refuse a turn that names one; the protocol door states a mode and an effort `Unknown`, `Negotiated` (a mode is
+set through `session/set_mode` with an id the open's `modes` offers, an effort through the config option of category
+`thought_level`, and an agent that refuses either, or offers none, ends the turn before the prompt) and plugins `Unsupported`; `AgentPick.Apply` sets `Effort` from the pool choice's.
 
 **An account that is a key** (AG17). `Home` may be left out, and `Environment` carries variables for that turn's child
 only: an API key, a gateway's base address. Each name must be one the provider declares it reads

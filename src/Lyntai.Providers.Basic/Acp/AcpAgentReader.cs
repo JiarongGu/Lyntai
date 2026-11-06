@@ -30,6 +30,8 @@ internal sealed class AcpAgentReader
     private const int OpenId = 2;
     private const int PromptId = 3;
     private const int SetModelId = 4;
+    private const int SetModeId = 5;
+    private const int SetEffortId = 6;
     private const int MaxOfferedNamed = 25;
 
     private enum Phase { Initializing, Opening, Configuring, Prompting, Done }
@@ -47,6 +49,10 @@ internal sealed class AcpAgentReader
     private bool _cancelSent;
     private readonly AcpExtensionSet _extensions;
     private AcpModelOption? _modelOption;
+    private AcpModelOption? _effortOption;
+    private readonly Queue<(int Id, string Frame)> _steps = new();
+    private int _pendingStep;
+    private IReadOnlyList<string> _offeredModes = [];
     private readonly IAcpPermissionApprover? _approver;
     private readonly TimeSpan _permissionWindow;
     private readonly ILogger _logger;
@@ -197,18 +203,27 @@ internal sealed class AcpAgentReader
                     }
 
                     if (_modelOption.Current != wanted)
-                    {
-                        _phase = Phase.Configuring;
-                        Send(AcpFrames.SetConfigOption(SetModelId, _sessionId, _modelOption.Id, wanted));
-                        break;
-                    }
+                        _steps.Enqueue((SetModelId, AcpFrames.SetConfigOption(SetModelId, _sessionId, _modelOption.Id, wanted)));
                 }
 
-                StartPrompt(events);
+                if (!QueueModeAndEffort(result, events)) break;
+                NextStep(events);
                 break;
 
-            case SetModelId when _phase == Phase.Configuring:
+            case SetModelId when _phase == Phase.Configuring && _pendingStep == SetModelId:
                 ReadModelSet(error, result, events);
+                break;
+
+            case SetModeId when _phase == Phase.Configuring && _pendingStep == SetModeId:
+                ReadSetAnswer(error, "permission mode", _options.PermissionMode!, "acp.mode.set-refused", events);
+                break;
+
+            case SetEffortId when _phase == Phase.Configuring && _pendingStep == SetEffortId:
+                if (error is null && AcpModelOption.Read(result, AcpModelOption.EffortCategory) is { Current: { } nowEffort }
+                    && nowEffort != _options.Effort && _effortOption!.Offered.Contains(_options.Effort!))
+                    End(events, Refused($"the agent answered effort '{nowEffort}' to a set of '{_options.Effort}', which it lists.", AgentProvider.OptionRefusedSubtype));
+                else
+                    ReadSetAnswer(error, "effort", _options.Effort!, "acp.effort.set-refused", events);
                 break;
 
             case PromptId when _phase == Phase.Prompting:
@@ -216,6 +231,73 @@ internal sealed class AcpAgentReader
                 EndPrompt(error, result, events);
                 break;
         }
+    }
+
+    // A mode is set through session/set_mode with an id the open's modes answer offers, an effort through the config option
+    // of its category, and both are the agent's to accept: an agent that offers neither ends the turn before the prompt.
+    private bool QueueModeAndEffort(JsonElement result, List<AgentStreamEvent> events)
+    {
+        if (_options.PermissionMode is { Length: > 0 } mode)
+        {
+            var modes = WireJson.Object(result, "modes");
+            _offeredModes = modes is { } m && WireJson.Array(m, "availableModes") is { } list
+                ? [.. list.EnumerateArray().Select(x => WireJson.String(x, "id")).OfType<string>()]
+                : [];
+            if (!_offeredModes.Contains(mode, StringComparer.Ordinal))
+            {
+                End(events, Refused(_offeredModes.Count == 0
+                    ? $"the agent states no modes, so permission mode '{mode}' cannot be set on it."
+                    : $"the agent does not offer permission mode '{mode}'. It offers: {string.Join(", ", _offeredModes.Take(MaxOfferedNamed))}.",
+                    AgentProvider.OptionRefusedSubtype));
+                return false;
+            }
+
+            if (modes is { } current && WireJson.String(current, "currentModeId") != mode)
+                _steps.Enqueue((SetModeId, AcpFrames.SetMode(SetModeId, _sessionId!, mode)));
+        }
+
+        if (_options.Effort is { Length: > 0 } effort)
+        {
+            _effortOption = AcpModelOption.Read(result, AcpModelOption.EffortCategory);
+            if (_effortOption is null)
+            {
+                End(events, Refused($"the agent states no effort option (a config option of category {AcpModelOption.EffortCategory}), so effort '{effort}' cannot be set on it.",
+                    AgentProvider.OptionRefusedSubtype));
+                return false;
+            }
+
+            if (_effortOption.Current != effort)
+                _steps.Enqueue((SetEffortId, AcpFrames.SetConfigOption(SetEffortId, _sessionId!, _effortOption.Id, effort)));
+        }
+        return true;
+    }
+
+    // the next set the turn needs, or the prompt
+    private void NextStep(List<AgentStreamEvent> events)
+    {
+        if (!_steps.TryDequeue(out var step))
+        {
+            StartPrompt(events);
+            return;
+        }
+
+        _phase = Phase.Configuring;
+        _pendingStep = step.Id;
+        Send(step.Frame);
+    }
+
+    // the agent's answer to a set is the verdict: an error refuses it, unless the agent states a limit or a sign-in there
+    private void ReadSetAnswer(JsonElement? error, string what, string wanted, string by, List<AgentStreamEvent> events)
+    {
+        if (error is { } setError)
+        {
+            var failure = AcpFailure.FromError(setError, _extensions, _time, out var words);
+            if (failure.Kind != AgentFailureKind.Fatal) End(events, FailedByError(setError));
+            else End(events, Refused($"the agent refused {what} '{wanted}': {words}", AgentProvider.OptionRefusedSubtype));
+            return;
+        }
+
+        NextStep(events);
     }
 
     // The session is announced only once it is ready to be prompted, so a turn refused before this point shows the
@@ -260,7 +342,7 @@ internal sealed class AcpAgentReader
             return;
         }
 
-        StartPrompt(events);
+        NextStep(events);
     }
 
     private string OfferedWords()

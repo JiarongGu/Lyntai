@@ -125,8 +125,8 @@ every addition.
   `permission-mode`, `effort` and `plugins` (so every door states three more). The claude door renders `--permission-mode` for the
   words its `--help` lists, `--effort` for its levels and `--plugin-dir` per fully qualified folder, and refuses any other word
   before a spawn, naming the set; a mode beside `SkipAllPermissions` is refused, and a named mode replaces the tool policy's own
-  gate (the `acceptEdits` mapping and the read-only write-tool denial) while the deny lists stand. The codex, protocol and HTTP
-  doors state all three `Unsupported`. `AgentPick.Apply` now sets `Effort` from the pool choice's, so a choice that names an
+  gate (the `acceptEdits` mapping and the read-only write-tool denial) while the deny lists stand. The codex and HTTP
+  doors state all three `Unsupported`, and the protocol door states plugins so. `AgentPick.Apply` now sets `Effort` from the pool choice's, so a choice that names an
   effort is refused by a door that does not carry one. The word set is from claude 2.1.319's `--help`; that `bypassPermissions`
   equals `--dangerously-skip-permissions` is not stated there and is not claimed.
 - **A prompt's delivery is what its turn showed after the write** (**D248**). The protocol door announces the session before it
@@ -159,6 +159,11 @@ every addition.
   `AgentToolDenied` per denied call (the tool, its call id, and the reason where the field gives one, else null), and its `modelUsage` is an
   `AgentModelUsage` of `AgentModelUsageEntry` rows (each model's tokens and context window, the session's model marked, a subagent's and the
   harness's own left as the rows they are), both before the terminal. `UsageFinal.Model` keeps its meaning and no cost is carried.
+- **The protocol door carries a permission mode and an effort** (**D244**). A mode is set through `session/set_mode` with an id the open's
+  `modes` answer offers, an effort through the config option of category `thought_level`, as the model is set (**D243**): the agent's
+  answer decides, a refusal, an agent that offers no such id or option, or an error ends the turn before the prompt as `option-unsupported`
+  with `NeverSent` and holds nothing against the model, and a value the agent already has is not set again. The door states
+  `permission-mode` and `effort` `Unknown`, `Negotiated` (they were `Unsupported` before this entry), so a turn naming one reaches the agent.
 - **A scope dense in ended entries still returns its current ones** (**D241**). A `Current` or as-of recall dropped the ended
   entries after the candidate window was cut, so 100 ended entries matching a query better than 5 current ones returned none of the
   5. When a seed source fills its window and the reading drops some of what it returned, the engine now asks again with a window four

@@ -1207,6 +1207,109 @@ public class AcpAgentSessionTests
         Assert.Empty(clean.Unread);
     }
 
+    // ── a permission mode and an effort (AG28, D244): SOURCE-DERIVED opens ────
+
+    private static string OpenWith(string extra) =>
+        "{\"jsonrpc\":\"2.0\",\"id\":2,\"result\":{\"sessionId\":\"s1\"," + extra + "}}";
+
+    private static string Reply(JsonNode frame, string tail) => "{\"jsonrpc\":\"2.0\",\"id\":" + frame["id"] + "," + tail + "}";
+
+    private const string ModesAndEffort =
+        "\"modes\":{\"currentModeId\":\"default\",\"availableModes\":[{\"id\":\"default\",\"name\":\"Default\"},{\"id\":\"plan\",\"name\":\"Plan\"}]},"
+        + "\"configOptions\":[{\"id\":\"thinking\",\"category\":\"thought_level\",\"currentValue\":\"medium\",\"options\":[{\"value\":\"low\",\"name\":\"Low\"},{\"value\":\"medium\",\"name\":\"Medium\"},{\"value\":\"high\",\"name\":\"High\"}]}]";
+
+    private static FakeProcessRunner ModeAgent(string open, Func<JsonNode, string[]>? setMode = null, Func<JsonNode, string[]>? setConfig = null) => Agent(new()
+    {
+        ["initialize"] = _ => [Initialized()],
+        ["session/new"] = _ => [OpenWith(open)],
+        ["session/set_mode"] = setMode ?? (f => [Reply(f, "\"result\":{}")]),
+        ["session/set_config_option"] = setConfig ?? (f => [Reply(f, "\"result\":{\"configOptions\":[]}")]),
+        ["session/prompt"] = _ => [Update("agent_message_chunk", """{"content":{"type":"text","text":"ok"}}"""), PromptEnded("end_turn")],
+    });
+
+    private static IEnumerable<string> Methods(FakeProcessRunner runner) => runner.Exchanged.Select(l => Method(JsonNode.Parse(l)!));
+
+    [Fact]
+    public async Task A_mode_the_open_offers_is_set_before_the_prompt_and_an_effort_through_its_config_option()
+    {
+        var runner = ModeAgent(ModesAndEffort);
+
+        var ended = Ended(await Run(Scripted(runner), Ask() with { PermissionMode = "plan", Effort = "high" }));
+
+        Assert.False(ended.IsError);
+        Assert.Equal(["initialize", "session/new", "session/set_mode", "session/set_config_option", "session/prompt"], Methods(runner));
+        var setMode = runner.Exchanged.Select(l => JsonNode.Parse(l)!).Single(f => Method(f) == "session/set_mode");
+        Assert.Equal("plan", setMode["params"]!["modeId"]!.GetValue<string>());
+        var setEffort = runner.Exchanged.Select(l => JsonNode.Parse(l)!).Single(f => Method(f) == "session/set_config_option");
+        Assert.Equal(("thinking", "high"), (setEffort["params"]!["configId"]!.GetValue<string>(), setEffort["params"]!["value"]!.GetValue<string>()));
+    }
+
+    [Fact]
+    public async Task A_mode_or_effort_the_agent_already_has_is_not_set_again()
+    {
+        var runner = ModeAgent(ModesAndEffort);
+
+        await Run(Scripted(runner), Ask() with { PermissionMode = "default", Effort = "medium" });
+
+        Assert.Equal(["initialize", "session/new", "session/prompt"], Methods(runner));
+    }
+
+    [Fact]
+    public async Task A_mode_the_agent_refuses_to_set_ends_the_turn_before_the_prompt_never_sent()
+    {
+        var runner = ModeAgent(ModesAndEffort,
+            setMode: f => [Reply(f, "\"error\":{\"code\":-32602,\"message\":\"Invalid params\"}")]);
+
+        var ended = Ended(await Run(Scripted(runner), Ask() with { PermissionMode = "plan" }));
+
+        Assert.Equal((ProviderVerdict.Unsupported, AgentProvider.OptionRefusedSubtype), (ended.Verdict, ended.Subtype));
+        Assert.Equal(AgentDelivery.NeverSent, ended.Failure!.Delivery);
+        Assert.DoesNotContain("session/prompt", Methods(runner));
+        Assert.Null(ended.Failure.Restriction);   // a refused mode holds nothing against the model
+    }
+
+    [Theory]
+    [InlineData("\"modes\":null", "bypass", "states no modes")]
+    [InlineData(ModesAndEffort, "yolo", "does not offer permission mode 'yolo'")]
+    public async Task A_mode_the_open_does_not_offer_ends_the_turn_before_the_prompt_and_names_what_it_offers(string open, string mode, string expected)
+    {
+        var runner = ModeAgent(open);
+
+        var ended = Ended(await Run(Scripted(runner), Ask() with { PermissionMode = mode }));
+
+        Assert.Equal(AgentProvider.OptionRefusedSubtype, ended.Subtype);
+        Assert.Contains(expected, ended.Diagnostic);
+        Assert.Equal(AgentDelivery.NeverSent, ended.Failure!.Delivery);
+        Assert.DoesNotContain("session/set_mode", Methods(runner));
+    }
+
+    [Fact]
+    public async Task An_agent_with_no_effort_option_ends_the_turn_before_the_prompt_and_one_that_refuses_the_value_does_too()
+    {
+        var none = ModeAgent("\"modes\":null");
+        var endedNone = Ended(await Run(Scripted(none), Ask() with { Effort = "high" }));
+        Assert.Contains("states no effort option", endedNone.Diagnostic);
+        Assert.Equal(AgentDelivery.NeverSent, endedNone.Failure!.Delivery);
+
+        var refusing = ModeAgent(ModesAndEffort,
+            setConfig: f => [Reply(f, "\"error\":{\"code\":-32602,\"message\":\"Invalid params\"}")]);
+        var endedRefused = Ended(await Run(Scripted(refusing), Ask() with { Effort = "high" }));
+        Assert.Equal(AgentProvider.OptionRefusedSubtype, endedRefused.Subtype);
+        Assert.DoesNotContain("session/prompt", Methods(refusing));
+    }
+
+    [Fact]
+    public void The_protocol_door_states_both_abilities_unknown_and_negotiated()
+    {
+        var door = Assert.Single(AcpAgentDoor.Describe("acp-agent", null).Doors);
+
+        Assert.All(new[] { AgentAbilities.PermissionMode, AgentAbilities.Effort }, ability =>
+        {
+            var claim = door.Abilities.Single(a => a.Name == ability);
+            Assert.Equal((AgentSupport.Unknown, AgentAbilitySource.Negotiated), (claim.Support, claim.Source));
+        });
+    }
+
     private sealed class TurnComparer : IEqualityComparer<AgentTurnEvidence?>
     {
         public bool Equals(AgentTurnEvidence? a, AgentTurnEvidence? b) =>
