@@ -34,6 +34,29 @@ internal static class StreamJsonFailure
             WireJson.String(info, "limitScope"));
     }
 
+    /// <summary>The report a <c>rate_limit_info</c> object states, allowed or rejected; the window is read as
+    /// <see cref="AgentAllowanceWindow"/> states one, and no use is carried (the report's figure has no recorded scale).</summary>
+    public static AgentAllowanceReport ReadReport(JsonElement info)
+    {
+        var type = WireJson.String(info, "rateLimitType");
+        var overageResets = WireJson.Int64(info, "overageResetsAt") is { } o ? DateTimeOffset.FromUnixTimeSeconds(o) : (DateTimeOffset?)null;
+        var seconds = WireJson.Int64(info, type == "overage" ? "overageResetsAt" : "resetsAt");
+        var resets = seconds is { } s ? DateTimeOffset.FromUnixTimeSeconds(s) : (DateTimeOffset?)null;
+        AgentAllowanceWindow? window = type switch
+        {
+            null or "" => null,
+            "five_hour" => new AgentAllowanceWindow(AgentAllowanceWindow.FiveHour, null, TimeSpan.FromHours(5), resets),
+            "seven_day" => new AgentAllowanceWindow(AgentAllowanceWindow.Weekly, null, TimeSpan.FromDays(7), resets),
+            _ when type.StartsWith("seven_day_", StringComparison.Ordinal) && type.Length > "seven_day_".Length =>
+                new AgentAllowanceWindow(AgentAllowanceWindow.Weekly, null, TimeSpan.FromDays(7), resets) { Scope = type["seven_day_".Length..] },
+            _ => new AgentAllowanceWindow(type, null, null, resets),
+        };
+        bool? overage = info.TryGetProperty("isUsingOverage", out var flag) && flag.ValueKind is JsonValueKind.True or JsonValueKind.False
+            ? flag.ValueKind == JsonValueKind.True
+            : null;
+        return new AgentAllowanceReport(WireJson.String(info, "status"), window, WireJson.String(info, "limitScope"), overage, overageResets);
+    }
+
     /// <summary>The failure of an errored <c>result</c>: the most severe reading among the door's fields
     /// (limit, then access, then transient, then fatal), else the sentence, else fatal.</summary>
     /// <param name="status">The result's <c>api_error_status</c>.</param>

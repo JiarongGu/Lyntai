@@ -84,6 +84,57 @@ public class StreamJsonAgentReaderTests
         Assert.True(new SessionStarted("x").Announced);
     }
 
+    // ── every allowance report is an event (AG42) ────────────────────────────
+
+    // SOURCE-DERIVED from the field names the rejected frame tests already carry (status, resetsAt, rateLimitType, isUsingOverage)
+    [Fact]
+    public void An_allowed_warning_and_rejected_frame_are_each_an_event_with_the_window_as_an_allowance_window_states_it()
+    {
+        var reader = new StreamJsonAgentReader();
+
+        var reports = new[]
+            {
+                """{"type":"rate_limit_event","rate_limit_info":{"status":"allowed","resetsAt":1792000000,"rateLimitType":"five_hour","isUsingOverage":false}}""",
+                """{"type":"rate_limit_event","rate_limit_info":{"status":"allowed_warning","resetsAt":1792400000,"rateLimitType":"seven_day_opus"}}""",
+                """{"type":"rate_limit_event","rate_limit_info":{"status":"rejected","resetsAt":1792400000,"rateLimitType":"seven_day","limitScope":"group_pool"}}""",
+                """{"type":"rate_limit_event","rate_limit_info":{"status":"rejected","resetsAt":1792000000,"overageResetsAt":1795000000,"rateLimitType":"overage","isUsingOverage":true}}""",
+            }
+            .SelectMany(reader.Read).OfType<AgentAllowanceReport>().ToList();
+
+        Assert.Equal(["allowed", "allowed_warning", "rejected", "rejected"], reports.Select(r => r.Status).ToArray());
+        Assert.Equal((AgentAllowanceWindow.FiveHour, TimeSpan.FromHours(5), (string?)null), (reports[0].Window!.Name, reports[0].Window!.Length, reports[0].Window!.Scope));
+        Assert.Equal(DateTimeOffset.FromUnixTimeSeconds(1792000000), reports[0].Window!.ResetsAt);
+        Assert.Equal((false, null), (reports[0].IsUsingOverage, reports[1].IsUsingOverage));
+        Assert.Equal((AgentAllowanceWindow.Weekly, "opus"), (reports[1].Window!.Name, reports[1].Window!.Scope));
+        Assert.Equal("group_pool", reports[2].LimitScope);
+        Assert.Equal(("overage", (TimeSpan?)null, true), (reports[3].Window!.Name, reports[3].Window!.Length, reports[3].IsUsingOverage));
+        Assert.Equal(DateTimeOffset.FromUnixTimeSeconds(1795000000), reports[3].OverageResetsAt);
+        Assert.All(reports, r => Assert.Null(r.Window!.UsedPercent));
+    }
+
+    [Fact]
+    public void A_frame_with_no_reset_and_one_with_no_window_are_kept_in_part_and_the_rejected_frame_still_ends_a_failing_turn_as_before()
+    {
+        var reader = new StreamJsonAgentReader();
+
+        var events = new[]
+            {
+                """{"type":"rate_limit_event","rate_limit_info":{"status":"allowed","rateLimitType":"five_hour"}}""",
+                """{"type":"rate_limit_event","rate_limit_info":{"status":"allowed"}}""",
+                """{"type":"rate_limit_event","rate_limit_info":{"status":"rejected","resetsAt":1792000000,"rateLimitType":"five_hour"}}""",
+                """{"type":"result","subtype":"success","is_error":true,"result":"limit reached","session_id":"s"}""",
+            }
+            .SelectMany(reader.Read).ToList();
+
+        var reports = events.OfType<AgentAllowanceReport>().ToList();
+        Assert.Null(reports[0].Window!.ResetsAt);
+        Assert.Null(reports[1].Window);
+        var ended = events.OfType<SessionEnded>().Single();
+        Assert.Equal(AgentFailureKind.Limit, ended.Failure!.Kind);
+        Assert.Equal(RecoveryKind.ResetAt, ended.Failure.Restriction!.Recovery.Kind);
+        Assert.Empty(new StreamJsonAgentReader().Read("""{"type":"rate_limit_event"}"""));
+    }
+
     // ── a turn's own report: denials and usage by model (AG33) ───────────────
 
     // SOURCE-DERIVED: the shape of a host's record of a result frame (values invented, field names theirs)

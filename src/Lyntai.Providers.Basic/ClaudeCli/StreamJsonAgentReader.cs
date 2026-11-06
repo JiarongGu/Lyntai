@@ -74,13 +74,12 @@ internal sealed class StreamJsonAgentReader
     private static readonly HashSet<string> KnownStreamEvents = new(StringComparer.Ordinal)
         { "message_start", "content_block_start", "content_block_stop", "message_delta", "message_stop", "content_block_delta" };
 
-    // `rate_limit_info` is not surfaced as an event (no AgentStreamEvent carries it); a REJECTED one is kept so a
-    // failing result can name the limit and when it renews. An `allowed` frame, which is every ordinary one, is
-    // never kept.
+    // every `rate_limit_info` is an AgentAllowanceReport; a REJECTED one is also kept so a failing result can name the
+    // limit and when it renews. An `allowed` frame, which is every ordinary one, is never kept as a failure.
     private IEnumerable<AgentStreamEvent> NoteRateLimit(JsonElement root)
     {
         _rejectedLimit = StreamJsonFailure.ReadRejection(root) ?? _rejectedLimit;
-        return [];
+        return WireJson.Object(root, "rate_limit_info") is { } info ? [StreamJsonFailure.ReadReport(info)] : [];
     }
 
     // ── system/init ──────────────────────────────────────────────────────────

@@ -102,6 +102,21 @@ sealed class Lyntai.Agents.AgentAllowanceReading
     VersionValidated : Nullable<Boolean> { get; init; }
     Windows : IReadOnlyList<AgentAllowanceWindow> { get; init; }
     static Unknown(String reason, DateTimeOffset measuredAt) : AgentAllowanceReading
+sealed class Lyntai.Agents.AgentAllowanceReport
+    .ctor(String Status, AgentAllowanceWindow Window, String LimitScope, Nullable<Boolean> IsUsingOverage, Nullable<DateTimeOffset> OverageResetsAt)
+    Deconstruct(String& Status, AgentAllowanceWindow& Window, String& LimitScope, Nullable`1& IsUsingOverage, Nullable`1& OverageResetsAt) : Void
+    EqualityContract : Type { protected get; }
+    Equals(AgentAllowanceReport other) : Boolean
+    Equals(AgentStreamEvent other) : Boolean
+    Equals(Object obj) : Boolean
+    GetHashCode() : Int32
+    IsUsingOverage : Nullable<Boolean> { get; init; }
+    LimitScope : String { get; init; }
+    OverageResetsAt : Nullable<DateTimeOffset> { get; init; }
+    PrintMembers(StringBuilder builder) : Boolean
+    Status : String { get; init; }
+    ToString() : String
+    Window : AgentAllowanceWindow { get; init; }
 static class Lyntai.Agents.AgentAllowanceUnknown
     AccountRefused : String const
     Disabled : String const

@@ -174,6 +174,12 @@ every addition.
   value, values) and each mode (`AgentOfferedMode`) with the current mode, every list cut to 25 and `Truncated` saying so. An open that offers
   nothing adds no event. It is the open's, not the agent's answer to the prompt, so it never counts toward delivery; a host that matches
   on the first event of a protocol turn now meets it before `SessionStarted`.
+- **Every allowance report is an event** (**D246**). A new `AgentAllowanceReport` is yielded for each Claude `rate_limit_event` frame, allowed or
+  rejected, and for the protocol door's `_claude/rateLimit` update: the report's standing in the agent's own word, the window as `AgentAllowanceWindow`
+  states one (the five-hour and weekly windows with their length, a model's week with its scope, any other window by the agent's word and no length,
+  its reset when stated), the spend limit it names, and the overage state (`IsUsingOverage`, `OverageResetsAt`). A rejected frame still ends a
+  failing turn as before, an allowed one clears no held rejection, and a report never counts toward a prompt's delivery. No use figure is carried:
+  none is recorded with a scale.
 - **A scope dense in ended entries still returns its current ones** (**D241**). A `Current` or as-of recall dropped the ended
   entries after the candidate window was cut, so 100 ended entries matching a query better than 5 current ones returned none of the
   5. When a seed source fills its window and the reading drops some of what it returned, the engine now asks again with a window four

@@ -113,6 +113,21 @@ public sealed record UsageReading(
     public const string Tokens = "tokens";
 }
 
+/// <summary>An allowance report the agent stated mid-turn (Claude's <c>rate_limit_event</c>, allowed or rejected), as it
+/// stated it. A turn that fails on it still ends as before; this is the report itself, for a host that reads an allowance
+/// as it moves. It says nothing of the prompt and never counts toward its delivery.</summary>
+/// <param name="Status">The report's standing in the agent's own word (<c>allowed</c>, <c>rejected</c>…); null when it stated none.</param>
+/// <param name="Window">The window it names, as <see cref="AgentAllowanceWindow"/> states one: <see cref="AgentAllowanceWindow.FiveHour"/>
+/// and <see cref="AgentAllowanceWindow.Weekly"/> with their length and a scope for a model's week, any other window by the agent's
+/// own word with no length. Its <see cref="AgentAllowanceWindow.UsedPercent"/> is null: the report states no use this library reads
+/// as a percent. Null when the report names no window.</param>
+/// <param name="LimitScope">The spend limit the report names when it is not the member's own (<c>group_pool</c>), in the agent's word.</param>
+/// <param name="IsUsingOverage">Whether the agent states the account is drawing on overage; null when it states none.</param>
+/// <param name="OverageResetsAt">When the agent states the overage renews; null when it states none.</param>
+public sealed record AgentAllowanceReport(
+    string? Status, AgentAllowanceWindow? Window, string? LimitScope, bool? IsUsingOverage, DateTimeOffset? OverageResetsAt)
+    : AgentStreamEvent;
+
 /// <summary>One option an agent offered when it opened the session (the protocol door's config option).</summary>
 /// <param name="Category">The agent's category word for it (<c>model</c>, <c>thought_level</c>…); null when it stated none.</param>
 /// <param name="Id">What the option is set by.</param>

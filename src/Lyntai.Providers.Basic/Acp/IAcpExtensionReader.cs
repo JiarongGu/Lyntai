@@ -45,7 +45,13 @@ public interface IAcpExtensionReader
 /// states. A reading REPLACES what the same reader held before, so null here clears it: the way an agent says a
 /// problem was recovered from. A reader that says nothing returns null for the whole reading instead, which clears
 /// nothing.</param>
-public sealed record AcpUpdateReading(IReadOnlyList<AgentStreamEvent>? Events = null, AgentFailure? Failure = null);
+/// <param name="KeepsFailure">True when this reading says nothing of the failure it holds, so what the same reader held
+/// before stands rather than being replaced by <paramref name="Failure"/>: events alone.</param>
+public sealed record AcpUpdateReading(IReadOnlyList<AgentStreamEvent>? Events = null, AgentFailure? Failure = null)
+{
+    /// <summary>See the parameter of the same name.</summary>
+    public bool KeepsFailure { get; init; }
+}
 
 /// <summary>A failure an agent stated in the answer to a prompt it ended normally.</summary>
 /// <param name="By">What stated it, for <see cref="AgentFailure.By"/> when neither <paramref name="Failure"/> nor the

@@ -1326,6 +1326,27 @@ public class AcpAgentSessionTests
         Assert.Equal(("t", "/accounts/a"), (env["TURN_VAR"], env["AGENT_HOME"]));
     }
 
+    // ── every allowance report is an event on the protocol door too (AG42) ────
+
+    [Fact] // SOURCE-DERIVED: claude-agent-acp forwards the CLI's rate_limit_info as a usage_update's _meta
+    public async Task An_allowed_report_is_an_event_and_does_not_clear_a_rejection_the_turn_then_fails_on()
+    {
+        const string rejected = "{\"_claude/rateLimit\":{\"status\":\"rejected\",\"rateLimitType\":\"five_hour\",\"resetsAt\":1893456000}}";
+        const string allowed = "{\"_claude/rateLimit\":{\"status\":\"allowed\",\"rateLimitType\":\"five_hour\",\"resetsAt\":1893456000,\"isUsingOverage\":false}}";
+        var runner = OpenedAgent(_ =>
+        [
+            Update("usage_update", "{\"used\":1,\"size\":2,\"_meta\":" + rejected + "}"),
+            Update("usage_update", "{\"used\":1,\"size\":2,\"_meta\":" + allowed + "}"),
+            Reply(JsonNode.Parse("{\"id\":3}")!, "\"error\":{\"code\":-32603,\"message\":\"Internal error\"}"),
+        ]);
+
+        var events = await Run(Scripted(runner), Ask());
+
+        Assert.Equal(["rejected", "allowed"], events.OfType<AgentAllowanceReport>().Select(r => r.Status).ToArray());
+        Assert.Equal(AgentFailureKind.Limit, Ended(events).Failure!.Kind);   // the allowed report did not undo the rejection
+        Assert.Equal(AgentDelivery.Taken, Ended(events).Failure!.Delivery);
+    }
+
     // ── what the open offered (AG36, D245) ────────────────────────────────────
 
     [Fact]
