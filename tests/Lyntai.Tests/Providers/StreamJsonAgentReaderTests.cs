@@ -482,6 +482,45 @@ public class StreamJsonAgentReaderTests
     }
 
     [Fact]
+    public void A_subagents_complete_message_yields_each_text_and_thinking_block_with_the_call_that_spawned_it()
+    {
+        var reader = new StreamJsonAgentReader();
+
+        var events = reader.Read(
+            """{"type":"assistant","message":{"content":[{"type":"thinking","thinking":"hm","signature":"x"},{"type":"text","text":"found it"},{"type":"tool_use","id":"read-2","name":"Read","input":{}},{"type":"text","text":"and more"},{"type":"text","text":""}],"usage":{"input_tokens":5,"output_tokens":5}},"parent_tool_use_id":"task-1"}""");
+
+        Assert.Equal(
+            [new Thinking("hm") { ParentCallId = "task-1" }, new TextDelta("found it") { ParentCallId = "task-1" },
+             new ToolCall("Read", "{}", "read-2") { ParentCallId = "task-1" }, new TextDelta("and more") { ParentCallId = "task-1" }],
+            events);
+    }
+
+    [Fact]
+    public void A_synchronous_child_with_no_task_still_carries_its_words_and_its_end_is_the_calls_result()
+    {
+        var reader = new StreamJsonAgentReader();
+
+        var all = new[] { SessionSpawn, ChildText,
+            """{"type":"user","message":{"content":[{"type":"tool_result","tool_use_id":"task-1","content":"the child's report"}]},"parent_tool_use_id":null}""" }
+            .SelectMany(reader.Read).ToList();
+
+        Assert.Equal("task-1", Assert.Single(all.OfType<TextDelta>()).ParentCallId);
+        Assert.Empty(all.OfType<AgentTaskStarted>());
+        Assert.Equal("task-1", Assert.Single(all.OfType<ToolResult>()).CallId);
+    }
+
+    [Fact]
+    public void The_sessions_own_message_still_yields_no_text_event_and_no_thinking_event()
+    {
+        var reader = new StreamJsonAgentReader();
+
+        var events = reader.Read(
+            """{"type":"assistant","message":{"content":[{"type":"thinking","thinking":"own"},{"type":"text","text":"own words"}]},"parent_tool_use_id":null}""");
+
+        Assert.Empty(events);
+    }
+
+    [Fact]
     public void A_subagents_text_stream_is_not_the_sessions_answer_text()
     {
         var reader = new StreamJsonAgentReader();

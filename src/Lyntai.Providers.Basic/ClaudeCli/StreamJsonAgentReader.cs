@@ -159,7 +159,7 @@ internal sealed class StreamJsonAgentReader
         if (own)
             _assistantError = WireJson.String(root, "error");
 
-        var toolCalls = new List<ToolCall>();
+        var blocks = new List<AgentStreamEvent>();
         PlanUpdated? plan = null;
         StringBuilder? text = null;
         if (msg.TryGetProperty("content", out var content) && content.ValueKind == JsonValueKind.Array)
@@ -174,6 +174,13 @@ internal sealed class StreamJsonAgentReader
                     // (truncation / older CLI / provider variant) can fall back to it (see ReadResult).
                     if (own && block.TryGetProperty("text", out var textEl) && textEl.ValueKind == JsonValueKind.String)
                         (text ??= new StringBuilder()).Append(textEl.GetString());
+                    // a subagent's words arrive once, whole, and have no stream of their own to be read from
+                    else if (!own && WireJson.String(block, "text") is { Length: > 0 } childText)
+                        blocks.Add(new TextDelta(childText) { ParentCallId = parentCallId });
+                }
+                else if (blockType == "thinking" && !own && WireJson.String(block, "thinking") is { Length: > 0 } childThought)
+                {
+                    blocks.Add(new Thinking(childThought) { ParentCallId = parentCallId });
                 }
                 else if (blockType == "tool_use")
                 {
@@ -186,7 +193,7 @@ internal sealed class StreamJsonAgentReader
                     var argsJson = block.TryGetProperty("input", out var inputEl)
                         ? inputEl.GetRawText()
                         : "{}";
-                    toolCalls.Add(new ToolCall(name, argsJson, id) { ParentCallId = parentCallId });
+                    blocks.Add(new ToolCall(name, argsJson, id) { ParentCallId = parentCallId });
                     if (own && name == TodoWriteTool && ReadTodoPlan(block) is { } todoPlan)
                         plan = todoPlan;   // the last list in a message is the plan as it now stands
                 }
@@ -197,8 +204,8 @@ internal sealed class StreamJsonAgentReader
         if (text is { Length: > 0 })
             _lastAssistantText = text.ToString();
 
-        foreach (var tc in toolCalls)
-            yield return tc;
+        foreach (var block in blocks)
+            yield return block;
 
         if (plan is not null)
             yield return plan;

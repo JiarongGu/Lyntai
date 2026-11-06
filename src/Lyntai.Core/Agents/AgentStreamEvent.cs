@@ -16,10 +16,20 @@ public sealed record SessionStarted(string SessionId) : AgentStreamEvent
 }
 
 /// <summary>A chunk of assistant answer text.</summary>
-public sealed record TextDelta(string Text) : AgentStreamEvent;
+public sealed record TextDelta(string Text) : AgentStreamEvent
+{
+    /// <summary>The <see cref="ToolCall.CallId"/> of the call that spawned the subagent speaking; null for the session's
+    /// own words, and for a door that does not say. A subagent's words arrive whole, one event per block.</summary>
+    public string? ParentCallId { get; init; }
+}
 
 /// <summary>A chunk of assistant reasoning/thinking text.</summary>
-public sealed record Thinking(string Text) : AgentStreamEvent;
+public sealed record Thinking(string Text) : AgentStreamEvent
+{
+    /// <summary>The <see cref="ToolCall.CallId"/> of the call that spawned the subagent thinking; null for the session's
+    /// own, and for a door that does not say.</summary>
+    public string? ParentCallId { get; init; }
+}
 
 /// <summary>The agent invoked a tool. <paramref name="CallId"/> correlates to the matching <see cref="ToolResult"/>.
 /// No file path here — that is a specific tool's argument schema, not universal; parse it from ArgumentsJson.</summary>

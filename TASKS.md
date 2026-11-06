@@ -15,33 +15,32 @@ LLM-ops layer (prompt registry, scoring, traces, memory). `AddLyntai(...)` and g
 
 <!-- open-items:begin — GENERATED. Edit the per-item `item:` markers, never this table. -->
 
-## Open items — 20 across 5 Parts: 14 startable, 3 blocked, 3 watch
+## Open items — 19 across 5 Parts: 13 startable, 3 blocked, 3 watch
 
 _Generated from the per-item `<!-- item: … -->` markers by `node devtools/dev.mjs check-backlog --write`._
 _Edit a marker, never this table — `verify` fails the moment the two disagree._
 
 | line | Part | item | state | waiting on |
 | ---: | ---: | --- | --- | --- |
-| 121 | 33 | GEN-VERIFY-FAL, the last line — the Hugging Face route | blocked · env | an hf_ token for the router route |
-| 162 | 75 | Decide what an aggregator's in-band `code` means | blocked · env+data | two or three real aggregators to measure an in-band code against |
-| 189 | 99 | `verify`'s test step intermittently fails EXACTLY 9 tests, and once aborted… | watch · data | the same nine tests to recur — the fix is unconfirmed as the cure, and a gr… |
-| 248 | 99 | `InputSegmenterTests.Counting_NFKC_is_LINEAR_in_the_length_of_the_text` fai… | watch · data | a recurrence under the full parallel run, with the ratio it read — the mess… |
-| 266 | 99 | `AgentUsageProcessTests.A_server_that_never_answers_is_ended_with_its_child… | watch · data | a recurrence under the full parallel run, with the load it ran under; it fa… |
-| 304 | 417 | MC8 — run the wrong-end instrument on an adjudicated corpus, with a bar wri… | blocked · decision+data | two reviewers' independent labels on a sample of the pairs, and a bar a per… |
-| 330 | 446 | AG38 — a permission request waits for the person when the host says so | startable |  |
-| 339 | 446 | AG28 — the protocol door carries a permission mode and an effort | startable |  |
-| 345 | 446 | AG29 — a turn's own variables | startable |  |
-| 351 | 446 | AG30 — a child's words carry the call that spawned it, and its life is writ… | startable |  |
-| 358 | 446 | AG31 — the protocol door keeps a child's stamped lines apart | startable |  |
-| 365 | 446 | AG32 — an unread frame leaves a bounded trace | startable |  |
-| 371 | 446 | AG33 — the Claude door states a turn's own report: denials and usage by mod… | startable |  |
-| 377 | 446 | AG36 — the protocol door states what the open offered | startable |  |
-| 383 | 446 | AG40 — why a person must act, and what kind of access failed | startable |  |
-| 389 | 446 | AG41 — a limit names its window and a stated reset keeps its parts | startable |  |
-| 396 | 446 | AG42 — every allowance report is an event | startable |  |
-| 402 | 446 | AG44 — the restriction rules are public over a snapshot the host stores | startable |  |
-| 408 | 446 | AG45 — a host's line reader runs under the CLI turn's rules | startable |  |
-| 414 | 446 | AG39 — a run kept across turns: the design | startable |  |
+| 120 | 33 | GEN-VERIFY-FAL, the last line — the Hugging Face route | blocked · env | an hf_ token for the router route |
+| 161 | 75 | Decide what an aggregator's in-band `code` means | blocked · env+data | two or three real aggregators to measure an in-band code against |
+| 188 | 99 | `verify`'s test step intermittently fails EXACTLY 9 tests, and once aborted… | watch · data | the same nine tests to recur — the fix is unconfirmed as the cure, and a gr… |
+| 247 | 99 | `InputSegmenterTests.Counting_NFKC_is_LINEAR_in_the_length_of_the_text` fai… | watch · data | a recurrence under the full parallel run, with the ratio it read — the mess… |
+| 265 | 99 | `AgentUsageProcessTests.A_server_that_never_answers_is_ended_with_its_child… | watch · data | a recurrence under the full parallel run, with the load it ran under; it fa… |
+| 303 | 417 | MC8 — run the wrong-end instrument on an adjudicated corpus, with a bar wri… | blocked · decision+data | two reviewers' independent labels on a sample of the pairs, and a bar a per… |
+| 329 | 446 | AG38 — a permission request waits for the person when the host says so | startable |  |
+| 338 | 446 | AG28 — the protocol door carries a permission mode and an effort | startable |  |
+| 344 | 446 | AG29 — a turn's own variables | startable |  |
+| 350 | 446 | AG31 — the protocol door keeps a child's stamped lines apart | startable |  |
+| 357 | 446 | AG32 — an unread frame leaves a bounded trace | startable |  |
+| 363 | 446 | AG33 — the Claude door states a turn's own report: denials and usage by mod… | startable |  |
+| 369 | 446 | AG36 — the protocol door states what the open offered | startable |  |
+| 375 | 446 | AG40 — why a person must act, and what kind of access failed | startable |  |
+| 381 | 446 | AG41 — a limit names its window and a stated reset keeps its parts | startable |  |
+| 388 | 446 | AG42 — every allowance report is an event | startable |  |
+| 394 | 446 | AG44 — the restriction rules are public over a snapshot the host stores | startable |  |
+| 400 | 446 | AG45 — a host's line reader runs under the CLI turn's rules | startable |  |
+| 406 | 446 | AG39 — a run kept across turns: the design | startable |  |
 
 <!-- open-items:end -->
 
@@ -347,13 +346,6 @@ last because it designs the largest piece; the rest in any order. No row spends 
   registration's environment and beneath the account's on the CLI and protocol doors; the HTTP door states `Unsupported`. A value is
   a secret and follows `AgentAccount.Environment`'s rules (never argv, a log line or an event). **Proof.** A turn's variable reaches
   the child, a null removes an inherited one, the account's home still wins, and `ToString` lists no value.
-
-- [ ] **AG30 — a child's words carry the call that spawned it, and its life is written down** (lane `inference`, **D245**). <!-- item: state=startable -->
-  `StreamJsonAgentReader.ReadAssistant` drops a subagent's `text` and reads no `thinking` block. **Contract.** `TextDelta` and
-  `Thinking` gain `ParentCallId` (additive, init); a subagent's complete message yields one of each per block, with the parent, and
-  never a plan, usage or fallback text of the session's. `docs/guide.md` states how a consumer reads a child's start (its first
-  event with a parent) and end (the `AgentTaskEnded` of the task opened for that call, else the call's `ToolResult`). **Proof.**
-  The AG10 capture's shapes: an asynchronous child's words, a synchronous child with no task, and the end by each rule.
 
 - [ ] **AG31 — the protocol door keeps a child's stamped lines apart** (lane `inference`, after AG30, **D245**). <!-- item: state=startable -->
   A child the client did not declare as a session carries `_meta.claudeCode.parentToolUseId` on the root session (Daoris's record of

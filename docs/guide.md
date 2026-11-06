@@ -1072,6 +1072,12 @@ calls) and `AgentTaskEnded` (the id and the agent's status word, uninterpreted).
 ended after the turn's one `SessionEnded`: read on past the terminal if you want its end. Codex and the ACP doors
 emit neither. What to show of a task is yours.
 
+**A subagent's words and life** (D245). A subagent's complete message yields one `TextDelta` or `Thinking` per block, each with
+the `ParentCallId` of the call that spawned it (null on the session's own, which arrive as stream deltas), and never a plan, a
+usage tick or the session's fallback text. No `ChildStarted` or `ChildEnded` event exists, by design: a child **starts** at its
+first event with a parent, and **ends** at the `AgentTaskEnded` of the task opened for that call (`AgentTaskStarted.CallId`), else at the
+`ToolResult` of the call itself (a synchronous child opens no task).
+
 **Why a turn failed** (`SessionEnded.Failure`, set on every failed terminal of both CLI sessions, null on a good
 one). `AgentFailure.Kind` is `Limit`, `Access`, `Transient` or `Fatal`, read from the door's OWN failure — a
 rejected `rate_limit_event`, a result's `api_error_status`, a failed turn's message — and never from what the agent
