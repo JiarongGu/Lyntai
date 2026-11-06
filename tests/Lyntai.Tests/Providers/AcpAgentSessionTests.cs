@@ -959,7 +959,7 @@ public class AcpAgentSessionTests
     // ── a process that dies ──────────────────────────────────────────────────
 
     [Theory] // the delivery of a turn the process died in is what the turn had shown
-    [InlineData("DIE_EARLY", AgentDelivery.Taken)]
+    [InlineData("DIE_EARLY", AgentDelivery.NeverSent)]
     [InlineData("DIE_MID", AgentDelivery.Taken)]
     [InlineData("DIE_AFTER_TOOL", AgentDelivery.Uncertain)]
     public async Task A_process_that_dies_mid_turn_ends_it_with_the_delivery_the_turn_showed(string marker, AgentDelivery delivery)
@@ -1041,6 +1041,96 @@ public class AcpAgentSessionTests
         });
 
         Assert.DoesNotContain(runner.Exchanged, l => Method(JsonNode.Parse(l)!) == "session/cancel");
+    }
+
+    // ── what a turn showed after its prompt was written (AG37, D248) ──────────
+
+    private static FakeProcessRunner OpenedAgent(Func<JsonNode, string[]> prompt) => Agent(new()
+    {
+        ["initialize"] = _ => [Initialized()],
+        ["session/new"] = _ => [OpenedId(2)],
+        ["session/prompt"] = prompt,
+    });
+
+    [Fact] // the session is announced before the prompt is written, so it shows nothing of whether the prompt was read
+    public async Task A_protocol_turn_that_dies_right_after_the_open_reads_never_sent_with_nothing_shown()
+    {
+        var events = await Run(Scripted(OpenedAgent(_ => null!)), Ask());
+
+        Assert.IsType<SessionStarted>(events[0]);
+        var ended = Ended(events);
+        Assert.Equal(AgentDelivery.NeverSent, ended.Failure!.Delivery);
+        Assert.Equal(new AgentTurnEvidence(false, []), ended.Turn, new TurnComparer());
+    }
+
+    [Fact]
+    public async Task A_protocol_turn_that_streams_one_text_delta_then_fails_reads_taken_and_lists_the_kind()
+    {
+        var runner = OpenedAgent(_ => [Update("agent_message_chunk", """{"content":{"type":"text","text":"half"}}"""),
+            """{"jsonrpc":"2.0","id":3,"error":{"code":-32603,"message":"boom"}}"""]);
+
+        var ended = Ended(await Run(Scripted(runner), Ask()));
+
+        Assert.Equal(AgentDelivery.Taken, ended.Failure!.Delivery);
+        Assert.Equal(true, ended.Turn!.Written);
+        Assert.Equal([AgentShownKind.Text], ended.Turn.Shown);
+    }
+
+    [Fact]
+    public async Task A_prompt_the_agent_answered_with_an_error_was_read_though_it_showed_no_event()
+    {
+        var runner = OpenedAgent(_ => ["""{"jsonrpc":"2.0","id":3,"error":{"code":-32603,"message":"boom"}}"""]);
+
+        var ended = Ended(await Run(Scripted(runner), Ask()));
+
+        Assert.Equal(AgentDelivery.Taken, ended.Failure!.Delivery);
+        Assert.Equal(true, ended.Turn!.Written);
+        Assert.Empty(ended.Turn.Shown);
+    }
+
+    [Fact]
+    public async Task A_successful_protocol_turn_carries_what_it_showed_in_the_order_first_shown()
+    {
+        var runner = OpenedAgent(_ => [Update("agent_thought_chunk", """{"content":{"type":"text","text":"hm"}}"""),
+            Update("agent_message_chunk", """{"content":{"type":"text","text":"a"}}"""),
+            Update("agent_message_chunk", """{"content":{"type":"text","text":"b"}}"""),
+            PromptEnded("end_turn", ""","usage":{"inputTokens":1,"outputTokens":2}""")]);
+
+        var ended = Ended(await Run(Scripted(runner), Ask()));
+
+        Assert.False(ended.IsError);
+        Assert.Equal([AgentShownKind.Thinking, AgentShownKind.Text, AgentShownKind.Usage], ended.Turn!.Shown);
+    }
+
+    [Fact] // a stall right after the open shows nothing of the prompt, so the retry sends it again rather than resuming
+    public async Task A_stall_right_after_the_open_is_retried_by_resending_the_prompt_not_by_resuming()
+    {
+        var prompts = 0;
+        var runner = Agent(new()
+        {
+            ["initialize"] = _ => [Initialized()],
+            ["session/new"] = _ => [OpenedId(2)],
+            ["session/prompt"] = _ => ++prompts == 1
+                ? throw new ProcessTimeoutException("agent", TimeSpan.FromSeconds(1))
+                : [Update("agent_message_chunk", """{"content":{"type":"text","text":"ok"}}"""), PromptEnded("end_turn")],
+        });
+        var retry = new RetryingAgentSession(Scripted(runner), new AgentRetryOptions { InitialDelay = TimeSpan.Zero, MaxDelay = TimeSpan.Zero });
+
+        var ended = Ended(await Run(retry, Ask("do it")));
+
+        Assert.False(ended.IsError);
+        var sent = runner.Exchanged.Select(l => JsonNode.Parse(l)!).Where(f => Method(f) == "session/prompt").ToList();
+        Assert.Equal(2, sent.Count);
+        Assert.All(sent, f => Assert.Equal("do it", f["params"]!["prompt"]![0]!["text"]!.GetValue<string>()));
+        Assert.Equal(2, runner.Exchanges.Count(c => true));
+    }
+
+    private sealed class TurnComparer : IEqualityComparer<AgentTurnEvidence?>
+    {
+        public bool Equals(AgentTurnEvidence? a, AgentTurnEvidence? b) =>
+            a is not null && b is not null && a.Written == b.Written && a.Shown.SequenceEqual(b.Shown);
+
+        public int GetHashCode(AgentTurnEvidence? o) => 0;
     }
 
     // ── helpers over the wire ────────────────────────────────────────────────

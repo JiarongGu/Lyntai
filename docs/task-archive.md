@@ -6656,3 +6656,9 @@ lines the doors' own tests pin. Landed in `08b41270`; the row stayed open in `TA
 - AG25 — a permission mode is carried by the CLI doors, or refused
 - AG26 — an effort is carried by the CLI doors, or refused
 - AG27 — plugin folders are handed to the Claude door, or refused
+
+## Part 449 — AG37: a prompt's delivery is what its turn showed after the write (2026-11-07)
+
+✅ done 2026-11-07 — **Outcome:** `CliAgentLoop` stamps delivery from a `TurnWatch`: a session start counts only on a door that announces it after the write (`announcesBeforeWrite` is true for the protocol door), the agent's own answer to the prompt counts too (`AcpAgentReader.PromptAnswered`, an error included), and an event that says nothing of the prompt is never counted, which is where AG36's offers and AG42's allowance report join. `SessionEnded.Turn` is a new `AgentTurnEvidence` (`Written`, `Shown` as `AgentShownKind`s in first-shown order), set on every terminal; `AgentDelivery` and `RetryingAgentSession` are untouched, and a protocol turn that stalls after the open now resends instead of resuming (tested). **Read here:** `Written` is null on the CLI doors, which hand the prompt to the child at its spawn and have no write to watch, and on the protocol door it is a wrapper around the runner's stdin sequence (`PromptWriteWatch`: a frame is written when the runner asks for the next), true also once the agent has answered; `Shown` carries a `Task` kind beyond the row's six, because task events already counted toward `Taken`. The one existing fact that changed is `DIE_EARLY` (`Taken` to `NeverSent`), the row's own case. Baseline moved, additions only. No decision recorded: **D248** states it. Lanes `inference` + `platform`.
+
+- AG37 — a prompt's delivery is what its turn showed after the write

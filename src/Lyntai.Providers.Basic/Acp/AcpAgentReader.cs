@@ -50,6 +50,9 @@ internal sealed class AcpAgentReader
     private readonly TimeSpan _permissionWindow;
     private readonly ILogger _logger;
     private readonly List<HeldPermission> _held = [];
+    private int _frames;
+    private int _promptFrame = -1;
+    private volatile bool _promptAnswered;
 
     /// <param name="options">The turn.</param>
     /// <param name="cwd">The absolute working directory the session opens in.</param>
@@ -77,6 +80,13 @@ internal sealed class AcpAgentReader
         _time = time;
         _extensions = new AcpExtensionSet(extensions, time);
     }
+
+    /// <summary>The place of the prompt's frame among the frames the client has queued (0 is <c>initialize</c>); -1 until
+    /// it is queued. A writer that has asked for the frame after it has written it.</summary>
+    public int PromptFrame => Volatile.Read(ref _promptFrame);
+
+    /// <summary>Whether the agent has answered <c>session/prompt</c>, with a result or an error: it read the prompt.</summary>
+    public bool PromptAnswered => _promptAnswered;
 
     /// <summary>Queue <c>initialize</c>, the first frame.</summary>
     public void Start() => Send(AcpFrames.Initialize(InitializeId, _clientVersion));
@@ -192,6 +202,7 @@ internal sealed class AcpAgentReader
                 break;
 
             case PromptId when _phase == Phase.Prompting:
+                _promptAnswered = true;
                 EndPrompt(error, result, events);
                 break;
         }
@@ -206,6 +217,7 @@ internal sealed class AcpAgentReader
         string[] blocks = string.IsNullOrEmpty(_options.SystemPrompt)
             ? [_options.Prompt]
             : [_options.SystemPrompt, _options.Prompt];
+        Volatile.Write(ref _promptFrame, Volatile.Read(ref _frames));
         Send(AcpFrames.Prompt(PromptId, _sessionId!, blocks));
     }
 
@@ -538,5 +550,8 @@ internal sealed class AcpAgentReader
         _outbox.TryComplete();
     }
 
-    private void Send(string frame) => _outbox.TryWrite(frame);
+    private void Send(string frame)
+    {
+        if (_outbox.TryWrite(frame)) Interlocked.Increment(ref _frames);
+    }
 }

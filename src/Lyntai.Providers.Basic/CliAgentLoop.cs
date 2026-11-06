@@ -31,16 +31,57 @@ internal static class CliAgentLoop
             Failure = new AgentFailure(AgentFailureKind.Fatal, "refused-before-spawn") { Delivery = AgentDelivery.NeverSent },
         };
 
-    // What a failed turn had shown before it failed — the one place delivery is decided, for every door. A tool
-    // step that had begun may have acted, so it is uncertain; any other event means the door answered, so the
-    // prompt was taken; nothing at all shows no sign it was read.
-    internal static SessionEnded Stamp(SessionEnded ended, bool sawEvent, bool sawTool)
+    // What a failed turn had shown after its prompt was written — the one place delivery is decided, for every door.
+    // A tool step that had begun may have acted, so it is uncertain; any other answer to the prompt means the door
+    // took it; nothing at all shows no sign it was read. The turn's evidence rides every terminal.
+    private static SessionEnded Stamp(SessionEnded ended, TurnWatch watch)
     {
-        if (!ended.IsError) return ended;
+        var withTurn = ended with { Turn = watch.Evidence() };
+        if (!ended.IsError) return withTurn;
         var failure = ended.Failure ?? new AgentFailure(AgentFailureKind.Fatal, "no-failure-fields");
-        var delivery = sawTool ? AgentDelivery.Uncertain : sawEvent ? AgentDelivery.Taken : AgentDelivery.NeverSent;
-        return ended with { Failure = failure with { Delivery = delivery } };
+        var delivery = watch.SawTool ? AgentDelivery.Uncertain : watch.SawAnswer ? AgentDelivery.Taken : AgentDelivery.NeverSent;
+        return withTurn with { Failure = failure with { Delivery = delivery } };
     }
+
+    // The events that show the agent read the prompt. A session start is not one where the door announces it before it
+    // writes the prompt (the protocol door), and an event that says nothing of the prompt (an offer, an allowance
+    // report) is not one on any door.
+    private sealed class TurnWatch(bool announcesBeforeWrite, Func<bool?> written, Func<bool> answered)
+    {
+        private readonly List<AgentShownKind> _shown = [];
+        private bool _sawAnswer;
+
+        // the door's own answer to the prompt (a protocol agent's response to it, even an error) shows it was read
+        public bool SawAnswer => _sawAnswer || answered();
+
+        public bool SawTool { get; private set; }
+
+        public void See(AgentStreamEvent evt)
+        {
+            if (Kind(evt) is not { } kind)
+            {
+                if (evt is SessionStarted && !announcesBeforeWrite) _sawAnswer = true;
+                return;
+            }
+            _sawAnswer = true;
+            if (kind is AgentShownKind.ToolCall or AgentShownKind.ToolResult) SawTool = true;
+            if (!_shown.Contains(kind)) _shown.Add(kind);
+        }
+
+        public AgentTurnEvidence Evidence() => new(written(), [.. _shown]);
+    }
+
+    private static AgentShownKind? Kind(AgentStreamEvent evt) => evt switch
+    {
+        TextDelta => AgentShownKind.Text,
+        Thinking => AgentShownKind.Thinking,
+        ToolCall => AgentShownKind.ToolCall,
+        ToolResult => AgentShownKind.ToolResult,
+        UsageLive or UsageFinal or UsageReading => AgentShownKind.Usage,
+        PlanUpdated => AgentShownKind.Plan,
+        AgentTaskStarted or AgentTaskEnded => AgentShownKind.Task,
+        _ => null,
+    };
 
     // A process fault is the harness's, not the door's: only its stderr may name an access failure, a stalled
     // window is transient, and anything else is fatal.
@@ -72,7 +113,7 @@ internal static class CliAgentLoop
         RunLinesAsync(
             runner.StreamLinesAsync(exe, argv, stdin: stdin, inactivityTimeout: timeout,
                 workingDirectory: options.WorkingDirectory, environment: environment, ct: ct),
-            endAtTerminal: false, read, logger, backend, ct);
+            endAtTerminal: false, read, logger, backend, announcesBeforeWrite: false, written: static () => null, answered: static () => false, ct);
 
     /// <summary>The loop over lines already being read: <see cref="RunAsync"/>'s own, and a protocol door's,
     /// whose process is spoken to as it answers. <paramref name="endAtTerminal"/> ends the turn at its
@@ -84,16 +125,22 @@ internal static class CliAgentLoop
     /// <param name="read">The backend's line reader: 0..N events per line, never a throw.</param>
     /// <param name="logger">Where a turn with no terminal is reported.</param>
     /// <param name="backend">The CLI's name, for the diagnostic.</param>
+    /// <param name="announcesBeforeWrite">True for a door that yields its session start before it writes the prompt: the
+    /// start then says nothing of whether the prompt was read.</param>
+    /// <param name="written">Whether the door's own write of the prompt has completed, read when a terminal is stamped; null
+    /// where there is no write to watch.</param>
+    /// <param name="answered">Whether the door has had the agent's own answer to the prompt, which shows it was read
+    /// whatever events followed.</param>
     /// <param name="ct">Cancels the turn.</param>
     public static async IAsyncEnumerable<AgentStreamEvent> RunLinesAsync(
         IAsyncEnumerable<string> lines, bool endAtTerminal,
         Func<string, IReadOnlyList<AgentStreamEvent>> read, ILogger logger, string backend,
+        bool announcesBeforeWrite, Func<bool?> written, Func<bool> answered,
         [EnumeratorCancellation] CancellationToken ct)
     {
         var sawTerminal = false;
         var sawContent = false;
-        var sawEvent = false;
-        var sawTool = false;
+        var watch = new TurnWatch(announcesBeforeWrite, written, answered);
         string? sessionId = null;
 
         // a protocol door cancels its own runner, once the agent has heard session/cancel: the caller's token must not
@@ -106,7 +153,7 @@ internal static class CliAgentLoop
                 async () => await e.MoveNextAsync().ConfigureAwait(false) ? e.Current : null,
                 ex => CliFault.Classify(ex) is { } fault
                     ? Stamp(new SessionEnded(fault.Verdict, true, ex is ProcessTimeoutException ? "timeout" : null,
-                        sessionId, null, fault.Detail) { Failure = FaultFailure(ex, fault.Verdict) }, sawEvent, sawTool)
+                        sessionId, null, fault.Detail) { Failure = FaultFailure(ex, fault.Verdict) }, watch)
                     : null,
                 ct);
             await foreach (var (line, terminal) in guarded.ConfigureAwait(false))
@@ -130,14 +177,13 @@ internal static class CliAgentLoop
                             if (sawTerminal) continue;
                             sawTerminal = true;
                             sessionId = ended.SessionId ?? sessionId;
-                            evt = Stamp(ended, sawEvent, sawTool);
+                            evt = Stamp(ended, watch);
                             break;
                         case TextDelta or ToolCall or ToolResult or Thinking:
                             sawContent = true;
                             break;
                     }
-                    if (evt is ToolCall or ToolResult) sawTool = true;
-                    if (evt is not SessionEnded) sawEvent = true;
+                    if (evt is not SessionEnded) watch.See(evt);
                     yield return evt;
                     if (endAtTerminal && evt is SessionEnded) yield break;
                 }
@@ -152,6 +198,6 @@ internal static class CliAgentLoop
         logger.LogWarning("{Backend} agent session produced no terminal event ({Diagnostic}); session={SessionId}",
             backend, diagnostic, sessionId);
         yield return Stamp(new SessionEnded(ProviderVerdict.Failed, true, null, sessionId, null, diagnostic)
-            { Failure = new AgentFailure(AgentFailureKind.Fatal, "no-terminal-event") }, sawEvent, sawTool);
+            { Failure = new AgentFailure(AgentFailureKind.Fatal, "no-terminal-event") }, watch);
     }
 }

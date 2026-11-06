@@ -112,4 +112,22 @@ public sealed record SessionEnded(
     /// terminal, read from the door's own fields before any sentence; <see cref="Verdict"/> is its mapping onto
     /// the verdict taxonomy, except that a process fault keeps the verdict its stderr gave.</summary>
     public AgentFailure? Failure { get; init; }
+
+    /// <summary>What the turn showed after its prompt was written, which is what <see cref="AgentFailure.Delivery"/> is
+    /// read from. Set by every door's loop on its terminal, failed or not; null on a terminal a door built before any
+    /// turn ran (a refusal).</summary>
+    public AgentTurnEvidence? Turn { get; init; }
 }
+
+/// <summary>The kinds of event a turn can show after its prompt was written. A session start the door announces
+/// before it writes the prompt, and an event that is not the agent's answer to the prompt, are none of these.</summary>
+public enum AgentShownKind { Text, Thinking, ToolCall, ToolResult, Usage, Plan, Task }
+
+/// <summary>What one turn showed after its prompt was written: the evidence <see cref="AgentFailure.Delivery"/> is
+/// read from, kept so a host can read it for itself.</summary>
+/// <param name="Written">Whether the door saw the prompt's write complete: true or false where the door writes it
+/// itself (the protocol door, which writes the prompt after its open), null where the child is handed the prompt at
+/// its spawn and the door has no write to watch (the CLI doors).</param>
+/// <param name="Shown">The kinds of event that came after the write, each once, in the order first shown; empty when
+/// none did.</param>
+public sealed record AgentTurnEvidence(bool? Written, IReadOnlyList<AgentShownKind> Shown);

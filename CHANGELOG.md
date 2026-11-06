@@ -129,6 +129,12 @@ every addition.
   doors state all three `Unsupported`. `AgentPick.Apply` now sets `Effort` from the pool choice's, so a choice that names an
   effort is refused by a door that does not carry one. The word set is from claude 2.1.319's `--help`; that `bypassPermissions`
   equals `--dangerously-skip-permissions` is not stated there and is not claimed.
+- **A prompt's delivery is what its turn showed after the write** (**D248**). The protocol door announces the session before it
+  writes the prompt, so a turn that died right after the open read `Taken` with the prompt unread; it now reads `NeverSent`, and
+  a retry resends the prompt instead of resuming. A session start counts toward `Taken` only on a door that announces it after
+  the write (both CLI doors, unchanged), and the agent's own answer to the prompt, even an error, counts on the protocol door.
+  `SessionEnded` gains `Turn`, an `AgentTurnEvidence` of whether the door saw the write complete (null for a CLI door, which hands
+  the prompt to the child at its spawn) and, by `AgentShownKind`, which kinds of event followed it. `AgentDelivery` is unchanged.
 - **A scope dense in ended entries still returns its current ones** (**D241**). A `Current` or as-of recall dropped the ended
   entries after the candidate window was cut, so 100 ended entries matching a query better than 5 current ones returned none of the
   5. When a seed source fills its window and the reading drops some of what it returned, the engine now asks again with a window four

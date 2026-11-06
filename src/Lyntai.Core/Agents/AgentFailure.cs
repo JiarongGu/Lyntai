@@ -115,7 +115,8 @@ public enum AgentDelivery
     /// <summary>Nothing came back from the door before the failure, so nothing shows the prompt was read.</summary>
     NeverSent,
 
-    /// <summary>The door answered (a session start, text or thinking) and had run no tool step.</summary>
+    /// <summary>The door answered the prompt (text, thinking, usage or the agent's own reply to it, and not a session
+    /// start the door announced before it wrote the prompt) and had run no tool step.</summary>
     Taken,
 }
 
