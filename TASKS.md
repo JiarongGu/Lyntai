@@ -15,26 +15,25 @@ LLM-ops layer (prompt registry, scoring, traces, memory). `AddLyntai(...)` and g
 
 <!-- open-items:begin — GENERATED. Edit the per-item `item:` markers, never this table. -->
 
-## Open items — 13 across 5 Parts: 6 startable, 4 blocked, 3 watch
+## Open items — 12 across 5 Parts: 6 startable, 3 blocked, 3 watch
 
 _Generated from the per-item `<!-- item: … -->` markers by `node devtools/dev.mjs check-backlog --write`._
 _Edit a marker, never this table — `verify` fails the moment the two disagree._
 
 | line | Part | item | state | waiting on |
 | ---: | ---: | --- | --- | --- |
-| 114 | 33 | GEN-VERIFY-FAL, the last line — the Hugging Face route | blocked · env | an hf_ token for the router route |
-| 155 | 75 | Decide what an aggregator's in-band `code` means | blocked · env+data | two or three real aggregators to measure an in-band code against |
-| 182 | 99 | `verify`'s test step intermittently fails EXACTLY 9 tests, and once aborted… | watch · data | the same nine tests to recur — the fix is unconfirmed as the cure, and a gr… |
-| 241 | 99 | `InputSegmenterTests.Counting_NFKC_is_LINEAR_in_the_length_of_the_text` fai… | watch · data | a recurrence under the full parallel run, with the ratio it read — the mess… |
-| 259 | 99 | `AgentUsageProcessTests.A_server_that_never_answers_is_ended_with_its_child… | watch · data | a recurrence under the full parallel run, with the load it ran under; it fa… |
-| 297 | 417 | MC8 — run the wrong-end instrument on an adjudicated corpus, with a bar wri… | blocked · decision+data | two reviewers' independent labels on a sample of the pairs, and a bar a per… |
-| 323 | 446 | AG38 — a permission request waits for the person when the host says so | startable |  |
-| 332 | 446 | AG40 — why a person must act, and what kind of access failed | startable |  |
-| 338 | 446 | AG41 — a limit names its window and a stated reset keeps its parts | startable |  |
-| 345 | 446 | AG44 — the restriction rules are public over a snapshot the host stores | startable |  |
-| 351 | 446 | AG45 — a host's line reader runs under the CLI turn's rules | startable |  |
-| 357 | 446 | AG42, the rest — an allowance report's use and its overage and credit state | blocked · data | a real rate_limit_event frame, from a signed-in account, that carries a use… |
-| 363 | 446 | AG39 — a run kept across turns: the design | startable |  |
+| 113 | 33 | GEN-VERIFY-FAL, the last line — the Hugging Face route | blocked · env | an hf_ token for the router route |
+| 154 | 75 | Decide what an aggregator's in-band `code` means | blocked · env+data | two or three real aggregators to measure an in-band code against |
+| 181 | 99 | `verify`'s test step intermittently fails EXACTLY 9 tests, and once aborted… | watch · data | the same nine tests to recur — the fix is unconfirmed as the cure, and a gr… |
+| 240 | 99 | `InputSegmenterTests.Counting_NFKC_is_LINEAR_in_the_length_of_the_text` fai… | watch · data | a recurrence under the full parallel run, with the ratio it read — the mess… |
+| 258 | 99 | `AgentUsageProcessTests.A_server_that_never_answers_is_ended_with_its_child… | watch · data | a recurrence under the full parallel run, with the load it ran under; it fa… |
+| 296 | 417 | MC8 — run the wrong-end instrument on an adjudicated corpus, with a bar wri… | blocked · decision+data | two reviewers' independent labels on a sample of the pairs, and a bar a per… |
+| 322 | 446 | AG38 — a permission request waits for the person when the host says so | startable |  |
+| 331 | 446 | AG40 — why a person must act, and what kind of access failed | startable |  |
+| 337 | 446 | AG41 — a limit names its window and a stated reset keeps its parts | startable |  |
+| 344 | 446 | AG44 — the restriction rules are public over a snapshot the host stores | startable |  |
+| 350 | 446 | AG45 — a host's line reader runs under the CLI turn's rules | startable |  |
+| 356 | 446 | AG39 — a run kept across turns: the design | startable |  |
 
 <!-- open-items:end -->
 
@@ -353,12 +352,6 @@ last because it designs the largest piece; the rest in any order. No row spends 
   terminal or none); the loop keeps one terminal, the fault terminal and the delivery stamp, and the built-in doors run through the
   same path. **Proof.** A plain-line stand-in that exits 0 with no terminal (the reader's end yields success), one that exits 2
   (the reader's terminal or the fatal default), one that prints a terminal and then more, and every existing door test unchanged.
-
-- [ ] **AG42, the rest — an allowance report's use and its overage and credit state** (lanes `platform` + `inference`, **D246**). <!-- item: state=blocked kind=data needs="a real rate_limit_event frame, from a signed-in account, that carries a use figure and the overage or credit fields, so the scale and the names are read rather than guessed" -->
-  `AgentAllowanceReport` carries the standing, the window, the limit scope and `isUsingOverage` / `overageResetsAt` (the fields the
-  rejected-frame tests already name). **Contract.** Carry the report's use through `AgentAllowanceWindow.UsedPercent` (with its step) and
-  the overage and credit state it names, each null when not sent. **Proof.** A frame with a use and no reset, and one naming an overage
-  state, read from a capture; the use's scale is stated by the capture, never assumed.
 
 - [ ] **AG39 — a run kept across turns: the design** (lanes `platform` + `inference`, last, **D248**). <!-- item: state=startable -->
   A study and a decision, no code. **Contract.** From Daoris's recorded measurements of which agents accept a word mid-turn, a stop

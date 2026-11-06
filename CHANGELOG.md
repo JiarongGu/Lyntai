@@ -112,6 +112,8 @@ every addition.
   week no longer reads as no room. A value present that the reader cannot recognise still makes the reading unknown. A limit
   row's `scope` is a string or an object naming a model and a surface, as the installed Claude server sends it: the row's `Scope`
   is the model's id, with its `ScopeName` and the `Surface` beside it, and an object naming neither is the account's own limit.
+  A model the server names by its display name only (its id null) is kept with a null `Scope` and its `ScopeName`, and a limit
+  row the reader cannot read is left out of `Limits` while the windows and the other rows are still read (**D250**).
   A second Codex limit is SOURCE-DERIVED; its shape on a signed-in account is not established.
 - **A host names where the usage server runs and what it is told of its client** (**D238**). `AgentUsageReadingOptions`
   gains `WorkingDirectory` (a function of the account: a fully qualified path, or null for the fresh folder removed after the
@@ -178,8 +180,10 @@ every addition.
   rejected, and for the protocol door's `_claude/rateLimit` update: the report's standing in the agent's own word, the window as `AgentAllowanceWindow`
   states one (the five-hour and weekly windows with their length, a model's week with its scope, any other window by the agent's word and no length,
   its reset when stated), the spend limit it names, and the overage state (`IsUsingOverage`, `OverageResetsAt`). A rejected frame still ends a
-  failing turn as before, an allowed one clears no held rejection, and a report never counts toward a prompt's delivery. No use figure is carried:
-  none is recorded with a scale.
+  failing turn as before, an allowed one clears no held rejection, and a report never counts toward a prompt's delivery. The window's use is
+  carried when the report states one: the frame's `utilization` is a fraction from 0 to 1 (a consumer's recorded frame, 2.1.287), read as a
+  percent with its step (0.88 is 88, step 1), from the window's own entry among the report's `unifiedWindows` and else the report's own. The
+  report also carries the agent's `OverageStatus` and `OverageDisabledReason` as written.
 - **A scope dense in ended entries still returns its current ones** (**D241**). A `Current` or as-of recall dropped the ended
   entries after the candidate window was cut, so 100 ended entries matching a query better than 5 current ones returned none of the
   5. When a seed source fills its window and the reading drops some of what it returned, the engine now asks again with a window four

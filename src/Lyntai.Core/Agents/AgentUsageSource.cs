@@ -44,10 +44,12 @@ public sealed record AgentAllowanceWindow(string Name, double? UsedPercent, Time
 }
 
 /// <summary>One limit row the server stated beside its windows (Claude's <c>rate_limits.limits[]</c>), as it wrote it.
-/// The server's severity for the row is its judgement and is not carried.</summary>
+/// The server's severity for the row is its judgement and is not carried. A row the reader cannot read is left out of
+/// <see cref="AgentAllowanceReading.Limits"/> and the rest of the reading stands.</summary>
 /// <param name="Kind">The server's word for the limit (<c>"session"</c>, <c>"weekly_all"</c>); not a value to parse.</param>
 /// <param name="Scope">What the row limits when it is not the account's own limit, as a word: a string scope as written,
-/// or the id of the model an object scope names. Null for the account's own limit and for a row scoped by a surface alone.</param>
+/// or the id of the model an object scope names. Null for the account's own limit, for a row scoped by a surface alone, and
+/// for a model the server named by its display name only (<see cref="AgentAllowanceLimit.ScopeName"/> then names it).</param>
 /// <param name="UsedPercent">The use the row states, from 0 to 100, kept as written; null when it stated none.</param>
 /// <param name="UsedStep">The least difference the written digits show, as <see cref="AgentAllowanceWindow.UsedStep"/>.</param>
 /// <param name="ResetsAt">When the row resets, when the server states it.</param>

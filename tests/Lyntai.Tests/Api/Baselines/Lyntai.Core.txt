@@ -112,7 +112,9 @@ sealed class Lyntai.Agents.AgentAllowanceReport
     GetHashCode() : Int32
     IsUsingOverage : Nullable<Boolean> { get; init; }
     LimitScope : String { get; init; }
+    OverageDisabledReason : String { get; init; }
     OverageResetsAt : Nullable<DateTimeOffset> { get; init; }
+    OverageStatus : String { get; init; }
     PrintMembers(StringBuilder builder) : Boolean
     Status : String { get; init; }
     ToString() : String

@@ -319,8 +319,9 @@ new decision overturns an old one, rewrite the old entry as a stub pointing here
 | [D247](#d247--the-restriction-rules-are-public-over-a-snapshot-the-host-stores-and-a-holds-identity-is-never-reused-2026-11-06) | 2026-11-06 | the restriction rules are public over a snapshot the host stores, and a hold's identity is never… |
 | [D248](#d248--a-prompts-delivery-is-what-its-turn-showed-after-the-write-a-request-waits-for-the-person-when-the-host-says-so-and-a-kept-run-is-designed-before-it-is-built-2026-11-06) | 2026-11-06 | a prompt's delivery is what its turn showed after the write, a request waits for the person when… |
 | [D249](#d249--a-hosts-own-cli-agent-runs-under-the-librarys-turn-rules-and-a-built-in-door-is-not-constructed-by-hand-2026-11-06) | 2026-11-06 | a host's own CLI agent runs under the library's turn rules, and a built-in door is not constructe… |
+| [D250](#d250--a-limit-row-the-reader-cannot-read-is-skipped-and-a-window-it-cannot-read-still-makes-the-reading-unknown-2026-11-07) | 2026-11-07 | a limit row the reader cannot read is skipped, and a window it cannot read still makes the readin… |
 
-**244 live decisions.** The rest are stubs — `D<n>` is a permanent identifier, so a number is never reused or renumbered (5): [D36](#d36--a-translation-between-two-verdict-taxonomies-gets-one-arm-per-member-gated-by-a-test-2026-08-05) → D136 · [D80](#d80--merged-into-d77-2026-08-16-folded-2026-08-17) → D77 · [D131](#d131--a-backends-produces-is-derived-from-its-configuration-so-a-modality-is-a-field-2026-09-14) → D133 · [D134](#d134--a-registration-names-the-backend-the-provider-suffix-is-gone-from-all-seventeen-2026-09-14) → D137 · [D145](#d145--the-microsoftextensionsai-module-is-a-bridge-not-a-provider-2026-09-15) → D146
+**245 live decisions.** The rest are stubs — `D<n>` is a permanent identifier, so a number is never reused or renumbered (5): [D36](#d36--a-translation-between-two-verdict-taxonomies-gets-one-arm-per-member-gated-by-a-test-2026-08-05) → D136 · [D80](#d80--merged-into-d77-2026-08-16-folded-2026-08-17) → D77 · [D131](#d131--a-backends-produces-is-derived-from-its-configuration-so-a-modality-is-a-field-2026-09-14) → D133 · [D134](#d134--a-registration-names-the-backend-the-provider-suffix-is-gone-from-all-seventeen-2026-09-14) → D137 · [D145](#d145--the-microsoftextensionsai-module-is-a-bridge-not-a-provider-2026-09-15) → D146
 
 <!-- index:end -->
 
@@ -7219,3 +7220,24 @@ terminal to find).
 
 **Re-opens** when a host shows the cost of a container per start is the obstacle, which needs a lighter composition root and not a
 public constructor.
+
+## D250 — a limit row the reader cannot read is skipped, and a window it cannot read still makes the reading unknown (2026-11-07)
+
+**Standing.** As **D237**; refines its rule for present values this reader cannot recognise. The types are unreleased (**D235**).
+
+**Decided.**
+- **`rate_limits.limits[]` rows are read one by one**: a row of a shape the reader cannot read (no kind, a use outside 0 to 100, a
+  malformed reset, a scope of another kind) is left out of `Limits`, and so is a `limits` that is not an array. The windows and the
+  other rows are still read.
+- **A model scope is read by its id, or by its display name when the id is null** (`Scope` null, `ScopeName` set, as the installed
+  server sends it); a model naming neither, or a surface that is not a string, makes that row unreadable.
+- **A window stays strict (**D237**)**: a present window value it cannot recognise makes the whole reading unknown.
+
+**Why.** D237 reads an unrecognised window as unknown because dropping it would let `HasRoom` say true over a window that may be full.
+No room is read from a row, so a dropped row cannot do that, and losing every window to one unreadable row cost a consumer its reading
+on a real account.
+
+**Rejected.** Every unreadable present value skips (a dropped window misleads `HasRoom`). Every row keeps its strictness (one row of an
+unseen shape loses an answer whose windows read fine). A count of skipped rows on the reading (nothing needs it; add one when a host asks).
+
+**Re-opens** when a row feeds a judgement of room, which would make a dropped one misleading.
