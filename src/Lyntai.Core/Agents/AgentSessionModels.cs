@@ -39,6 +39,24 @@ public record AgentSessionOptions
     /// precedence and nothing here falls over to another provider.</para></summary>
     public string? Model { get; init; }
 
+    /// <summary>The agent's own word for how it gates a tool use, passed through verbatim and never interpreted; null =
+    /// the gate <see cref="ToolPolicy"/> maps to. A door states the words it carries and refuses another before a spawn,
+    /// naming them, because a CLI has no list to ask. <b>A named mode is the host's own gate:</b> the door does not
+    /// apply <see cref="ToolPolicy"/>'s mode mapping or its read-only denial beside it, while
+    /// <see cref="DisallowedTools"/> and the tools the door always denies stand. Needs
+    /// <see cref="AgentAbilities.PermissionMode"/>.</summary>
+    public string? PermissionMode { get; init; }
+
+    /// <summary>The agent's own word for how hard it works (a level), passed through verbatim and never interpreted;
+    /// null = the agent's default. <see cref="AgentPick.Apply"/> sets it from <see cref="AgentChoice.Effort"/>. A door
+    /// states the words it carries and refuses another before a spawn. Needs <see cref="AgentAbilities.Effort"/>.</summary>
+    public string? Effort { get; init; }
+
+    /// <summary>Plugin folders the agent loads for this turn only, each fully qualified and free of a control
+    /// character; a repeat is dropped. The library never reads a folder's contents. Needs
+    /// <see cref="AgentAbilities.Plugins"/>.</summary>
+    public IReadOnlyList<string> PluginDirectories { get; init; } = [];
+
     /// <summary>Per-call timeout; null = the global default.</summary>
     public int? TimeoutSeconds { get; init; }
 

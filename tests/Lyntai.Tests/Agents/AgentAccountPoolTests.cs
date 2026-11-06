@@ -167,6 +167,17 @@ public class AgentAccountPoolTests
         Assert.Equal("host-model", noModel.Apply(new AgentSessionOptions { Prompt = "p", Model = "host-model" }).Model);
     }
 
+    [Fact]
+    public void Apply_sets_the_choices_effort_over_the_hosts_and_leaves_the_hosts_when_the_choice_names_none()
+    {
+        var withEffort = new AgentPick(new AgentSeat(0, Choice(null, "claude-cli", "a") with { Effort = "high" }, Acct("a"), false), "t", []);
+        var without = new AgentPick(new AgentSeat(0, Choice(null, "claude-cli", "a"), Acct("a"), false), "t", []);
+
+        Assert.Equal("high", withEffort.Apply(new AgentSessionOptions { Prompt = "p", Effort = "low" }).Effort);
+        Assert.Equal("low", without.Apply(new AgentSessionOptions { Prompt = "p", Effort = "low" }).Effort);
+        Assert.Null(without.Apply(new AgentSessionOptions { Prompt = "p" }).Effort);
+    }
+
     private sealed record Derived : AgentSessionOptions { public string? Extra { get; init; } }
 
     // ── a reset moment permits one bounded attempt ───────────────────────────────────────────────

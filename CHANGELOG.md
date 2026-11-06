@@ -120,6 +120,15 @@ every addition.
   `AddAgentUsageReading` when empty, over 64 characters or holding a control character). Codex's `initialize` carries the
   client, written by a JSON writer; Claude's control request carries none and ignores both. The vendor keys project state by the
   folder, so `docs/guide.md` says it is a project to it.
+- **A permission mode, an effort and plugin folders are options a door carries or refuses** (**D244**).
+  `AgentSessionOptions` gains `PermissionMode`, `Effort` and `PluginDirectories`, and `AgentAbilities` the abilities
+  `permission-mode`, `effort` and `plugins` (so every door states three more). The claude door renders `--permission-mode` for the
+  words its `--help` lists, `--effort` for its levels and `--plugin-dir` per fully qualified folder, and refuses any other word
+  before a spawn, naming the set; a mode beside `SkipAllPermissions` is refused, and a named mode replaces the tool policy's own
+  gate (the `acceptEdits` mapping and the read-only write-tool denial) while the deny lists stand. The codex, protocol and HTTP
+  doors state all three `Unsupported`. `AgentPick.Apply` now sets `Effort` from the pool choice's, so a choice that names an
+  effort is refused by a door that does not carry one. The word set is from claude 2.1.319's `--help`; that `bypassPermissions`
+  equals `--dangerously-skip-permissions` is not stated there and is not claimed.
 - **A scope dense in ended entries still returns its current ones** (**D241**). A `Current` or as-of recall dropped the ended
   entries after the candidate window was cut, so 100 ended entries matching a query better than 5 current ones returned none of the
   5. When a seed source fills its window and the reading drops some of what it returned, the engine now asks again with a window four

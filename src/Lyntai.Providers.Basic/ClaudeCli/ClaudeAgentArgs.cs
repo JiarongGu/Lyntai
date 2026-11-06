@@ -14,11 +14,20 @@ internal static class ClaudeAgentArgs
     // Denied when the caller opts into ReadOnly policy (no filesystem writes).
     private static readonly string[] ReadOnlyDenied = ["Edit", "Write", "NotebookEdit"];
 
+    /// <summary>The words <c>--permission-mode</c> carries, as <c>claude --help</c> lists them (2.1.319).</summary>
+    internal static readonly IReadOnlyList<string> PermissionModes = ["acceptEdits", "auto", "bypassPermissions", "manual", "dontAsk", "plan"];
+
+    /// <summary>The levels <c>--effort</c> carries, as <c>claude --help</c> lists them (2.1.319).</summary>
+    internal static readonly IReadOnlyList<string> EffortLevels = ["low", "medium", "high", "xhigh", "max"];
+
     /// <summary>Build the argv list for a claude agent session, or REFUSE the turn. The prompt is NOT included
     /// here — send it over stdin via <see cref="Lyntai.Processes.IProcessRunner.StreamLinesAsync"/>.
     ///
-    /// <para>The only refusal is a <see cref="AgentSessionOptions.ResumeToken"/> the CLI would read as an
-    /// OPTION (<see cref="AgentResumeToken"/>); it is checked before anything is written.
+    /// <para>The refusals are a <see cref="AgentSessionOptions.ResumeToken"/> the CLI would read as an
+    /// OPTION (<see cref="AgentResumeToken"/>), a <see cref="AgentSessionOptions.PermissionMode"/> or
+    /// <see cref="AgentSessionOptions.Effort"/> outside the words listed above (the refusal names them), a mode
+    /// beside <see cref="ClaudeAgentOptions.SkipAllPermissions"/>, and a plugin folder that is not fully qualified or
+    /// holds a control character; each is checked before anything is written.
     /// <see cref="AgentSessionOptions.McpServers"/> is assumed already validated by the caller
     /// (<see cref="AgentMcpServers.TryValidate"/>, which the session runs so a refusal carries its own
     /// subtype) — this method renders it, it does not judge it.</para></summary>
@@ -28,21 +37,44 @@ internal static class ClaudeAgentArgs
     /// turn ends — and so a test can assert the file's contents without touching the disk.</param>
     /// <param name="args">The argv, or empty when refused.</param>
     /// <param name="refusal">Why the turn cannot be spawned, or null when it can.</param>
+    /// <param name="refusalSubtype">The <see cref="SessionEnded.Subtype"/> of that refusal.</param>
     public static bool TryBuild(
         AgentSessionOptions options, Func<string, string, string> writeTempFile,
-        out IReadOnlyList<string> args, out string? refusal)
+        out IReadOnlyList<string> args, out string? refusal, out string refusalSubtype)
     {
+        args = [];
+        refusalSubtype = AgentProvider.OptionRefusedSubtype;
         string? resumeId = null;
         if (options.ResumeToken is { Length: > 0 } token
             && !AgentResumeToken.TryRead(token, "claude", out resumeId, out refusal))
         {
-            args = [];
+            refusalSubtype = AgentResumeToken.RefusedSubtype;
             return false;
         }
 
+        if ((refusal = Refusal(options)) is not null) return false;
+
         args = Build(options, resumeId, writeTempFile);
-        refusal = null;
         return true;
+    }
+
+    private static string? Refusal(AgentSessionOptions options)
+    {
+        if (options.PermissionMode is { } mode)
+        {
+            if (!PermissionModes.Contains(mode, StringComparer.Ordinal))
+                return $"permission mode '{mode}' is not one the claude door carries: {string.Join(", ", PermissionModes)}";
+            if (options is ClaudeAgentOptions { SkipAllPermissions: true })
+                return $"permission mode '{mode}' contradicts SkipAllPermissions, which skips every permission check";
+        }
+
+        if (options.Effort is { } effort && !EffortLevels.Contains(effort, StringComparer.Ordinal))
+            return $"effort '{effort}' is not one the claude door carries: {string.Join(", ", EffortLevels)}";
+
+        foreach (var directory in options.PluginDirectories)
+            if (!Path.IsPathFullyQualified(directory) || directory.Any(char.IsControl))
+                return "a plugin folder must be fully qualified and hold no control character";
+        return null;
     }
 
     private static List<string> Build(
@@ -64,7 +96,8 @@ internal static class ClaudeAgentArgs
         {
             if (seen.Add(t)) disallowed.Add(t);
         }
-        if (options.ToolPolicy == AgentToolPolicy.ReadOnly)
+        // a named mode is the host's own gate: the read-only denial and the acceptEdits mapping are the policy's, not its
+        if (options.ToolPolicy == AgentToolPolicy.ReadOnly && options.PermissionMode is null)
         {
             foreach (var t in ReadOnlyDenied)
             {
@@ -87,10 +120,27 @@ internal static class ClaudeAgentArgs
         {
             args.Add("--dangerously-skip-permissions");
         }
+        else if (options.PermissionMode is { } mode)
+        {
+            args.Add("--permission-mode");
+            args.Add(mode);
+        }
         else if (options.ToolPolicy == AgentToolPolicy.Write)
         {
             args.Add("--permission-mode");
             args.Add("acceptEdits");
+        }
+
+        if (options.Effort is { } effort)
+        {
+            args.Add("--effort");
+            args.Add(effort);
+        }
+
+        foreach (var directory in options.PluginDirectories.Distinct(StringComparer.Ordinal))
+        {
+            args.Add("--plugin-dir");
+            args.Add(directory);
         }
 
         if (!string.IsNullOrEmpty(options.SystemPrompt))

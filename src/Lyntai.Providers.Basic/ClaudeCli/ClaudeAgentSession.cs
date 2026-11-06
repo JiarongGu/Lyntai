@@ -91,9 +91,9 @@ public sealed class ClaudeAgentSession : IAgentSession
             return path;
         }
 
-        if (!ClaudeAgentArgs.TryBuild(options, Write, out var agentArgs, out var refusal))
+        if (!ClaudeAgentArgs.TryBuild(options, Write, out var agentArgs, out var refusal, out var refusalSubtype))
         {
-            yield return CliAgentLoop.Refused(AgentResumeToken.RefusedSubtype, refusal);
+            yield return CliAgentLoop.Refused(refusalSubtype, refusal);
             yield break;
         }
 

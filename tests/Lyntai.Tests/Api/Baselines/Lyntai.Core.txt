@@ -1,11 +1,14 @@
 static class Lyntai.Agents.AgentAbilities
     Accounts : String const
     DisallowedTools : String const
+    Effort : String const
     LiveUsage : String const
     McpServers : String const
     Model : String const
+    PermissionMode : String const
     PermissionRequests : String const
     PlanEvents : String const
+    Plugins : String const
     ReadOnlyGate : String const
     Resume : String const
     Steering : String const
@@ -347,12 +350,15 @@ class Lyntai.Agents.AgentSessionOptions
     .ctor(AgentSessionOptions original)
     Account : AgentAccount { get; init; }
     DisallowedTools : IReadOnlyList<String> { get; init; }
+    Effort : String { get; init; }
     EqualityContract : Type { protected get; }
     Equals(AgentSessionOptions other) : Boolean
     Equals(Object obj) : Boolean
     GetHashCode() : Int32
     McpServers : IReadOnlyList<AgentMcpServer> { get; init; }
     Model : String { get; init; }
+    PermissionMode : String { get; init; }
+    PluginDirectories : IReadOnlyList<String> { get; init; }
     PrintMembers(StringBuilder builder) : Boolean
     Prompt : String { get; init; } required
     ResumeToken : String { get; init; }

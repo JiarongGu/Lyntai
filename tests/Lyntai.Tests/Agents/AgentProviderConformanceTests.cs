@@ -78,6 +78,9 @@ public class AgentProviderConformanceTests
             AgentAbilities.DisallowedTools => options with { DisallowedTools = ["Bash"] },
             AgentAbilities.SystemPrompt => options with { SystemPrompt = "be brief" },
             AgentAbilities.Model => options with { Model = "model-1" },
+            AgentAbilities.PermissionMode => options with { PermissionMode = "plan" },
+            AgentAbilities.Effort => options with { Effort = "high" },
+            AgentAbilities.Plugins => options with { PluginDirectories = [Path.GetFullPath("plugin-a")] },
             _ => throw new ArgumentOutOfRangeException(nameof(ability), ability, "not an option-shaped ability"),
         };
     }
@@ -167,6 +170,7 @@ public class AgentProviderConformanceTests
     [
         AgentAbilities.Resume, AgentAbilities.ReadOnlyGate, AgentAbilities.McpServers,
         AgentAbilities.DisallowedTools, AgentAbilities.SystemPrompt, AgentAbilities.Model, AgentAbilities.Accounts,
+        AgentAbilities.PermissionMode, AgentAbilities.Effort, AgentAbilities.Plugins,
     ];
 
     [Theory, MemberData(nameof(Doors))]
@@ -369,12 +373,13 @@ public class AgentProviderConformanceTests
         {
             Prompt = "go", ResumeToken = "t", SystemPrompt = "s", Model = "m", DisallowedTools = ["Bash"],
             McpServers = [new AgentMcpServer { Name = "app", Command = "x" }],
-            Account = AccountOf("p"),
+            Account = AccountOf("p"), PermissionMode = "plan", Effort = "high", PluginDirectories = [Path.GetFullPath("plugin-a")],
         };
 
         Assert.Equal(
             [AgentAbilities.Resume, AgentAbilities.ReadOnlyGate, AgentAbilities.McpServers,
-                AgentAbilities.DisallowedTools, AgentAbilities.SystemPrompt, AgentAbilities.Model, AgentAbilities.Accounts],
+                AgentAbilities.DisallowedTools, AgentAbilities.SystemPrompt, AgentAbilities.Model, AgentAbilities.Accounts,
+                AgentAbilities.PermissionMode, AgentAbilities.Effort, AgentAbilities.Plugins],
             AgentAbilities.Needed(everything));
         Assert.Equal([AgentAbilities.ReadOnlyGate], AgentAbilities.Needed(new AgentSessionOptions { Prompt = "go" }));
         Assert.Empty(AgentAbilities.Needed(new AgentSessionOptions { Prompt = "go", ToolPolicy = AgentToolPolicy.Write }));

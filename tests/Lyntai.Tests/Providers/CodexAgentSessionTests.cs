@@ -520,6 +520,28 @@ public class CodexAgentSessionTests
         Assert.DoesNotContain("--disallowed-tools", runner.LastArgs!);   // codex has no such flag to invent
     }
 
+    [Theory]
+    [InlineData("permission-mode")]
+    [InlineData("effort")]
+    [InlineData("plugins")]
+    public async Task A_mode_an_effort_or_a_plugin_folder_is_refused_before_a_spawn_where_the_door_states_it_unsupported(string ability)
+    {
+        var runner = new FakeProcessRunner(MeasuredSuccess);
+        var options = ability switch
+        {
+            "permission-mode" => Ask() with { PermissionMode = "plan" },
+            "effort" => Ask() with { Effort = "high" },
+            _ => Ask() with { PluginDirectories = [Path.GetFullPath("plugin-a")] },
+        };
+
+        var ended = Assert.IsType<SessionEnded>(Assert.Single(await Session(runner).StreamAsync(options).ToListAsync()));
+
+        Assert.Equal((ProviderVerdict.Unsupported, AgentProvider.OptionRefusedSubtype), (ended.Verdict, ended.Subtype));
+        Assert.Contains(ability, ended.Diagnostic);
+        Assert.Empty(runner.Calls);
+        Assert.Equal(AgentSupport.Unsupported, CodexAgentDoor.Describe("codex-cli").Doors[0].SupportFor(ability));
+    }
+
     // ── the host application's own MCP servers ───────────────────────────────
 
     /// <summary>MEASURED turn-free against codex-cli 0.146.0: `codex exec --help` documents

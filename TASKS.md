@@ -15,39 +15,36 @@ LLM-ops layer (prompt registry, scoring, traces, memory). `AddLyntai(...)` and g
 
 <!-- open-items:begin — GENERATED. Edit the per-item `item:` markers, never this table. -->
 
-## Open items — 26 across 5 Parts: 20 startable, 3 blocked, 3 watch
+## Open items — 23 across 5 Parts: 17 startable, 3 blocked, 3 watch
 
 _Generated from the per-item `<!-- item: … -->` markers by `node devtools/dev.mjs check-backlog --write`._
 _Edit a marker, never this table — `verify` fails the moment the two disagree._
 
 | line | Part | item | state | waiting on |
 | ---: | ---: | --- | --- | --- |
-| 127 | 33 | GEN-VERIFY-FAL, the last line — the Hugging Face route | blocked · env | an hf_ token for the router route |
-| 168 | 75 | Decide what an aggregator's in-band `code` means | blocked · env+data | two or three real aggregators to measure an in-band code against |
-| 195 | 99 | `verify`'s test step intermittently fails EXACTLY 9 tests, and once aborted… | watch · data | the same nine tests to recur — the fix is unconfirmed as the cure, and a gr… |
-| 254 | 99 | `InputSegmenterTests.Counting_NFKC_is_LINEAR_in_the_length_of_the_text` fai… | watch · data | a recurrence under the full parallel run, with the ratio it read — the mess… |
-| 272 | 99 | `AgentUsageProcessTests.A_server_that_never_answers_is_ended_with_its_child… | watch · data | a recurrence under the full parallel run, with the load it ran under; it fa… |
-| 310 | 417 | MC8 — run the wrong-end instrument on an adjudicated corpus, with a bar wri… | blocked · decision+data | two reviewers' independent labels on a sample of the pairs, and a bar a per… |
-| 336 | 446 | AG37 — a prompt's delivery is what its turn showed after the write | startable |  |
-| 345 | 446 | AG38 — a permission request waits for the person when the host says so | startable |  |
-| 354 | 446 | AG25 — a permission mode is carried by the CLI doors, or refused | startable |  |
-| 363 | 446 | AG26 — an effort is carried by the CLI doors, or refused | startable |  |
-| 369 | 446 | AG27 — plugin folders are handed to the Claude door, or refused | startable |  |
-| 375 | 446 | AG28 — the protocol door carries a permission mode and an effort | startable |  |
-| 381 | 446 | AG29 — a turn's own variables | startable |  |
-| 387 | 446 | AG30 — a child's words carry the call that spawned it, and its life is writ… | startable |  |
-| 394 | 446 | AG31 — the protocol door keeps a child's stamped lines apart | startable |  |
-| 401 | 446 | AG32 — an unread frame leaves a bounded trace | startable |  |
-| 407 | 446 | AG33 — the Claude door states a turn's own report: denials and usage by mod… | startable |  |
-| 413 | 446 | AG34 — the protocol door states the context figures its updates report | startable |  |
-| 417 | 446 | AG35 — a session start says whether the agent announced it | startable |  |
-| 422 | 446 | AG36 — the protocol door states what the open offered | startable |  |
-| 428 | 446 | AG40 — why a person must act, and what kind of access failed | startable |  |
-| 434 | 446 | AG41 — a limit names its window and a stated reset keeps its parts | startable |  |
-| 441 | 446 | AG42 — every allowance report is an event | startable |  |
-| 447 | 446 | AG44 — the restriction rules are public over a snapshot the host stores | startable |  |
-| 453 | 446 | AG45 — a host's line reader runs under the CLI turn's rules | startable |  |
-| 459 | 446 | AG39 — a run kept across turns: the design | startable |  |
+| 124 | 33 | GEN-VERIFY-FAL, the last line — the Hugging Face route | blocked · env | an hf_ token for the router route |
+| 165 | 75 | Decide what an aggregator's in-band `code` means | blocked · env+data | two or three real aggregators to measure an in-band code against |
+| 192 | 99 | `verify`'s test step intermittently fails EXACTLY 9 tests, and once aborted… | watch · data | the same nine tests to recur — the fix is unconfirmed as the cure, and a gr… |
+| 251 | 99 | `InputSegmenterTests.Counting_NFKC_is_LINEAR_in_the_length_of_the_text` fai… | watch · data | a recurrence under the full parallel run, with the ratio it read — the mess… |
+| 269 | 99 | `AgentUsageProcessTests.A_server_that_never_answers_is_ended_with_its_child… | watch · data | a recurrence under the full parallel run, with the load it ran under; it fa… |
+| 307 | 417 | MC8 — run the wrong-end instrument on an adjudicated corpus, with a bar wri… | blocked · decision+data | two reviewers' independent labels on a sample of the pairs, and a bar a per… |
+| 333 | 446 | AG37 — a prompt's delivery is what its turn showed after the write | startable |  |
+| 342 | 446 | AG38 — a permission request waits for the person when the host says so | startable |  |
+| 351 | 446 | AG28 — the protocol door carries a permission mode and an effort | startable |  |
+| 357 | 446 | AG29 — a turn's own variables | startable |  |
+| 363 | 446 | AG30 — a child's words carry the call that spawned it, and its life is writ… | startable |  |
+| 370 | 446 | AG31 — the protocol door keeps a child's stamped lines apart | startable |  |
+| 377 | 446 | AG32 — an unread frame leaves a bounded trace | startable |  |
+| 383 | 446 | AG33 — the Claude door states a turn's own report: denials and usage by mod… | startable |  |
+| 389 | 446 | AG34 — the protocol door states the context figures its updates report | startable |  |
+| 393 | 446 | AG35 — a session start says whether the agent announced it | startable |  |
+| 398 | 446 | AG36 — the protocol door states what the open offered | startable |  |
+| 404 | 446 | AG40 — why a person must act, and what kind of access failed | startable |  |
+| 410 | 446 | AG41 — a limit names its window and a stated reset keeps its parts | startable |  |
+| 417 | 446 | AG42 — every allowance report is an event | startable |  |
+| 423 | 446 | AG44 — the restriction rules are public over a snapshot the host stores | startable |  |
+| 429 | 446 | AG45 — a host's line reader runs under the CLI turn's rules | startable |  |
+| 435 | 446 | AG39 — a run kept across turns: the design | startable |  |
 
 <!-- open-items:end -->
 
@@ -350,27 +347,6 @@ last because it designs the largest piece; the rest in any order. No row spends 
   stand-in that asks and stays silent: answered after longer than the window by a held approver (the turn goes on), refused at half
   the window without the option, and the cancelled outcome on a cancelled turn; the shipped runner honours the member under a short
   window.
-
-- [ ] **AG25 — a permission mode is carried by the CLI doors, or refused** (lanes `platform` + `inference`, **D244**). <!-- item: state=startable -->
-  First step: read `claude --help` for the modes and say, in the row's evidence, whether `--permission-mode bypassPermissions` equals
-  the skip flag. **Contract.** `AgentSessionOptions` gains `PermissionMode` (the agent's word, null = the `ToolPolicy` mapping) and the ability
-  `permission-mode` (a name in `AgentAbilities.All`, `Needed` when set): the Claude door renders the measured set and refuses another
-  word before a spawn, naming the set; a mode beside `SkipAllPermissions` is refused; with a mode set, `ToolPolicy`'s mode mapping
-  and read-only denial are not applied while `DisallowedTools` and the always-denied tools stand. The Codex door states `Unsupported`
-  (its gate is its sandbox option). **Proof.** Argv for each measured mode, a refused word, the contradiction, a read-only default
-  unchanged when no mode is named, and `Describe()` stating the ability on both doors.
-
-- [ ] **AG26 — an effort is carried by the CLI doors, or refused** (lanes `platform` + `inference`, **D244**). <!-- item: state=startable -->
-  **Contract.** `AgentSessionOptions.Effort` and the ability `effort`; `AgentPick.Apply` sets it from `AgentChoice.Effort` (whose
-  XML doc stops saying no option carries it). The Claude door renders `--effort` for the levels `--help` lists and refuses another
-  word before a spawn; the Codex door renders the config override if the row measures one, else states `Unsupported`. **Proof.** Argv
-  per level, a refused word, `Apply` carrying a choice's effort, and a door stating `Unsupported` refusing a turn that names one.
-
-- [ ] **AG27 — plugin folders are handed to the Claude door, or refused** (lanes `platform` + `inference`, **D244**). <!-- item: state=startable -->
-  **Contract.** `AgentSessionOptions` gains `PluginDirectories` and the ability `plugins`: the Claude door renders `--plugin-dir` per entry
-  (each fully qualified, no control character, a duplicate dropped, its contents never read); the Codex, protocol and HTTP doors
-  state `Unsupported`. **Proof.** Argv for two folders, a relative path refused before a spawn, a refusal on each other door, and
-  the baseline moved.
 
 - [ ] **AG28 — the protocol door carries a permission mode and an effort** (lane `inference`, after AG25 and AG26, **D244**). <!-- item: state=startable -->
   **Contract.** As the model is (**D243**): a mode is set through `session/set_mode` with an id the open's `modes` answer offers, an

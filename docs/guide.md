@@ -1113,6 +1113,16 @@ not one the provider reads (`account-invalid`, which the door's own session rais
 `ProviderVerdict.Unsupported` and `NeverSent`. The keyed `IAgentSession` checks only the account's own shape, not whose
 it is, so go through the provider when the account may be the wrong one.
 
+**A permission mode, an effort and plugin folders** (`PermissionMode`, `Effort`, `PluginDirectories`, **D244**). Each is
+the agent's own word, passed through and never interpreted, with an ability a door states. The claude door carries
+`--permission-mode` for the words its `--help` lists (`acceptEdits`, `auto`, `bypassPermissions`, `manual`, `dontAsk`,
+`plan`; 2.1.319), `--effort` for `low`, `medium`, `high`, `xhigh` and `max`, and one `--plugin-dir` per fully qualified
+folder (a repeat dropped, the contents never read); any other word, a relative folder, or a mode beside `SkipAllPermissions`
+ends the turn before a spawn with `option-unsupported` and names what the door carries. **A named mode is your own gate:**
+the turn's `ToolPolicy` mapping (`acceptEdits`) and its read-only write-tool denial are not applied beside it, while
+`DisallowedTools` and the tools a headless turn always denies stand. The codex, protocol and HTTP doors state all three
+`Unsupported` and refuse a turn that names one; `AgentPick.Apply` sets `Effort` from the pool choice's.
+
 **An account that is a key** (AG17). `Home` may be left out, and `Environment` carries variables for that turn's child
 only: an API key, a gateway's base address. Each name must be one the provider declares it reads
 (`Describe().Accounts.Variables`, the home variable first; claude: `ANTHROPIC_API_KEY`, `ANTHROPIC_AUTH_TOKEN`,

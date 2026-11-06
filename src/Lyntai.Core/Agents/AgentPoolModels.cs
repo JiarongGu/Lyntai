@@ -12,8 +12,8 @@ public sealed record AgentChoice
     /// backend's default, and the host's own <see cref="AgentSessionOptions.Model"/> stands.</summary>
     public string? Model { get; init; }
 
-    /// <summary>The host's word for an effort level. Carried to the host on the pick and never interpreted: no
-    /// neutral option carries it, because each adapter spells effort in its own options.</summary>
+    /// <summary>The agent's own word for an effort level, never interpreted: <see cref="AgentPick.Apply"/> sets it as
+    /// <see cref="AgentSessionOptions.Effort"/>, and a door that does not carry it refuses the turn.</summary>
     public string? Effort { get; init; }
 
     /// <summary>The accounts of this choice, at least one, each of this choice's provider.</summary>
@@ -71,12 +71,15 @@ public sealed class AgentPick
     internal IReadOnlyList<(string Id, long Revision)> Leases { get; }
 
     /// <summary>The options for the turn under this seat: <see cref="AgentSessionOptions.Account"/> is the seat's
-    /// account, and <see cref="AgentSessionOptions.Model"/> is the choice's when it names one (else the host's own
-    /// stands). The runtime type of <paramref name="options"/> is kept.</summary>
+    /// account, and <see cref="AgentSessionOptions.Model"/> and <see cref="AgentSessionOptions.Effort"/> are the
+    /// choice's when it names one (else the host's own stand). The runtime type of <paramref name="options"/> is kept.</summary>
     public AgentSessionOptions Apply(AgentSessionOptions options)
     {
         ArgumentNullException.ThrowIfNull(options);
-        return options with { Account = Seat.Account, Model = Seat.Choice.Model ?? options.Model };
+        return options with
+        {
+            Account = Seat.Account, Model = Seat.Choice.Model ?? options.Model, Effort = Seat.Choice.Effort ?? options.Effort,
+        };
     }
 
     internal bool TrySettle() => Interlocked.Exchange(ref _settled, 1) == 0;
