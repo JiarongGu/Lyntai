@@ -4507,11 +4507,18 @@ static class Lyntai.MemorySeedBuilderExtensions
 static class Lyntai.MemoryVerificationBuilderExtensions
     static AddMemoryVerification(LyntaiBuilder builder, Action<LlmVerificationOptions> configure = null) : LyntaiBuilder
 interface Lyntai.Processes.IProcessRunner
+    CanPauseInactivity : Boolean { get; }
     CommandExists(String command) : Boolean
+    ExchangeLinesAsync(String command, IReadOnlyList<String> args, IAsyncEnumerable<String> stdinLines, InactivityPause pause, Nullable<TimeSpan> inactivityTimeout = null, Nullable<TimeSpan> maxDuration = null, String workingDirectory = null, IReadOnlyDictionary<String,String> environment = null, CancellationToken ct = default) : IAsyncEnumerable<String>
     ExchangeLinesAsync(String command, IReadOnlyList<String> args, IAsyncEnumerable<String> stdinLines, Nullable<TimeSpan> inactivityTimeout = null, Nullable<TimeSpan> maxDuration = null, String workingDirectory = null, IReadOnlyDictionary<String,String> environment = null, CancellationToken ct = default) : IAsyncEnumerable<String>
     RunAsync(String command, IReadOnlyList<String> args, String stdin = null, Nullable<TimeSpan> inactivityTimeout = null, Nullable<TimeSpan> maxDuration = null, String workingDirectory = null, IReadOnlyDictionary<String,String> environment = null, CancellationToken ct = default) : Task<ProcessResult>
     StreamBytesAsync(String command, IReadOnlyList<String> args, String stdin = null, Nullable<TimeSpan> inactivityTimeout = null, Nullable<TimeSpan> maxDuration = null, String workingDirectory = null, IReadOnlyDictionary<String,String> environment = null, CancellationToken ct = default) : IAsyncEnumerable<Byte[]>
     StreamLinesAsync(String command, IReadOnlyList<String> args, String stdin = null, Nullable<TimeSpan> inactivityTimeout = null, Nullable<TimeSpan> maxDuration = null, String workingDirectory = null, IReadOnlyDictionary<String,String> environment = null, CancellationToken ct = default) : IAsyncEnumerable<String>
+sealed class Lyntai.Processes.InactivityPause
+    .ctor()
+    Hold() : IDisposable
+    IsPaused : Boolean { get; }
+    Subscribe(Action changed) : IDisposable
 static class Lyntai.Processes.OwnerOnlyTempFile
     static TryDelete(String path) : Void
     static Write(String kind, String content) : String
@@ -4535,6 +4542,8 @@ sealed class Lyntai.Processes.ProcessRunException
     StdErrTail : String { get; }
 sealed class Lyntai.Processes.ProcessRunner
     .ctor()
+    CanPauseInactivity : Boolean { get; }
+    ExchangeLinesAsync(String command, IReadOnlyList<String> args, IAsyncEnumerable<String> stdinLines, InactivityPause pause, Nullable<TimeSpan> inactivityTimeout = null, Nullable<TimeSpan> maxDuration = null, String workingDirectory = null, IReadOnlyDictionary<String,String> environment = null, CancellationToken ct = default) : IAsyncEnumerable<String>
     ExchangeLinesAsync(String command, IReadOnlyList<String> args, IAsyncEnumerable<String> stdinLines, Nullable<TimeSpan> inactivityTimeout = null, Nullable<TimeSpan> maxDuration = null, String workingDirectory = null, IReadOnlyDictionary<String,String> environment = null, CancellationToken ct = default) : IAsyncEnumerable<String>
     RunAsync(String command, IReadOnlyList<String> args, String stdin = null, Nullable<TimeSpan> inactivityTimeout = null, Nullable<TimeSpan> maxDuration = null, String workingDirectory = null, IReadOnlyDictionary<String,String> environment = null, CancellationToken ct = default) : Task<ProcessResult>
     StreamBytesAsync(String command, IReadOnlyList<String> args, String stdin = null, Nullable<TimeSpan> inactivityTimeout = null, Nullable<TimeSpan> maxDuration = null, String workingDirectory = null, IReadOnlyDictionary<String,String> environment = null, CancellationToken ct = default) : IAsyncEnumerable<Byte[]>

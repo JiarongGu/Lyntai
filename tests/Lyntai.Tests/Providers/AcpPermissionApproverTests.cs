@@ -156,6 +156,99 @@ public class AcpPermissionApproverTests
         Assert.Equal("cancelled", Outcome(answer));
     }
 
+    // ── a wait that is the approver's ────────────────────────────────────────
+
+    private static AcpAgentSession Holding(IAcpPermissionApprover approver, string? log = null) =>
+        new(new ProcessRunner(), new LyntaiOptions(), StubCommand,
+            environment: log is null ? null : new Dictionary<string, string?> { ["LYNTAI_ACP_STUB_LOG"] = log },
+            permissionApprover: approver, permissionWait: AcpPermissionWait.AsLongAsApproverHolds);
+
+    [Fact] // SOURCE-DERIVED: a 3 s window, and an approver that holds the request for 5 s; the shipped runner is told
+    public async Task A_request_the_approver_holds_past_the_whole_window_is_waited_for_and_the_turn_goes_on()
+    {
+        var approver = new Approver(async (_, _) =>
+        {
+            await Task.Delay(TimeSpan.FromSeconds(5));
+            return AcpPermissionAnswer.Approve;
+        });
+
+        var ended = await Run(Holding(approver), Turn(timeoutSeconds: 3));
+
+        Assert.Equal(ProviderVerdict.Ok, ended.Verdict);
+        Assert.Equal("permission: allow-once", ended.FinalText);
+    }
+
+    [Fact] // the same hold without the option is the default: refused at half the window, and a late answer is dropped
+    public async Task Without_the_option_the_same_hold_is_refused_at_half_the_window()
+    {
+        var approver = new Approver(async (_, _) =>
+        {
+            await Task.Delay(TimeSpan.FromSeconds(5));
+            return AcpPermissionAnswer.Approve;
+        });
+
+        var ended = await Run(Stub(approver), Turn(timeoutSeconds: 3));
+
+        Assert.Equal("permission: reject-once", ended.FinalText);
+    }
+
+    [Fact] // SOURCE-DERIVED: no window answers it, so only the caller's cancellation does, with the protocol's cancelled outcome
+    public async Task A_cancelled_turn_answers_a_request_the_approver_still_holds_cancelled()
+    {
+        var log = NewLog();
+        var approver = new Approver((_, ct) => Task.Delay(Timeout.Infinite, ct).ContinueWith(_ => AcpPermissionAnswer.Approve, TaskScheduler.Default));
+        using var cts = new CancellationTokenSource();
+
+        var turn = Holding(approver, log).StreamAsync(Turn(timeoutSeconds: 2), cts.Token).ToListAsync().AsTask();
+        await approver.Asked.Task.WaitAsync(TimeSpan.FromSeconds(20));
+        await Task.Delay(TimeSpan.FromSeconds(3));   // past the window the default would have refused at
+        Assert.False(turn.IsCompleted);
+        await cts.CancelAsync();
+
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => turn.WaitAsync(TimeSpan.FromSeconds(20)));
+        Assert.Equal("cancelled", Outcome(Assert.Single(Answers(log))));
+    }
+
+    [Fact] // a runner that cannot be told would end the turn the person is deciding, so the option is refused where it is registered
+    public void A_runner_that_cannot_be_told_refuses_the_option_when_the_session_is_built()
+    {
+        var approver = Approver.Answering(AcpPermissionAnswer.Deny);
+
+        var direct = Assert.Throws<InvalidOperationException>(() => new AcpAgentSession(new FakeProcessRunner(), new LyntaiOptions(), "agent",
+            permissionApprover: approver, permissionWait: AcpPermissionWait.AsLongAsApproverHolds));
+        Assert.Contains("CanPauseInactivity", direct.Message);
+
+        using var sp = new ServiceCollection().AddLyntai(b => b
+            .AddAcpAgentSession("held-acp", "agent", permissionApprover: approver, permissionWait: AcpPermissionWait.AsLongAsApproverHolds))
+            .AddSingleton<IProcessRunner>(new FakeProcessRunner()).BuildServiceProvider();
+        Assert.Throws<InvalidOperationException>(() => sp.GetRequiredKeyedService<IAgentSession>("held-acp"));
+    }
+
+    [Fact] // the approver's wait is a wait for an approver
+    public void The_approvers_wait_needs_an_approver()
+    {
+        Assert.Throws<ArgumentException>(() => new ServiceCollection().AddLyntai(b => b
+            .AddAcpAgentSession("held-acp", "agent", permissionWait: AcpPermissionWait.AsLongAsApproverHolds)));
+        Assert.Throws<ArgumentException>(() => new AcpAgentSession(new ProcessRunner(), new LyntaiOptions(), "agent",
+            permissionWait: AcpPermissionWait.AsLongAsApproverHolds));
+    }
+
+    [Fact] // the door states what a request does under the option
+    public void The_door_says_a_request_waits_as_long_as_the_approver_holds_it_only_under_the_option()
+    {
+        var approver = Approver.Answering(AcpPermissionAnswer.Deny);
+        using var sp = new ServiceCollection().AddLyntai(b => b
+            .AddAcpAgentSession("held-acp", "agent", permissionApprover: approver, permissionWait: AcpPermissionWait.AsLongAsApproverHolds)
+            .AddAcpAgentSession("timed-acp", "agent", permissionApprover: approver)).BuildServiceProvider();
+        var registry = sp.GetRequiredService<AgentProviderRegistry>();
+
+        string Evidence(string id) =>
+            registry.Get(id).Describe().Doors.Single().Abilities.Single(a => a.Name == AgentAbilities.PermissionRequests).Evidence!;
+
+        Assert.Contains("as long as the approver holds it", Evidence("held-acp"));
+        Assert.Contains("half the inactivity window", Evidence("timed-acp"));
+    }
+
     // ── what does not change ─────────────────────────────────────────────────
 
     [Fact] // SOURCE-DERIVED: a read-only turn is a gate the approver cannot weaken, and is never asked

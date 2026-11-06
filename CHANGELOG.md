@@ -217,6 +217,14 @@ every addition.
   yields), makes a stall or a non-zero exit with no terminal the process fault, and stamps a failed terminal's delivery from what the
   turn showed. A clean end that no one ended is a failed turn, and a reader's terminal outranks the fault's default on a non-zero
   exit. The Claude and Codex readers implement the same interface, so the built-in doors run through the same path.
+- **A permission request waits for the person when the host registers it so** (**D248**). `AddAcpAgentSession` and `AcpAgentSession`
+  take `permissionWait` (`AcpPermissionWait`): the default `HalfTheWindow` is what the door always did, and `AsLongAsApproverHolds`
+  makes a held request wait as long as the approver holds it, with the process runner told not to read the wait as a silent agent. The
+  runner is told through a new optional pair on `IProcessRunner`: `CanPauseInactivity` (default false; the shipped `ProcessRunner`
+  answers true) and an `ExchangeLinesAsync` overload taking an `InactivityPause` (default: not supported, as the live stdin is), whose
+  `Hold()` stops the inactivity window and whose release starts it again from that moment. A maximum duration and the caller's
+  cancellation are unchanged. The option needs an approver, and a runner that cannot be told refuses it when the session is first
+  built from the container. A decorating runner forwards both members, or the runner under it reads as unable.
 - **A scope dense in ended entries still returns its current ones** (**D241**). A `Current` or as-of recall dropped the ended
   entries after the candidate window was cut, so 100 ended entries matching a query better than 5 current ones returned none of the
   5. When a seed source fills its window and the reading drops some of what it returned, the engine now asks again with a window four

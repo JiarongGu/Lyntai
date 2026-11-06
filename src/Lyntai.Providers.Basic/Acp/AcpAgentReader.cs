@@ -3,6 +3,7 @@ using System.Text.Json;
 using System.Threading.Channels;
 using Lyntai.Agents;
 using Lyntai.Inference;
+using Lyntai.Processes;
 using Lyntai.Providers.Basic;
 using Lyntai.Providers.ClaudeCli;
 using Microsoft.Extensions.Logging;
@@ -54,6 +55,7 @@ internal sealed class AcpAgentReader
     private int _pendingStep;
     private IReadOnlyList<string> _offeredModes = [];
     private readonly IAcpPermissionApprover? _approver;
+    private readonly InactivityPause? _pause;
     private readonly TimeSpan _permissionWindow;
     private readonly ILogger _logger;
     private readonly List<HeldPermission> _held = [];
@@ -73,14 +75,17 @@ internal sealed class AcpAgentReader
     /// <param name="inactivity">The turn's inactivity window: half of it is what the approver has to answer, the
     /// rest is the agent's to act on a refusal before the runner's clock ends the process.</param>
     /// <param name="logger">Diagnostics; null = none.</param>
+    /// <param name="pause">Given when the wait is the approver's: a request waits as long as the approver holds it, and the
+    /// runner's inactivity window is paused for as long as any request is held. Null = half the window, then a refusal.</param>
     public AcpAgentReader(
         AgentSessionOptions options, string cwd, string clientVersion, ChannelWriter<string> outbox, TimeProvider time,
         IReadOnlyList<IAcpExtensionReader> extensions, IAcpPermissionApprover? approver = null,
-        TimeSpan inactivity = default, ILogger? logger = null)
+        TimeSpan inactivity = default, ILogger? logger = null, InactivityPause? pause = null)
     {
         _approver = approver;
+        _pause = pause;
         // no window to halve (a host that configured none, or a reader built without one): the request waits on the approver alone
-        _permissionWindow = inactivity > TimeSpan.Zero && inactivity < TimeSpan.FromMilliseconds(uint.MaxValue - 1) ? inactivity / 2 : Timeout.InfiniteTimeSpan;
+        _permissionWindow = pause is null && inactivity > TimeSpan.Zero && inactivity < TimeSpan.FromMilliseconds(uint.MaxValue - 1) ? inactivity / 2 : Timeout.InfiniteTimeSpan;
         _logger = logger ?? NullLogger.Instance;
         _options = options;
         _cwd = cwd;
@@ -415,7 +420,7 @@ internal sealed class AcpAgentReader
         }
 
         var toolCall = parameters is { } q && WireJson.Object(q, "toolCall") is { } call ? call.GetRawText() : "{}";
-        Hold(new HeldPermission(id.Clone(), new CancellationTokenSource(_permissionWindow, _time)),
+        Hold(new HeldPermission(id.Clone(), new CancellationTokenSource(_permissionWindow, _time), _pause?.Hold()),
             new AcpPermissionRequest(_sessionId!, toolCall, offered));
     }
 
@@ -472,6 +477,7 @@ internal sealed class AcpAgentReader
                 if (!_held.Remove(held)) return;
                 Send(PermissionAnswer(held.Id, answer, request.Options));
             }
+            held.Pause?.Dispose();
             held.Window.Dispose();
         });
     }
@@ -489,13 +495,14 @@ internal sealed class AcpAgentReader
         {
             foreach (var held in released)
             {
+                held.Pause?.Dispose();
                 held.Window.Cancel();
                 held.Window.Dispose();
             }
         });
     }
 
-    private sealed record HeldPermission(JsonElement Id, CancellationTokenSource Window);
+    private sealed record HeldPermission(JsonElement Id, CancellationTokenSource Window, IDisposable? Pause);
 
     // ── the prompt's updates ─────────────────────────────────────────────────
 

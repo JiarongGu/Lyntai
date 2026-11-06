@@ -695,6 +695,93 @@ public class ProcessRunnerTests
         Assert.True(sw.Elapsed < TimeSpan.FromSeconds(30), $"took {sw.Elapsed} — kill didn't work");
     }
 
+    // ---- InactivityPause — the caller is waiting, so the child's silence is not inactivity ----------------
+
+    private const string StaysSilent = "setTimeout(() => {}, 60000)";
+
+    [Fact]
+    public async Task A_held_pause_keeps_a_silent_child_alive_past_its_window_and_the_release_starts_the_window_again()
+    {
+        var pause = new InactivityPause();
+        var outbox = System.Threading.Channels.Channel.CreateUnbounded<string>();
+        using var guard = new CancellationTokenSource(TimeSpan.FromSeconds(40));
+        var hold = pause.Hold();
+        var run = Task.Run(async () =>
+        {
+            await foreach (var _ in _runner.ExchangeLinesAsync("node", ["-e", StaysSilent], outbox.Reader.ReadAllAsync(), pause,
+                               inactivityTimeout: TimeSpan.FromSeconds(1), ct: guard.Token)) { }
+        });
+
+        await Task.Delay(TimeSpan.FromSeconds(3));   // three windows of silence under the hold
+        Assert.False(run.IsCompleted, "the window ended a child the caller was waiting on");
+
+        var released = Stopwatch.StartNew();
+        hold.Dispose();
+        await Assert.ThrowsAsync<ProcessTimeoutException>(() => run.WaitAsync(TimeSpan.FromSeconds(30)));
+
+        Assert.True(released.Elapsed >= TimeSpan.FromMilliseconds(700), $"the window did not start again from the release: ended after {released.Elapsed}");
+    }
+
+    [Fact]
+    public async Task Without_a_hold_the_same_silence_ends_the_child_at_its_window()
+    {
+        var outbox = System.Threading.Channels.Channel.CreateUnbounded<string>();
+        var pause = new InactivityPause();   // handed over, never held
+
+        await Assert.ThrowsAsync<ProcessTimeoutException>(async () =>
+        {
+            await foreach (var _ in _runner.ExchangeLinesAsync("node", ["-e", StaysSilent], outbox.Reader.ReadAllAsync(), pause,
+                               inactivityTimeout: TimeSpan.FromSeconds(1))) { }
+        });
+    }
+
+    [Fact]
+    public async Task A_hold_does_not_outlive_the_callers_cancellation()
+    {
+        var pause = new InactivityPause();
+        using var hold = pause.Hold();
+        var outbox = System.Threading.Channels.Channel.CreateUnbounded<string>();
+        using var cts = new CancellationTokenSource(TimeSpan.FromMilliseconds(500));
+        var sw = Stopwatch.StartNew();
+
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(async () =>
+        {
+            await foreach (var _ in _runner.ExchangeLinesAsync("node", ["-e", StaysSilent], outbox.Reader.ReadAllAsync(), pause,
+                               inactivityTimeout: TimeSpan.FromSeconds(1), ct: cts.Token)) { }
+        });
+
+        Assert.True(sw.Elapsed < TimeSpan.FromSeconds(30), $"took {sw.Elapsed} — kill didn't work");
+    }
+
+    [Fact]
+    public void A_hold_is_counted_and_a_release_counts_once()
+    {
+        var pause = new InactivityPause();
+        var changes = 0;
+        using var watch = pause.Subscribe(() => Interlocked.Increment(ref changes));
+
+        var first = pause.Hold();
+        var second = pause.Hold();
+        Assert.True(pause.IsPaused);
+        first.Dispose();
+        first.Dispose();   // twice releases once
+        Assert.True(pause.IsPaused);
+        second.Dispose();
+
+        Assert.False(pause.IsPaused);
+        Assert.Equal(4, changes);   // told after each open and each release, never for the repeat
+    }
+
+    [Fact]
+    public void A_runner_is_unable_to_pause_unless_it_says_so_and_the_shipped_one_says_so()
+    {
+        IProcessRunner legacy = new LinesOnlyRunner();
+
+        Assert.False(legacy.CanPauseInactivity);
+        Assert.Throws<NotSupportedException>(() => legacy.ExchangeLinesAsync("x", [], AsyncEnumerable.Empty<string>(), new InactivityPause()));
+        Assert.True(new ProcessRunner().CanPauseInactivity);
+    }
+
     [Fact]
     public async Task A_runner_that_predates_the_exchange_member_refuses_LOUDLY_rather_than_dropping_the_conversation()
     {

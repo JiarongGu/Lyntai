@@ -1,5 +1,5 @@
 static class Lyntai.AcpBuilderExtensions
-    static AddAcpAgentSession(LyntaiBuilder builder, String id, String command, IReadOnlyList<String> arguments = null, IReadOnlyDictionary<String,String> environment = null, String accountHomeVariable = null, String agent = null, IEnumerable<String> accountVariables = null, IEnumerable<IAcpExtensionReader> extensions = null, IAcpPermissionApprover permissionApprover = null) : LyntaiBuilder
+    static AddAcpAgentSession(LyntaiBuilder builder, String id, String command, IReadOnlyList<String> arguments = null, IReadOnlyDictionary<String,String> environment = null, String accountHomeVariable = null, String agent = null, IEnumerable<String> accountVariables = null, IEnumerable<IAcpExtensionReader> extensions = null, IAcpPermissionApprover permissionApprover = null, AcpPermissionWait permissionWait = AcpPermissionWait.HalfTheWindow) : LyntaiBuilder
 static class Lyntai.ClaudeCliBuilderExtensions
     static AddClaudeCliAgentSession(LyntaiBuilder builder, String command = null, IReadOnlyDictionary<String,String> environment = null, String id = "claude-cli", String agent = null) : LyntaiBuilder
     static AddClaudeCliProvider(LyntaiBuilder builder, ClaudeCliBackend backend, String command = null, IReadOnlyDictionary<String,String> environment = null, String id = "claude-cli") : LyntaiBuilder
@@ -25,7 +25,7 @@ static class Lyntai.OllamaBuilderExtensions
     static AddOllamaProvider(LyntaiBuilder builder, String baseUrl = null, String model = null, String id = "ollama", Func<IServiceProvider,HttpClient> httpClient = null) : LyntaiBuilder
     static AddOllamaProvider(LyntaiBuilder builder, String id, Action<OllamaOptions> configure, Func<IServiceProvider,HttpClient> httpClient = null) : LyntaiBuilder
 sealed class Lyntai.Providers.Acp.AcpAgentSession
-    .ctor(IProcessRunner runner, LyntaiOptions options, String command, IReadOnlyList<String> arguments = null, IReadOnlyDictionary<String,String> environment = null, String accountHomeVariable = null, Nullable<TimeSpan> cancelGrace = null, ILogger<AcpAgentSession> logger = null, TimeProvider time = null, IEnumerable<String> accountVariables = null, IEnumerable<IAcpExtensionReader> extensions = null, IAcpPermissionApprover permissionApprover = null)
+    .ctor(IProcessRunner runner, LyntaiOptions options, String command, IReadOnlyList<String> arguments = null, IReadOnlyDictionary<String,String> environment = null, String accountHomeVariable = null, Nullable<TimeSpan> cancelGrace = null, ILogger<AcpAgentSession> logger = null, TimeProvider time = null, IEnumerable<String> accountVariables = null, IEnumerable<IAcpExtensionReader> extensions = null, IAcpPermissionApprover permissionApprover = null, AcpPermissionWait permissionWait = AcpPermissionWait.HalfTheWindow)
     StreamAsync(AgentSessionOptions options, CancellationToken ct = default) : IAsyncEnumerable<AgentStreamEvent>
     static DefaultCancelGrace : TimeSpan
 static class Lyntai.Providers.Acp.AcpExtensionReaders
@@ -63,6 +63,10 @@ sealed class Lyntai.Providers.Acp.AcpPermissionRequest
     SessionId : String { get; init; }
     ToString() : String
     ToolCallJson : String { get; init; }
+enum Lyntai.Providers.Acp.AcpPermissionWait
+    AsLongAsApproverHolds : AcpPermissionWait const
+    HalfTheWindow : AcpPermissionWait const
+    value__ : Int32
 sealed class Lyntai.Providers.Acp.AcpStatedFailure
     .ctor(String By, String Words = null, AgentFailure Failure = null)
     By : String { get; init; }

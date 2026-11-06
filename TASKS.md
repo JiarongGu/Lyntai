@@ -15,21 +15,20 @@ LLM-ops layer (prompt registry, scoring, traces, memory). `AddLyntai(...)` and g
 
 <!-- open-items:begin — GENERATED. Edit the per-item `item:` markers, never this table. -->
 
-## Open items — 8 across 5 Parts: 2 startable, 3 blocked, 3 watch
+## Open items — 7 across 5 Parts: 1 startable, 3 blocked, 3 watch
 
 _Generated from the per-item `<!-- item: … -->` markers by `node devtools/dev.mjs check-backlog --write`._
 _Edit a marker, never this table — `verify` fails the moment the two disagree._
 
 | line | Part | item | state | waiting on |
 | ---: | ---: | --- | --- | --- |
-| 109 | 33 | GEN-VERIFY-FAL, the last line — the Hugging Face route | blocked · env | an hf_ token for the router route |
-| 150 | 75 | Decide what an aggregator's in-band `code` means | blocked · env+data | two or three real aggregators to measure an in-band code against |
-| 177 | 99 | `verify`'s test step intermittently fails EXACTLY 9 tests, and once aborted… | watch · data | the same nine tests to recur — the fix is unconfirmed as the cure, and a gr… |
-| 236 | 99 | `InputSegmenterTests.Counting_NFKC_is_LINEAR_in_the_length_of_the_text` fai… | watch · data | a recurrence under the full parallel run, with the ratio it read — the mess… |
-| 254 | 99 | `AgentUsageProcessTests.A_server_that_never_answers_is_ended_with_its_child… | watch · data | a recurrence under the full parallel run, with the load it ran under; it fa… |
-| 292 | 417 | MC8 — run the wrong-end instrument on an adjudicated corpus, with a bar wri… | blocked · decision+data | two reviewers' independent labels on a sample of the pairs, and a bar a per… |
-| 318 | 446 | AG38 — a permission request waits for the person when the host says so | startable |  |
-| 327 | 446 | AG39 — a run kept across turns: the design | startable |  |
+| 108 | 33 | GEN-VERIFY-FAL, the last line — the Hugging Face route | blocked · env | an hf_ token for the router route |
+| 149 | 75 | Decide what an aggregator's in-band `code` means | blocked · env+data | two or three real aggregators to measure an in-band code against |
+| 176 | 99 | `verify`'s test step intermittently fails EXACTLY 9 tests, and once aborted… | watch · data | the same nine tests to recur — the fix is unconfirmed as the cure, and a gr… |
+| 235 | 99 | `InputSegmenterTests.Counting_NFKC_is_LINEAR_in_the_length_of_the_text` fai… | watch · data | a recurrence under the full parallel run, with the ratio it read — the mess… |
+| 253 | 99 | `AgentUsageProcessTests.A_server_that_never_answers_is_ended_with_its_child… | watch · data | a recurrence under the full parallel run, with the load it ran under; it fa… |
+| 291 | 417 | MC8 — run the wrong-end instrument on an adjudicated corpus, with a bar wri… | blocked · decision+data | two reviewers' independent labels on a sample of the pairs, and a bar a per… |
+| 317 | 446 | AG39 — a run kept across turns: the design | startable |  |
 
 <!-- open-items:end -->
 
@@ -314,15 +313,6 @@ Captures a row's tests use are labelled REAL or SOURCE-DERIVED as `tests/Lyntai.
 a SOURCE-DERIVED one rests on Daoris's recorded captures, which a real one replaces when it arrives. Order: AG43 first (a defect
 in built code), AG37 before AG36 and AG42, AG25 to AG27 before AG28, AG30 before AG31, AG40 before AG41, AG43 before AG44, and AG39
 last because it designs the largest piece; the rest in any order. No row spends an account or calls a paid service._
-
-- [ ] **AG38 — a permission request waits for the person when the host says so** (lanes `inference` + `platform`, **D248**). <!-- item: state=startable -->
-  `IAcpPermissionApprover` refuses at half the turn's inactivity window and the runner's clock ends a silent agent. **Contract.** An
-  `AddAcpAgentSession` option states the wait is the approver's: a request waits as long as the approver holds it and the runner is
-  told, through an optional member of `IProcessRunner` (default: not supported, as `ExchangeLinesAsync` is), not to read that wait as
-  inactivity; a runner that cannot be told refuses the option at registration. The default stays half the window. **Proof.** A
-  stand-in that asks and stays silent: answered after longer than the window by a held approver (the turn goes on), refused at half
-  the window without the option, and the cancelled outcome on a cancelled turn; the shipped runner honours the member under a short
-  window.
 
 - [ ] **AG39 — a run kept across turns: the design** (lanes `platform` + `inference`, last, **D248**). <!-- item: state=startable -->
   A study and a decision, no code. **Contract.** From Daoris's recorded measurements of which agents accept a word mid-turn, a stop

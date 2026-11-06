@@ -8,9 +8,10 @@ namespace Lyntai.Providers.Acp;
 /// <para><b>Only a write turn asks.</b> A read-only turn rejects every request without consulting the approver, so
 /// the read-only gate stays a promise the approver cannot weaken.</para>
 /// <para><b>The answer is written once.</b> The agent is answered when the approver answers, when the turn is
-/// cancelled (the protocol's <c>cancelled</c> outcome), or when half of the turn's inactivity window has passed
+/// cancelled (the protocol's <c>cancelled</c> outcome), or, by default, when half of the turn's inactivity window has passed
 /// with no answer, which is a refusal: the other half is the agent's to act on it before the clock a silent
-/// agent does not reset ends the process. An approver that throws, answers null or names an option the agent did
+/// agent does not reset ends the process. A host that registers <see cref="AcpPermissionWait.AsLongAsApproverHolds"/> has no
+/// such window: the request waits as long as the approver holds it. An approver that throws, answers null or names an option the agent did
 /// not offer refuses, so the gate fails closed. The token it is handed is cancelled when any of these happens, and
 /// an answer that arrives after is dropped.</para>
 /// <para>Requests of one turn may be held at once, so an implementation is thread-safe.</para></summary>
@@ -21,6 +22,21 @@ public interface IAcpPermissionApprover
     /// <param name="ct">Cancelled when the request stops waiting for an answer: the window passed, the turn was
     /// cancelled or the turn ended.</param>
     Task<AcpPermissionAnswer> ApproveAsync(AcpPermissionRequest request, CancellationToken ct = default);
+}
+
+/// <summary>How long a permission request waits for its <see cref="IAcpPermissionApprover"/>.</summary>
+public enum AcpPermissionWait
+{
+    /// <summary>Half of the turn's inactivity window, then a refusal. The default: a host that registers an approver and
+    /// forgets it never hangs a turn.</summary>
+    HalfTheWindow = 0,
+
+    /// <summary>As long as the approver holds the request: the wait is the approver's, a person's, and the process runner is told
+    /// not to read it as a silent agent, so the inactivity window starts again from the answer. The turn is still ended by its
+    /// caller's cancellation (the protocol's <c>cancelled</c> outcome). It needs a runner that can be told
+    /// (<see cref="Lyntai.Processes.IProcessRunner.CanPauseInactivity"/>), and a registration whose runner cannot is
+    /// refused.</summary>
+    AsLongAsApproverHolds,
 }
 
 /// <summary>One permission request put to the <see cref="IAcpPermissionApprover"/>.</summary>

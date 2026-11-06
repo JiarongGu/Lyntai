@@ -48,9 +48,10 @@ public sealed class AcpAgentSession : IAgentSession
     private readonly TimeProvider _time;
     private readonly IReadOnlyList<IAcpExtensionReader> _extensions;
     private readonly IAcpPermissionApprover? _permissions;
+    private readonly AcpPermissionWait _permissionWait;
 
     /// <param name="runner">Process execution — BYO to sandbox, audit or remote the spawn. It must implement
-    /// <see cref="IProcessRunner.ExchangeLinesAsync"/>, which the shipped <see cref="ProcessRunner"/> does.</param>
+    /// <see cref="IProcessRunner.ExchangeLinesAsync(string, IReadOnlyList{string}, IAsyncEnumerable{string}, TimeSpan?, TimeSpan?, string?, IReadOnlyDictionary{string, string?}?, CancellationToken)"/>, which the shipped <see cref="ProcessRunner"/> does.</param>
     /// <param name="options">Timeout configuration.</param>
     /// <param name="command">The agent's launch command: an executable, or one with prefix arguments
     /// (<c>node "agent.mjs"</c>; quote a path with spaces).</param>
@@ -73,6 +74,11 @@ public sealed class AcpAgentSession : IAgentSession
     /// <param name="permissionApprover">Who answers the agent's permission requests in a write turn
     /// (<see cref="IAcpPermissionApprover"/>); null = the tool policy answers them. A session built without one
     /// is the door that states <see cref="AgentAbilities.PermissionRequests"/> unsupported.</param>
+    /// <param name="permissionWait">How long a request waits for the approver (<see cref="AcpPermissionWait"/>). Asking
+    /// the approver's wait needs an approver and a runner whose <see cref="IProcessRunner.CanPauseInactivity"/> is true.</param>
+    /// <exception cref="ArgumentException">The approver's wait with no approver.</exception>
+    /// <exception cref="InvalidOperationException">The approver's wait on a runner that cannot be told to pause its inactivity
+    /// window, which would end a turn the person is still deciding.</exception>
     public AcpAgentSession(
         IProcessRunner runner,
         LyntaiOptions options,
@@ -85,10 +91,21 @@ public sealed class AcpAgentSession : IAgentSession
         TimeProvider? time = null,
         IEnumerable<string>? accountVariables = null,
         IEnumerable<IAcpExtensionReader>? extensions = null,
-        IAcpPermissionApprover? permissionApprover = null)
+        IAcpPermissionApprover? permissionApprover = null,
+        AcpPermissionWait permissionWait = AcpPermissionWait.HalfTheWindow)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(command);
+        if (permissionWait != AcpPermissionWait.HalfTheWindow)
+        {
+            if (permissionApprover is null)
+                throw new ArgumentException("A wait that is the approver's needs an approver to hold the request.", nameof(permissionWait));
+            if (!runner.CanPauseInactivity)
+                throw new InvalidOperationException(
+                    "The permission wait is the approver's, so the process runner must be told not to read it as a silent agent, and "
+                    + $"{runner.GetType().Name} cannot be (IProcessRunner.CanPauseInactivity is false). Use a runner that can, or the default wait.");
+        }
         _permissions = permissionApprover;
+        _permissionWait = permissionWait;
         _extensions = extensions is null ? AcpExtensionReaders.Default : extensions.ToList();
         if (_extensions.Contains(null!)) throw new ArgumentException("A reader is null.", nameof(extensions));
         _runner = runner;
@@ -155,7 +172,9 @@ public sealed class AcpAgentSession : IAgentSession
         var cwd = Path.GetFullPath(options.WorkingDirectory ?? Directory.GetCurrentDirectory());
         var outbox = Channel.CreateUnbounded<string>(new UnboundedChannelOptions { SingleReader = true });
         var inactivity = _options.ResolveTimeout(options.TimeoutSeconds);
-        var reader = new AcpAgentReader(options, cwd, ClientVersion, outbox.Writer, _time, _extensions, _permissions, inactivity, _logger);
+        // a held request is the person's wait: its clock is the approver's, so the runner's window is paused while one is held
+        var pause = _permissionWait == AcpPermissionWait.AsLongAsApproverHolds ? new InactivityPause() : null;
+        var reader = new AcpAgentReader(options, cwd, ClientVersion, outbox.Writer, _time, _extensions, _permissions, inactivity, _logger, pause);
         reader.Start();
 
         // the runner is cancelled by this source and never by the caller's token, so a cancelled turn gets to say
@@ -172,9 +191,13 @@ public sealed class AcpAgentSession : IAgentSession
         string? unsupported = null;
         try
         {
-            lines = _runner.ExchangeLinesAsync(tokens[0], [.. tokens.Skip(1), .. _arguments],
-                watch.Frames(outbox.Reader.ReadAllAsync(CancellationToken.None)), inactivity,
-                workingDirectory: cwd, environment: AgentAccounts.Merge(AgentAccounts.MergeTurn(_environment, options.Environment), accountEnvironment), ct: kill.Token);
+            var childEnvironment = AgentAccounts.Merge(AgentAccounts.MergeTurn(_environment, options.Environment), accountEnvironment);
+            var stdin = watch.Frames(outbox.Reader.ReadAllAsync(CancellationToken.None));
+            lines = pause is null
+                ? _runner.ExchangeLinesAsync(tokens[0], [.. tokens.Skip(1), .. _arguments], stdin, inactivity,
+                    workingDirectory: cwd, environment: childEnvironment, ct: kill.Token)
+                : _runner.ExchangeLinesAsync(tokens[0], [.. tokens.Skip(1), .. _arguments], stdin, pause, inactivity,
+                    workingDirectory: cwd, environment: childEnvironment, ct: kill.Token);
         }
         catch (NotSupportedException ex)
         {

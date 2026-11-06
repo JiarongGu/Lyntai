@@ -211,7 +211,7 @@ public sealed class ProcessRunner : IProcessRunner
         StreamCoreAsync(command, args, stdin, inactivityTimeout, maxDuration, workingDirectory, environment, null,
             static process => process.StandardOutput.ReadLineAsync(CancellationToken.None), ct);
 
-    /// <summary>Streamed run with a live stdin — <see cref="IProcessRunner.ExchangeLinesAsync"/>. The same
+    /// <summary>Streamed run with a live stdin — <see cref="IProcessRunner.ExchangeLinesAsync(string, IReadOnlyList{string}, IAsyncEnumerable{string}, TimeSpan?, TimeSpan?, string?, IReadOnlyDictionary{string, string?}?, CancellationToken)"/>. The same
     /// core as <see cref="StreamLinesAsync"/> with the stdin writer swapped, so the two cannot drift on the
     /// clocks or the kill.</summary>
     public IAsyncEnumerable<string> ExchangeLinesAsync(
@@ -227,6 +227,30 @@ public sealed class ProcessRunner : IProcessRunner
         ArgumentNullException.ThrowIfNull(stdinLines);
         return StreamCoreAsync(command, args, null, inactivityTimeout, maxDuration, workingDirectory, environment, stdinLines,
             static process => process.StandardOutput.ReadLineAsync(CancellationToken.None), ct);
+    }
+
+    /// <summary>The shipped runner honours an <see cref="InactivityPause"/>.</summary>
+    public bool CanPauseInactivity => true;
+
+    /// <summary>Streamed run with a live stdin whose inactivity window is paused while <paramref name="pause"/> is held —
+    /// <see cref="IProcessRunner.ExchangeLinesAsync(string, IReadOnlyList{string}, IAsyncEnumerable{string}, InactivityPause, TimeSpan?, TimeSpan?, string?, IReadOnlyDictionary{string, string?}?, CancellationToken)"/>.
+    /// The same core as the other live-stdin run, so the clocks and the kill cannot drift: a hold stops the window and its
+    /// release starts it again from that moment, and the maximum duration is untouched.</summary>
+    public IAsyncEnumerable<string> ExchangeLinesAsync(
+        string command,
+        IReadOnlyList<string> args,
+        IAsyncEnumerable<string> stdinLines,
+        InactivityPause pause,
+        TimeSpan? inactivityTimeout = null,
+        TimeSpan? maxDuration = null,
+        string? workingDirectory = null,
+        IReadOnlyDictionary<string, string?>? environment = null,
+        CancellationToken ct = default)
+    {
+        ArgumentNullException.ThrowIfNull(stdinLines);
+        ArgumentNullException.ThrowIfNull(pause);
+        return StreamCoreAsync(command, args, null, inactivityTimeout, maxDuration, workingDirectory, environment, stdinLines,
+            static process => process.StandardOutput.ReadLineAsync(CancellationToken.None), ct, pause);
     }
 
     /// <summary>Streamed BINARY run — <see cref="IProcessRunner.StreamBytesAsync"/>. The read goes through
@@ -265,7 +289,8 @@ public sealed class ProcessRunner : IProcessRunner
         IReadOnlyDictionary<string, string?>? environment,
         IAsyncEnumerable<string>? stdinLines,
         Func<Process, ValueTask<T?>> readOne,
-        [EnumeratorCancellation] CancellationToken ct = default) where T : class
+        [EnumeratorCancellation] CancellationToken ct = default,
+        InactivityPause? pause = null) where T : class
     {
         using var process = Start(command, args, workingDirectory, environment);
 
@@ -298,7 +323,26 @@ public sealed class ProcessRunner : IProcessRunner
             // deliberately STOPPED while the consumer works, and a writer re-arm there would leave it running
             // through consumer dwell — killing a healthy stream under a slow reader.
             var observeStdin = false;
-            if (inactivityTimeout is not null) timeoutCts.CancelAfter(inactivityTimeout.Value); // arm for the first read
+            // The window is armed only while a read is pending and no pause is held (a held pause is the CALLER waiting, so a
+            // silent child is not a dead one). A pause opening or closing re-arms from the state as it is NOW, converging
+            // however the two threads interleave: the arm is repeated until the pause reads the same before and after it.
+            var reading = false;
+            void Rearm()
+            {
+                if (inactivityTimeout is null || !Volatile.Read(ref reading)) return;
+                while (true)
+                {
+                    var paused = pause?.IsPaused == true;
+                    timeoutCts.CancelAfter(paused ? Timeout.InfiniteTimeSpan : inactivityTimeout.Value);
+                    if ((pause?.IsPaused == true) == paused) break;
+                }
+                // a read that ended while this ran has stopped the clock for the consumer: leave it stopped
+                if (!Volatile.Read(ref reading)) timeoutCts.CancelAfter(Timeout.InfiniteTimeSpan);
+            }
+
+            using var pauseWatch = pause?.Subscribe(Rearm);
+            Volatile.Write(ref reading, true);
+            Rearm();   // arm for the first read
             // a live stdin has its own token: a child that exits leaves the sequence it was reading unfinished,
             // and the writer must not outlive the child waiting on it
             using var writerCts = CancellationTokenSource.CreateLinkedTokenSource(timeoutCts.Token);
@@ -312,8 +356,10 @@ public sealed class ProcessRunner : IProcessRunner
                 T? item;
                 try
                 {
-                    if (inactivityTimeout is not null) timeoutCts.CancelAfter(inactivityTimeout.Value);            // arm for this read
+                    Volatile.Write(ref reading, true);
+                    Rearm();                                                                                // arm for this read
                     item = await readOne(process).ConfigureAwait(false);
+                    Volatile.Write(ref reading, false);
                     if (inactivityTimeout is not null) timeoutCts.CancelAfter(Timeout.InfiniteTimeSpan); // stop the clock while the consumer works
                 }
                 catch (Exception) when (timeoutCts.IsCancellationRequested)

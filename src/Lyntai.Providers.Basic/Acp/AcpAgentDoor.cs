@@ -13,7 +13,7 @@ internal static class AcpAgentDoor
 
     public static AgentProviderDescriptor Describe(
         string providerId, string? accountHomeVariable, string? agent = null, IEnumerable<string>? accountVariables = null,
-        bool permissionApprover = false) => new()
+        bool permissionApprover = false, AcpPermissionWait permissionWait = AcpPermissionWait.HalfTheWindow) => new()
     {
         Id = providerId,
         Agent = agent,
@@ -47,7 +47,10 @@ internal static class AcpAgentDoor
                     Declared(AgentAbilities.PermissionRequests,
                         permissionApprover ? AgentSupport.Supported : AgentSupport.Unsupported,
                         permissionApprover
-                            ? "each session/request_permission of a write turn is put to the registered IAcpPermissionApprover; a read-only turn rejects it unasked, and no answer within half the inactivity window is a refusal"
+                            ? "each session/request_permission of a write turn is put to the registered IAcpPermissionApprover; a read-only turn rejects it unasked, and "
+                                + (permissionWait == AcpPermissionWait.AsLongAsApproverHolds
+                                    ? "the request waits as long as the approver holds it, with the runner's inactivity window paused meanwhile"
+                                    : "no answer within half the inactivity window is a refusal")
                             : "no IAcpPermissionApprover is registered, so the turn's tool policy answers every request"),
                     new AgentAbility(AgentAbilities.PermissionMode, AgentSupport.Unknown, AgentAbilitySource.Negotiated)
                         { Evidence = "per agent from session/new: the modes answer's availableModes, set by session/set_mode before the prompt; an agent that offers no such id ends the turn before the prompt" },
