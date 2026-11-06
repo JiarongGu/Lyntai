@@ -210,6 +210,13 @@ every addition.
   key and the recovery kinds it answers. A lease is resolved only by the token that owns it, and a stale, foreign or unanswering
   observation discharges nothing. `AgentAccountPool` is rebuilt on the same operations and behaves as it did; the stored hold format
   is unchanged. The host keeps its own store and serialises its own writes.
+- **A host's own CLI agent program runs under the library's turn rules** (**D249**). `CliAgentTurn.RunAsync` runs a program through
+  the `IProcessRunner` as the library starts its own and ends the turn as the built-in CLI doors do, over an `ICliAgentLineReader` the
+  host supplies: `Read` turns a line into events, and `ReadEnd` is told once when the output ends, with the exit code (0 on a clean
+  end, else `ProcessRunException.ExitCode`), and may return the terminal. The turn keeps exactly one terminal (the first any source
+  yields), makes a stall or a non-zero exit with no terminal the process fault, and stamps a failed terminal's delivery from what the
+  turn showed. A clean end that no one ended is a failed turn, and a reader's terminal outranks the fault's default on a non-zero
+  exit. The Claude and Codex readers implement the same interface, so the built-in doors run through the same path.
 - **A scope dense in ended entries still returns its current ones** (**D241**). A `Current` or as-of recall dropped the ended
   entries after the candidate window was cut, so 100 ended entries matching a query better than 5 current ones returned none of the
   5. When a seed source fills its window and the reading drops some of what it returned, the engine now asks again with a window four

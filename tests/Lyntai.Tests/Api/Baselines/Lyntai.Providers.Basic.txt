@@ -89,6 +89,8 @@ interface Lyntai.Providers.Acp.IAcpExtensionReader
     ReadUpdate(JsonElement update, TimeProvider time) : AcpUpdateReading
 interface Lyntai.Providers.Acp.IAcpPermissionApprover
     ApproveAsync(AcpPermissionRequest request, CancellationToken ct = default) : Task<AcpPermissionAnswer>
+static class Lyntai.Providers.Basic.CliAgentTurn
+    static RunAsync(IProcessRunner runner, String executable, IReadOnlyList<String> arguments, ICliAgentLineReader reader, TimeSpan inactivityTimeout, String prompt = null, String workingDirectory = null, IReadOnlyDictionary<String,String> environment = null, ILogger logger = null, String backend = "cli", CancellationToken ct = default) : IAsyncEnumerable<AgentStreamEvent>
 sealed class Lyntai.Providers.ClaudeCli.ClaudeAgentOptions
     .ctor()
     AllowedTools : IReadOnlyList<String> { get; init; }

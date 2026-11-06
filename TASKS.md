@@ -15,22 +15,21 @@ LLM-ops layer (prompt registry, scoring, traces, memory). `AddLyntai(...)` and g
 
 <!-- open-items:begin — GENERATED. Edit the per-item `item:` markers, never this table. -->
 
-## Open items — 9 across 5 Parts: 3 startable, 3 blocked, 3 watch
+## Open items — 8 across 5 Parts: 2 startable, 3 blocked, 3 watch
 
 _Generated from the per-item `<!-- item: … -->` markers by `node devtools/dev.mjs check-backlog --write`._
 _Edit a marker, never this table — `verify` fails the moment the two disagree._
 
 | line | Part | item | state | waiting on |
 | ---: | ---: | --- | --- | --- |
-| 110 | 33 | GEN-VERIFY-FAL, the last line — the Hugging Face route | blocked · env | an hf_ token for the router route |
-| 151 | 75 | Decide what an aggregator's in-band `code` means | blocked · env+data | two or three real aggregators to measure an in-band code against |
-| 178 | 99 | `verify`'s test step intermittently fails EXACTLY 9 tests, and once aborted… | watch · data | the same nine tests to recur — the fix is unconfirmed as the cure, and a gr… |
-| 237 | 99 | `InputSegmenterTests.Counting_NFKC_is_LINEAR_in_the_length_of_the_text` fai… | watch · data | a recurrence under the full parallel run, with the ratio it read — the mess… |
-| 255 | 99 | `AgentUsageProcessTests.A_server_that_never_answers_is_ended_with_its_child… | watch · data | a recurrence under the full parallel run, with the load it ran under; it fa… |
-| 293 | 417 | MC8 — run the wrong-end instrument on an adjudicated corpus, with a bar wri… | blocked · decision+data | two reviewers' independent labels on a sample of the pairs, and a bar a per… |
-| 319 | 446 | AG38 — a permission request waits for the person when the host says so | startable |  |
-| 328 | 446 | AG45 — a host's line reader runs under the CLI turn's rules | startable |  |
-| 334 | 446 | AG39 — a run kept across turns: the design | startable |  |
+| 109 | 33 | GEN-VERIFY-FAL, the last line — the Hugging Face route | blocked · env | an hf_ token for the router route |
+| 150 | 75 | Decide what an aggregator's in-band `code` means | blocked · env+data | two or three real aggregators to measure an in-band code against |
+| 177 | 99 | `verify`'s test step intermittently fails EXACTLY 9 tests, and once aborted… | watch · data | the same nine tests to recur — the fix is unconfirmed as the cure, and a gr… |
+| 236 | 99 | `InputSegmenterTests.Counting_NFKC_is_LINEAR_in_the_length_of_the_text` fai… | watch · data | a recurrence under the full parallel run, with the ratio it read — the mess… |
+| 254 | 99 | `AgentUsageProcessTests.A_server_that_never_answers_is_ended_with_its_child… | watch · data | a recurrence under the full parallel run, with the load it ran under; it fa… |
+| 292 | 417 | MC8 — run the wrong-end instrument on an adjudicated corpus, with a bar wri… | blocked · decision+data | two reviewers' independent labels on a sample of the pairs, and a bar a per… |
+| 318 | 446 | AG38 — a permission request waits for the person when the host says so | startable |  |
+| 327 | 446 | AG39 — a run kept across turns: the design | startable |  |
 
 <!-- open-items:end -->
 
@@ -324,12 +323,6 @@ last because it designs the largest piece; the rest in any order. No row spends 
   stand-in that asks and stays silent: answered after longer than the window by a held approver (the turn goes on), refused at half
   the window without the option, and the cancelled outcome on a cancelled turn; the shipped runner honours the member under a short
   window.
-
-- [ ] **AG45 — a host's line reader runs under the CLI turn's rules** (lane `inference`, **D249**). <!-- item: state=startable -->
-  **Contract.** `CliAgentLoop`'s turn is public over `ICliAgentLineReader` (a line to events; the end with its exit code to a
-  terminal or none); the loop keeps one terminal, the fault terminal and the delivery stamp, and the built-in doors run through the
-  same path. **Proof.** A plain-line stand-in that exits 0 with no terminal (the reader's end yields success), one that exits 2
-  (the reader's terminal or the fatal default), one that prints a terminal and then more, and every existing door test unchanged.
 
 - [ ] **AG39 — a run kept across turns: the design** (lanes `platform` + `inference`, last, **D248**). <!-- item: state=startable -->
   A study and a decision, no code. **Contract.** From Daoris's recorded measurements of which agents accept a word mid-turn, a stop

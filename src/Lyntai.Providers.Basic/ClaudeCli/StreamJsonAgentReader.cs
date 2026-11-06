@@ -11,7 +11,7 @@ namespace Lyntai.Providers.ClaudeCli;
 /// Tolerant — an unknown/malformed line yields nothing, never throws. Remembers the model id across lines
 /// so the terminal <see cref="UsageFinal"/> carries it. Line-translation ONLY: it does NOT set
 /// <see cref="SessionEnded.Diagnostic"/> (no stderr knowledge — the session runner fills that).</summary>
-internal sealed class StreamJsonAgentReader
+internal sealed class StreamJsonAgentReader : ICliAgentLineReader
 {
     private readonly TimeProvider _time;
     private string? _model;
@@ -25,6 +25,9 @@ internal sealed class StreamJsonAgentReader
     /// <param name="time">The clock a <see cref="UsageReading.MeasuredAt"/> is stamped from; null = the system
     /// clock.</param>
     public StreamJsonAgentReader(TimeProvider? time = null) => _time = time ?? TimeProvider.System;
+
+    /// <summary>The CLI states its own ending in the <c>result</c> line, so the end of the stream adds none.</summary>
+    public SessionEnded? ReadEnd(int exitCode) => null;
 
     /// <summary>The frames no case here took, by type: a type this reader has no case for, and a streamed event it
     /// has no case for.</summary>

@@ -805,6 +805,10 @@ interface Lyntai.Agents.IAgentUsageVersionPolicy
     ShouldStart(AgentUsageVersionQuery query) : Boolean
 interface Lyntai.Agents.IChatOrchestrator
     ChatAsync(ChatTurn turn, CancellationToken ct = default) : Task<ChatResult>
+interface Lyntai.Agents.ICliAgentLineReader
+    Read(String line) : IReadOnlyList<AgentStreamEvent>
+    ReadEnd(Int32 exitCode) : SessionEnded
+    Unread() : IReadOnlyList<AgentUnreadFrame>
 interface Lyntai.Agents.ICliToolProvisioner
     ProvisionAsync(CancellationToken ct = default) : Task<CliToolSession>
     ProvisionAsync(CliToolRequest request, CancellationToken ct = default) : Task<CliToolSession>

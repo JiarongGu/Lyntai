@@ -16,6 +16,7 @@ namespace Lyntai.Providers.Basic;
 /// after it may add events but never a second ending.</item>
 /// <item>A process fault becomes that terminal through <see cref="CliFault"/>; a cancellation
 /// propagates.</item>
+/// <item>The reader is told when the output ends, with the exit code, and its terminal ends a turn that has none.</item>
 /// <item>No terminal at all is a <see cref="ProviderVerdict.Failed"/> one, and the diagnostic tells
 /// "printed nothing" (a bad invocation) from "streamed, then died before its terminal" (a crash mid-turn).</item>
 /// </list>
@@ -105,20 +106,20 @@ internal static class CliAgentLoop
     /// <param name="timeout">The runner's inactivity window.</param>
     /// <param name="options">The turn — its working directory.</param>
     /// <param name="environment">Extra environment variables for the spawn.</param>
-    /// <param name="read">The backend's line reader: 0..N events per line, never a throw.</param>
-    /// <param name="unread">What the reader read nothing from, asked when a terminal is stamped.</param>
+    /// <param name="reader">The backend's line reader, told when the stream ends.</param>
     /// <param name="logger">Where a turn with no terminal is reported.</param>
     /// <param name="backend">The CLI's name, for the diagnostic.</param>
     /// <param name="ct">Cancels the turn and kills the process tree.</param>
     public static IAsyncEnumerable<AgentStreamEvent> RunAsync(
         IProcessRunner runner, string exe, IReadOnlyList<string> argv, string stdin, TimeSpan timeout,
         AgentSessionOptions options, IReadOnlyDictionary<string, string?>? environment,
-        Func<string, IReadOnlyList<AgentStreamEvent>> read, Func<IReadOnlyList<AgentUnreadFrame>> unread, ILogger logger, string backend,
+        ICliAgentLineReader reader, ILogger logger, string backend,
         CancellationToken ct) =>
         RunLinesAsync(
             runner.StreamLinesAsync(exe, argv, stdin: stdin, inactivityTimeout: timeout,
                 workingDirectory: options.WorkingDirectory, environment: environment, ct: ct),
-            endAtTerminal: false, read, unread, logger, backend, announcesBeforeWrite: false, written: static () => null, answered: static () => false, ct);
+            endAtTerminal: false, reader.Read, reader.Unread, logger, backend, announcesBeforeWrite: false, written: static () => null, answered: static () => false, ct,
+            end: reader.ReadEnd);
 
     /// <summary>The loop over lines already being read: <see cref="RunAsync"/>'s own, and a protocol door's,
     /// whose process is spoken to as it answers. <paramref name="endAtTerminal"/> ends the turn at its
@@ -138,11 +139,15 @@ internal static class CliAgentLoop
     /// <param name="answered">Whether the door has had the agent's own answer to the prompt, which shows it was read
     /// whatever events followed.</param>
     /// <param name="ct">Cancels the turn.</param>
+    /// <param name="end">Told once when the lines end, with the exit code (0 on a clean end, else the runner's
+    /// <see cref="ProcessRunException.ExitCode"/>); the terminal it returns ends a turn that has none and is ignored
+    /// otherwise. Null for a door whose agent states its own ending.</param>
     public static async IAsyncEnumerable<AgentStreamEvent> RunLinesAsync(
         IAsyncEnumerable<string> lines, bool endAtTerminal,
         Func<string, IReadOnlyList<AgentStreamEvent>> read, Func<IReadOnlyList<AgentUnreadFrame>> unread, ILogger logger, string backend,
         bool announcesBeforeWrite, Func<bool?> written, Func<bool> answered,
-        [EnumeratorCancellation] CancellationToken ct)
+        [EnumeratorCancellation] CancellationToken ct,
+        Func<int, SessionEnded?>? end = null)
     {
         var sawTerminal = false;
         var sawContent = false;
@@ -157,10 +162,16 @@ internal static class CliAgentLoop
             // the fault terminal reads the session id at FAULT time (the closure sees the loop's updates)
             var guarded = GuardedStream.ReadAll<string, SessionEnded>(
                 async () => await e.MoveNextAsync().ConfigureAwait(false) ? e.Current : null,
-                ex => CliFault.Classify(ex) is { } fault
-                    ? Stamp(new SessionEnded(fault.Verdict, true, ex is ProcessTimeoutException ? "timeout" : null,
-                        sessionId, null, fault.Detail) { Failure = FaultFailure(ex, fault.Verdict) }, watch)
-                    : null,
+                ex =>
+                {
+                    // a program that ended non-zero is told so, and its own ending outranks the fault's default
+                    var told = ex is ProcessRunException exited ? end?.Invoke(exited.ExitCode) : null;
+                    if (told is not null && !sawTerminal) return Stamp(told, watch);
+                    return CliFault.Classify(ex) is { } fault
+                        ? Stamp(new SessionEnded(fault.Verdict, true, ex is ProcessTimeoutException ? "timeout" : null,
+                            sessionId, null, fault.Detail) { Failure = FaultFailure(ex, fault.Verdict) }, watch)
+                        : null;
+                },
                 ct);
             await foreach (var (line, terminal) in guarded.ConfigureAwait(false))
             {
@@ -196,7 +207,15 @@ internal static class CliAgentLoop
             }
         }
 
+        // told once, whether or not the turn already ended; a program that exited cleanly without a terminal ends here
+        var closing = end?.Invoke(0);
         if (sawTerminal) yield break;
+        if (closing is not null)
+        {
+            yield return Stamp(closing, watch);
+            yield break;
+        }
+
         var diagnostic = sawContent
             ? $"the turn never terminated: {backend} streamed output but no terminal event arrived before the " +
               "process ended"

@@ -153,7 +153,7 @@ public sealed class CodexAgentSession : IAgentSession
         var turn = CliAgentLoop.RunAsync(_runner, exe, [.. prefixArgs, .. agentArgs], CodexAgentArgs.BuildPrompt(options),
             _options.ResolveTimeout(options.TimeoutSeconds),
             options, AgentAccounts.Merge(AgentAccounts.Merge(AgentAccounts.MergeTurn(_environment, options.Environment), mcpEnvironment), accountEnvironment),
-            reader.Read, reader.Unread, _logger, "codex", ct);
+            reader, _logger, "codex", ct);
         await foreach (var evt in turn.ConfigureAwait(false))
             yield return evt;
     }
