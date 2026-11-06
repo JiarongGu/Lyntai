@@ -1,3 +1,7 @@
+enum Lyntai.Agents.AccessReason
+    CredentialRefused : AccessReason const
+    SignInAgain : AccessReason const
+    value__ : Int32
 static class Lyntai.Agents.AgentAbilities
     Accounts : String const
     DisallowedTools : String const
@@ -36,6 +40,15 @@ enum Lyntai.Agents.AgentAbilitySource
     Measured : AgentAbilitySource const
     Negotiated : AgentAbilitySource const
     value__ : Int32
+sealed class Lyntai.Agents.AgentAccessReadings
+    .ctor(Nullable<AccessReason> ByField, Nullable<AccessReason> ByWords)
+    ByField : Nullable<AccessReason> { get; init; }
+    ByWords : Nullable<AccessReason> { get; init; }
+    Deconstruct(Nullable`1& ByField, Nullable`1& ByWords) : Void
+    Equals(AgentAccessReadings other) : Boolean
+    Equals(Object obj) : Boolean
+    GetHashCode() : Int32
+    ToString() : String
 sealed class Lyntai.Agents.AgentAccount
     .ctor()
     Environment : IReadOnlyDictionary<String,String> { get; init; }
@@ -217,6 +230,7 @@ static class Lyntai.Agents.AgentDoorKinds
     Http : String const
 sealed class Lyntai.Agents.AgentFailure
     .ctor(AgentFailureKind Kind, String By)
+    AccessReadings : AgentAccessReadings { get; init; }
     By : String { get; init; }
     Deconstruct(AgentFailureKind& Kind, String& By) : Void
     Delivery : AgentDelivery { get; init; }
@@ -720,6 +734,13 @@ enum Lyntai.Agents.McpTransport
     Http : McpTransport const
     Stdio : McpTransport const
     value__ : Int32
+enum Lyntai.Agents.OwnerActionReason
+    Configure : OwnerActionReason const
+    Grant : OwnerActionReason const
+    Refill : OwnerActionReason const
+    SignIn : OwnerActionReason const
+    Unknown : OwnerActionReason const
+    value__ : Int32
 sealed class Lyntai.Agents.PlanEntry
     .ctor(String Content, Nullable<PlanEntryStatus> Status)
     Content : String { get; init; }
@@ -770,8 +791,10 @@ sealed class Lyntai.Agents.RestrictionRecovery
     Equals(RestrictionRecovery other) : Boolean
     GetHashCode() : Int32
     Kind : RecoveryKind { get; init; }
+    Reason : OwnerActionReason { get; init; }
     ToString() : String
     static OwnerAction : RestrictionRecovery { get; }
+    static OwnerActionFor(OwnerActionReason reason) : RestrictionRecovery
     static ResetAt(DateTimeOffset at) : RestrictionRecovery
     static RetryNotBefore(DateTimeOffset at) : RestrictionRecovery
     static Unknown : RestrictionRecovery { get; }

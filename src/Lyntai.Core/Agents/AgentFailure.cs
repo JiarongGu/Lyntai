@@ -78,17 +78,44 @@ public enum RecoveryKind
     OwnerAction,
 }
 
+/// <summary>Which action a person must take when a restriction ends only by one
+/// (<see cref="RecoveryKind.OwnerAction"/>). A reader sets it only from a field the door defines, never from words.</summary>
+public enum OwnerActionReason
+{
+    /// <summary>No field said which action. The default.</summary>
+    Unknown = 0,
+
+    /// <summary>Add credit or raise a spend cap (a billing failure).</summary>
+    Refill,
+
+    /// <summary>Sign in again.</summary>
+    SignIn,
+
+    /// <summary>Grant a permission the agent or account lacks.</summary>
+    Grant,
+
+    /// <summary>Change a configuration, such as a model the agent refused.</summary>
+    Configure,
+}
+
 /// <summary>A restriction's way out: a stated moment, or the absence of one.</summary>
 /// <param name="Kind">How it ends.</param>
 /// <param name="At">The moment, for <see cref="RecoveryKind.ResetAt"/> and <see cref="RecoveryKind.RetryNotBefore"/>;
 /// null otherwise.</param>
 public sealed record RestrictionRecovery(RecoveryKind Kind, DateTimeOffset? At = null)
 {
+    /// <summary>Which action the person must take, for <see cref="RecoveryKind.OwnerAction"/>;
+    /// <see cref="OwnerActionReason.Unknown"/> for every other kind and where no field said.</summary>
+    public OwnerActionReason Reason { get; init; }
+
     /// <summary>Nothing was stated.</summary>
     public static RestrictionRecovery Unknown { get; } = new(RecoveryKind.Unknown);
 
-    /// <summary>A person must act.</summary>
+    /// <summary>A person must act, and which action is not said.</summary>
     public static RestrictionRecovery OwnerAction { get; } = new(RecoveryKind.OwnerAction);
+
+    /// <summary>A person must take the action <paramref name="reason"/> names.</summary>
+    public static RestrictionRecovery OwnerActionFor(OwnerActionReason reason) => new(RecoveryKind.OwnerAction) { Reason = reason };
 
     /// <summary>The allowance renews at <paramref name="at"/>.</summary>
     public static RestrictionRecovery ResetAt(DateTimeOffset at) => new(RecoveryKind.ResetAt, at);
@@ -120,6 +147,24 @@ public enum AgentDelivery
     Taken,
 }
 
+/// <summary>What an access failure asks of the person.</summary>
+public enum AccessReason
+{
+    /// <summary>The account must sign in again.</summary>
+    SignInAgain = 1,
+
+    /// <summary>The service refused the credential presented.</summary>
+    CredentialRefused,
+}
+
+/// <summary>The two readings of an access failure, kept apart: there is no winner and no rule choosing between
+/// them, since a field and a sentence disagree in practice and either may be the right one for a host. Each is
+/// null when its source said nothing about which.</summary>
+/// <param name="ByField">What a field the door defines stated: an HTTP 401 is a refused credential, the protocol's
+/// own authentication-required code a sign-in again.</param>
+/// <param name="ByWords">What the door's words implied.</param>
+public sealed record AgentAccessReadings(AccessReason? ByField, AccessReason? ByWords);
+
 /// <summary>One failed turn, as the door's own fields and words read it. <see cref="SessionEnded.Failure"/>
 /// carries it on every failed terminal the two CLI doors emit.</summary>
 /// <param name="Kind">What kind of failure it was. The order of reading is limit, then access, then
@@ -132,6 +177,10 @@ public sealed record AgentFailure(AgentFailureKind Kind, string By)
     /// (<see cref="RestrictionSubject.Model"/>, <see cref="RecoveryKind.OwnerAction"/>): a pool holds that account and
     /// model and nothing wider until the host clears it.</summary>
     public AgentRestriction? Restriction { get; init; }
+
+    /// <summary>For an <see cref="AgentFailureKind.Access"/> failure, what a field and the words each said of it;
+    /// null for every other kind. <see cref="Kind"/> stays what the fields decided.</summary>
+    public AgentAccessReadings? AccessReadings { get; init; }
 
     /// <summary>Whether the prompt was delivered. The door's session loop sets it from what the turn showed
     /// before it failed; a reader that builds a failure of its own leaves the default.</summary>

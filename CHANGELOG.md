@@ -184,6 +184,14 @@ every addition.
   carried when the report states one: the frame's `utilization` is a fraction from 0 to 1 (a consumer's recorded frame, 2.1.287), read as a
   percent with its step (0.88 is 88, step 1), from the window's own entry among the report's `unifiedWindows` and else the report's own. The
   report also carries the agent's `OverageStatus` and `OverageDisabledReason` as written.
+- **An owner action says which action, and an access failure keeps its two readings apart** (**D246**). `RestrictionRecovery`
+  gains `Reason` (`OwnerActionReason`: `Refill`, `SignIn`, `Grant`, `Configure`, `Unknown`), set only from a field: Claude's
+  `billing_error`, an HTTP 402 or a named credit code read as a refill, a refused model (`model_not_found`, or the protocol door's own
+  refusal) as a configuration change, and the same facts read from a sentence leave it `Unknown`. The pool stores it with the hold, and
+  a hold stored without one reads as none said. `AgentFailure` gains `AccessReadings`, an `AgentAccessReadings` of what a field the
+  door defines stated (`ByField`: the protocol's authentication-required code is `AccessReason.SignInAgain`, a 401 and codex's
+  `unauthorized` are `CredentialRefused`) and what the words implied (`ByWords`), each null when it said nothing. There is no winner,
+  and `Kind` stays what the fields decided. No Claude `error` category and no 403 states which, so those readings are null.
 - **A scope dense in ended entries still returns its current ones** (**D241**). A `Current` or as-of recall dropped the ended
   entries after the candidate window was cut, so 100 ended entries matching a query better than 5 current ones returned none of the
   5. When a seed source fills its window and the reading drops some of what it returned, the engine now asks again with a window four

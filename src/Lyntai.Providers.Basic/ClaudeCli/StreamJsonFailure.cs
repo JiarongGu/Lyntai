@@ -98,6 +98,15 @@ internal static class StreamJsonFailure
             return sentence is { } s ? s with { By = $"{unreadBy}:{s.By}" } : new AgentFailure(AgentFailureKind.Fatal, unreadBy);
 
         var field = fields[0];
+        if (field.Kind == AgentFailureKind.Access)
+        {
+            // the field's reading and the words' stay apart: the first field that stated one, and what a sentence that
+            // reads as access implies
+            var stated = fields.Where(f => f.Kind == AgentFailureKind.Access).Select(f => f.AccessReadings?.ByField).FirstOrDefault(r => r is not null);
+            var implied = sentence is { Kind: AgentFailureKind.Access } ? sentence.AccessReadings?.ByWords : null;
+            field = field with { AccessReadings = new AgentAccessReadings(stated, implied) };
+        }
+
         if (sentence is null || sentence.Kind != field.Kind || sentence.Restriction is not { } said) return field;
 
         // the sentence agrees with the field's kind, so it may fill what the field left open — never override it
@@ -134,7 +143,8 @@ internal static class StreamJsonFailure
         {
             null => null,
             429 => new AgentFailure(AgentFailureKind.Limit, by) { Restriction = Open() },
-            401 or 403 => new AgentFailure(AgentFailureKind.Access, by),
+            401 => Access(by, AccessReason.CredentialRefused),
+            403 => Access(by),
             529 => new AgentFailure(AgentFailureKind.Transient, by)
                 { Restriction = new(RestrictionCause.Capacity, RestrictionSubject.Endpoint, RestrictionRecovery.Unknown) },
             408 or 500 or 502 or 503 or 504 => new AgentFailure(AgentFailureKind.Transient, by),
@@ -151,9 +161,9 @@ internal static class StreamJsonFailure
             "rate_limit" => new AgentFailure(AgentFailureKind.Limit, by)
                 { Restriction = new(RestrictionCause.Rate, RestrictionSubject.Unknown, RestrictionRecovery.Unknown) },
             "billing_error" => new AgentFailure(AgentFailureKind.Limit, by)
-                { Restriction = new(RestrictionCause.Credit, RestrictionSubject.Account, RestrictionRecovery.OwnerAction) },
+                { Restriction = new(RestrictionCause.Credit, RestrictionSubject.Account, RestrictionRecovery.OwnerActionFor(OwnerActionReason.Refill)) },
             "authentication_failed" or "oauth_org_not_allowed" or "account_on_hold" or "verification_required"
-                or "cloud_credential_error" => new AgentFailure(AgentFailureKind.Access, by),
+                or "cloud_credential_error" => Access(by),
             "overloaded" => new AgentFailure(AgentFailureKind.Transient, by)
                 { Restriction = new(RestrictionCause.Capacity, RestrictionSubject.Endpoint, RestrictionRecovery.Unknown) },
             "server_error" => new AgentFailure(AgentFailureKind.Transient, by),
@@ -167,8 +177,13 @@ internal static class StreamJsonFailure
     /// skips that seat and nothing wider — until a person acts on it, since waiting does not help.</summary>
     internal static AgentFailure ModelRefused(string by) => new(AgentFailureKind.Fatal, by)
     {
-        Restriction = new AgentRestriction(RestrictionCause.Unknown, RestrictionSubject.Model, RestrictionRecovery.OwnerAction),
+        Restriction = new AgentRestriction(RestrictionCause.Unknown, RestrictionSubject.Model, RestrictionRecovery.OwnerActionFor(OwnerActionReason.Configure)),
     };
+
+    /// <summary>An access failure a field decided. <paramref name="stated"/> is what that field says of the action;
+    /// no Claude category states one, since a failed authentication is a sign-in or a refusal alike.</summary>
+    internal static AgentFailure Access(string by, AccessReason? stated = null) =>
+        new(AgentFailureKind.Access, by) { AccessReadings = new AgentAccessReadings(stated, null) };
 
     private static AgentRestriction Open() => new(RestrictionCause.Unknown, RestrictionSubject.Unknown, RestrictionRecovery.Unknown);
 }

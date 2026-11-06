@@ -144,10 +144,71 @@ public class ClaudeAgentFailureTests
         Assert.Equal(expected, ended.Failure!.Kind);
     }
 
-    private static void AssertModelRefused(AgentFailure failure)
+    private static void AssertModelRefused(AgentFailure failure, OwnerActionReason reason)
     {
         Assert.Equal(AgentFailureKind.Fatal, failure.Kind);
-        Assert.Equal(new AgentRestriction(RestrictionCause.Unknown, RestrictionSubject.Model, RestrictionRecovery.OwnerAction), failure.Restriction);
+        Assert.Equal(new AgentRestriction(RestrictionCause.Unknown, RestrictionSubject.Model, RestrictionRecovery.OwnerActionFor(reason)), failure.Restriction);
+    }
+
+    [Fact] // the reason an owner action carries comes from the category, a field, and from nothing the words said
+    public void A_billing_error_is_a_refill_and_a_refused_model_a_configuration_change_by_their_categories()
+    {
+        var billing = Last(Init,
+            """{"type":"assistant","error":"billing_error","message":{"content":[{"type":"text","text":"x"}]}}""",
+            Result("""
+                "subtype":"success","is_error":true,"result":"x"
+                """)).Failure!;
+        Assert.Equal(AgentFailureKind.Limit, billing.Kind);
+        Assert.Equal(RecoveryKind.OwnerAction, billing.Restriction!.Recovery.Kind);
+        Assert.Equal(OwnerActionReason.Refill, billing.Restriction.Recovery.Reason);
+
+        // the same refusal known only by its sentence states no reason: a person must act, and which action is unsaid
+        var words = Last(Init, Result("""
+            "subtype":"success","is_error":true,"result":"There's an issue with the selected model (x). It may not exist or you may not have access to it."
+            """)).Failure!;
+        AssertModelRefused(words, OwnerActionReason.Unknown);
+    }
+
+    [Theory] // no Claude category says WHICH access action, so the field reading stays null beside the 401's
+    [InlineData("""{"type":"assistant","error":"authentication_failed","message":{"content":[{"type":"text","text":"x"}]}}""", "x", null, null, null)]
+    [InlineData("""{"type":"assistant","error":"account_on_hold","message":{"content":[{"type":"text","text":"x"}]}}""", "x", null, null, null)]
+    [InlineData("""{"type":"assistant","message":{"content":[{"type":"text","text":"x"}]}}""", "API Error: 401", 401, AccessReason.CredentialRefused, AccessReason.CredentialRefused)]
+    [InlineData("""{"type":"assistant","message":{"content":[{"type":"text","text":"x"}]}}""", "x", 403, null, null)]
+    public void An_access_failure_carries_what_its_field_and_its_words_each_said(
+        string assistant, string words, int? status, AccessReason? byField, AccessReason? byWords)
+    {
+        var failure = Last(Init, assistant, Result($$"""
+            "subtype":"success","is_error":true,{{(status is { } s ? $"\"api_error_status\":{s}," : "")}}"result":"{{words}}"
+            """)).Failure!;
+
+        Assert.Equal(AgentFailureKind.Access, failure.Kind);
+        Assert.Equal(new AgentAccessReadings(byField, byWords), failure.AccessReadings);
+    }
+
+    [Fact] // a field and a sentence that disagree are BOTH kept, and the kind stays what the field decided
+    public void A_401_and_a_sign_in_sentence_are_two_readings_with_no_winner()
+    {
+        var failure = Last(Init, Result("""
+            "subtype":"success","is_error":true,"api_error_status":401,"result":"Authentication required: Please run /login"
+            """)).Failure!;
+
+        Assert.Equal(AgentFailureKind.Access, failure.Kind);
+        Assert.Equal("claude.api_error_status=401", failure.By);
+        Assert.Equal(new AgentAccessReadings(AccessReason.CredentialRefused, AccessReason.SignInAgain), failure.AccessReadings);
+    }
+
+    [Fact] // a failure no field reads leaves the field reading null: the sentence alone says what it says
+    public void A_sentence_only_access_failure_has_no_field_reading()
+    {
+        var failure = Last(Init, Result("""
+            "subtype":"success","is_error":true,"result":"Authentication required: Please run /login"
+            """)).Failure!;
+
+        Assert.Equal(AgentFailureKind.Access, failure.Kind);
+        Assert.Equal(new AgentAccessReadings(null, AccessReason.SignInAgain), failure.AccessReadings);
+        Assert.Null(Last(Init, Result("""
+            "subtype":"success","is_error":true,"api_error_status":529,"result":"API Error: 529"
+            """)).Failure!.AccessReadings);
     }
 
     [Fact] // REAL: a host's recorded frames (claude -p 2.1.309, D243) of a model the CLI would not run, words and fields as recorded
@@ -159,7 +220,7 @@ public class ClaudeAgentFailureTests
                 "subtype":"success","is_error":true,"api_error_status":404,"num_turns":1,"modelUsage":{},"result":"There's an issue with the selected model (claude-3-opus-20240229). It may not exist or you may not have access to it. Run --model to pick a different model."
                 """));
 
-        AssertModelRefused(ended.Failure!);
+        AssertModelRefused(ended.Failure!, OwnerActionReason.Configure);
         Assert.Equal("claude.assistant.error=model_not_found", ended.Failure!.By);   // the category, not the bare 404 beside it
     }
 
@@ -172,7 +233,7 @@ public class ClaudeAgentFailureTests
                 "subtype":"success","is_error":true,"result":"x"
                 """));
 
-        AssertModelRefused(ended.Failure!);
+        AssertModelRefused(ended.Failure!, OwnerActionReason.Configure);
     }
 
     [Fact] // a 404 is not a model refusal unless the CLI's words or category say the model was
@@ -185,7 +246,7 @@ public class ClaudeAgentFailureTests
             "subtype":"success","is_error":true,"api_error_status":404,"result":"the page was not found"
             """));
 
-        AssertModelRefused(named.Failure!);
+        AssertModelRefused(named.Failure!, OwnerActionReason.Unknown);
         Assert.Equal(AgentFailureKind.Fatal, other.Failure!.Kind);
         Assert.Null(other.Failure.Restriction);
     }

@@ -333,6 +333,7 @@ public sealed class AgentAccountPool
             ["observedAt"] = Stamp(hold.ObservedAt),
         };
         if (hold.Restriction.Recovery.At is { } at) o["at"] = Stamp(at);
+        if (hold.Restriction.Recovery.Reason != OwnerActionReason.Unknown) o["reason"] = hold.Restriction.Recovery.Reason.ToString();
         if (hold.ReleasedAt is { } released) o["releasedAt"] = Stamp(released);
         if (hold.LeaseUntil is { } until) o["leaseUntil"] = Stamp(until);
         if (hold.LeaseToken is { } token) o["leaseToken"] = token;
@@ -353,7 +354,12 @@ public sealed class AgentAccountPool
                 Text(o, "id"), o["revision"]!.GetValue<long>(), Text(o, "scope"),
                 new AgentRestriction(
                     Enum.Parse<RestrictionCause>(Text(o, "cause")), Enum.Parse<RestrictionSubject>(Text(o, "subject")),
-                    new RestrictionRecovery(recovery, stated)),
+                    new RestrictionRecovery(recovery, stated)
+                    {
+                        // a hold written before the reason existed, or by a newer word, reads as no reason said
+                        Reason = o["reason"] is { } reason && Enum.TryParse<OwnerActionReason>(reason.GetValue<string>(), out var said)
+                            ? said : OwnerActionReason.Unknown,
+                    }),
                 Time(o["observedAt"]!),
                 o["releasedAt"] is { } released ? Time(released) : null,
                 o["leaseUntil"] is { } until ? Time(until) : null,

@@ -77,10 +77,18 @@ public static partial class ProviderVerdictClassifier
 
         var credit = code == 402 ? "http:402"
             : Named(envelope, CreditCodes) ?? (HttpCreditPattern().IsMatch(text) ? "sentence:http-credit" : null);
-        if (credit is not null) return ReadLimit(text, time, credit, credit: true);
+        if (credit is not null) return ReadLimit(text, time, credit, credit: true, creditByField: credit != "sentence:http-credit");
 
         var access = code is 401 or 403 ? $"http:{code}" : Named(envelope, AccessCodes);
-        if (access is not null) return new AgentFailure(AgentFailureKind.Access, access);
+        if (access is not null)
+        {
+            // a 401 and an invalid-key code state a refused credential; a 403 and the other codes state none
+            var refused = code == 401 || envelope.Code == "invalid_api_key" || envelope.Type == "invalid_api_key";
+            return new AgentFailure(AgentFailureKind.Access, access)
+            {
+                AccessReadings = new(refused ? AccessReason.CredentialRefused : null, ReadAccessWords(text)),
+            };
+        }
 
         var rate = code == 429 ? "http:429" : Named(envelope, RateCodes);
         if (rate is not null) return ReadLimit(text, time, rate, RetryAfter(headers, time));
