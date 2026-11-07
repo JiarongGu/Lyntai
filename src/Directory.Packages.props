@@ -15,13 +15,13 @@
     <PackageVersion Include="Npgsql" Version="10.0.3" />
 
     <!-- Windows DPAPI (secret vault machine binding) — Windows-only at runtime, guarded in code -->
-    <PackageVersion Include="System.Security.Cryptography.ProtectedData" Version="10.0.12" />
+    <PackageVersion Include="System.Security.Cryptography.ProtectedData" Version="10.0.14" />
 
     <!-- abstractions / DI / http -->
-    <PackageVersion Include="Microsoft.Extensions.DependencyInjection.Abstractions" Version="10.0.12" />
-    <PackageVersion Include="Microsoft.Extensions.DependencyInjection" Version="10.0.12" />
-    <PackageVersion Include="Microsoft.Extensions.Http" Version="10.0.12" />
-    <PackageVersion Include="Microsoft.Extensions.Logging.Abstractions" Version="10.0.12" />
+    <PackageVersion Include="Microsoft.Extensions.DependencyInjection.Abstractions" Version="10.0.14" />
+    <PackageVersion Include="Microsoft.Extensions.DependencyInjection" Version="10.0.14" />
+    <PackageVersion Include="Microsoft.Extensions.Http" Version="10.0.14" />
+    <PackageVersion Include="Microsoft.Extensions.Logging.Abstractions" Version="10.0.14" />
 
     <!-- Microsoft.Extensions.AI.Abstractions has NO entry here on purpose (D146 deleted the bridge; nothing
          references it directly any more). Do not re-add one believing it pins MCP's transitive copy upward:
@@ -33,7 +33,7 @@
          adds on top of them (ChatClientBuilder, UseFunctionInvocation), referenced by the test project so the
          `IChatClient` recipes in docs/extensions-ai.md are exercised under the middleware Agent Framework uses.
          Nothing in src/ references it. -->
-    <PackageVersion Include="Microsoft.Extensions.AI" Version="10.8.3" />
+    <PackageVersion Include="Microsoft.Extensions.AI" Version="10.11.0" />
 
     <!-- in-process local inference (managed only; the consumer app picks an LLamaSharp.Backend.*) -->
     <PackageVersion Include="LLamaSharp" Version="0.27.0" />
@@ -48,19 +48,19 @@
     <PackageVersion Include="ModelContextProtocol.Core" Version="2.2.0" />
 
     <!-- tests -->
-    <PackageVersion Include="Microsoft.NET.Test.Sdk" Version="18.10.1" />
+    <PackageVersion Include="Microsoft.NET.Test.Sdk" Version="18.11.0" />
     <PackageVersion Include="xunit" Version="2.9.3" />
-    <PackageVersion Include="xunit.runner.visualstudio" Version="4.0.0" />
+    <PackageVersion Include="xunit.runner.visualstudio" Version="4.0.1" />
     <!-- runtime-conditional skip ([SkippableFact] + Skip.IfNot) — xUnit v2 has no Assert.Skip; used to make
          the Postgres/Docker-gated tests report as SKIPPED (visible) rather than silently PASS -->
     <PackageVersion Include="Xunit.SkippableFact" Version="1.5.85" />
-    <PackageVersion Include="Testcontainers.PostgreSql" Version="4.15.0" />
+    <PackageVersion Include="Testcontainers.PostgreSql" Version="4.16.0" />
     <!-- TEST-ONLY. It was the static embedder's tokenizer until that tokenizer was brought in-house: at
          325,896 B plus Google.Protobuf's 489,568 B it cost 812 KB of closure for one WordPiece call, and
          it kept the embedder out of the dependency-free Lyntai.Providers.Basic. It stays here as the
          reference WordPieceTokenizerTests asserts id-for-id equality against — which is also what found
          the two rules it gets wrong (tab/newline/CR are not word separators; accents are not stripped). -->
-    <PackageVersion Include="Microsoft.ML.Tokenizers" Version="2.0.0" />
+    <PackageVersion Include="Microsoft.ML.Tokenizers" Version="2.0.1" />
     <!-- OUTSIDE src/ ONLY, and it is the CONSUMER's step being exercised: Lyntai.Providers.Onnx references
          the managed half only, so something has to supply the native backend. The test project and the
          bench each add the CPU one exactly as an application would — which is also why a missing backend

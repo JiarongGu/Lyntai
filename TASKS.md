@@ -15,18 +15,19 @@ LLM-ops layer (prompt registry, scoring, traces, memory). `AddLyntai(...)` and g
 
 <!-- open-items:begin — GENERATED. Edit the per-item `item:` markers, never this table. -->
 
-## Open items — 5 across 5 Parts: 3 blocked, 1 watch, 1 decision-only
+## Open items — 6 across 6 Parts: 1 startable, 3 blocked, 1 watch, 1 decision-only
 
 _Generated from the per-item `<!-- item: … -->` markers by `node devtools/dev.mjs check-backlog --write`._
 _Edit a marker, never this table — `verify` fails the moment the two disagree._
 
 | line | Part | item | state | waiting on |
 | ---: | ---: | --- | --- | --- |
-| 106 | 33 | GEN-VERIFY-FAL, the last line — the Hugging Face route | blocked · env | an hf_ token for the router route |
-| 147 | 75 | Decide what an aggregator's in-band `code` means | blocked · env+data | two or three real aggregators to measure an in-band code against |
-| 174 | 99 | `verify`'s test step intermittently fails EXACTLY 9 tests, and once aborted… | watch · data | the same nine tests to recur — the fix is unconfirmed as the cure, and a gr… |
-| 246 | 417 | MC8 — run the wrong-end instrument on an adjudicated corpus, with a bar wri… | blocked · decision+data | two reviewers' independent labels on a sample of the pairs, and a bar a per… |
-| 268 | 475 | Kept-run edges that need a ruling before a change | decision-only | a ruling for each: refuse a word after a stop or document the order, `Dispo… |
+| 107 | 33 | GEN-VERIFY-FAL, the last line — the Hugging Face route | blocked · env | an hf_ token for the router route |
+| 148 | 75 | Decide what an aggregator's in-band `code` means | blocked · env+data | two or three real aggregators to measure an in-band code against |
+| 175 | 99 | `verify`'s test step intermittently fails EXACTLY 9 tests, and once aborted… | watch · data | the same nine tests to recur — the fix is unconfirmed as the cure, and a gr… |
+| 247 | 417 | MC8 — run the wrong-end instrument on an adjudicated corpus, with a bar wri… | blocked · decision+data | two reviewers' independent labels on a sample of the pairs, and a bar a per… |
+| 269 | 475 | Kept-run edges that need a ruling before a change | decision-only | a ruling for each: refuse a word after a stop or document the order, `Dispo… |
+| 281 | 478 | Bump the outdated packages in `src/Directory.Packages.props`, a group per c… | startable |  |
 
 <!-- open-items:end -->
 
@@ -269,6 +270,18 @@ stays is the one that needs a ruling. Lane `inference`._
   (`AcpAgentReader.cs` `TryPrompt`); a dispose that had to kill the agent reports `run-killed`, where `IAgentRun.Ended` says
   `Disposed`; a quiet timer can be left unarmed by a stale reading in `ScheduleQuiet`; `ReportReadingAsync` lifts a service-stated
   `RetryNotBefore` hold. Each is arguable from the documents as written.
+
+## Part 478 — dependency currency, the quarterly refresh `docs/ROADMAP.md` names (2026-11-07)
+
+_**D172** rules a dependency is bumped rather than held and a major taken on the suites that exercise it. `dotnet list package
+--outdated` finds fifteen behind: `LLamaSharp`, `ModelContextProtocol.Core`, `Microsoft.ML.OnnxRuntime` (+ `.Managed`), the
+`Microsoft.Extensions.*` band, `Microsoft.Extensions.AI`, `Microsoft.ML.Tokenizers`, the test SDK, the xUnit runner and
+`Testcontainers.PostgreSql`. Lane `platform`._
+
+- [ ] **Bump the outdated packages in `src/Directory.Packages.props`, a group per commit, each green before the next.** <!-- item: state=startable -->
+  **Contract:** a clean build with `check-warnings`, `check-bundle` and `check-packages` held, and the full `test` run matching the
+  baseline; a package whose bump breaks a suite is held back with WHICH and WHY in `Directory.Packages.props` (D172). **A YES**
+  moves the pins; **a NO** names the package held and the failure.
 
 ## Retired — five Parts that outlived their open work (2026-09-16)
 
