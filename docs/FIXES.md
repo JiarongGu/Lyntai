@@ -7,6 +7,20 @@ to `.agents/knowledge/pitfalls.md`; the release-facing line goes to `CHANGELOG.m
 
 ---
 
+## 2026-11-08 — an MCP tool's text resource was dropped, and a truncated argument string called the tool with its defaults
+
+**Symptom.** None reported; found by reading (`docs/task-archive.md` Part 484, closed in Part 486). A file-read tool that answers its content as an embedded text resource reached the model as the literal `[resource content]`, or not at all when the result also held a text block. A model's argument string `{"path":"/tmp/x"`, cut off at its token limit, called the remote tool with an empty argument set, so a tool with defaults ran something the model never asked for.
+
+**Root cause.** `McpToolset.ToText` read `TextContentBlock` alone and described the other blocks only when no text existed. The toolset's argument parser sent a string that was unparseable or not an object to an empty dictionary, the same value a deliberate `{}` gives.
+
+**Fix.** `ToText` reads each text block and embedded text resource and names each resource link, in order; a blob, an image and audio stay described. `TryParseArgs` accepts a blank string, `null` and an object and answers an `error:` observation for anything else, without calling the tool.
+
+**Verify.** `ToText_reads_an_embedded_text_resource_and_names_a_resource_link_beside_the_text` and `An_argument_string_that_is_not_a_JSON_object_is_an_error_observation_and_the_tool_does_not_run` (three malformed strings, through a hosted endpoint and Lyntai's own client, with the no-argument spellings still calling the tool) failed with the change reverted.
+
+**Introduced by.** Not traced to a commit.
+
+---
+
 ## 2026-11-08 — the embed, rerank and media routers struck a host for a caller's cancel, an out-of-range environment seconds threw at startup, and a registered ledger governed embeds without a budget
 
 **Symptom.** None reported; found by reading (`docs/task-archive.md` Part 484, closed in Part 485). A provider whose transport the caller's cancel tore down threw an `IOException` through the generic router or the media router, which read it as the host failing: it benched the host and called the next candidate (a render, or a second submit that could bill twice). `LYNTAI_CACHE_TTL_SECONDS=1e12` or `Infinity` was an `OverflowException` out of `AddLyntai`, where a malformed value is ignored. A host with `UseSqliteUsageTracking` and no `AddUsageBudget` that set `LYNTAI_BUDGET_MAX_TOKENS` had embeds and reranks refused while text was not.

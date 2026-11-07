@@ -179,6 +179,36 @@ public class McpToolHostTests
         Assert.Contains("no such record", text, StringComparison.Ordinal);
     }
 
+    [Theory]
+    [InlineData("""{"path":"/tmp/x" """)]   // a truncated object
+    [InlineData("[1,2]")]                    // valid JSON, not an object
+    [InlineData("not json")]
+    public async Task An_argument_string_that_is_not_a_JSON_object_is_an_error_observation_and_the_tool_does_not_run(string args)
+    {
+        var ran = false;
+        ITool write = new FunctionTool("write", (_, _) => { ran = true; return Task.FromResult("written"); }, "writes",
+            """{"type":"object","properties":{"path":{"type":"string"}}}""");
+
+        const string token = "test-bearer-token";
+        await using var host = await McpToolHost.StartAsync([write], token);
+        var transport = new HttpClientTransport(new HttpClientTransportOptions
+        {
+            Endpoint = new Uri(host.Url),
+            AdditionalHeaders = new Dictionary<string, string> { ["Authorization"] = $"Bearer {token}" },
+        });
+        await using var client = await McpClient.CreateAsync(transport);
+        var tool = Assert.Single(await McpToolset.FromClientAsync(client));
+
+        var text = await tool.InvokeAsync(args);
+
+        Assert.True(ToolObservations.IsError(text));
+        Assert.False(ran);
+        // the no-argument spellings still call the tool
+        Assert.Equal("written", await tool.InvokeAsync(""));
+        Assert.Equal("written", await tool.InvokeAsync("null"));
+        Assert.Equal("written", await tool.InvokeAsync("{}"));
+    }
+
     [Fact]
     public async Task A_guard_BLOCK_is_flagged_isError_on_the_wire()
     {
