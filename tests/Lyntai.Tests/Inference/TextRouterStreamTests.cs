@@ -97,6 +97,19 @@ public class TextRouterStreamTests
         Assert.Equal(1, p2.StreamCalls);
     }
 
+    [Fact] // the caller left and the provider's transport threw something else: not a failure, and nobody to serve
+    public async Task A_caller_cancelled_mid_stream_does_not_fall_over_on_a_teardown_fault()
+    {
+        using var cts = new CancellationTokenSource();
+        var p1 = new FakeTextProvider("p1") { OnComplete = () => cts.Cancel(), StreamThrow = new IOException("torn down") };
+        var p2 = new FakeTextProvider("p2") { StreamScript = _ => [TextChunk.Content("hi"), TextChunk.Final()] };
+
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(async () =>
+            await Router(p1, p2).StreamAsync([new("p1"), new("p2")], Req, cts.Token).ToListAsync());
+
+        Assert.Equal(0, p2.StreamCalls);
+    }
+
     [Fact]
     public async Task Empty_first_content_chunk_does_not_commit_so_a_following_error_falls_over()
     {

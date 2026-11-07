@@ -302,8 +302,14 @@ internal sealed class McpToolHost : IAsyncDisposable
         }
     }
 
+    private int _disposed;
+
     public async ValueTask DisposeAsync()
     {
+        // a second call returns at once: CancelAsync on a disposed source throws, and a caller's finally may
+        // dispose a host its using already disposed
+        if (Interlocked.Exchange(ref _disposed, 1) != 0) return;
+
         await _cts.CancelAsync().ConfigureAwait(false);
         try { if (_listener.IsListening) _listener.Stop(); } catch { /* best-effort */ }
         _listener.Close();
@@ -312,8 +318,13 @@ internal sealed class McpToolHost : IAsyncDisposable
         foreach (var task in (Task[])[_accepting, _serving])
             try { await task.ConfigureAwait(false); } catch { /* shutdown */ }
 
-        await _server.DisposeAsync().ConfigureAwait(false);
-        await _transport.DisposeAsync().ConfigureAwait(false);
-        _cts.Dispose();
+        // each step runs whether or not the one before it threw, so the token-bearing server and the source
+        // are released even when the transport will not close cleanly
+        try { await _server.DisposeAsync().ConfigureAwait(false); }
+        finally
+        {
+            try { await _transport.DisposeAsync().ConfigureAwait(false); }
+            finally { _cts.Dispose(); }
+        }
     }
 }

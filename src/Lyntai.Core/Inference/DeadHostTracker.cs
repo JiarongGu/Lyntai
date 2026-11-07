@@ -35,6 +35,13 @@ public sealed class DeadHostTracker(
         public DateTimeOffset? DeadUntil;
     }
 
+    // a sole candidate is never asked IsDead, so a lapsed cooldown can still be on the state when the next
+    // signal arrives; it must not read as a cooldown still running
+    private void ClearIfExpired(State s)
+    {
+        if (s.DeadUntil is { } until && _clock() >= until) s.DeadUntil = null;
+    }
+
     public bool IsDead(string key)
     {
         lock (_lock)
@@ -55,6 +62,7 @@ public sealed class DeadHostTracker(
         lock (_lock)
         {
             if (!_states.TryGetValue(key, out var s)) _states[key] = s = new State();
+            ClearIfExpired(s);
             s.ConsecutiveFailures++;
             if (s.DeadUntil is null && s.ConsecutiveFailures >= _threshold)
             {
@@ -72,6 +80,7 @@ public sealed class DeadHostTracker(
         lock (_lock)
         {
             if (!_states.TryGetValue(key, out var s)) _states[key] = s = new State();
+            ClearIfExpired(s);
             s.ConsecutiveFailures = Math.Max(s.ConsecutiveFailures, _threshold);
             if (s.DeadUntil is null)
             {

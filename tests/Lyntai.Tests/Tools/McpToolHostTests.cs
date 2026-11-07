@@ -147,6 +147,91 @@ public class McpToolHostTests
     }
 
     [Fact]
+    public async Task A_failed_hosted_call_is_flagged_isError_on_the_wire_and_reads_error_once_on_the_client()
+    {
+        // The text prefix is Lyntai's own convention; a CLI's agent reads the MCP result, whose isError flag
+        // a plain string never sets. Reading both ends here also pins that the prefix is not doubled.
+        ITool boom = new FunctionTool("boom",
+            (_, _) => throw new KeyNotFoundException("no such record"), "throws",
+            """{"type":"object","properties":{}}""");
+
+        ITool fine = new FunctionTool("fine", (_, _) => Task.FromResult("ok"), "succeeds",
+            """{"type":"object","properties":{}}""");
+
+        const string token = "test-bearer-token";
+        await using var host = await McpToolHost.StartAsync([boom, fine], token);
+
+        var transport = new HttpClientTransport(new HttpClientTransportOptions
+        {
+            Endpoint = new Uri(host.Url),
+            AdditionalHeaders = new Dictionary<string, string> { ["Authorization"] = $"Bearer {token}" },
+        });
+        await using var client = await McpClient.CreateAsync(transport);
+
+        var raw = await client.CallToolAsync("boom", new Dictionary<string, object?>());
+        Assert.True(raw.IsError);
+        Assert.NotEqual(true, (await client.CallToolAsync("fine", new Dictionary<string, object?>())).IsError);
+
+        var tool = (await McpToolset.FromClientAsync(client)).Single(t => t.Name == "boom");
+        var text = await tool.InvokeAsync("""{}""");
+        Assert.StartsWith("error: ", text, StringComparison.Ordinal);
+        Assert.DoesNotContain("error: error", text, StringComparison.Ordinal);
+        Assert.Contains("no such record", text, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task A_guard_BLOCK_is_flagged_isError_on_the_wire()
+    {
+        ITool secret = new FunctionTool("read_secret", (_, _) => Task.FromResult("fine"), "reads",
+            """{"type":"object","properties":{}}""");
+
+        const string token = "test-bearer-token";
+        await using var host = await McpToolHost.StartAsync([secret], token, guards: new BlockingRail());
+
+        var transport = new HttpClientTransport(new HttpClientTransportOptions
+        {
+            Endpoint = new Uri(host.Url),
+            AdditionalHeaders = new Dictionary<string, string> { ["Authorization"] = $"Bearer {token}" },
+        });
+        await using var client = await McpClient.CreateAsync(transport);
+
+        Assert.True((await client.CallToolAsync("read_secret", new Dictionary<string, object?>())).IsError);
+    }
+
+    [Fact]
+    public async Task Disposing_the_host_twice_is_not_an_error()
+    {
+        ITool echo = new FunctionTool("echo", (a, _) => Task.FromResult(a), "echoes",
+            """{"type":"object","properties":{}}""");
+        var host = await McpToolHost.StartAsync([echo], "test-bearer-token");
+
+        await host.DisposeAsync();
+        await host.DisposeAsync();
+    }
+
+    [Fact]
+    public void An_endpoint_does_not_print_its_bearer_token()
+    {
+        var endpoint = new McpEndpoint("http://127.0.0.1:1/mcp", "tok-secret-value", "app");
+
+        var text = endpoint.ToString();
+
+        Assert.DoesNotContain("tok-secret-value", text, StringComparison.Ordinal);
+        Assert.Contains("http://127.0.0.1:1/mcp", text, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void An_agent_mcp_server_does_not_print_its_bearer_token()
+    {
+        var server = AgentMcpServer.Http("app", "http://127.0.0.1:1/mcp", "tok-secret-value");
+
+        var text = server.ToString();
+
+        Assert.DoesNotContain("tok-secret-value", text, StringComparison.Ordinal);
+        Assert.Contains("http://127.0.0.1:1/mcp", text, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public async Task A_guard_redacts_a_hosted_tools_OBSERVATION_before_the_model_sees_it()
     {
         // The output gate. Blocking the call is only half: a tool that legitimately runs can still return

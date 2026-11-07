@@ -7,6 +7,29 @@ to `.agents/knowledge/pitfalls.md`; the release-facing line goes to `CHANGELOG.m
 
 ---
 
+## 2026-11-08 — a failing cache write replaced a paid reply with its exception, a cancelled caller started a fallback, and the smaller faults beside them in the front door, the hosted MCP door and the scorers
+
+**Symptom.** None reported; found by reading (`docs/task-archive.md` Part 484). A response cache whose store threw (SQLITE_BUSY, a BYO cache down) made `CompleteAsync` throw after the backend had answered and the budget had recorded the spend; the next
+identical call billed again. A provider whose transport the caller's cancel tore down threw an `IOException`, which the router read as the host failing: it struck the host and called the next candidate with a cancelled token. A hosted MCP tool that threw, was blocked or
+was denied answered the CLI's agent `isError: false`. A judge answering `neither` was recorded as a judged tie; `Compare([.1,.1,.1], [.1,.1,.1])` reported a correlation of 1; a stored envelope naming `int.MaxValue` iterations ran PBKDF2 for hours.
+
+**Root cause.** `CachingTextClient` awaited the store unguarded on both sides of the call. `TextRouter` rethrew only an `OperationCanceledException` raised while the caller's token was cancelled, so any other exception classified as `Failed`. `ToolFunction`
+returned the observation string, which the SDK wraps as a success. `LlmPairwiseComparer.TryParse` mapped every winner but `a` and `b` to `Tie`. `JudgeAgreement.Pearson` tested a variance for exact zero, but the mean of identical non-dyadic values is not one of them.
+`SecretKeyEnvelope` floored the iteration count and never capped it. `DeadHostTracker` cleared a lapsed cooldown only inside `IsDead`, and a sole candidate is never asked it. `now + TimeSpan.MaxValue` overflows in the three caches and the reservation expiry. A rate-limit
+permit was taken before `ct` was read when no wait was needed. `McpToolHost.DisposeAsync` cancelled a disposed source on the second call.
+
+**Fix.** The cache read is a miss and the write is logged and dropped; the router rethrows the cancel after a throw (complete, stream and the candidate's start); `ToolFunction` answers `CallToolResult { IsError = true }` with the message minus its `error:` prefix, which the client adds back once; an
+unnamed winner is no verdict; a series is constant when its elements are equal; the envelope has a ceiling of 10,000,000; the tracker clears a lapsed cooldown before it records; `Expiry.After` saturates, and the SQL caches do the same inline; the limiter reads `ct` first; an empty model keys as no model;
+`McpEndpoint` and `AgentMcpServer` print no token; the host disposes once and each step in `finally`. One fault of the previous piece surfaced in this one's `verify`: the scheduler's stored-schedule list waited and cancelled on the same 100 ms interval, so under load the wait gave up first and
+`A_list_the_timeout_gave_up_on_is_cancelled_so_a_hung_connection_is_not_left_to_pile_up` read a token not yet cancelled (once in a full run, 3 of 3 passes alone); a timeout now cancels the call's token itself. No test fails deterministically without it.
+
+**Verify.** Each test failed before its change (12 in the router, cache, limiter, tracker and budget set; 11 in the scorer, envelope and MCP set), the Postgres twin of the TTL change is the same expression and ran only with Docker up. **The hosted `isError` was not pinned by any test before; the existing
+`error:` assertions read the client's own prefix.**
+
+**Introduced by.** Not traced to a commit for each.
+
+---
+
 ## 2026-11-08 — a job's cancel poll died on one failed read, its outcome was dropped by a shutdown, and fifteen smaller faults of the jobs, the file backend and the Codex door
 
 **Symptom.** None reported; found by reading (`docs/task-archive.md` Part 483). One failed `GetAsync` ended the cancel poll, so `IJobQueue.CancelAsync` returned true and a long job ran on; a store timeout that surfaced as an

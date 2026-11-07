@@ -226,7 +226,17 @@ public sealed class JobScheduler : IJobScheduler
             // for every tick that follows
             using var bound = CancellationTokenSource.CreateLinkedTokenSource(ct);
             bound.CancelAfter(_options.Jobs.ScheduleStoreTimeout);
-            var stored = await _scheduleStore.ListAsync(bound.Token).WaitAsync(_options.Jobs.ScheduleStoreTimeout, ct).ConfigureAwait(false);
+            IReadOnlyList<JobSchedule> stored;
+            try
+            {
+                stored = await _scheduleStore.ListAsync(bound.Token).WaitAsync(_options.Jobs.ScheduleStoreTimeout, ct).ConfigureAwait(false);
+            }
+            catch (TimeoutException)
+            {
+                // the wait and CancelAfter share one interval, so the wait can give up first on a loaded machine
+                bound.Cancel();
+                throw;
+            }
             Interlocked.Exchange(ref _storeFailing, 0);
             return stored;
         }

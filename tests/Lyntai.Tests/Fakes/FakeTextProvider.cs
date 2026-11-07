@@ -51,6 +51,9 @@ public sealed class FakeTextProvider(string id) : IModelProvider
     /// <summary>When set, CompleteAsync throws this (a provider that throws instead of returning a verdict reply).</summary>
     public Exception? CompleteThrow { get; set; }
 
+    /// <summary>Runs inside CompleteAsync before it answers or throws — how a test cancels the caller mid-call.</summary>
+    public Action? OnComplete { get; set; }
+
     public List<TextRequest> Calls { get; } = [];
 
     public int StreamCalls { get; private set; }
@@ -58,6 +61,7 @@ public sealed class FakeTextProvider(string id) : IModelProvider
     public Task<TextResponse> CompleteAsync(TextRequest req, CancellationToken ct = default)
     {
         Calls.Add(req);
+        OnComplete?.Invoke();
         if (CompleteThrow is not null) throw CompleteThrow;
         return Task.FromResult(Replies.Count > 0
             ? Replies.Dequeue()
@@ -68,6 +72,7 @@ public sealed class FakeTextProvider(string id) : IModelProvider
     {
         StreamCalls++;
         Calls.Add(req);
+        OnComplete?.Invoke();
         if (StreamThrow is not null) throw StreamThrow; // provider-side failure before any content
         var chunks = StreamScript?.Invoke(req) ?? [TextChunk.Content($"{Id} stream"), TextChunk.Final()];
         foreach (var chunk in chunks)

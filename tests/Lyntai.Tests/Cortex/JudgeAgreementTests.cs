@@ -52,6 +52,18 @@ public class JudgeAgreementTests
     }
 
     [Fact]
+    public void A_constant_series_that_is_not_exactly_representable_still_has_undefined_correlation()
+    {
+        // 0.1 * 3 / 3 is not 0.1 in a double, so a mean-and-variance test reads the residue as a variance and
+        // reports a correlation of 1 (or of rounding noise) for two series that cannot correlate
+        var same = JudgeAgreement.Compare([0.1, 0.1, 0.1], [0.1, 0.1, 0.1]);
+        Assert.Null(same.PearsonCorrelation);
+
+        var against = JudgeAgreement.Compare([0.1, 0.1, 0.1], [0.2, 0.5, 0.9]);
+        Assert.Null(against.PearsonCorrelation);
+    }
+
+    [Fact]
     public void Empty_series_is_vacuously_perfect_agreement()
     {
         var report = JudgeAgreement.Compare([], []);

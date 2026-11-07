@@ -29,6 +29,16 @@ every addition.
 
 ### Changed
 
+- **A call a caller cancelled does not fall over, and a response cache that fails does not fail the call.** A provider torn down by the caller's cancel can
+  throw something other than the cancel; the text router now rethrows the cancel instead of striking the host and calling the next candidate. A cache whose store throws on
+  a read is a miss and on a write returns the reply it was handed, where the exception used to replace a reply already billed. An empty model keys like an absent one, a TTL or a
+  reservation lifetime of `TimeSpan.MaxValue` means never rather than an overflow, a rate-limit permit is not taken for a caller already cancelled, and a cooldown that lapsed
+  unseen no longer swallows the next failure of its host.
+- **A hosted MCP tool that failed or was refused answers `isError`, and a bearer token is not printed.** Through 3.5.3 the endpoint a CLI's agent calls answered a failed,
+  blocked or denied call as a plain successful string. `McpEndpoint.ToString()` and `AgentMcpServer.ToString()` no longer list the token. Disposing the host twice is safe.
+- **A judge's unknown winner is no verdict, a constant series has no correlation, and a recovery envelope has an iteration ceiling.** `LlmPairwiseComparer` read any
+  winner but `a` and `b` as a tie; `JudgeAgreement` reported a correlation for a constant series that is not exactly representable; and a stored envelope naming billions of
+  KDF iterations now fails as a corrupt one, at 10 million, where it ran for hours.
 - **A running job stays cancellable, and a finished one is recorded through a shutdown.** One failed store read no longer ends the cancel poll, a store timeout
   no longer ends the poll or the slot heartbeat, and a handler's outcome is written even when the pass is already stopping. A cron that never occurs is said once
   per schedule, a cron of Feb 29 is found across 2100, and the in-memory job store keeps its own copy of a stage's arguments.

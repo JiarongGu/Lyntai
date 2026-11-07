@@ -30,7 +30,7 @@ public sealed class SqliteResponseCache(IDbConnectionFactory factory, LyntaiOpti
         if (window <= TimeSpan.Zero) return; // non-positive TTL disables caching
         var now = _clock();
         await using var conn = await factory.OpenAsync(ct).ConfigureAwait(false);
-        await conn.ExecuteAsync(new CommandDefinition(ResponseCacheSql.Set, new { key, json = ReflectionJson.Serialize(reply), expiresAt = now + window, now }, cancellationToken: ct)).ConfigureAwait(false);
+        await conn.ExecuteAsync(new CommandDefinition(ResponseCacheSql.Set, new { key, json = ReflectionJson.Serialize(reply), expiresAt = window > DateTimeOffset.MaxValue - now ? DateTimeOffset.MaxValue : now + window, now }, cancellationToken: ct)).ConfigureAwait(false);
 
         // opportunistic eviction: drop expired, then trim the oldest beyond the size cap
         await conn.ExecuteAsync(new CommandDefinition(

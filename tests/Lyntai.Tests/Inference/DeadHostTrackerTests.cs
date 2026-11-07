@@ -10,6 +10,37 @@ public class DeadHostTrackerTests
         new(threshold, TimeSpan.FromSeconds(cooldownSeconds), () => _now);
 
     [Fact]
+    public void A_backoff_signal_after_an_UNOBSERVED_expiry_starts_a_new_cooldown()
+    {
+        // IsDead is the only place an expired cooldown is cleared, and a sole candidate is never asked. A
+        // stale expiry must not swallow the next signal, or the next reader sees the old expiry and calls a
+        // host that answered 429 a second ago.
+        var t = Tracker(threshold: 3, cooldownSeconds: 30);
+        t.MarkDead("p");
+
+        _now += TimeSpan.FromSeconds(40);
+        t.MarkDead("p");                       // nobody called IsDead in between
+
+        _now += TimeSpan.FromSeconds(1);
+        Assert.True(t.IsDead("p"));
+    }
+
+    [Fact]
+    public void A_failure_after_an_UNOBSERVED_expiry_kills_again_rather_than_vanishing()
+    {
+        var t = Tracker(threshold: 3, cooldownSeconds: 30);
+        t.RecordFailure("p");
+        t.RecordFailure("p");
+        t.RecordFailure("p");
+
+        _now += TimeSpan.FromSeconds(40);
+        t.RecordFailure("p");
+
+        _now += TimeSpan.FromSeconds(1);
+        Assert.True(t.IsDead("p"));
+    }
+
+    [Fact]
     public void Fails_below_threshold_stays_live()
     {
         var t = Tracker(threshold: 3);

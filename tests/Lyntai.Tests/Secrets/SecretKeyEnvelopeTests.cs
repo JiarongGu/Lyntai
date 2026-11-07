@@ -118,6 +118,23 @@ public class SecretKeyEnvelopeTests
     }
 
     [Fact]
+    public void An_envelope_claiming_billions_of_iterations_is_rejected_not_run()
+    {
+        var (envelope, _, recoveryKey) = SecretKeyEnvelope.Create(Machine());
+
+        // the floor stops a weakened KDF; the same envelope can also name a count that spins for hours
+        var huge = JsonNode.Parse(envelope.ToJson())!.AsObject();
+        huge["recoveryIterations"] = int.MaxValue;
+        Assert.ThrowsAny<CryptographicException>(() => SecretKeyEnvelope.FromJson(huge.ToJsonString()));
+
+        // and a directly-constructed one fails at the derive choke point before any work is done
+        var started = DateTime.UtcNow;
+        Assert.ThrowsAny<CryptographicException>(
+            () => (envelope with { RecoveryIterations = int.MaxValue }).UnwrapWithRecoveryKey(recoveryKey));
+        Assert.True(DateTime.UtcNow - started < TimeSpan.FromSeconds(5));
+    }
+
+    [Fact]
     public void Machine_fingerprint_is_stable_and_matches_this_host()
     {
         var (envelope, _, _) = SecretKeyEnvelope.Create(Machine());

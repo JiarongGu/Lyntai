@@ -70,6 +70,17 @@ public sealed record AgentMcpServer
     /// one shape that CLI accepts) and puts the value in the child's environment.</para></summary>
     public string? AuthToken { get; init; }
 
+    // the compiler's ToString lists every member, which would print the token and the child's environment
+    private bool PrintMembers(System.Text.StringBuilder builder)
+    {
+        builder.Append("Name = ").Append(Name).Append(", Transport = ").Append(Transport)
+            .Append(", Command = ").Append(Command)
+            .Append(", Arguments = [").Append(string.Join(", ", Arguments))
+            .Append("], Environment = [").Append(string.Join(", ", Environment.Keys.Order(StringComparer.Ordinal)))
+            .Append("], Url = ").Append(Url);
+        return true;
+    }
+
     /// <summary>An MCP server the agent's CLI launches as a child process and speaks to over stdio.</summary>
     /// <param name="name">The published name — letters, digits, <c>_</c> and <c>-</c>.</param>
     /// <param name="command">The executable to launch.</param>

@@ -21,6 +21,18 @@ public class PairwiseComparerTests
         Assert.Equal(PairwiseWinner.Tie, t.Winner); // case-insensitive, fence-tolerant
     }
 
+    [Theory]
+    [InlineData("neither")]
+    [InlineData("c")]
+    [InlineData("both")]
+    [InlineData("")]
+    public void A_winner_the_schema_does_not_name_is_no_verdict_rather_than_a_tie(string winner)
+    {
+        // the schema's enum is a | b | tie; anything else is a reply the judge was not allowed to give, and two
+        // such replies would otherwise agree on Tie and return a verdict nobody gave
+        Assert.False(LlmPairwiseComparer.TryParse($$"""{"winner":"{{winner}}"}""", out _));
+    }
+
     // ---- what code decides, so the judge is never asked ----------------------------------------------
 
     [Fact]

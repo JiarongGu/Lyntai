@@ -14,6 +14,8 @@ namespace Lyntai.Inference.Caching;
 /// tools</b> (the tool loop is stateful and its tools can side-effect); <b>non-Ok</b> replies (a
 /// transient failure must never stick); and a call whose <b>live route could not be read</b> (it passes
 /// through, neither read nor stored, because a key without the route could serve another backend's reply).
+/// A store that fails to read is a miss and one that fails to write returns the reply uncached: the call was
+/// the point, and it is already billed.
 /// Caching assumes the consumer accepts that identical inputs return an identical stored answer — that
 /// determinism is the point (cost + latency), so a request whose output must vary per call should skip the
 /// cache or use a short TTL.</para>
@@ -46,7 +48,17 @@ public sealed class CachingTextClient(
         }
         var key = ResponseCacheKey.For(req, EffectiveModel(req, route));
         if (options.Cache.PartitionByConsumer) key = ResponseCacheKey.ForConsumer(key, req.Consumer);
-        var cached = await cache.GetAsync(key, ct).ConfigureAwait(false);
+        TextResponse? cached = null;
+        try
+        {
+            cached = await cache.GetAsync(key, ct).ConfigureAwait(false);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException || !ct.IsCancellationRequested)
+        {
+            // a store that is down, or a stored row it cannot read, is a miss: the call is the one thing the
+            // caller asked for
+            _logger.LogWarning(ex, "response-cache: the read failed for consumer {Consumer}; treating it as a miss", req.Consumer);
+        }
         if (cached is not null)
         {
             _logger.LogDebug("response-cache hit (consumer {Consumer})", req.Consumer);
@@ -58,7 +70,18 @@ public sealed class CachingTextClient(
         var reply = await Inner.CompleteAsync(req, ct).ConfigureAwait(false);
         // cache only clean successes — never an error (transient) or a tool-call reply (stateful/deferred)
         if (reply.Verdict == ProviderVerdict.Ok && reply.ToolCalls is null or { Count: 0 })
-            await cache.SetAsync(key, reply, options.Cache.Ttl, ct).ConfigureAwait(false);
+        {
+            try
+            {
+                await cache.SetAsync(key, reply, options.Cache.Ttl, ct).ConfigureAwait(false);
+            }
+            catch (Exception ex)
+            {
+                // the reply is already paid for and recorded, so a failed (or cancelled) store must not take
+                // it from the caller; the only cost is the next identical call asking again
+                _logger.LogWarning(ex, "response-cache: the write failed for consumer {Consumer}; the reply is returned uncached", req.Consumer);
+            }
+        }
         return reply;
     }
 

@@ -34,7 +34,7 @@ public sealed class InMemoryResponseCache(LyntaiOptions options, Func<DateTimeOf
     {
         var window = ttl ?? options.Cache.Ttl;
         if (window <= TimeSpan.Zero) return Task.CompletedTask; // non-positive TTL disables caching
-        _entries[key] = new Entry(reply, _clock() + window, Interlocked.Increment(ref _seq));
+        _entries[key] = new Entry(reply, Expiry.After(_clock(), window),Interlocked.Increment(ref _seq));
         if (_entries.Count > options.Cache.MaxEntries) Evict();
         return Task.CompletedTask;
     }

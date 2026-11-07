@@ -67,7 +67,7 @@ internal static class BudgetGate
 
         var result = await ledger.ReserveAsync(new UsageReservationRequest(
             consumer, new ProviderUsage(holdTokens ?? 0, 0, budget.ReserveCostUsd), caps,
-            DateTimeOffset.UtcNow + budget.ReservationLifetime), ct).ConfigureAwait(false);
+            Expiry.After(DateTimeOffset.UtcNow, budget.ReservationLifetime)), ct).ConfigureAwait(false);
         if (result.Reservation is { } held)
             return new BudgetAdmission(null, tracker, consumer, ledger, held);
 

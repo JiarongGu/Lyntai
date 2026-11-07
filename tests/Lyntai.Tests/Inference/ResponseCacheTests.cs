@@ -34,6 +34,16 @@ public class ResponseCacheTests
     }
 
     [Fact]
+    public void An_empty_model_keys_like_an_absent_one()
+    {
+        // the router reads "" as no model, so the two requests are answered identically
+        var baseReq = Req(TextMessage.User("hi"));
+        Assert.Equal(ResponseCacheKey.For(baseReq with { Model = null }), ResponseCacheKey.For(baseReq with { Model = "" }));
+        Assert.Equal(ResponseCacheKey.For(baseReq), ResponseCacheKey.For(baseReq with { Model = "" }, effectiveModel: ""));
+        Assert.NotEqual(ResponseCacheKey.For(baseReq), ResponseCacheKey.For(baseReq with { Model = "gpt-4" }));
+    }
+
+    [Fact]
     public void Key_differs_on_every_output_determining_field()
     {
         var baseReq = Req(TextMessage.User("hi"));
@@ -211,6 +221,71 @@ public class ResponseCacheTests
         var inner = new FakeTextClient();
         var options = new LyntaiOptions();
         return (new CachingTextClient(inner, new InMemoryResponseCache(options), options), inner);
+    }
+
+    /// <summary>A cache whose backend is down: every read or write throws.</summary>
+    private sealed class BrokenCache(bool failRead, bool failWrite) : IResponseCache
+    {
+        public Task<TextResponse?> GetAsync(string key, CancellationToken ct = default) =>
+            failRead ? throw new IOException("cache down") : Task.FromResult<TextResponse?>(null);
+
+        public Task SetAsync(string key, TextResponse reply, TimeSpan? ttl = null, CancellationToken ct = default) =>
+            failWrite ? throw new IOException("cache down") : Task.CompletedTask;
+
+        public Task RemoveAsync(string key, CancellationToken ct = default) => Task.CompletedTask;
+    }
+
+    [Fact]
+    public async Task A_cache_that_cannot_WRITE_still_returns_the_reply_that_was_just_paid_for()
+    {
+        var inner = new FakeTextClient();
+        inner.Replies.Enqueue(new TextResponse("answer", ProviderVerdict.Ok));
+        var client = new CachingTextClient(inner, new BrokenCache(failRead: false, failWrite: true), new LyntaiOptions());
+
+        var reply = await client.CompleteAsync(Req(TextMessage.User("q")));
+
+        Assert.Equal("answer", reply.Text);
+    }
+
+    [Fact]
+    public async Task A_caller_cancelled_after_the_reply_still_gets_it_when_the_store_gives_up()
+    {
+        using var cts = new CancellationTokenSource();
+        var inner = new FakeTextClient();
+        inner.Replies.Enqueue(new TextResponse("answer", ProviderVerdict.Ok));
+        var cache = new CancellingWriteCache(cts);
+        var client = new CachingTextClient(inner, cache, new LyntaiOptions());
+
+        var reply = await client.CompleteAsync(Req(TextMessage.User("q")), cts.Token);
+
+        Assert.Equal("answer", reply.Text);
+    }
+
+    private sealed class CancellingWriteCache(CancellationTokenSource cts) : IResponseCache
+    {
+        public Task<TextResponse?> GetAsync(string key, CancellationToken ct = default) => Task.FromResult<TextResponse?>(null);
+
+        public Task SetAsync(string key, TextResponse reply, TimeSpan? ttl = null, CancellationToken ct = default)
+        {
+            cts.Cancel();
+            ct.ThrowIfCancellationRequested();
+            return Task.CompletedTask;
+        }
+
+        public Task RemoveAsync(string key, CancellationToken ct = default) => Task.CompletedTask;
+    }
+
+    [Fact]
+    public async Task A_cache_that_cannot_READ_is_a_miss_and_the_call_goes_through()
+    {
+        var inner = new FakeTextClient();
+        inner.Replies.Enqueue(new TextResponse("answer", ProviderVerdict.Ok));
+        var client = new CachingTextClient(inner, new BrokenCache(failRead: true, failWrite: false), new LyntaiOptions());
+
+        var reply = await client.CompleteAsync(Req(TextMessage.User("q")));
+
+        Assert.Equal("answer", reply.Text);
+        Assert.Single(inner.Calls);
     }
 
     [Fact]

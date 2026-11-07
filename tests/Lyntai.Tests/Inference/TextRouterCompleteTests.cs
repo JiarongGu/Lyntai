@@ -56,6 +56,26 @@ public class TextRouterCompleteTests
         Assert.True(tracker.IsDead("p1"));
     }
 
+    [Fact] // A caller who cancelled is gone: a provider's teardown fault is not the host failing, and nobody is left to serve
+    public async Task A_caller_cancelled_mid_call_does_not_fall_over_or_strike_the_host()
+    {
+        using var cts = new CancellationTokenSource();
+        var tracker = new DeadHostTracker(threshold: 1);
+        var p1 = new FakeTextProvider("p1")
+        {
+            OnComplete = () => cts.Cancel(),
+            CompleteThrow = new IOException("connection torn down"),   // what a disposed transport throws
+        };
+        var p2 = new FakeTextProvider("p2");
+        p2.Replies.Enqueue(new TextResponse("from p2", ProviderVerdict.Ok));
+
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(
+            () => Router(tracker, p1, p2).CompleteAsync([new("p1"), new("p2")], Req, cts.Token));
+
+        Assert.Empty(p2.Calls);
+        Assert.False(tracker.IsDead("p1"));
+    }
+
     [Fact] // A THROWN exception whose text matches refusal keywords is a transport fault — never terminal Refused
     public async Task A_thrown_error_with_refusal_keywords_still_falls_over()
     {

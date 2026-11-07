@@ -143,12 +143,14 @@ public sealed class LlmPairwiseComparer(ITextClient llm, bool mitigatePositionBi
         {
             if (!doc.RootElement.TryGetProperty("winner", out var w) || w.ValueKind != JsonValueKind.String)
                 return false;
-            var winner = w.GetString()?.Trim().ToLowerInvariant() switch
+            PairwiseWinner winner;
+            switch (w.GetString()?.Trim().ToLowerInvariant())
             {
-                "a" => PairwiseWinner.A,
-                "b" => PairwiseWinner.B,
-                _ => PairwiseWinner.Tie,
-            };
+                case "a": winner = PairwiseWinner.A; break;
+                case "b": winner = PairwiseWinner.B; break;
+                case "tie": winner = PairwiseWinner.Tie; break;
+                default: return false; // outside the schema's enum: no verdict, never a fabricated tie
+            }
             var reason = doc.RootElement.TryGetProperty("reason", out var r) && r.ValueKind == JsonValueKind.String
                 ? r.GetString()
                 : null;

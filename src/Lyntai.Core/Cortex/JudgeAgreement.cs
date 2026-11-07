@@ -48,6 +48,10 @@ public static class JudgeAgreement
         var n = a.Count;
         if (n < 2) return null;
 
+        // compared element by element: the mean of identical non-dyadic values is not one of them, so the
+        // variance below would read rounding residue as spread
+        if (IsConstant(a) || IsConstant(b)) return null;
+
         double meanA = 0, meanB = 0;
         for (var i = 0; i < n; i++) { meanA += a[i]; meanB += b[i]; }
         meanA /= n; meanB /= n;
@@ -63,5 +67,12 @@ public static class JudgeAgreement
         }
         if (varA == 0 || varB == 0) return null; // a constant series has no linear correlation
         return cov / Math.Sqrt(varA * varB);
+    }
+
+    private static bool IsConstant(IReadOnlyList<double> series)
+    {
+        for (var i = 1; i < series.Count; i++)
+            if (series[i] != series[0]) return false;
+        return true;
     }
 }

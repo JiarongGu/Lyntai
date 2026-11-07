@@ -50,6 +50,8 @@ public sealed class TokenBucketRateLimiter : IRateLimiter
 
     public async Task<bool> AcquireAsync(string consumer, CancellationToken ct = default)
     {
+        // a caller that has already gone must not take a permit it will never use, wait or no wait
+        ct.ThrowIfCancellationRequested();
         var wait = TryReserve(consumer, _clock());
         if (wait is null) return false;                 // over the limit beyond MaxWait → refuse
         if (wait.Value > TimeSpan.Zero)

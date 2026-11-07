@@ -242,6 +242,19 @@ public class RateLimitTests
     }
 
     [Fact]
+    public async Task A_caller_already_cancelled_spends_no_permit_even_when_no_wait_is_needed()
+    {
+        var limiter = Limiter(o => { o.PermitsPerSecond = 1; o.Burst = 1; o.MaxWait = TimeSpan.FromSeconds(60); });
+
+        using var cts = new CancellationTokenSource();
+        await cts.CancelAsync();
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => limiter.AcquireAsync("c", cts.Token));
+
+        // the one permit is still there: the call that was cancelled never ran
+        Assert.Equal(TimeSpan.Zero, limiter.TryReserve("c", T0));
+    }
+
+    [Fact]
     public async Task AddRateLimit_is_idempotent_and_does_not_double_charge()
     {
         var provider = new FakeTextProvider("p"); // default Ok replies
