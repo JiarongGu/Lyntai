@@ -466,6 +466,60 @@ the in-memory reference, outside the memory graph. None was run: where a row res
 - [ ] **An empty vector is refused on Postgres and accepted elsewhere, and a NUL in any text is refused on Postgres and stored elsewhere.** pgvector is believed to need one dimension at least <!-- item: state=decision-only needs="a ruling for each: refuse an empty vector on every backend or score it 0, and strip, replace or refuse U+0000 (the same family as the open lone-surrogate row)" -->
   and `text` cannot hold `\0`, so `RecallAsync` silently returns `[]` for a query holding one. Neither was run.
 
+## Part 489 — what the 2026-11-08 review of the HTTP and Ollama providers found and did not fix yet
+
+_Opened by `docs/task-archive.md` **Part 488**: a read-only review of `Lyntai.Providers.Basic/Http` and `Ollama`, each finding read against the code and none run against a server.
+The certain and small findings closed in that Part; a row that rests on a vendor's behaviour says so. Lane `inference`._
+
+- [ ] **An OpenAI `refusal` is retried and reported `Failed`.** `OpenAiChatWire` never reads `message.refusal` or `delta.refusal`, so a structured-output refusal (`content` null, `refusal` set) is an empty <!-- item: state=decision-only needs="a ruling: map a non-empty refusal to Refused (no fallback, no dead-host strike, as content_filter is), or leave it Failed; and whether the streaming wire does the same" -->
+  reply, the engine resends the identical request once (a second billed call), then answers `Failed`, which advances and counts toward the dead-host threshold. Rests on OpenAI's documented field; not run.
+- [ ] **A stream that errors after content, or never reaches its terminator, is a clean truncated reply.** The in-band error is read only when no content streamed and no terminator (`[DONE]`, `done:true`, a finish <!-- item: state=decision-only needs="a ruling: end Error(classified) when content streamed, an error line was seen and no terminator arrived, or keep the recovered-error rule as written" -->
+  reason) is tracked, so Ollama's `{"error":…}` line after content, then EOF, yields `Final`. The recovered "Reconnecting… 2/5" case (pinned) ends in `[DONE]` and would be kept.
+- [ ] **`max_tokens` and a non-default `temperature` are sent to every OpenAI-shaped host.** OpenAI's reasoning models are believed to refuse both (`max_completion_tokens` instead), a 400 read as `Failed`; <!-- item: state=decision-only needs="a ruling: a MaxTokensField option, a per-model rule, or documented as the host's to configure; the vendor's refusal is believed from its documentation, not run" -->
+  `SuppressReasoningFields` refuses these two keys, so there is no workaround today.
+- [ ] **A negative usage count is accepted.** `WireJson.Long` rejects a non-number or an out-of-range one, not `-1`, so `InMemoryUsageTracker` adds it and a recorded spend goes down. <!-- item: state=decision-only needs="a ruling: clamp a negative count to 0, or read it as absent, on every wire (HTTP, Ollama, the agent doors)" -->
+- [ ] **A non-finite request number escapes the provider as an exception.** `Temperature = double.NaN` makes `payload.ToJsonString()` throw `ArgumentException` out of `CompleteAsync`, although `HttpJsonCall` states <!-- item: state=decision-only needs="a ruling: validate a request's numbers up front (throw to the caller) or answer a Failed or Unsupported verdict; a scheme-only BaseUrl such as host:port is the same shape and its exception type was not run" -->
+  that a failure is a verdict, never a throw.
+- [ ] **A server that ignores `stream:true` and answers one JSON body is dropped.** The stream path reads `choices[0].delta` per line and never `message`, so a proxy's single `chat.completion` ends <!-- item: state=decision-only needs="a ruling: fall back to buffered extraction when the first payload carries message and no delta, or leave a non-streaming proxy as unsupported" -->
+  `Failed` "no output produced".
+- [ ] **A base URL ending in a version other than `/v1` gets `/v1` appended.** `…/v1beta/openai` and `…/api/paas/v4` compose to a 404. <!-- item: state=decision-only needs="a ruling: a flag to use the base verbatim, a pattern for any trailing /v<n> segment, or documented as /v1-only" -->
+
+## Part 490 — what the 2026-11-08 review of the local inference backends found and did not fix yet
+
+_Opened by `docs/task-archive.md` **Part 488**: a read-only review of `Lyntai.Providers.Onnx`, `LlamaSharp`, `Model2Vec`, `Text`, `Diagnostics` and `Prompts`. The certain and small findings closed in
+that Part (the `JsonExtract` first-brace row was already filed in Part 487). A row resting on a reference implementation says so. Lane `inference`._
+
+- [ ] **An export whose pooling or module list this reader does not support is mean-pooled silently.** `SentenceTransformerConfig.PoolingFrom` takes CLS only when it is set alone and everything else, <!-- item: state=decision-only needs="a ruling: refuse (InvalidDataException) a pooling_mode other than cls or mean and a modules.json entry other than Transformer, Pooling or Normalize, log it and carry on, or implement last-token and the Dense module; an explicit OnnxProviderOptions.Pooling would bypass the check" -->
+  including `pooling_mode_lasttoken`, `max_tokens` and a following `Dense` module, reads `Mean` — finite vectors that rank wrongly. Its class comment says guessing is the failure it exists to avoid, and
+  it also says a hand-assembled directory is not worth refusing to load, which the ruling has to reconcile.
+- [ ] **`Model2VecProvider` embeds and counts an unknown token.** `EncodeToIds` emits `[UNK]`, which `Embed` averages in; the reference `model2vec` is believed to drop it before pooling (read <!-- item: state=decision-only needs="a ruling: skip the unknown id, which changes every vector already stored from this provider, or keep it as the table was built against; the upstream behaviour is to be read, not assumed" -->
+  from the upstream source by the review, not here). An all-unknown text would then be the zero vector.
+- [ ] **A `vocab.txt` longer than the table counts tokens that add nothing.** `AccumulateInto` ignores an id past `Rows` by design but `Embed` still divides by it; nothing compares the two at load. <!-- item: state=decision-only needs="a ruling: refuse a vocabulary longer than the table at load, log it, or count only the rows read" -->
+- [ ] **A RoBERTa-family export that declares no narrower limit keeps 514.** `WindowFrom` narrows only to a declared `model_max_length` or `max_seq_length`, so an XLM-R, MPNet or <!-- item: state=decision-only needs="a ruling: subtract the two padding positions when config.json's model_type is roberta, xlm-roberta, camembert or mpnet, or require the limit to be declared" -->
+  CamemBERT export with neither file takes `max_position_embeddings` (514) as its token limit and a 514-token row indexes past the position table.
+- [ ] **A non-segmented call is one forward pass whatever its size.** 6,000 rows of 512 tokens at hidden size 768 is a 9.4 GB output copied by `ToArray()`, and `checked(i * rowSize)` overflows at row 5,461. <!-- item: state=decision-only needs="a ruling: keep An_unsegmented_call_is_ONE_pass_however_many_inputs_it_holds and document a caller cap, or cap the pass by a count or a memory budget; reading the tensor's buffer without ToArray is not in question" -->
+- [ ] **A segmented text's vector is always unit length, a one-window text's is not when `Normalize` is false.** `VectorMath.WeightedMeanDirection` normalises, so a long and a short text differ <!-- item: state=decision-only needs="a ruling: document it as direction-only (cosine is unaffected) or return the weighted mean of the raw rows when normalize is false, for dot-product and L2 consumers" -->
+  in scale under a model with no `Normalize` module.
+- [ ] **`LlamaSharpProvider` leaks the weights when the executor fails to build, and `Dispose` ignores a generation in flight.** `EnsureLoaded` assigns `_weights` before `new StatelessExecutor`, so a throw (a `ContextSize` <!-- item: state=startable -->
+  past memory) leaves them loaded and the next call loads a second copy over the field; `Dispose` frees the executor under a running `InferAsync` and the stream's `finally` releases a disposed semaphore.
+  Fix: build into locals and dispose on a throw; `Dispose` waits on the gate and `StreamAsync` checks `_disposed` once it holds it. **The test needs a GGUF model and a CPU backend package the test project does not reference** (a named, obtainable download, as `docs/task-archive.md` Part 478 added one for a run), so it was not written here.
+
+## Part 491 — what the 2026-11-08 review of the generation platform found and did not fix yet
+
+_Opened by `docs/task-archive.md` **Part 488**: a read-only review of `Lyntai.Generation` and `Lyntai.Core/Generation`, each finding read against the code, one (the deadline's range) run. The certain and small findings closed in that
+Part. Lane `generation`._
+
+- [ ] **A transient fetch failure fails a durable job for good.** `GenerationJobEngine` turns any non-Ok `FetchAsync`, a `Timeout` or a 429 included, into `JobOutcome.Fail`, while `QueueCalls.FetchGuard` says the <!-- item: state=decision-only needs="a ruling: which verdicts are transient and whether a transient fetch polls again (bounded or not) or retries a set number of times, against the failing it today (only the 422 case is pinned)" -->
+  operation can be fetched again and the checkpoint already holds its id: a paid render is lost to a retryable read.
+- [ ] **A ComfyUI run lost to a server restart polls for ever.** Its queue and history are in memory, so `/history/{id}` answers `{}` after a restart, which reads as not landed yet, and a `Poll` outcome has <!-- item: state=decision-only needs="a ruling: consult /queue and fail or call it inconclusive when the id is in neither, or a maximum poll duration on GenerationPipelineJobOptions, and how many confirming polls before a run is declared lost" -->
+  no deadline, so a durable job meant to survive restarts stays `Running`.
+- [ ] **Cancelling a durable generation job does not cancel the backend render.** The engine never calls `IMediaJobProvider.CancelAsync`, so a paid fal render or a ComfyUI GPU run goes on unattended. <!-- item: state=decision-only needs="a ruling: a best-effort CancelAsync when a cancel is seen with an operation id checkpointed, or leave it to the host and say so; ComfyUI's interrupt is server-wide and can kill another tenant's run" -->
+- [ ] **`generate_fetch` bills and delivers again on every call, and the job engine bills before it checkpoints.** A model that calls the tool twice records the cost and sends the artifacts twice, and a lease lost between <!-- item: state=decision-only needs="a ruling: whether the spend ledger or the tool owns de-duplication per (backend, operation id); both over-count, so they fail closed" -->
+  the bill and the checkpoint is billed again by the worker that reclaims it.
+- [ ] **`generate_backends` lists and probes every registered `IModelProvider`.** Text, score and vector providers appear to the model as generation backends with `usable: true`, and each is probed, which can spawn <!-- item: state=decision-only needs="a ruling: filter to providers that produce image, video, audio or 3d, or keep the whole roster as written; the 'lists every backend' test does not tell the two apart" -->
+  a CLI or reach a network.
+- [ ] **A ComfyUI output walk includes `type: "temp"` previews.** A workflow with both SaveImage and PreviewImage returns two artifacts, so a pipeline stage's "exactly one chains forward" rule refuses it. <!-- item: state=decision-only needs="a ruling: drop temp outputs by default with an option to include them, or keep every output the history lists" -->
+
 ## Retired — five Parts that outlived their open work (2026-09-16)
 
 _Parts 109, 116, 128 and 178 held **295 lines and zero open checkboxes** between them: every line was a

@@ -477,7 +477,7 @@ public sealed class FalProvider(
     private static (string Model, string? RequestId) Split(string operationId)
     {
         var at = operationId.LastIndexOf(ModelSeparator);
-        return at <= 0 || at == operationId.Length - 1
+        return at <= 0 || at == operationId.Length - 1 || !QueueCalls.IsPathSegment(operationId[(at + 1)..])
             ? (operationId, null)
             : (operationId[..at], operationId[(at + 1)..]);
     }

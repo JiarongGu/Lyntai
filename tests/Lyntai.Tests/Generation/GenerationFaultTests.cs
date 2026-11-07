@@ -99,6 +99,41 @@ public class GenerationFaultTests : IDisposable
         Assert.Contains("no audio", response.Detail, StringComparison.OrdinalIgnoreCase);
     }
 
+    // ---- an operation id is a path segment, never a path ----
+
+    [Theory] // generate_status and generate_fetch hand a model-chosen id straight to the URL
+    [InlineData("../object_info")]
+    [InlineData("..")]
+    [InlineData("a/b")]
+    [InlineData("a?b=1")]
+    public async Task A_ComfyUi_operation_id_that_is_not_a_single_segment_sends_nothing(string operationId)
+    {
+        var http = new StubHttpHandler().Enqueue(System.Net.HttpStatusCode.OK, "{}");
+        var provider = new ComfyUiProvider(new ComfyUiOptions { BaseUrl = "http://127.0.0.1:8188" },
+            () => new HttpClient(http, disposeHandler: false));
+
+        var operation = await provider.PollAsync(operationId);
+
+        Assert.Equal(QueuedOperationStatus.Failed, operation.Status);
+        Assert.Empty(http.Requests);
+    }
+
+    [Theory]
+    [InlineData("fal-ai/flux#../../x")]
+    [InlineData("fal-ai/flux#a/b")]
+    [InlineData("fal-ai/flux#a?b=1")]
+    public async Task A_fal_request_id_that_is_not_a_single_segment_sends_nothing(string operationId)
+    {
+        var http = new StubHttpHandler().Enqueue(System.Net.HttpStatusCode.OK, "{}");
+        var provider = new FalProvider(new FalOptions { ApiKey = "k", Model = "fal-ai/flux" },
+            () => new HttpClient(http, disposeHandler: false));
+
+        Assert.Equal(QueuedOperationStatus.Failed, (await provider.PollAsync(operationId)).Status);
+        Assert.Equal(ProviderVerdict.Failed, (await provider.FetchAsync(operationId)).Verdict);
+        Assert.Equal(QueuedOperationStatus.Failed, (await provider.CancelAsync(operationId)).Status);
+        Assert.Empty(http.Requests);
+    }
+
     // ---- the images endpoint ----
 
     [Fact] // a malformed media type is the request's fault, not the host's: Unsupported, not a Failed strike
