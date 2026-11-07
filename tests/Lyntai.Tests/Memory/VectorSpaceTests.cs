@@ -133,6 +133,37 @@ public class VectorSpaceTests
     }
 
     [Fact]
+    public void UseVectorSpace_leaves_a_keyed_store_alone_and_wraps_the_unkeyed_one()
+    {
+        var keyed = new InMemoryVectorStore();
+        var services = new ServiceCollection();
+        services.AddSingleton<IModelProvider>(new FakeVectorProvider());
+        services.AddSingleton<IVectorStore, InMemoryVectorStore>();
+        services.AddKeyedSingleton<IVectorStore>("cold", keyed);
+        services.AddLyntai(cfg => cfg.UseVectorSpace("model-a"));
+
+        using var sp = services.BuildServiceProvider();
+        Assert.IsType<VectorSpaceStore.Full>(sp.GetRequiredService<IVectorStore>());
+        Assert.Same(keyed, sp.GetRequiredKeyedService<IVectorStore>("cold"));
+    }
+
+    [Fact]
+    public void UseVectorSpace_keeps_a_scoped_store_scoped()
+    {
+        var services = new ServiceCollection();
+        services.AddSingleton<IModelProvider>(new FakeVectorProvider());
+        services.AddScoped<IVectorStore, InMemoryVectorStore>();
+        services.AddLyntai(cfg => cfg.UseVectorSpace("model-a"));
+
+        using var sp = services.BuildServiceProvider();
+        using var first = sp.CreateScope();
+        using var second = sp.CreateScope();
+        var one = first.ServiceProvider.GetRequiredService<IVectorStore>();
+        Assert.Same(one, first.ServiceProvider.GetRequiredService<IVectorStore>());
+        Assert.NotSame(one, second.ServiceProvider.GetRequiredService<IVectorStore>());
+    }
+
+    [Fact]
     public void UseVectorSpace_refuses_a_blank_id() =>
         Assert.Throws<ArgumentException>(() => new ServiceCollection().AddLyntai(cfg => cfg.UseVectorSpace(" ")));
 

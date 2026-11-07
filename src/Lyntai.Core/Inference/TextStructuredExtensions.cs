@@ -21,9 +21,11 @@ public static class TextStructuredExtensions
     public static async Task<TextResponse> CompleteJsonAsync(this ITextClient client, TextRequest req, CancellationToken ct = default)
     {
         var current = req;
+        TextUsage? spent = null; // the first shot's spend, which the retry's reply must still carry
         for (var attempt = 0; ; attempt++)
         {
             var reply = await client.CompleteAsync(current, ct).ConfigureAwait(false);
+            if (attempt > 0) reply = reply with { Usage = Sum(spent, reply.Usage) };
             if (reply.Verdict != ProviderVerdict.Ok) return reply;
 
             // CODE first: extract the object out of prose, and repair the punctuation a model gets wrong
@@ -35,6 +37,8 @@ public static class TextStructuredExtensions
             if (attempt > 0)
                 return new TextResponse("", ProviderVerdict.Failed, reply.Usage,
                     "no parseable JSON object in the reply after one retry");
+
+            spent = reply.Usage;
 
             // the retry must DIFFER from the first shot, or a deterministic (temperature-0) provider
             // just repeats the same prose: feed back its own reply + a corrective instruction.
@@ -49,4 +53,11 @@ public static class TextStructuredExtensions
             };
         }
     }
+
+    private static TextUsage? Sum(TextUsage? first, TextUsage? second) =>
+        first is null ? second
+        : second is null ? first
+        : new TextUsage(first.InputTokens + second.InputTokens, first.OutputTokens + second.OutputTokens,
+            first.CacheReadTokens + second.CacheReadTokens,
+            first.CostUsd is null && second.CostUsd is null ? null : (first.CostUsd ?? 0) + (second.CostUsd ?? 0));
 }

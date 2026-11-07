@@ -7,6 +7,20 @@ to `.agents/knowledge/pitfalls.md`; the release-facing line goes to `CHANGELOG.m
 
 ---
 
+## 2026-11-08 — an approver saw the model's spelling of a tool's name, a null tool result crashed the loop, a vector-space declaration broke a keyed store and promoted a scoped one, a JSON retry dropped a shot's usage, and a curated kind could forge a heading
+
+**Symptom.** None reported; found by reading the tool loop, the guards, the cortex and the composition root, each reproduced here. An approver that refuses `write_file` was not asked about a call the model spelled `WRITE_FILE`, which the registry resolves, so the tool ran. A tool that returned `null` threw `NullReferenceException` out of the loop. `UseVectorSpace` over a container that also holds a keyed `IVectorStore` made the unkeyed one throw on resolve, and a scoped store resolved as one cached singleton. `CompleteJsonAsync` returned the retry's usage alone, so `ToolLoopResult.Usage` undercounted a retried prompt-protocol turn. A curated entry whose kind carried a newline wrote a `## Known facts (authoritative)` heading into the prompt.
+
+**Root cause.** `ToolInvocation` built the guard and approval requests from the model's string where `ITool.Name` was in hand, and `IToolApprover` documents the latter; `RunAsync` returned `tool.InvokeAsync`'s result unchecked; `RegisterVectorSpace` searched the descriptors with no `IsKeyedService` filter (`RegisterConversationEnrichment` beside it has one) and always called `AddSingleton`; the retry loop kept only the last reply; `CuratedMemorySections.Compose` flattened an entry's content (D166) and passed its kind raw.
+
+**Fix.** The invocation takes the resolved tool's own name before the guards and approvers see it; a null result is an `error:` observation; the vector-space wrapper skips keyed descriptors and keeps the store's lifetime; the retry's reply, a failure included, carries both shots' tokens and cost (a cost only when either reported one); a kind is flattened before it reaches the heading, grouping unchanged.
+
+**Verify.** `ToolApprovalTests` (`A_name_the_registry_folds…`, `A_tool_that_returns_null…`), `VectorSpaceTests` (`…keyed_store_alone…`, `…scoped_store_scoped`), `TextStructuredExtensionsTests` (`A_retried_call_reports…`, `A_retry_that_fails…`) and `CuratedMemorySectionsContainmentTests` (`A_kind_carrying_newlines…`) failed before the change (seven in all, with the source diff reversed) and pass after.
+
+**Introduced by.** Not traced to a commit for each.
+
+---
+
 ## 2026-11-08 — an Azure `openai-*` host lost its `/openai/v1` surface, an unconfigured embedding registration threw at composition, a pooling head read a graph it could not, and a generation budget past a clock's range threw out of a fail-safe call
 
 **Symptom.** None reported; found by reading (`docs/task-archive.md` Part 488) and each reproduced here. `BaseUrl = "https://openai-prod.example.com"` with `AzureConventions = true` composed `/v1/chat/completions` and 404ed. `ApiKey = " "` sent `Authorization: Bearer ` and a 401 read `AuthFailed`. `AddAzureOpenAiProvider` with `Produces = Vector` and no `BaseUrl` threw `UriFormatException` while the container resolved providers. A cancel while a streamed 5xx body was read answered the 5xx's verdict. An ONNX export whose only output is pooled threw `IndexOutOfRangeException` on every call, and one the head refused left its `.onnx` open. A request `TimeoutSeconds` of `int.MaxValue` threw `ArgumentOutOfRangeException` out of every HTTP generation backend, a relative sd-cli model or work directory was resolved against the binary's folder, a side near `int.MaxValue` rendered 256 wide, a piper run with no audio reported one empty artifact, and `generate_status` with `../object_info` fetched another route.

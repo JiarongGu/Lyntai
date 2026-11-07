@@ -471,10 +471,11 @@ public static class LyntaiServiceCollectionExtensions
     private static void RegisterVectorSpace(IServiceCollection services, LyntaiBuilder builder)
     {
         if (builder.VectorSpace is not { } space) return;
-        var backend = services.LastOrDefault(d => d.ServiceType == typeof(IVectorStore));
+        // a keyed descriptor is skipped (its implementation members throw), and the wrapper keeps the store's lifetime
+        var backend = services.LastOrDefault(d => d.ServiceType == typeof(IVectorStore) && !d.IsKeyedService);
         if (backend is null) return;
         services.Remove(backend);
-        services.AddSingleton<IVectorStore>(sp =>
+        services.Add(ServiceDescriptor.Describe(typeof(IVectorStore), sp =>
         {
             var logger = sp.GetService<ILogger<IVectorStore>>();
             if (backend.ImplementationInstance is IVectorStore given)
@@ -483,7 +484,7 @@ public static class LyntaiServiceCollectionExtensions
                 return VectorSpaceStore.Wrap((IVectorStore)factory(sp), space, owned: true, logger);
             var built = (IVectorStore)ActivatorUtilities.CreateInstance(sp, backend.ImplementationType!);
             return VectorSpaceStore.Wrap(built, space, owned: true, logger);
-        });
+        }, backend.Lifetime));
     }
 
     /// <summary>Agentic tool-calling: the registry gathers any registered ITools; the loop runs provider-

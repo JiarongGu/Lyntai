@@ -39,7 +39,7 @@ public static class CuratedMemorySections
         foreach (var group in byKind)
         {
             if (sb.Length > 0) sb.Append('\n');
-            sb.Append(header(group.Key)).Append('\n');
+            sb.Append(header(MemoryLine.Flatten(group.Key))).Append('\n');
             foreach (var entry in group.OrderBy(e => e.CreatedAt).ThenBy(e => e.Id))
             {
                 sb.Append(bullet).Append(MemoryLine.Flatten(entry.Content)).Append('\n');
