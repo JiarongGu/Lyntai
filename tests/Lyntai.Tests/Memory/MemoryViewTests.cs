@@ -145,6 +145,29 @@ public class MemoryViewTests
     }
 
     [Fact]
+    public async Task A_reference_the_check_refuses_reads_as_a_missing_one_for_its_revision_too()
+    {
+        var (store, _, paris, london) = await Seed();
+        var view = Build(store).ViewOf("owned", new Check(r => r != paris));
+
+        Assert.Null(await view.RevisionOfAsync(paris));
+        Assert.NotNull(await view.RevisionOfAsync(london));
+    }
+
+    [Fact]
+    public async Task A_blend_s_due_sweep_skips_a_graph_member_whose_store_cannot_confirm()
+    {
+        var bare = Build(ReadSpy.Bare(new InMemoryMemoryGraphStore()), "b/bare");
+        var graph = Build(new InMemoryMemoryGraphStore(), "b/graph");
+        var blend = new CompositeMemoryEngine("b", [bare, graph]);
+        await graph.RememberAsync(Fact("lives in Paris") with { Recheck = "ask" });
+
+        var due = await blend.DueAsync("owned", null, Jul);
+
+        Assert.Equal(["lives in Paris"], due.Select(i => i.Content));
+    }
+
+    [Fact]
     public async Task A_refused_expansion_reads_no_entry()
     {
         var (store, owner, paris, london) = await Seed();

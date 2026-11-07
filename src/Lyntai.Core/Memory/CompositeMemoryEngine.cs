@@ -500,7 +500,8 @@ public sealed class CompositeMemoryEngine
         int limit = 50, CancellationToken ct = default)
     {
         var due = new List<MemoryItem>();
-        foreach (var member in _members.OfType<IConfirmableMemory>())
+        // a graph member over a store that cannot confirm throws where the remark promises it adds none
+        foreach (var member in _members.OfType<IConfirmableMemory>().Where(m => m is not Engines.GraphMemoryEngine { HoldsConfirmation: false }))
             due.AddRange(await member.DueAsync(taskKey, scope, notConfirmedSince, limit, ct).ConfigureAwait(false));
         return [.. due.OrderBy(i => i.ConfirmedAt is not null).ThenBy(i => i.ConfirmedAt).Take(Math.Max(limit, 0))];
     }

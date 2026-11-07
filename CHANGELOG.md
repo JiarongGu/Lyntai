@@ -32,6 +32,22 @@ every addition.
 - **A keyed end or confirmation that lost a race on Postgres answers the winner's receipt,** where it answered `Changed` with no receipt;
   a refused supersession on the relational stores reports a predecessor it did not move at the revision it still has; and the memory
   tools' refusal for another task's entry reads as a missing one, without naming the other task.
+- **A keyed retry answers its receipt before it reads the entries, and a stale supersession costs nothing.** A keyed relation, end,
+  confirmation or supersession checked its entries (not valid now, removed since) before the store looked up the key, so the retry a
+  receipt exists for threw once the world had moved; the lookup now comes first. A relation's receipt answers only while its target is
+  held. A supersession whose predecessor is no longer at the revision read returns before the embed and the age policy's advance, which
+  it moved for a write that never happened. A `ReceiptRetention` too long for the clock never expires rather than throwing from every keyed call.
+- **A supersession names at least one predecessor, each once; the successor among them reads `Refused`.** The relational, in-process and file
+  stores stored a successor that ended nothing for an empty list, failed a repeated id as `Changed`, and read the successor as its own
+  predecessor `Changed` where the in-process store read it `Refused`. The engine never sent either; a caller of
+  `ISupersedingMemoryGraphStore.SupersedeWithAsync` directly gets an `ArgumentException` for the first two.
+- **The file store appends a keyed refresh's receipt after the memory file, and a lost receipt append leaves the process level with the
+  disk.** A receipt written ahead of a refresh's file would answer a repeat for a change the file never took; a keyed end or
+  confirmation whose receipt append failed left the process behind the disk until a restart.
+- **A view's check also guards `RevisionOfAsync`, a blend's due sweep skips a graph member that cannot confirm, and the write tools bound
+  more.** A refused reference reads as a missing one for its revision as for its expansion. `DueAsync` on a blend threw for a graph member
+  over a store that holds no confirmation, where it is documented to add none. The remember and end tools refuse a `headline`, `reason` or
+  `evidence` past `MaxContentChars` and a `supersedes`, `disputes` or `amends` list past `MaxRefs`.
 - **A prune leaves an entry that states an end, and a read of ended history reinforces nothing.** `PruneAsync` removed a
   superseded, `ValidTo`-bounded or ended associative entry past the floor or `olderThan` as it removed any other, taking its
   history with it, and a `History` recall or an expansion by reference reset its age. On every store an entry with a successor, a
@@ -122,6 +138,8 @@ every addition.
 
 ### Added
 
+- **`MemoryWriteToolOptions.MaxRefs`** bounds how many refs one call of the remember tool may list in each of `supersedes`,
+  `disputes` and `amends` (default 20), each costing the engine a store read.
 - **A task's patched status is the new `AgentTaskUpdated(TaskId, Status)` event, and a backgrounded command's output file is named
   while it runs** (**D254**). The Claude door yields `AgentTaskUpdated` for each `task_updated` that states a `patch.status`, in the
   agent's word; it is not an end, so a command the binary killed after the turn with no `task_notification` after it is updated

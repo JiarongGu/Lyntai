@@ -32,8 +32,12 @@ internal sealed class GraphMemoryView(GraphMemoryEngine engine, string taskKey, 
     }
 
     /// <inheritdoc />
-    public Task<string?> RevisionOfAsync(MemoryRef reference, CancellationToken ct = default) =>
-        engine.ReadRevisionAsync(reference, taskKey, ct);
+    public async Task<string?> RevisionOfAsync(MemoryRef reference, CancellationToken ct = default)
+    {
+        // a reference the host will not name reads as a missing one, as an expansion's does: a revision moving says the entry was written
+        if (check is not null && !await check.PermitsAsync(reference, ct).ConfigureAwait(false)) return null;
+        return await engine.ReadRevisionAsync(reference, taskKey, ct).ConfigureAwait(false);
+    }
 
     // every read of the engine is bounded by the task it was asked for, so each item's source task is this view's
     private MemoryViewRecall Wrap(MemoryRecall recall)

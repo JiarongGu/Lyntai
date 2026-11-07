@@ -48,11 +48,13 @@ public interface ISupersedingMemoryGraphStore : IKeyedMemoryGraphStore
     /// one and else <paramref name="at"/>, each with <paramref name="reason"/>. A predecessor that would end before it began is
     /// <see cref="GraphPredecessorStanding.Refused"/>.</summary>
     /// <param name="successor">The node to store.</param>
-    /// <param name="predecessors">What it ends; at least one.</param>
+    /// <param name="predecessors">What it ends; at least one, each id once. The successor among them is
+    /// <see cref="GraphPredecessorStanding.Refused"/>, whatever revision its refresh left it at.</param>
     /// <param name="reason">Why they ended.</param>
     /// <param name="at">The end, where the successor holds no start.</param>
     /// <param name="key">The key, whose kind is <see cref="MemoryOperationKind.Supersede"/>, or null for none.</param>
     /// <param name="ct">Cancellation.</param>
+    /// <exception cref="ArgumentException">No predecessor, or one named twice.</exception>
     Task<GraphSupersedeResult> SupersedeWithAsync(GraphNodeWrite successor, IReadOnlyList<GraphPredecessor> predecessors,
         string reason, DateTimeOffset at, GraphOperationKey? key, CancellationToken ct = default);
 }

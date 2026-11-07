@@ -7,6 +7,29 @@ to `.agents/knowledge/pitfalls.md`; the release-facing line goes to `CHANGELOG.m
 
 ---
 
+## 2026-11-08 — a keyed retry threw once the world had moved, and the faults beside it in the memory-currency write path
+
+**Symptom.** None reported; the rows of `TASKS.md` Part 479 that `docs/task-archive.md` Part 479 left open. A keyed relation, end or supersession repeated after an endpoint
+ended, a successor was removed or a predecessor was removed threw instead of answering its receipt. A supersession refused for a stale review still advanced the age policy. The
+file store could answer a repeat `Refreshed` for a refresh its memory file never took. A relational supersession with no predecessor stored a successor and a receipt.
+
+**Root cause.** `GraphMemoryEngine` checked the entries (still valid, still held) before the store looked up the key, so the check the receipt already answered could fail on the
+retry; and `SupersedeAsync` ran `PrepareAsync` (embed, annotate, `_age.Advance`) before the store judged the revisions. `FileSystemMemoryGraphStore.WriteUpsert` journaled a
+keyed refresh's receipt in the same append as its state, ahead of the memory file. The relational and in-process supersession runners judged an empty list and a repeated id as
+any other predecessors, and judged the successor as its own predecessor after the revision, which its refresh had moved.
+
+**Fix.** The engine reads the receipt first for a relation, end, confirmation and supersession (a relation's only while its target is held) and reads each predecessor's revision
+before the embed. The file store appends a refresh's receipt after the file, and applies an effect that is on disk when its receipt append fails. The stores refuse an empty or
+repeated list and read the successor as `Refused` first. `GraphMemoryEngine.cs`, `FileSystemMemoryGraphStore.cs`, `MemoryGraphState.cs`, `GraphSupersedeSql.cs`.
+
+**Verify.** Each failed before the change: `MemoryReceiptTests` and `MemorySupersessionTests` for the retries and the age policy, two `FileSystemGraphRestartTests` for the receipt order
+and the lost append, the `A_supersession_with_no_predecessor_or_a_repeated_one_is_refused_and_stores_nothing` contract fact (every store) and the changed assertion in
+`A_supersession_refuses_what_an_end_refuses`. The Postgres leg ran with Docker up (0 skipped).
+
+**Introduced by.** MC11 and MC12 (`docs/task-archive.md` Parts 424 and 425).
+
+---
+
 ## 2026-11-07 — a keyed end or confirmation that lost a race on Postgres answered `Changed` with no receipt, and two smaller faults of the memory-currency layer
 
 **Symptom.** None reported; found by reading (`docs/task-archive.md` Part 479). On Postgres, repeats of one operation key that raced, each carrying the revision the

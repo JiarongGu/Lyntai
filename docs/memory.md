@@ -1034,7 +1034,7 @@ owner's engine, never a copy. Each `MemoryViewItem` carries the `MemoryItem` (re
 `Validity`), its `SourceTask`, and a `MemoryStanding`: nothing is cached, so an owner's supersession or end reads at the next call, and a
 `History` reading returns the ended entry with who superseded it. `RevisionOfAsync(reference)` is one read by id. A reference of another
 task, another engine or none reads as a missing one. **The host's `IMemoryViewCheck` is asked about the named reference before an
-expansion reads anything**, and a refusal returns nothing; it is a call, not a grant — owners, grants and the change log stay the host's.
+expansion or a `RevisionOfAsync` reads anything**, and a refusal returns nothing (a null revision); it is a call, not a grant — owners, grants and the change log stay the host's.
 A recall is not checked per reference, and an expansion's neighbours are not asked about: the view is of a task the host already chose
 to share. `CompositeMemoryEngine.Views` recalls from views beside its members (each in its own task, no scope) and routes `ExpandAsync`
 by `MemoryRef.Engine`; `LinkAsync`, `RelateAsync`, `EndAsync`, `ConfirmAsync` on a view's reference throw `NotSupportedException`, and the
@@ -1092,7 +1092,7 @@ services.AddLyntai(cfg => cfg
 that `AddMemoryTools` never makes, so no existing agent gains a write it did not choose. It adds `<engine>_remember` and
 `<engine>_end`. The HOST owns the task (from `MemoryToolScope`, never an argument), the grade (always associative, with no
 argument to change it), the scope (unless `ModelMayNameScope`) and a metadata stamp, and `MaxContentChars` bounds what a call
-may write. `_remember` returns its `ref` and `mayUpdate` — the live entries it may update, each with its `revision` — and
+may write (its `content`, `headline`, `reason` and `evidence`), as `MaxRefs` bounds each list of refs. `_remember` returns its `ref` and `mayUpdate` — the live entries it may update, each with its `revision` — and
 applies none. `disputes` and `amends` end nothing and apply alone; `supersedes` (each entry a ref and the revision read, with a
 `reason`) and `_end` go through `MemoryChangeGate`, so **with no approver registered the write lands live and unlinked and the
 end is refused as a result the model reads**, and an approval applies only to the revision the model read. An engine's refusal

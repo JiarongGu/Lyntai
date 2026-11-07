@@ -61,7 +61,8 @@ public interface IKeyedMemoryGraphStore : IConfirmableMemoryGraphStore, ITypedLi
     Task<GraphKeyed<long>> UpsertKeyedAsync(GraphNodeWrite write, GraphOperationKey key, CancellationToken ct = default);
 
     /// <summary><see cref="IMemoryGraphStore.LinkAsync"/> of one directed edge under a key. <see cref="GraphKeyed{T}.Value"/> is
-    /// whether an edge was written; an endpoint the engine does not hold writes none and leaves no receipt.</summary>
+    /// whether an edge was written; an endpoint the engine does not hold writes none and leaves no receipt. The receipt concerns the
+    /// source alone, so removing the target drops the edge and keeps a receipt that replays; a caller that cares checks the target.</summary>
     /// <param name="engine">The owning engine's name.</param>
     /// <param name="from">Source node id.</param>
     /// <param name="to">Target node id.</param>

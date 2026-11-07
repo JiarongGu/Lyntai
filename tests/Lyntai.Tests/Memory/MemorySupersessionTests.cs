@@ -113,6 +113,59 @@ public class MemorySupersessionTests
     }
 
     [Fact]
+    public async Task A_keyed_supersession_repeated_after_a_predecessor_was_removed_still_answers_its_receipt()
+    {
+        var store = new InMemoryMemoryGraphStore();
+        var engine = Build(store);
+        var paris = (await engine.RememberAsync(Fact("lives in Paris"))).Reference;
+        var london = (await engine.RememberAsync(Fact("works in London"))).Reference;
+        var request = new MemorySupersession(Fact("lives and works in Rome", from: Mar),
+            [await Read(engine, paris), await Read(engine, london)], "moved") { OperationKey = "sup-gone" };
+        var first = await engine.SupersedeAsync(request);
+        await store.DeleteAsync(Name, [long.Parse(london.Id, CultureInfo.InvariantCulture)]);
+
+        var again = await engine.SupersedeAsync(request);
+
+        Assert.True(again.Applied);
+        Assert.True(again.Receipt!.Replayed);
+        Assert.Equal(first.Successor, again.Successor);
+        Assert.Equal([MemoryPredecessorOutcome.Ended, MemoryPredecessorOutcome.Missing], again.Predecessors.Select(p => p.Outcome));
+    }
+
+    [Fact]
+    public async Task A_refused_supersession_does_not_move_the_age_policy()
+    {
+        var age = new CountingAgePolicy();
+        var engine = new GraphMemoryEngine(Name, new InMemoryMemoryGraphStore(), null,
+            new GraphMemorySeams { AgePolicies = [age], Clock = () => Jul });
+        var paris = (await engine.RememberAsync(Fact("lives in Paris"))).Reference;
+        var reviewed = await Read(engine, paris);
+        await engine.RememberAsync(Fact("lives in Paris") with { Headline = "reworded after the review" });   // moves paris's revision
+        var before = age.Advances;
+
+        var stale = await engine.SupersedeAsync(new MemorySupersession(Fact("lives in Rome", from: Mar), [reviewed], "moved"));
+
+        Assert.False(stale.Applied);
+        Assert.Equal(before, age.Advances);
+        // the control: a call that applies does advance it
+        var fresh = await engine.SupersedeAsync(new MemorySupersession(Fact("lives in Rome", from: Mar), [await Read(engine, paris)], "moved"));
+        Assert.True(fresh.Applied);
+        Assert.Equal(before + 1, age.Advances);
+    }
+
+    private sealed class CountingAgePolicy : IMemoryAgePolicy
+    {
+        public int Advances { get; private set; }
+        public MemoryAgeKind Kind => MemoryAgeKind.Derivable;
+        public MemoryTick Advance(MemoryWrite write, string engine)
+        {
+            Advances++;
+            return MemoryTick.One;
+        }
+        public double Age(MemoryAgeSample sample) => 0;
+    }
+
+    [Fact]
     public async Task It_refuses_what_a_stated_supersession_refuses_and_writes_nothing()
     {
         var engine = Build();

@@ -112,6 +112,29 @@ public class MemoryWriteToolsTests
     }
 
     [Fact]
+    public async Task A_headline_a_reason_an_evidence_and_a_ref_list_past_their_bounds_are_refused_before_anything_is_written()
+    {
+        using var sp = Build(options: new MemoryWriteToolOptions { MaxContentChars = 40, MaxRefs = 2 });
+        var engine = sp.GetRequiredService<IMemoryEngineFactory>().Get(Engine);
+        var long41 = new string('x', 41);
+        var refs = """["a:1","a:2","a:3"]""";
+
+        var headline = await CallAsync(sp, "project_graph_remember", $$"""{"content":"the client lives in Oslo","headline":"{{long41}}"}""");
+        var reason = await CallAsync(sp, "project_graph_remember",
+            $$"""{"content":"the client lives in Oslo","supersedes":[{"ref":"a:1","revision":"1"}],"reason":"{{long41}}"}""");
+        var evidence = await CallAsync(sp, "project_graph_remember", $$"""{"content":"the client lives in Oslo","evidence":"{{long41}}"}""");
+        var disputes = await CallAsync(sp, "project_graph_remember", $$"""{"content":"the client lives in Oslo","disputes":{{refs}}}""");
+        var ending = await CallAsync(sp, "project_graph_end", $$"""{"ref":"a:1","revision":"1","reason":"{{long41}}"}""");
+
+        Assert.Contains("'headline' is 41", headline.GetProperty("error").GetString()!, StringComparison.Ordinal);
+        Assert.Contains("'reason' is 41", reason.GetProperty("error").GetString()!, StringComparison.Ordinal);
+        Assert.Contains("'evidence' is 41", evidence.GetProperty("error").GetString()!, StringComparison.Ordinal);
+        Assert.Contains("'disputes' lists 3", disputes.GetProperty("error").GetString()!, StringComparison.Ordinal);
+        Assert.Contains("'reason' is 41", ending.GetProperty("error").GetString()!, StringComparison.Ordinal);
+        Assert.Empty((await engine.RecallAsync(new MemoryQuery("t", "s", "Oslo"))).Items);
+    }
+
+    [Fact]
     public async Task Disputes_and_amends_apply_alone_and_a_bad_ref_is_an_error_the_model_can_read()
     {
         using var sp = Build();

@@ -153,7 +153,9 @@ public readonly record struct GraphEndResult(GraphEndOutcome Outcome, long? Revi
 /// wrote. A store that does not hold it makes the engine refuse an end rather than record one it cannot guard.</para>
 /// <para>Implementing it owes <see cref="GraphNode.EndedReason"/> and <see cref="GraphNode.Revision"/>, a revision that
 /// advances on <see cref="ITemporalMemoryGraphStore.SupersedeAsync"/>, on a write that changes the entry and on an
-/// end — never on a touch, a link or a recall — and the portable round trip of the reason.</para></summary>
+/// end — never on a touch, a link or a recall — and the portable round trip of the reason. A rewrite of identical content may
+/// advance it too (the relational stores do, the in-process and file stores do not): a caller reads a moved revision as "may have
+/// changed", never as "changed".</para></summary>
 public interface IEndableMemoryGraphStore : ITemporalMemoryGraphStore
 {
     /// <summary>End one entry, only if its revision is still <see cref="GraphEnd.ExpectedRevision"/> when that is

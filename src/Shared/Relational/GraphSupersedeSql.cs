@@ -7,11 +7,11 @@ namespace Lyntai.Storage.Relational;
 
 /// <summary>A supersession applied as ONE transaction on a relational store, once for both dialects (<c>docs/DECISIONS.md</c> D242):
 /// the successor's upsert, each predecessor's end and the key's receipt commit together or not at all.
-/// <para>Every predecessor is judged before any is ended, in the order <see cref="IEndableMemoryGraphStore.EndAsync"/> judges one —
-/// missing, changed, a different live successor — plus a successor that would start before the predecessor began. They are ALL judged
-/// even after one fails, so the result says which moved; a failure rolls the transaction back, which takes the successor and the
-/// position it advanced with it. Each end is then <see cref="MemoryGraphSql.End"/> itself, so a rewrite landing between the judgement and
-/// the end still matches no row.</para></summary>
+/// <para>Each predecessor is judged and then ended in turn, in the order <see cref="IEndableMemoryGraphStore.EndAsync"/> judges one —
+/// missing, changed, a different live successor — plus a successor that would start before the predecessor began and the successor
+/// itself. They are ALL judged even after one fails, so the result says which moved; a failure rolls the transaction back, which takes
+/// the successor, the position it advanced and the ends already made with it. Each end is <see cref="MemoryGraphSql.End"/> itself, so a
+/// rewrite landing between the judgement and the end still matches no row.</para></summary>
 internal static class GraphSupersedeSql
 {
     private const string State = """
@@ -40,6 +40,8 @@ internal static class GraphSupersedeSql
         Func<IDbConnection, IDbTransaction, Task<(long Id, long Revision)>> upsert, CancellationToken ct)
     {
         var engine = successor.Engine;
+        if (predecessors.Count == 0 || predecessors.Select(p => p.Id).Distinct().Count() != predecessors.Count)
+            throw new ArgumentException("A supersession names at least one predecessor, and each only once.", nameof(predecessors));
         await using var conn = await factory.OpenAsync(ct).ConfigureAwait(false);
         await using var tx = await conn.BeginTransactionAsync(ct).ConfigureAwait(false);
         if (key is not null)
@@ -93,9 +95,11 @@ internal static class GraphSupersedeSql
     {
         var state = await StateOfAsync(conn, tx, engine, p.Id, ct).ConfigureAwait(false);
         if (state is null) return new GraphPredecessorResult(p.Id, GraphPredecessorStanding.Missing, null);
+        // an entry is never its own successor, whatever revision the successor's refresh moved it to
+        if (p.Id == successor) return new GraphPredecessorResult(p.Id, GraphPredecessorStanding.Refused, state.Revision);
         if (p.ExpectedRevision != state.Revision || state.EndedReason is not null)
             return new GraphPredecessorResult(p.Id, GraphPredecessorStanding.Changed, state.Revision);
-        if (p.Id == successor || (state.SupersededBy is { } other && other != successor && state.SuccessorLives == 1)
+        if ((state.SupersededBy is { } other && other != successor && state.SuccessorLives == 1)
             || (state.ValidFrom is { } began && start < began))
             return new GraphPredecessorResult(p.Id, GraphPredecessorStanding.Refused, state.Revision);
 
