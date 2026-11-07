@@ -2713,6 +2713,34 @@ public static class MemoryGraphStoreContract
         Assert.Single(await store.SeedAsync(engine, key, "s", null, 10));
     }
 
+    /// <summary><b>Racing repeats of a guarded end or confirmation answer the winner's receipt</b>: a loser whose revision guard no longer
+    /// matches because the winner just moved the entry still answers <see cref="GraphEndOutcome.AlreadyEnded"/> or
+    /// <see cref="GraphConfirmOutcome.Unchanged"/> with the receipt, never <c>Changed</c> with none.</summary>
+    public static async Task Racing_keyed_ends_and_confirmations_answer_the_winners_receipt(IMemoryGraphStore store, string key)
+    {
+        var keyed = Assert.IsAssignableFrom<IKeyedMemoryGraphStore>(store);
+        const string engine = "tv-keyed-race-guard";
+        var ending = await store.UpsertAsync(Write(engine, key, "lives in Paris") with { ValidFrom = Jan });
+        var endRevision = await Revision(store, engine, ending);
+        var endOp = Op("race-end", key, MemoryOperationKind.End, "fp-e", Jun);
+        var ends = await Task.WhenAll(Enumerable.Range(0, 8).Select(_ =>
+            keyed.EndKeyedAsync(engine, new GraphEnd(ending, "moved", Mar, ExpectedRevision: endRevision), endOp)));
+
+        Assert.Single(ends, r => !r.Replayed);
+        Assert.All(ends, r => Assert.NotNull(r.Receipt));
+        Assert.All(ends.Where(r => r.Replayed), r => Assert.Equal(GraphEndOutcome.AlreadyEnded, r.Value.Outcome));
+
+        var checking = await store.UpsertAsync(Write(engine, key, "the deploy key is in the vault") with { Recheck = "ask the vault" });
+        var confirmRevision = await Revision(store, engine, checking);
+        var confirmOp = Op("race-confirm", key, MemoryOperationKind.Confirm, "fp-c", Jun);
+        var confirms = await Task.WhenAll(Enumerable.Range(0, 8).Select(_ =>
+            keyed.ConfirmKeyedAsync(engine, new GraphConfirm(checking, Mar, ExpectedRevision: confirmRevision), confirmOp)));
+
+        Assert.Single(confirms, r => !r.Replayed);
+        Assert.All(confirms, r => Assert.NotNull(r.Receipt));
+        Assert.All(confirms.Where(r => r.Replayed), r => Assert.Equal(GraphConfirmOutcome.Unchanged, r.Value.Outcome));
+    }
+
     // ---- a supersession applied as one change (docs/DECISIONS.md D242) --------------------------------------------
 
     private static async Task<long> Revision(IMemoryGraphStore store, string engine, long id) =>
@@ -2760,9 +2788,10 @@ public static class MemoryGraphStoreContract
         var current = await Revision(store, engine, stale);
         var probeAge = (await store.GetAsync(engine, fresh))!.OrdinalAge;
         var op = Op("atomic-stale", key, MemoryOperationKind.Supersede, "fp-s", Jun);
+        var freshRevision = await Revision(store, engine, fresh);
 
         var result = await atomic.SupersedeWithAsync(Write(engine, key, "lives and works in Rome") with { ValidFrom = Mar },
-            [new GraphPredecessor(fresh, await Revision(store, engine, fresh)), new GraphPredecessor(stale, reviewed)], "relocated", Mar, op);
+            [new GraphPredecessor(fresh, freshRevision), new GraphPredecessor(stale, reviewed)], "relocated", Mar, op);
 
         Assert.False(result.Applied);
         Assert.Null(result.SuccessorId);
@@ -2770,6 +2799,9 @@ public static class MemoryGraphStoreContract
         Assert.Equal([(fresh, GraphPredecessorStanding.Unmoved), (stale, GraphPredecessorStanding.Changed)],
             result.Predecessors.Select(p => (p.Id, p.Standing)));
         Assert.Equal(current, result.Predecessors.Single(p => p.Id == stale).Revision);
+        // an unmoved predecessor reports the revision it still has, not the one its rolled-back end would have written
+        Assert.Equal(freshRevision, result.Predecessors.Single(p => p.Id == fresh).Revision);
+        Assert.Equal(freshRevision, await Revision(store, engine, fresh));
         Assert.Equal(2, (await store.SeedAsync(engine, key, "s", null, 10)).Count);
         Assert.All(await store.SeedAsync(engine, key, "s", null, 10), n => Assert.Null(n.EndedReason));
         Assert.Equal(probeAge, (await store.GetAsync(engine, fresh))!.OrdinalAge);

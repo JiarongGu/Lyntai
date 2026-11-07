@@ -7,6 +7,31 @@ to `.agents/knowledge/pitfalls.md`; the release-facing line goes to `CHANGELOG.m
 
 ---
 
+## 2026-11-07 — a keyed end or confirmation that lost a race on Postgres answered `Changed` with no receipt, and two smaller faults of the memory-currency layer
+
+**Symptom.** None reported; found by reading (`docs/task-archive.md` Part 479). On Postgres, repeats of one operation key that raced, each carrying the revision the
+first was reviewed on, left the losers answering `Changed` (or an `AlreadyEnded` with no receipt) and `Replayed` false, where the contract says a repeat answers the winner's
+receipt. A refused supersession on the relational stores reported a predecessor it had not moved as `Unmoved` at the revision the rolled-back end would have written. The write
+tools relayed the engine's refusal to a model, and the refusal for another task's entry named that task's key.
+
+**Root cause.** `GraphReceiptSql.RunAsync` read the receipt once, before the effect. Under READ COMMITTED a loser's guarded `UPDATE` waits on the winner's row, finds it
+changed, and reports no effect, so the winner's receipt is committed by then but was never looked for again (a supersession already re-reads after its rollback; this path did not).
+SQLite is not exposed: the purge that comes first takes its write lock. `GraphSupersedeSql` mapped an `Ended` result to `Unmoved` and kept the revision the end returned,
+which the rollback had undone. `GraphMemoryEngine.ReadOwnAsync` and the supersession read put `held.TaskKey` in the message of a foreign entry, and a missing entry had its own
+words, so the pair told a model which ids exist in which task.
+
+**Fix.** After an effect that reports none, `RunAsync` looks for the receipt once more in the same transaction and answers it. An unmoved predecessor reports the revision it was
+judged at, which is the stored one. A foreign entry reads as a missing one, in task terms and without the other task's key. `GraphReceiptSql.cs`, `GraphSupersedeSql.cs`,
+`GraphMemoryEngine.cs`.
+
+**Verify.** `Racing_keyed_ends_and_confirmations_answer_the_winners_receipt` (a contract fact, so on every store) and an added assertion in
+`One_stale_predecessor_stores_nothing_and_says_which_moved`, which failed on SQLite and Postgres before the fix; `MemoryWriteToolsTests` for the message. The race fact failed
+on Postgres in three runs of three against the old code and passed in three after the fix; it cannot fail on the other stores, where a lock serializes the racers.
+
+**Introduced by.** MC11 and MC12 (`docs/task-archive.md` Parts 424 and 425), and the cross-task messages before them.
+
+---
+
 ## 2026-11-07 — the agent layer's pool kept a failed store write out of the store for good, and four smaller faults found beside it
 
 **Symptom.** None reported; found by reading (`docs/task-archive.md` Part 474). A pool over a store that threw once on a write had memory and store disagree until the process
