@@ -6820,3 +6820,9 @@ lines the doors' own tests pin. Landed in `08b41270`; the row stayed open in `TA
 
 - a kept run drops what it cannot place; a run's end holds a permission request; task events before a prompt; the pool's unreadable hold; the unbounded bounds; the transcript recorder's subagent words; `UnreadFrames`
 - a prune and a reinforcement reach an ended entry; `check-links` and `.agents/`; the dead `.claude/knowledge/` pointers; two untrue comments
+
+## Part 478 — dependency currency: the quarterly refresh `docs/ROADMAP.md` names (2026-11-07)
+
+✅ done 2026-11-07 — **Outcome:** the four `TASKS.md` blockers were re-checked first and none had cleared (an `hf_` token, real aggregators, two reviewers' labels, a recurrence and a ruling are each still absent), so the piece taken was the roadmap's standing dependency refresh, ruled by **D172**. `dotnet list package --outdated` found fifteen behind and all fifteen moved, in four commits each green under `verify` with the test baseline unmoved: the `Microsoft.Extensions` band, `Microsoft.Extensions.AI`, `ProtectedData` and the test tooling; ONNX Runtime 1.31.1; `ModelContextProtocol.Core` 2.4.0; `LLamaSharp` 0.30.0. No source change was needed. The live MCP suite passed against the reference server, and the two `LlamaSharpProviderLiveTests` passed against a local model on a CPU backend added to the test project for that run and reverted. Not run: the live `claude`-CLI MCP test, which spends real tokens. The consumer line is in `CHANGELOG.md` §Unreleased. Lane `platform`.
+
+- the fifteen pins; the two live suites that exercise the native and the protocol bumps
