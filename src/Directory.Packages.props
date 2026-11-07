@@ -45,7 +45,7 @@
     <PackageVersion Include="Microsoft.ML.OnnxRuntime.Managed" Version="1.31.1" />
 
     <!-- MCP (Model Context Protocol) client — for exposing an MCP server's tools as Lyntai ITools -->
-    <PackageVersion Include="ModelContextProtocol.Core" Version="2.2.0" />
+    <PackageVersion Include="ModelContextProtocol.Core" Version="2.4.0" />
 
     <!-- tests -->
     <PackageVersion Include="Microsoft.NET.Test.Sdk" Version="18.11.0" />
