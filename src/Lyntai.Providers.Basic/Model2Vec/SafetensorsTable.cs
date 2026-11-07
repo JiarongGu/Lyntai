@@ -52,7 +52,11 @@ internal sealed class SafetensorsTable
             throw new InvalidDataException($"'{path}' declares an implausible header length of {headerLength}.");
 
         var headerBytes = new byte[headerLength];
-        file.ReadExactly(headerBytes);
+        try { file.ReadExactly(headerBytes); }
+        catch (EndOfStreamException)
+        {
+            throw new InvalidDataException($"'{path}' ends inside its header; check the download completed.");
+        }
 
         using var header = JsonDocument.Parse(headerBytes);
 
@@ -78,7 +82,11 @@ internal sealed class SafetensorsTable
 
             var raw = new byte[expected];
             file.Position = 8 + headerLength + begin;
-            file.ReadExactly(raw);
+            try { file.ReadExactly(raw); }
+            catch (EndOfStreamException)
+            {
+                throw new InvalidDataException($"'{path}' ends before tensor '{entry.Name}' does; check the download completed.");
+            }
 
             // Safetensors is little-endian by definition; on a big-endian host the reinterpret below would
             // be silently wrong, which is the one failure a wrong vector cannot be told from.
