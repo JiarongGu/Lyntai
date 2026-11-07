@@ -524,6 +524,18 @@ public sealed class GraphMemoryEngine(
         return (keyed, new GraphOperationKey(call.Key, taskKey, call.Kind, call.Fingerprint, at, at + _options.ReceiptRetention));
     }
 
+    /// <summary>The key's live receipt for a keyed call, read BEFORE the checks that read the world: a later change (an entry ended or
+    /// removed since) must not turn the retry the receipt exists for into a throw. A key that answered another call refuses.</summary>
+    private async Task<GraphReceipt?> HeldReceiptAsync(KeyedCall call, string taskKey, CancellationToken ct)
+    {
+        var (keyed, key) = Keyed(call, taskKey);
+        var held = await keyed.ReceiptAsync(Name, taskKey, call.Key, key.At, ct).ConfigureAwait(false);
+        if (held is null) return null;
+        if (held.Kind != key.Kind || !string.Equals(held.Fingerprint, key.Fingerprint, StringComparison.Ordinal))
+            throw new MemoryKeyConflictException(call.Key, taskKey, held.Kind);
+        return held;
+    }
+
     private static void RequireKeyText(string key)
     {
         if (string.IsNullOrWhiteSpace(key) || key.Length > MemoryLimits.MaxOperationKeyChars)
@@ -589,6 +601,7 @@ public sealed class GraphMemoryEngine(
                 $"{nameof(MemorySupersession)}. Nothing was written.", nameof(supersession));
 
         var expected = new Dictionary<long, long>();
+        var ids = new List<long>(supersession.Predecessors.Count);
         foreach (var named in supersession.Predecessors)
         {
             if (!long.TryParse(named.ExpectedRevision, NumberStyles.Integer, CultureInfo.InvariantCulture, out var revision))
@@ -597,14 +610,13 @@ public sealed class GraphMemoryEngine(
                 throw new ArgumentException(
                     $"Memory engine '{Name}' supersedes only its own entries, which it addresses by numeric id; got '{named.Entry.Engine}' " +
                     $"'{named.Entry.Id}'.", nameof(supersession));
+            if (!expected.ContainsKey(id)) ids.Add(id);
             expected[id] = revision;
         }
-        // the refusals a stated supersession gives, before any embed: another task, a missing or self entry, a bound reversed, an entry
-        // that already has a different live successor
-        var ids = await ResolvePredecessorsAsync(write with { Supersedes = [.. supersession.Predecessors.Select(p => p.Entry)] }, ct)
-            .ConfigureAwait(false);
         CheckRecheck(write);
 
+        // a repeat answers its receipt BEFORE the checks that read the world, which a later change (a predecessor removed since)
+        // would fail; the ids are the ones ResolvePredecessorsAsync returns, in the same order, so the fingerprint is the same
         GraphOperationKey? key = null;
         if (supersession.OperationKey is { } operationKey)
         {
@@ -621,6 +633,25 @@ public sealed class GraphMemoryEngine(
                 return await ReplayedSupersessionAsync(held, ids, ct).ConfigureAwait(false);
             }
         }
+
+        // the refusals a stated supersession gives, before any embed: another task, a missing or self entry, a bound reversed, an entry
+        // that already has a different live successor
+        await ResolvePredecessorsAsync(write with { Supersedes = [.. supersession.Predecessors.Select(p => p.Entry)] }, ct)
+            .ConfigureAwait(false);
+
+        // a stale review is judged BEFORE the embed and the age tick, which a refused call must neither pay for nor move; the store judges
+        // the revisions again in its own transaction, so a change in between is still caught there
+        var standing = new List<MemoryPredecessorResult>(ids.Count);
+        foreach (var id in ids)
+        {
+            var current = await store.GetAsync(Name, id, ct).ConfigureAwait(false);
+            standing.Add(new MemoryPredecessorResult(new MemoryRef(Name, id.ToString(CultureInfo.InvariantCulture)),
+                current is not null && (current.Revision != expected[id] || current.EndedReason is not null)
+                    ? MemoryPredecessorOutcome.Changed : MemoryPredecessorOutcome.Unmoved,
+                current is null ? null : RevisionOf(current)));
+        }
+        if (standing.Any(p => p.Outcome == MemoryPredecessorOutcome.Changed))
+            return new MemorySupersessionResult(false, null, null, standing);
 
         var at = _clock();
         var prepared = await PrepareAsync(write, write.ValidFrom ?? at, ct).ConfigureAwait(false);
@@ -831,6 +862,8 @@ public sealed class GraphMemoryEngine(
         ArgumentNullException.ThrowIfNull(taskKey);
         ct.ThrowIfCancellationRequested();
         RequireTypedLinks();
+        if (call is { } repeated && await HeldReceiptAsync(repeated, taskKey, ct).ConfigureAwait(false) is { } answered)
+            return ToReceipt(answered, true);
         var source = await ReadOwnAsync(from, taskKey, ct, "relates").ConfigureAwait(false);
         var target = await ReadOwnAsync(to, taskKey, ct, "relates").ConfigureAwait(false);
         if (source.Id == target.Id)
@@ -915,6 +948,10 @@ public sealed class GraphMemoryEngine(
             throw new NotSupportedException(
                 $"Memory engine '{Name}' cannot end an entry with a reason: its store ({store.GetType().Name}) does not " +
                 $"implement {nameof(IEndableMemoryGraphStore)}, so the end would be dropped or applied without its guard.");
+        // a repeat answers as the store's replay does: AlreadyEnded at the receipt's revision, whatever revision it expected
+        if (call is { } repeated && await HeldReceiptAsync(repeated, taskKey, ct).ConfigureAwait(false) is { } answered)
+            return new MemoryEndResult(MemoryEndOutcome.AlreadyEnded, answered.Revision.ToString(CultureInfo.InvariantCulture))
+            { Receipt = ToReceipt(answered, true) };
 
         var held = await ReadOwnAsync(entry, taskKey, ct).ConfigureAwait(false);
         long? by = null;
