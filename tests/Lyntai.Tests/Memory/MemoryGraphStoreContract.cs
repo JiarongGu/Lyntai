@@ -1463,6 +1463,24 @@ public static class MemoryGraphStoreContract
         Assert.Equal("gamma", Assert.Single(await store.SeedAsync("e", key, "s", null, 10)).Content);
     }
 
+    /// <summary>The two reads that take a page of ids, past the engine's parameter limit.</summary>
+    public static async Task Reads_of_an_id_list_past_the_engines_parameter_limit_answer(IMemoryGraphStore store, string key)
+    {
+        var a = await store.UpsertAsync(Write("e", key, "alpha"));
+        var b = await store.UpsertAsync(Write("e", key, "beta"));
+        await store.LinkAsync("e", a, b, "cites", 1, symmetric: false);
+        List<long> padded(long first) =>
+            [first, .. Enumerable.Range(1, 33_000).Select(i => 1_000_000_000L + i)];
+
+        var neighbours = await store.NeighboursAsync("e", key, padded(a), 10);
+        Assert.Equal([b], neighbours.Select(n => n.Node.Id));
+
+        if (store is not ITypedLinkMemoryGraphStore typed) return;
+        var links = await typed.LinksAmongAsync("e", key, [a, b, .. padded(a).Skip(1)], ["cites"]);
+        var link = Assert.Single(links);
+        Assert.Equal((a, b), (link.From, link.To));
+    }
+
     public static async Task DeleteAsync_takes_edges_with_the_nodes(IMemoryGraphStore store, string key)
     {
         var a = await store.UpsertAsync(Write("e", key, "alpha"));

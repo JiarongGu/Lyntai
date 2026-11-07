@@ -405,7 +405,7 @@ public sealed class SqliteMemoryGraphStore(
 
         await using var conn = await factory.OpenAsync(ct).ConfigureAwait(false);
         var totals = await TotalsAsync(conn, engine, ct).ConfigureAwait(false);
-        var idList = ids.ToList();
+        var idList = IdArray(ids);
         // RAW weight and staleness — the engine applies the decay curve and re-ranks; ordering here is a
         // cheap pre-sort only. One MemoryEdgeRow rather than five more positional splits: Dapper's multi-map
         // arity is finite and a five-double signature is exactly the shape whose slots get silently transposed.
@@ -421,7 +421,8 @@ public sealed class SqliteMemoryGraphStore(
                              MAX(e.strengthened_ordinal) AS ord, MAX(e.strengthened_chars) AS ch,
                              MAX(e.strengthened_at) AS whn
                       FROM lyntai_memory_edge e
-                      WHERE e.from_id IN @idList AND e.to_id NOT IN @idList
+                      WHERE e.from_id IN (SELECT value FROM json_each(@idList))
+                        AND e.to_id NOT IN (SELECT value FROM json_each(@idList))
                       GROUP BY e.to_id) x
                 JOIN lyntai_memory_node n ON n.id = x.id
                 -- the walk stays inside the task: an edge that crosses one must not carry a
@@ -490,7 +491,7 @@ public sealed class SqliteMemoryGraphStore(
         ct.ThrowIfCancellationRequested();
         if (ids.Count == 0 || kinds.Count == 0) return [];
         await using var conn = await factory.OpenAsync(ct).ConfigureAwait(false);
-        var idList = ids.ToList();
+        var idList = IdArray(ids);
         var kindList = kinds.ToList();
         // both ends are checked against the task, so an edge that crosses one is never reported
         var rows = await conn.QueryAsync<TypedLinkRow>(new CommandDefinition("""
@@ -498,7 +499,8 @@ public sealed class SqliteMemoryGraphStore(
             FROM lyntai_memory_edge e
             JOIN lyntai_memory_node a ON a.id = e.from_id
             JOIN lyntai_memory_node b ON b.id = e.to_id
-            WHERE e.from_id IN @idList AND e.to_id IN @idList AND e.kind IN @kindList
+            WHERE e.from_id IN (SELECT value FROM json_each(@idList))
+              AND e.to_id IN (SELECT value FROM json_each(@idList)) AND e.kind IN @kindList
               AND a.engine = @engine AND a.task_key = @taskKey AND b.engine = @engine AND b.task_key = @taskKey
             ORDER BY e.from_id, e.to_id, e.kind
             """, new { idList, kindList, engine, taskKey }, cancellationToken: ct)).ConfigureAwait(false);
@@ -658,16 +660,16 @@ public sealed class SqliteMemoryGraphStore(
         ct.ThrowIfCancellationRequested();
         if (ids.Count == 0) return 0;
         await using var conn = await factory.OpenAsync(ct).ConfigureAwait(false);
-        // edges go with the nodes through ON DELETE CASCADE, as MemoryGraphSql.Prune says. The ids travel as ONE
-        // JSON parameter: `IN @ids` expands to one per id, which SQLite refuses past its bound-variable limit.
+        // edges go with the nodes through ON DELETE CASCADE, as MemoryGraphSql.Prune says
         return await conn.ExecuteAsync(new CommandDefinition("""
             DELETE FROM lyntai_memory_node WHERE engine = @engine AND id IN (SELECT value FROM json_each(@ids))
-            """, new
-            {
-                engine,
-                ids = "[" + string.Join(',', ids.Select(i => i.ToString(System.Globalization.CultureInfo.InvariantCulture))) + "]",
-            }, cancellationToken: ct)).ConfigureAwait(false);
+            """, new { engine, ids = IdArray(ids) }, cancellationToken: ct)).ConfigureAwait(false);
     }
+
+    // An id list travels as ONE JSON parameter: `IN @ids` expands to a parameter per id, which SQLite refuses past
+    // its bound-variable limit.
+    private static string IdArray(IEnumerable<long> ids) =>
+        "[" + string.Join(',', ids.Select(i => i.ToString(System.Globalization.CultureInfo.InvariantCulture))) + "]";
 
     /// <inheritdoc />
     public async Task ForgetAsync(string engine, string taskKey, string? scope,
