@@ -7,6 +7,20 @@ to `.agents/knowledge/pitfalls.md`; the release-facing line goes to `CHANGELOG.m
 
 ---
 
+## 2026-11-08 — the embed, rerank and media routers struck a host for a caller's cancel, an out-of-range environment seconds threw at startup, and a registered ledger governed embeds without a budget
+
+**Symptom.** None reported; found by reading (`docs/task-archive.md` Part 484, closed in Part 485). A provider whose transport the caller's cancel tore down threw an `IOException` through the generic router or the media router, which read it as the host failing: it benched the host and called the next candidate (a render, or a second submit that could bill twice). `LYNTAI_CACHE_TTL_SECONDS=1e12` or `Infinity` was an `OverflowException` out of `AddLyntai`, where a malformed value is ignored. A host with `UseSqliteUsageTracking` and no `AddUsageBudget` that set `LYNTAI_BUDGET_MAX_TOKENS` had embeds and reranks refused while text was not.
+
+**Root cause.** `ProviderRouter.AttemptAsync` and the three `MediaRouter` attempts rethrew only an `OperationCanceledException` raised under a cancelled token, the same gap `TextRouter` had until Part 484. `TimeSpan.FromSeconds` was called on any parsed double that passed a sign test. The router factory read the unkeyed `IUsageTracker`, which the storage packages register for their ledger alone, though D163 says only `AddUsageBudget()` and `AddRateLimit()` reach it.
+
+**Fix.** Each attempt calls `ct.ThrowIfCancellationRequested()` before the permit and in its catch (a submit's filtered catch too). `TryEnvSeconds` ignores a value that is not finite or reaches `TimeSpan.MaxValue`, for the ten duration knobs. `AddUsageBudget` registers the shared tracker under `LyntaiBuilder.BudgetSpendKey`, and the router factory reads that key, the shape `MediaSpendKey` has.
+
+**Verify.** `EmbeddingRoutingTests`, `MediaRouterTests` (generate and submit) and `MediaRouterStreamTests` each have a test through a provider that cancels then throws, and the four failed with the router change reverted. `A_duration_env_override_outside_the_range_of_a_TimeSpan_is_ignored` covers every knob; `ProviderRouterFactoryTests` builds the container with a ledger and a zero token cap, with and without the budget. The duration and ledger tests were written against the fixed code and not seen failing; the first was reproduced by hand from the row.
+
+**Introduced by.** Not traced to a commit for each.
+
+---
+
 ## 2026-11-08 — a failing cache write replaced a paid reply with its exception, a cancelled caller started a fallback, and the smaller faults beside them in the front door, the hosted MCP door and the scorers
 
 **Symptom.** None reported; found by reading (`docs/task-archive.md` Part 484). A response cache whose store threw (SQLITE_BUSY, a BYO cache down) made `CompleteAsync` throw after the backend had answered and the budget had recorded the spend; the next

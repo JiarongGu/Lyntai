@@ -107,6 +107,39 @@ public class LyntaiOptionsTests
         Assert.Equal("base-x", options.ResolveModel("chat", null));     // falls through to "default"
     }
 
+    [Theory] // a duration no TimeSpan can hold is ignored like a malformed one, not an OverflowException at startup
+    [InlineData("LYNTAI_TIMEOUT_SECONDS")]
+    [InlineData("LYNTAI_MAX_TIMEOUT_SECONDS")]
+    [InlineData("LYNTAI_DEADHOST_COOLDOWN_SECONDS")]
+    [InlineData("LYNTAI_JOBS_LEASE_SECONDS")]
+    [InlineData("LYNTAI_JOBS_POLL_SECONDS")]
+    [InlineData("LYNTAI_JOBS_BACKOFF_SECONDS")]
+    [InlineData("LYNTAI_CACHE_TTL_SECONDS")]
+    [InlineData("LYNTAI_MEMORY_TTL_SECONDS")]
+    [InlineData("LYNTAI_RATELIMIT_MAX_WAIT_SECONDS")]
+    [InlineData("LYNTAI_RETRY_BACKOFF_SECONDS")]
+    public void A_duration_env_override_outside_the_range_of_a_TimeSpan_is_ignored(string key)
+    {
+        foreach (var bad in new[] { "1e12", "Infinity", "-Infinity", "NaN", "1e308" })
+        {
+            var defaults = new LyntaiOptions();
+            var options = new LyntaiOptions();
+
+            options.ApplyEnvOverrides(k => k == key ? bad : null);
+
+            Assert.Equal(defaults.ProviderTimeout, options.ProviderTimeout);
+            Assert.Equal(defaults.MaxProviderTimeout, options.MaxProviderTimeout);
+            Assert.Equal(defaults.DeadHostCooldown, options.DeadHostCooldown);
+            Assert.Equal(defaults.Jobs.Lease, options.Jobs.Lease);
+            Assert.Equal(defaults.Jobs.PollInterval, options.Jobs.PollInterval);
+            Assert.Equal(defaults.Jobs.RetryBackoff, options.Jobs.RetryBackoff);
+            Assert.Equal(defaults.Cache.Ttl, options.Cache.Ttl);
+            Assert.Equal(defaults.MemoryEviction.DefaultTtl, options.MemoryEviction.DefaultTtl);
+            Assert.Equal(defaults.RateLimit.MaxWait, options.RateLimit.MaxWait);
+            Assert.Equal(defaults.Routing.RetryBackoff, options.Routing.RetryBackoff);
+        }
+    }
+
     [Fact] // Env numbers parse INVARIANT — a comma-decimal locale must not read "1.5" as 15
     public void Numeric_env_overrides_parse_invariant_regardless_of_culture()
     {

@@ -1,4 +1,5 @@
 using Lyntai.Inference;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace Lyntai.Tests.Inference;
 
@@ -272,6 +273,46 @@ public class ProviderRouterFactoryTests
 
         Assert.Equal(ProviderVerdict.Refused, reply.Verdict);
         Assert.Equal(0, good.Calls);
+    }
+
+    // A ledger a storage package registers is not a budget the host asked for: the same token cap that refuses
+    // an embed under AddUsageBudget must leave it alone when only the ledger is registered (D163).
+    private static async Task<(ProviderVerdict Verdict, int Calls)> EmbedThroughTheContainerAsync(bool budget)
+    {
+        var provider = new StubVectorProvider("v");
+        var services = new ServiceCollection();
+        services.AddSingleton<Lyntai.Inference.Budgeting.IUsageTracker, Lyntai.Inference.Budgeting.InMemoryUsageTracker>();
+        services.AddLyntai(b =>
+        {
+            b.AddProvider(_ => provider);
+            b.Configure(o => o.Budget.MaxTokens = 0);   // nothing may be spent
+            if (budget) b.AddUsageBudget();
+        });
+        using var sp = services.BuildServiceProvider();
+
+        var router = sp.GetRequiredService<IProviderRouterFactory>().For<VectorRequest, VectorResponse>(
+            sp.GetServices<IModelProvider>(), VectorResponse.Failure,
+            c => c.Supports(ProviderKinds.Vector, ProviderOperation.Complete, accepts: ProviderKinds.Text));
+        var reply = await router.CallAsync(new VectorRequest(["a"], Consumer: "memory"));
+        return (reply.Verdict, provider.Calls);
+    }
+
+    [Fact]
+    public async Task A_registered_ledger_without_a_budget_does_not_govern_an_embed()
+    {
+        var (verdict, calls) = await EmbedThroughTheContainerAsync(budget: false);
+
+        Assert.Equal(ProviderVerdict.Ok, verdict);
+        Assert.Equal(1, calls);
+    }
+
+    [Fact]
+    public async Task AddUsageBudget_governs_an_embed_through_the_same_ledger()
+    {
+        var (verdict, calls) = await EmbedThroughTheContainerAsync(budget: true);
+
+        Assert.Equal(ProviderVerdict.Refused, verdict);
+        Assert.Equal(0, calls);
     }
 
     [Fact]

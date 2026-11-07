@@ -549,10 +549,16 @@ public sealed class LyntaiBuilder
     {
         configure?.Invoke(Options.Budget);
         Services.TryAddSingleton<IUsageTracker, InMemoryUsageTracker>();
+        Services.TryAddKeyedSingleton<IUsageTracker>(BudgetSpendKey, (sp, _) => sp.GetRequiredService<IUsageTracker>());
         return AddFrontDoorDecorator(BudgetDecoratorOrder, nameof(AddUsageBudget), (sp, inner) => new BudgetedTextClient(
             inner, sp.GetRequiredService<IUsageTracker>(), Options,
             sp.GetService<ILogger<BudgetedTextClient>>()));
     }
+
+    /// <summary>The key <see cref="AddUsageBudget"/> registers the shared <see cref="IUsageTracker"/> under, so the
+    /// generic routers (embed, rerank) are governed by a budget the host asked for and not by any tracker that is
+    /// merely registered: a storage package's usage tracking registers one too (D163).</summary>
+    internal const string BudgetSpendKey = "lyntai.budget-spend";
 
     /// <summary>Throttle front-door calls with a token-bucket rate limiter — over the rate a call waits up
     /// to <see cref="RateLimitOptions.MaxWait"/>, then is refused (a <c>RateLimited</c> reply). Global rate

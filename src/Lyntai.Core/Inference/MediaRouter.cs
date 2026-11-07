@@ -137,6 +137,7 @@ public sealed class MediaRouter(
                 }
                 catch (Exception ex) when (!ProviderVerdictClassifier.NeverReachedTheBackend(ex))
                 {
+                    ct.ThrowIfCancellationRequested();   // the caller leaving, not an inconclusive submission
                     // A throw during SUBMIT that MAY have been delivered is INCONCLUSIVE — the backend may
                     // already hold a billable render, so advancing to the next candidate would buy the same
                     // generation twice. One that provably never left this process is NOT caught (the filter):
@@ -261,6 +262,7 @@ public sealed class MediaRouter(
             }
             catch (Exception ex)
             {
+                ct.ThrowIfCancellationRequested();   // a transport torn down by the caller's cancel is the caller leaving
                 // Unconditional on purpose — NeverReachedTheBackend is the SUBMIT door's billing rule.
                 // Here nothing is charged by the act of asking, so a refused connection before the first
                 // byte is the ordinary pre-commit failure the contract says advances.
@@ -382,6 +384,9 @@ public sealed class MediaRouter(
     private async Task<MediaResponse> AttemptAsync(
         IModelProvider provider, MediaRequest request, CancellationToken ct)
     {
+        // a caller already gone takes no permit and calls nobody, whichever candidate this is
+        ct.ThrowIfCancellationRequested();
+
         // the permit is taken BEFORE the clock starts, so a queued render's wait never inflates the
         // backend's reported latency
         using var permit = await _bookkeeping.EnterAsync(provider, ct).ConfigureAwait(false);
@@ -399,6 +404,9 @@ public sealed class MediaRouter(
         }
         catch (Exception ex)
         {
+            // a backend torn down by the caller's cancel throws whatever its transport throws: the caller
+            // leaving, not the host failing
+            ct.ThrowIfCancellationRequested();
             // THE TRUST BOUNDARY. IModelProvider documents "a value with a verdict, never a throw", and
             // AddProvider is a documented BYO seam — so a backend that breaks that contract is a
             // case this router HANDLES rather than a case that cannot happen. Without this, one throwing

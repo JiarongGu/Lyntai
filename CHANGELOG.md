@@ -34,6 +34,7 @@ every addition.
   a read is a miss and on a write returns the reply it was handed, where the exception used to replace a reply already billed. An empty model keys like an absent one, a TTL or a
   reservation lifetime of `TimeSpan.MaxValue` means never rather than an overflow, a rate-limit permit is not taken for a caller already cancelled, and a cooldown that lapsed
   unseen no longer swallows the next failure of its host.
+- **The embed, rerank and media routers no longer fall over for a caller who cancelled, an out-of-range duration in the environment is ignored, and a ledger is not a budget.** A torn-down transport's throw is the caller leaving on every router now (a render or a submit is not repeated on the next candidate). A `LYNTAI_*_SECONDS` too large for a `TimeSpan`, or `Infinity`, is ignored like a malformed one, where it threw out of `AddLyntai`. Embeds and reranks are governed by the tracker `AddUsageBudget` registers, not by any `IUsageTracker` that a storage package's usage tracking also registers.
 - **A hosted MCP tool that failed or was refused answers `isError`, and a bearer token is not printed.** Through 3.5.3 the endpoint a CLI's agent calls answered a failed,
   blocked or denied call as a plain successful string. `McpEndpoint.ToString()` and `AgentMcpServer.ToString()` no longer list the token. Disposing the host twice is safe.
 - **A judge's unknown winner is no verdict, a constant series has no correlation, and a recovery envelope has an iteration ceiling.** `LlmPairwiseComparer` read any

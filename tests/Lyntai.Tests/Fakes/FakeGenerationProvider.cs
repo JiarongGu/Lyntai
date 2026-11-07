@@ -37,10 +37,15 @@ public sealed class FakeGenerationProvider : IModelProvider
     /// bug must be classified and fallen over, never propagated to the caller.</summary>
     public Exception? Throws { get; set; }
 
+    /// <summary>Run inside <see cref="GenerateAsync"/> before it throws or answers — a test cancels its token
+    /// here, so the throw that follows is a transport torn down by the caller.</summary>
+    public Action? OnGenerate { get; set; }
+
     public Task<MediaResponse> GenerateAsync(MediaRequest request, CancellationToken ct = default)
     {
         GenerateCalls++;
         Requests.Add(request);
+        OnGenerate?.Invoke();
         if (Throws is not null) throw Throws;
         var verdict = Verdicts.Count > 1 ? Verdicts.Dequeue()
             : Verdicts.Count == 1 ? Verdicts.Peek()
@@ -103,8 +108,13 @@ public sealed class FakeGenerationJobProvider : IModelProvider, IMediaJobProvide
     /// the one path where a throw may or may not already have committed money.</summary>
     public Exception? SubmitThrows { get; set; }
 
+    /// <summary>Run inside <see cref="SubmitAsync"/> before it throws or answers — see
+    /// <see cref="FakeGenerationProvider.OnGenerate"/>.</summary>
+    public Action? OnSubmit { get; set; }
+
     public Task<QueuedOperation> SubmitAsync(MediaRequest request, CancellationToken ct = default)
     {
+        OnSubmit?.Invoke();
         if (SubmitThrows is not null) throw SubmitThrows;
         ++_submits;
         // a failed submission carries no operation id, as QueuedOperation.Failure's does
@@ -189,10 +199,15 @@ public sealed class ScriptedStreamProvider : IModelProvider
     public Task<MediaResponse> GenerateAsync(MediaRequest request, CancellationToken ct = default) =>
         Task.FromResult(MediaResponse.Failure(ProviderVerdict.Unsupported, "streaming only"));
 
+    /// <summary>Run when the stream is first enumerated — a test cancels its token here, so the
+    /// <see cref="Throws"/> that follows is a transport torn down by the caller.</summary>
+    public Action? OnStream { get; set; }
+
     public async IAsyncEnumerable<MediaChunk> StreamAsync(
         MediaRequest request, [EnumeratorCancellation] CancellationToken ct = default)
     {
         StreamCalls++;
+        OnStream?.Invoke();
         foreach (var chunk in Script)
         {
             ct.ThrowIfCancellationRequested();

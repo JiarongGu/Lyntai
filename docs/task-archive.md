@@ -6869,3 +6869,9 @@ lines the doors' own tests pin. Landed in `08b41270`; the row stayed open in `TA
 - the three reviews; the twenty-one rows
 - the cache, router, tracker, limiter, key and expiry fixes
 - the hosted MCP error flag, the token printing, the host's dispose, the pairwise winner, the correlation and the envelope ceiling
+
+## Part 485 — the startable rows of the front-door review: the embed, rerank and media routers' cancel, the environment's seconds, and the tracker a budget owns (2026-11-08)
+
+✅ done 2026-11-08 — **Outcome:** the four `TASKS.md` blockers were re-checked first and none had cleared (no `hf_` token or `FAL_KEY` in the environment, no aggregator, no labels, the nine tests unrecurred), so the piece taken was the startable rows of `TASKS.md` Part 486, each with a test that failed before. The generic router (embed, rerank) and the media router's generate, submit and stream attempts rethrow a caller's cancel when a torn-down transport throws something else, and take no permit for a caller already gone, as `TextRouter` does since Part 484; a submit that the cancel tore down is no longer an inconclusive submission. `LyntaiOptions` reads every duration knob through one bounded reader, so a value past a `TimeSpan` or a non-finite one is ignored like a malformed one instead of an `OverflowException` out of `AddLyntai`. The generic routers read their tracker by the key `AddUsageBudget` registers, so a ledger a storage package registers no longer refuses an embed under `LYNTAI_BUDGET_MAX_TOKENS` while text is not. `docs/FIXES.md` 2026-11-08 has the causes. Left open: the two `decision-only` rows of `TASKS.md` Part 486 (a cache hit's `Usage`, a stream's dropped usage). No decision, no public member. Lane `inference`.
+
+- the three router cancels; the bounded duration reader; the budget's keyed tracker
