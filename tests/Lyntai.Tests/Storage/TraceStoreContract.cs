@@ -52,6 +52,58 @@ public static class TraceStoreContract
         Assert.Single(loaded.Steps); // replaced, not appended
     }
 
+    /// <summary>A trace whose mode names its step count, so a read that paired one save's header with another
+    /// save's steps is visible as a disagreement.</summary>
+    private static RunTrace OfSize(string session, int steps) => Sample(session) with
+    {
+        Mode = $"n{steps}",
+        Steps = [.. Enumerable.Range(0, steps).Select(i => new TraceStep { Kind = "phase", Label = $"s{i}", Sequence = i })],
+    };
+
+    private static void AssertWhole(RunTrace? loaded)
+    {
+        Assert.NotNull(loaded);
+        Assert.Equal(int.Parse(loaded!.Mode[1..], System.Globalization.CultureInfo.InvariantCulture), loaded.Steps.Count);
+    }
+
+    /// <summary>Four savers of ONE session, each on its own thread behind one gate: none throws a raw
+    /// unique-violation, and the survivor is one whole trace.</summary>
+    public static async Task Concurrent_saves_of_one_session_all_succeed_and_leave_one_whole_trace(ITraceStore store, string key)
+    {
+        var gate = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var saves = Enumerable.Range(1, 4).Select(n => Task.Run(async () =>
+        {
+            await gate.Task;
+            await store.SaveAsync(OfSize(key, n));
+        })).ToArray();
+        gate.SetResult();
+
+        await Task.WhenAll(saves);
+
+        AssertWhole(await store.GetAsync(key));
+    }
+
+    /// <summary>A reader alternating with re-saves of two sizes never sees the old header with the new steps.</summary>
+    public static async Task A_read_between_re_saves_is_one_whole_trace(ITraceStore store, string key)
+    {
+        await store.SaveAsync(OfSize(key, 1));
+        using var stop = new CancellationTokenSource();
+        var writer = Task.Run(async () =>
+        {
+            for (var i = 0; i < 40; i++) await store.SaveAsync(OfSize(key, i % 2 == 0 ? 6 : 1));
+            await stop.CancelAsync();
+        });
+
+        var reads = 0;
+        while (!stop.IsCancellationRequested || reads < 20)
+        {
+            AssertWhole(await store.GetAsync(key));
+            reads++;
+        }
+
+        await writer;
+    }
+
     public static async Task Unknown_session_returns_null(ITraceStore store, string key)
     {
         Assert.Null(await store.GetAsync(key + "-nope"));

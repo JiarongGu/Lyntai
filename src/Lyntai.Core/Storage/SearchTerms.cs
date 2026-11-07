@@ -36,6 +36,11 @@ public static class SearchTerms
     /// and a truncated tail still leaves every earlier n-gram matching.</summary>
     public const int MaxTermsPerToken = 32;
 
+    /// <summary>The most terms one query contributes, in all. SQLite refuses an expression nested past a fixed
+    /// depth and a substring clause is a chain with one link per term, so a raw query of a thousand words made
+    /// the recall fail open to nothing where Postgres answered. The leading terms are kept.</summary>
+    internal const int MaxTerms = 256;
+
     /// <summary>The terms <paramref name="raw"/> should match on, in order, de-duplicated
     /// (case-insensitively). Empty when nothing reaches the floor — the caller's signal to fall back to a
     /// whole-query substring scan.</summary>
@@ -59,8 +64,9 @@ public static class SearchTerms
             foreach (var (run, profile) in ScriptRuns(token))
                 if (profile.ExpandsIntoGrams) AddGrams(run, gramLength(profile), terms, seen);
                 else if (keepWholeRuns && run.Length >= MinimumTermLength && seen.Add(run)) terms.Add(run);
+            if (terms.Count >= MaxTerms) break;
         }
-        return terms;
+        return terms.Count > MaxTerms ? terms.GetRange(0, MaxTerms) : terms;
     }
 
     /// <summary>
@@ -161,7 +167,7 @@ public static class SearchTerms
         if (terms.Count == 0) return shortGrams;
 
         var seen = new HashSet<string>(terms, StringComparer.Ordinal);
-        return [.. terms, .. shortGrams.Where(g => seen.Add(g))];
+        return [.. terms.Concat(shortGrams.Where(g => seen.Add(g))).Take(MaxTerms)];
     }
 
     /// <summary>Whether <paramref name="raw"/> has any short-gram term that <see cref="Extract"/> drops —

@@ -7,6 +7,20 @@ to `.agents/knowledge/pitfalls.md`; the release-facing line goes to `CHANGELOG.m
 
 ---
 
+## 2026-11-08 — a Postgres trace save raced to `23505`, two score batches deadlocked, a trace read paired two saves, and SQLite's id list and term chain hit the engine's limits
+
+**Symptom.** None reported; found by reading (`docs/task-archive.md` Part 484, closed in Part 487) and each reproduced here. Four savers of one session on Postgres: three failed `23505 lyntai_run_trace_pkey`. Two score batches of one session naming the same scorers in opposite order: `40P01 deadlock detected`. A trace read racing re-saves of two sizes returned a header of one save with the steps of the other, on SQLite and on Postgres. On SQLite, a scope of 33,000 entries evicted by a size budget threw `too many SQL variables` after the new entry was stored, and the access touch of a recall that large was swallowed; a query of 1,500 words gave `Expression tree is too large (maximum depth 1000)`, which the recall's fail-open catch turned into no entries where Postgres answered. `alpha-1` and `Beta-1` named one scorer differently on Postgres than on the other stores.
+
+**Root cause.** `PostgresTraceStore.SaveAsync` deletes then inserts in READ COMMITTED with no lock, so each saver deletes nothing and the second insert collides; `PostgresScoreStore.SaveAsync` upserts row by row in the caller's order, so two orders take the same row locks in opposite order. `GetAsync` read the header and the steps as two statements with no transaction. `IN @ids` expands to a parameter per id and the engine bounds them; `SearchTerms` capped the terms per token and not in all, and a substring clause is an `OR` chain with a link per term. `MAX(scorer_name)` takes the database collation where `ORDER BY … COLLATE "C"` beside it did not.
+
+**Fix.** Both Postgres saves take `pg_advisory_xact_lock` on the session first, the shape `PostgresPromptVersionStore` has per name; the trace read runs in one transaction (REPEATABLE READ on Postgres, a WAL snapshot on SQLite); the aggregate is `MAX(scorer_name COLLATE "C")`; the SQLite memory store passes its id lists as one `json_each` parameter, as `SqliteVectorStore` does; `SearchTerms` stops at 256 terms, keeping the leading ones.
+
+**Verify.** `TraceStoreContract` (`Concurrent_saves_of_one_session…`, `A_read_between_re_saves…`) and `ScoreStoreContract` (`Batches_of_one_session_in_opposite_order…`, `Aggregate_takes_the_ordinally_greatest_name…`) ran on Postgres with Docker up and failed with the Postgres change reverted (the read fact also on SQLite, three runs of three); `SqliteMemoryLargeScopeTests` (33,000 rows) and `SearchTermsExpressionDepthTests` (1,500 and 5,000 words) failed before the change with the engine's own messages quoted above.
+
+**Introduced by.** Not traced to a commit for each.
+
+---
+
 ## 2026-11-08 — an MCP tool's text resource was dropped, and a truncated argument string called the tool with its defaults
 
 **Symptom.** None reported; found by reading (`docs/task-archive.md` Part 484, closed in Part 486). A file-read tool that answers its content as an embedded text resource reached the model as the literal `[resource content]`, or not at all when the result also held a text block. A model's argument string `{"path":"/tmp/x"`, cut off at its token limit, called the remote tool with an empty argument set, so a tool with defaults ran something the model never asked for.
