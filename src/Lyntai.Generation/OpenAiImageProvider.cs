@@ -154,6 +154,9 @@ public sealed class OpenAiImageProvider(
             return MediaResponse.Failure(ProviderVerdict.Unsupported,
                 "this endpoint edits BYTES; supply MediaInput.Data (a URI-only input would mean the " +
                 "platform downloading it for you, and guessing at auth for that host)");
+        if (edit is not null && !MediaTypeHeaderValue.TryParse(edit.MediaType, out _))
+            return MediaResponse.Failure(ProviderVerdict.Unsupported,
+                $"the init image's media type '{edit.MediaType}' is not a media type (e.g. image/png)");
 
         using var lease = HttpClientLease.From(httpFactory, disposeHttpClient);
         var http = lease.Client;

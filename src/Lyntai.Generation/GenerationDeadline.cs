@@ -28,6 +28,8 @@ namespace Lyntai.Generation.Providers;
 /// does.</para></summary>
 internal static class GenerationDeadline
 {
+    private static readonly TimeSpan LongestDeadline = TimeSpan.FromMilliseconds(uint.MaxValue - 1);
+
     /// <summary>Resolve one call's budget: an explicit <see cref="MediaRequest.TimeoutSeconds"/> wins
     /// (the most specific thing a caller can say), else the backend's configured default. A non-positive
     /// request value is not a budget and is ignored — the same rule as
@@ -42,7 +44,7 @@ internal static class GenerationDeadline
     /// <paramref name="timedOut"/>'s value instead, and on the caller's cancellation rethrows.</summary>
     /// <typeparam name="T">The call's result shape — a result, an operation, a probe.</typeparam>
     /// <param name="budget">The ceiling, already resolved by <see cref="Resolve"/>. Non-positive (including
-    /// <see cref="Timeout.InfiniteTimeSpan"/>) means no deadline — the escape hatch for a host that owns
+    /// <see cref="Timeout.InfiniteTimeSpan"/>) or longer than a clock can wait (about 49.7 days) means no deadline — the escape hatch for a host that owns
     /// timeouts itself. Note this is the RESOLVED value: an options default of
     /// <see cref="Timeout.InfiniteTimeSpan"/> does not survive a request that names its own budget.</param>
     /// <param name="ct">The caller's token, which keeps its own meaning.</param>
@@ -52,7 +54,8 @@ internal static class GenerationDeadline
         TimeSpan budget, CancellationToken ct,
         Func<CancellationToken, Task<T>> call, Func<string, T> timedOut)
     {
-        using var deadline = budget > TimeSpan.Zero ? new CancellationTokenSource(budget) : null;
+        // a CancellationTokenSource takes at most uint.MaxValue - 1 ms (about 49.7 days) and throws past it
+        using var deadline = budget > TimeSpan.Zero && budget <= LongestDeadline ? new CancellationTokenSource(budget) : null;
         using var linked = deadline is null
             ? null
             : CancellationTokenSource.CreateLinkedTokenSource(ct, deadline.Token);

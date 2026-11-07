@@ -243,7 +243,10 @@ public sealed class LocalDiffusionProvider(LocalDiffusionOptions options, IProce
         var model = checkpoint ?? options.ModelPath;
         if (LocalEngine.Missing(options.BinaryPath, model, "sd-cli", "model file") is { } missing)
             return MediaResponse.Failure(ProviderVerdict.NotConfigured, missing);
-        var binary = options.BinaryPath!;
+        // the engine runs from the binary's directory, so every path it is handed must be absolute: a relative
+        // one would be checked here against the host's directory and resolved there against the binary's
+        var binary = Path.GetFullPath(options.BinaryPath!);
+        model = Path.GetFullPath(model!);
 
         var source = SingleInitInput.Read(request, "the engine", out var refusal);
         if (refusal is not null) return MediaResponse.Failure(ProviderVerdict.Unsupported, refusal);
@@ -251,7 +254,7 @@ public sealed class LocalDiffusionProvider(LocalDiffusionOptions options, IProce
             return MediaResponse.Failure(ProviderVerdict.Unsupported,
                 "the engine reads its source image from DISK; supply MediaInput.Data rather than a URI");
 
-        var work = Path.Combine(options.WorkDirectory ?? Path.GetTempPath(), Guid.NewGuid().ToString("N"));
+        var work = Path.GetFullPath(Path.Combine(options.WorkDirectory ?? Path.GetTempPath(), Guid.NewGuid().ToString("N")));
         try
         {
             Directory.CreateDirectory(work);
@@ -265,8 +268,8 @@ public sealed class LocalDiffusionProvider(LocalDiffusionOptions options, IProce
             }
 
             var (width, height) = ClampSize(request.Option("size"), options.EffectiveMaxDimension);
-            var argv = BuildArgs(model!, WithLoraTags(request.Prompt ?? "", loras), output, width, height, initPath,
-                request, loras.Count > 0 ? options.LoraDirectory : null);
+            var argv = BuildArgs(model, WithLoraTags(request.Prompt ?? "", loras), output, width, height, initPath,
+                request, loras.Count > 0 ? Path.GetFullPath(options.LoraDirectory!) : null);
 
             var maxDuration = options.Timeout;
             var inactivity = LocalEngine.Inactivity(maxDuration, options.InactivityTimeout);
@@ -452,7 +455,7 @@ public sealed class LocalDiffusionProvider(LocalDiffusionOptions options, IProce
     /// floor is the engine's practical minimum; the ceiling is the caller's policy and may be absent.</summary>
     private static int Round64(int value, int? maxDimension)
     {
-        var rounded = (int)Math.Round(value / 64.0) * 64;
+        var rounded = (int)Math.Min(Math.Round(value / 64.0) * 64, int.MaxValue / 64 * 64);
         // The cap is floored to a multiple of 64 before it may win: nothing validates the host's number, and
         // a bare clamp against a 1000 cap returns 1000 into an argv the engine rejects. A cap below the floor
         // is a host asking for something the engine cannot do; the floor wins, because returning a size the
