@@ -48,6 +48,7 @@ public sealed class AgentAccountPool
     private readonly SemaphoreSlim _gate = new(1, 1);
     private AgentPoolSnapshot _state = AgentPoolSnapshot.Empty;
     private bool _loaded;
+    private bool _unsynced;
 
     /// <param name="options">The choices and bounds, read once.</param>
     /// <param name="store">Where the holds are kept; null = in process only.</param>
@@ -140,7 +141,13 @@ public sealed class AgentAccountPool
             var (taken, allowanceOfSeat) = offered[index];
             var reserved = AgentPoolReducer.TakeSeat(
                 _state, AgentPoolReducer.Covering(taken.Account, taken.Choice.Provider, taken.Choice.Model, allowanceOfSeat), token, now, _rules);
-            await CommitAsync(reserved.Snapshot, ct).ConfigureAwait(false);
+            var before = _state;
+            try { await CommitAsync(reserved.Snapshot, ct).ConfigureAwait(false); }
+            catch
+            {
+                _state = before;   // the token never reaches a caller, so no lease may stand for it
+                throw;
+            }
             return new AgentPickResult(
                 new AgentPick(taken, token, [.. reserved.Outcome.Leases.Select(l => (l.HoldId, l.Revision))]), null);
         }
@@ -157,11 +164,11 @@ public sealed class AgentAccountPool
     {
         ArgumentNullException.ThrowIfNull(pick);
         ArgumentNullException.ThrowIfNull(ended);
-        Settle(pick);
         await _gate.WaitAsync(ct).ConfigureAwait(false);
         try
         {
             await LoadAsync(ct).ConfigureAwait(false);
+            Settle(pick);
             var state = _state;
             if (!ended.IsError)
                 state = AgentPoolReducer.Succeed(state, pick.Leases.Select(l => new AgentLease(l.Id, l.Revision)), pick.Token).Snapshot;
@@ -183,11 +190,11 @@ public sealed class AgentAccountPool
     public async Task AbandonAsync(AgentPick pick, CancellationToken ct = default)
     {
         ArgumentNullException.ThrowIfNull(pick);
-        Settle(pick);
         await _gate.WaitAsync(ct).ConfigureAwait(false);
         try
         {
             await LoadAsync(ct).ConfigureAwait(false);
+            Settle(pick);
             await CommitAsync(AgentPoolReducer.Abandon(_state, pick.Token).Snapshot, ct).ConfigureAwait(false);
         }
         finally { _gate.Release(); }
@@ -288,21 +295,46 @@ public sealed class AgentAccountPool
     }
 
     // Memory is the truth in process; the write follows it. A write that throws leaves the new state in force here
-    // and unwritten there, and the exception says so to the caller.
+    // and unwritten there, and the exception says so to the caller. The store is then UNSYNCED: the next commit,
+    // whatever it changes, writes every hold and deletes every key no hold names, because a diff against memory
+    // would never write what the failed commit left out.
     private async Task CommitAsync(AgentPoolSnapshot next, CancellationToken ct)
     {
         var previous = _state;
         _state = next;
         if (_store is null) return;
-        // the revisions go first: a hold removed and a restart before its key is gone must not lose where its id stood
-        if (!ReferenceEquals(previous.RetiredMap, next.RetiredMap))
-            await _store.SetAsync(_revisionsKey, WriteRevisions(next.RetiredMap), ct).ConfigureAwait(false);
+        try
+        {
+            if (_unsynced) await ResyncAsync(next, ct).ConfigureAwait(false);
+            else
+            {
+                // the revisions go first: a hold removed and a restart before its key is gone must not lose where its id stood
+                if (!ReferenceEquals(previous.RetiredMap, next.RetiredMap))
+                    await _store.SetAsync(_revisionsKey, WriteRevisions(next.RetiredMap), ct).ConfigureAwait(false);
+                foreach (var (id, hold) in next.HoldMap)
+                    if (!previous.HoldMap.TryGetValue(id, out var was) || !ReferenceEquals(was, hold))
+                        await _store.SetAsync(_prefix + id, Write(hold), ct).ConfigureAwait(false);
+                foreach (var id in previous.HoldMap.Keys)
+                    if (!next.HoldMap.ContainsKey(id))
+                        await _store.DeleteAsync(_prefix + id, ct).ConfigureAwait(false);
+            }
+            _unsynced = false;
+        }
+        catch
+        {
+            _unsynced = true;
+            throw;
+        }
+    }
+
+    private async Task ResyncAsync(AgentPoolSnapshot next, CancellationToken ct)
+    {
+        await _store!.SetAsync(_revisionsKey, WriteRevisions(next.RetiredMap), ct).ConfigureAwait(false);
         foreach (var (id, hold) in next.HoldMap)
-            if (!previous.HoldMap.TryGetValue(id, out var was) || !ReferenceEquals(was, hold))
-                await _store.SetAsync(_prefix + id, Write(hold), ct).ConfigureAwait(false);
-        foreach (var id in previous.HoldMap.Keys)
-            if (!next.HoldMap.ContainsKey(id))
-                await _store.DeleteAsync(_prefix + id, ct).ConfigureAwait(false);
+            await _store.SetAsync(_prefix + id, Write(hold), ct).ConfigureAwait(false);
+        foreach (var key in await _store.ListKeysAsync(_prefix, ct).ConfigureAwait(false))
+            if (!next.HoldMap.ContainsKey(key[_prefix.Length..]))
+                await _store.DeleteAsync(key, ct).ConfigureAwait(false);
     }
 
     private static string WriteRevisions(IReadOnlyDictionary<string, long> retired)

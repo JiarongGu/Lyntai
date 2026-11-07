@@ -155,4 +155,17 @@ public class AgentTranscriptRecorderTests
         Assert.Equal("hello", turn.Prompt);
         Assert.Equal("hi", turn.LastMessage);
     }
+
+    [Fact] // a door may print after its terminal (a task's end); the decorator forwards it and the turn stays as the terminal closed it
+    public async Task The_decorator_forwards_an_event_after_the_terminal_without_recording_it()
+    {
+        AgentStreamEvent[] events = [new SessionStarted("s-1"), new TextDelta("hi"), Ended(), new AgentTaskEnded("t-1", "completed")];
+        var recorder = new AgentTranscriptRecorder();
+        var session = new RecordingAgentSession(new ScriptedAgentSession(events), recorder, Claude);
+
+        var seen = await session.StreamAsync(Turn("hello")).ToListAsync();
+
+        Assert.Equal(events, seen);
+        Assert.Equal("hi", recorder.Transcript.Turns.Single().LastMessage);
+    }
 }

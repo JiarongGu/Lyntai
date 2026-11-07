@@ -6807,3 +6807,9 @@ lines the doors' own tests pin. Landed in `08b41270`; the row stayed open in `TA
 
 - The NFKC-linearity test fails under the full parallel run
 - The usage-process never-answers test fails under the full parallel run
+
+## Part 474 — a design review of the agent layer built on 2026-11-07, and the five defects of it that were certain and small (2026-11-07)
+
+✅ done 2026-11-07 — **Outcome:** the four `TASKS.md` blockers were re-checked first and none had cleared (no `hf_` token or `FAL_KEY` in the environment, no aggregator, no labels, the nine tests unrecurred), so the piece taken was a design review: three read-only reviews of the pool and failure core, the kept run and the ACP frame readers, each finding read against the code before it was filed. Five were certain and closed with a test each: a store write that failed was never repeated (the pool now resyncs the store on the next commit), a pick that could not start its report was lost (it is settled once the gate is held), a pick whose commit failed leaked its lease, `RecordingAgentSession` threw on an event after the terminal, and an ACP `error` that was not an object read as success. Two shape faults of the frame reader joined them: a `tool_call`, `tool_call_update` or `plan` update without its member is unread rather than dropped or taken for an empty plan. The rest is `TASKS.md` Part 475 (seven startable rows, one `decision-only`). `docs/FIXES.md` 2026-11-07 has the causes. No decision, no public member. Lanes `inference` and `platform`.
+
+- the pool's store, settle and lease defects; the recorder after the terminal; the ACP shape faults

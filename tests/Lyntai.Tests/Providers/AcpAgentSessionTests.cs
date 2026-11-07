@@ -396,6 +396,29 @@ public class AcpAgentSessionTests
         Assert.DoesNotContain(runner.Exchanged, l => Method(JsonNode.Parse(l)!) == "session/prompt");
     }
 
+    [Theory] // an error that is not an object is still an error: reading it as no error opened a session that never opened
+    [InlineData("initialize", 1, "\"agent is down\"")]
+    [InlineData("initialize", 1, "[1]")]
+    [InlineData("session/new", 2, "\"no session\"")]
+    [InlineData("session/new", 2, "7")]
+    public async Task An_error_that_is_not_an_object_ends_the_turn_before_the_prompt(string method, int id, string error)
+    {
+        var runner = Agent(new()
+        {
+            ["initialize"] = _ => [method == "initialize"
+                ? $$"""{"jsonrpc":"2.0","id":1,"error":{{error}}}"""
+                : """{"jsonrpc":"2.0","id":1,"result":{"protocolVersion":1,"agentCapabilities":{}}}"""],
+            ["session/new"] = _ => [$$"""{"jsonrpc":"2.0","id":{{id}},"error":{{error}}}"""],
+        });
+
+        var events = await Run(Scripted(runner), Ask());
+
+        var ended = Assert.IsType<SessionEnded>(Assert.Single(events.Where(e => e is not AgentOffers)));
+        Assert.True(ended.IsError);
+        Assert.Equal(ProviderVerdict.Failed, ended.Verdict);
+        Assert.DoesNotContain(runner.Exchanged, l => Method(JsonNode.Parse(l)!) == "session/prompt");
+    }
+
     [Fact] // SOURCE-DERIVED: a grouped option list is flattened, and an answer that names no option is taken as taken
     public async Task A_grouped_option_list_is_read_flat_and_an_answer_that_lists_no_option_is_an_acknowledgement()
     {
@@ -1237,6 +1260,29 @@ public class AcpAgentSessionTests
             ended.Unread.Select(u => (u.Type, u.Subtype, u.Count)).ToArray());
         var clean = Ended(await Run(Scripted(OpenedAgent(_ => [PromptEnded("end_turn")])), Ask()));
         Assert.Empty(clean.Unread);
+    }
+
+    [Fact] // an update of a known kind whose key is missing or of the wrong type is unread, never dropped or read as an empty plan
+    public async Task A_known_update_without_the_member_it_is_read_by_is_unread_and_not_lost_or_taken_for_empty()
+    {
+        var runner = OpenedAgent(_ =>
+        [
+            Update("tool_call", """{"toolCallId":7,"title":"x"}"""),
+            Update("tool_call", """{"title":"x"}"""),
+            Update("tool_call_update", """{"status":"completed"}"""),
+            Update("plan", """{"entries":"x"}"""),
+            Update("plan", """{"entries":[{"content":"a","status":"pending"}]}"""),
+            PromptEnded("end_turn"),
+        ]);
+
+        var events = await Run(Scripted(runner), Ask());
+
+        var plan = Assert.Single(events.OfType<PlanUpdated>());   // the good plan alone; the malformed one did not clear it
+        Assert.Equal("a", Assert.Single(plan.Entries).Content);
+        Assert.Empty(events.OfType<ToolCall>());
+        Assert.Equal(
+            [("session/update", (string?)"tool_call", 2), ("session/update", "tool_call_update", 1), ("session/update", "plan", 1)],
+            Ended(events).Unread.Select(u => (u.Type, u.Subtype, u.Count)).ToArray());
     }
 
     // ── a permission mode and an effort (AG28, D244): SOURCE-DERIVED opens ────

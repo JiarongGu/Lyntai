@@ -15,17 +15,25 @@ LLM-ops layer (prompt registry, scoring, traces, memory). `AddLyntai(...)` and g
 
 <!-- open-items:begin — GENERATED. Edit the per-item `item:` markers, never this table. -->
 
-## Open items — 4 across 4 Parts: 3 blocked, 1 watch
+## Open items — 12 across 5 Parts: 7 startable, 3 blocked, 1 watch, 1 decision-only
 
 _Generated from the per-item `<!-- item: … -->` markers by `node devtools/dev.mjs check-backlog --write`._
 _Edit a marker, never this table — `verify` fails the moment the two disagree._
 
 | line | Part | item | state | waiting on |
 | ---: | ---: | --- | --- | --- |
-| 105 | 33 | GEN-VERIFY-FAL, the last line — the Hugging Face route | blocked · env | an hf_ token for the router route |
-| 146 | 75 | Decide what an aggregator's in-band `code` means | blocked · env+data | two or three real aggregators to measure an in-band code against |
-| 173 | 99 | `verify`'s test step intermittently fails EXACTLY 9 tests, and once aborted… | watch · data | the same nine tests to recur — the fix is unconfirmed as the cure, and a gr… |
-| 245 | 417 | MC8 — run the wrong-end instrument on an adjudicated corpus, with a bar wri… | blocked · decision+data | two reviewers' independent labels on a sample of the pairs, and a bar a per… |
+| 113 | 33 | GEN-VERIFY-FAL, the last line — the Hugging Face route | blocked · env | an hf_ token for the router route |
+| 154 | 75 | Decide what an aggregator's in-band `code` means | blocked · env+data | two or three real aggregators to measure an in-band code against |
+| 181 | 99 | `verify`'s test step intermittently fails EXACTLY 9 tests, and once aborted… | watch · data | the same nine tests to recur — the fix is unconfirmed as the cure, and a gr… |
+| 253 | 417 | MC8 — run the wrong-end instrument on an adjudicated corpus, with a bar wri… | blocked · decision+data | two reviewers' independent labels on a sample of the pairs, and a bar a per… |
+| 276 | 475 | A kept run drops what it cannot place while no turn runs | startable |  |
+| 280 | 475 | A run's end does not release a permission request held for an approver | startable |  |
+| 283 | 475 | Task events seen before a prompt make a failed turn read `Taken`, not `Neve… | startable |  |
+| 286 | 475 | A stored hold the pool cannot read is dropped, or bricks it | startable |  |
+| 291 | 475 | A bound has no upper limit, so `TimeSpan.MaxValue` ends a run or a pick | startable |  |
+| 294 | 475 | The transcript recorder counts a subagent's words and tools as the session'… | startable |  |
+| 297 | 475 | `UnreadFrames` does not bound the kind, and two smaller reader faults | startable |  |
+| 301 | 475 | Kept-run edges that need a ruling before a change | decision-only | a ruling for each: refuse a word after a stop or document the order, `Dispo… |
 
 <!-- open-items:end -->
 
@@ -257,6 +265,43 @@ unreleased until a release carries it (**D70**, **D235**). **What a YES does to 
   the first model run, then one run per (model, corpus) pair. **What a YES does:** names that pair in `docs/memory.md` and
   `docs/memory-measurements.md` §5 as one whose proposal a host may confirm by review of a bounded claim pair; **a NO changes nothing** and is
   recorded as a refutation. **Stop rule.** The first actionable rate stops the instrument; no run is spent after it.
+
+## Part 475 — what the 2026-11-07 review of the agent layer found and did not fix yet
+
+_Opened by `docs/task-archive.md` **Part 474**: three read-only reviews of the agent layer the 2026-11-07 sessions built (the pool and
+its failure core, the kept run, the ACP frame readers), each finding read against the code before it was filed. The five that
+were certain and small closed in that Part; these are the rest, each verified by reading and none yet pinned by a test. Lane
+`inference` unless the row says `platform`. The review's route is the design review this file names._
+
+- [ ] **A kept run drops what it cannot place while no turn runs.** `AcpAgentReader` points `_current` at `_idle` before it reads a <!-- item: state=startable -->
+  frame (`AcpAgentReader.cs` ReadFrame), so an unknown request or notification that arrives mid-turn, and an unknown update with
+  no turn, is noted on a state nothing reads, and a late finished `tool_call_update` grows `_idle.StartedTools` for the life of the
+  run. **Proof:** a `KeptAgent` that says `fs/read_text_file` and `telemetry/ping` mid-turn: the turn's `Ended.Unread` must hold both.
+- [ ] **A run's end does not release a permission request held for an approver.** `AcpAgentRun.Over` never tells the reader, so the <!-- item: state=startable -->
+  approver's token is not cancelled after a dispose, a kill or a crash and its host dialog stays open (`AcpAgentRun.cs` `Over`,
+  `DisposeAsync`; `AcpAgentReader.cs` `Hold`). **Proof:** an approver that records its token, then `DisposeAsync` and `EndOutput`.
+- [ ] **Task events seen before a prompt make a failed turn read `Taken`, not `NeverSent`.** `CreateSink` feeds `state.Carried` through <!-- item: state=startable -->
+  `TurnWatch.See`, which counts a task event as the turn's answer (`AcpAgentRun.cs` `CreateSink`, `CliAgentLoop.cs` `See`), so a host
+  that retries only on `NeverSent` will not. **Proof:** a task state said while idle, a send, then `EndOutput` before any reply.
+- [ ] **A stored hold the pool cannot read is dropped, or bricks it.** <!-- item: state=startable -->
+  A restriction's `Window` and `Scope` are not stored either (lane `platform`, `AgentAccountPool.cs` `Parse` and `Write`). An unknown `cause`, `subject` or `recovery` word makes
+  `Parse` skip the hold, which frees a seat an `OwnerAction` hold held; a blank `id` passes `Parse` and then throws in
+  `AgentPoolSnapshot.Create` on every load. Decide first whether an unreadable hold fails closed:
+  `A_stored_entry_that_does_not_read_is_skipped_with_a_warning` pins the skip today.
+- [ ] **A bound has no upper limit, so `TimeSpan.MaxValue` ends a run or a pick** (`AgentPoolOptions` `AttemptLease` and <!-- item: state=startable -->
+  `UnknownProbeAfter`; `AgentRunOptions.WokenTurnQuiet`): `now + bound` throws `ArgumentOutOfRangeException` from every pick once an
+  unknown-recovery hold exists, and a woken-turn quiet over about 49 days throws from the timer, which the pump reads as a spawn fault.
+- [ ] **The transcript recorder counts a subagent's words and tools as the session's own.** <!-- item: state=startable -->
+  It also clears the streamed words on a start that announced nothing (lane `platform`, `AgentTranscriptRecorder.cs` `Fold`): `ParentCallId` is ignored on `TextDelta`,
+  `ToolCall` and `ToolResult`, and a `SessionStarted` with `Announced` false wipes `_streamed`.
+- [ ] **`UnreadFrames` does not bound the kind, and two smaller reader faults.** <!-- item: state=startable -->
+  A line nested past 64 levels goes unanswered, and `AcpFailure` writes the code with the current culture (`UnreadFrames.cs` `Note`; `AcpAgentReader.cs` `JsonDocument.Parse`; `AcpFailure.cs`): a
+  1 MB `sessionUpdate` is kept whole in `SessionEnded.Unread`, a deep `rawInput` leaves a permission request with no reply, and
+  `-32000` prints with U+2212 under `sv-SE`.
+- [ ] **Kept-run edges that need a ruling before a change**: a word sent after `StopAsync` is written behind the `session/cancel` <!-- item: state=decision-only needs="a ruling for each: refuse a word after a stop or document the order, `Disposed` or `run-killed` after a forced dispose, and whether a reading may lift a stated retry-not-before" -->
+  (`AcpAgentReader.cs` `TryPrompt`); a dispose that had to kill the agent reports `run-killed`, where `IAgentRun.Ended` says
+  `Disposed`; a quiet timer can be left unarmed by a stale reading in `ScheduleQuiet`; `ReportReadingAsync` lifts a service-stated
+  `RetryNotBefore` hold. Each is arguable from the documents as written.
 
 ## Retired — five Parts that outlived their open work (2026-09-16)
 

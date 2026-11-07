@@ -23,7 +23,7 @@ internal static class AcpFailure
     public static AgentFailure FromError(JsonElement error, AcpExtensionSet extensions, TimeProvider time, out string words)
     {
         var code = WireJson.Int32(error, "code");
-        var message = WireJson.String(error, "message");
+        var message = WireJson.String(error, "message") ?? (error.ValueKind == JsonValueKind.String ? error.GetString() : null);
         var data = WireJson.Object(error, "data") ?? default;
         var detail = WireJson.String(data, "message");
         words = Words(message, detail);

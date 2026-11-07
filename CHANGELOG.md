@@ -29,6 +29,12 @@ every addition.
 
 ### Changed
 
+- **The agent account pool repeats a store write that failed, and a pick is not lost to a cancelled report.** A write or delete
+  that threw left the store behind the process for good; the next commit now writes every hold and removes every key no hold
+  names. `ReportAsync` and `AbandonAsync` settle their pick only once they hold the pool, a pick whose commit failed leaves no
+  lease behind, and `RecordingAgentSession` forwards an event that follows the terminal instead of throwing. The ACP door reads an
+  `error` that is not an object as an error, and notes a `tool_call`, `tool_call_update` or `plan` update that lacks the member it
+  is read by as unread.
 - **The usage reading writes each request after the answer it depends on** (**D238**). Through 3.5.3 it wrote every request to
   the vendor's server before reading any answer, so a server that refused `initialize` was still asked the question. Now
   the question follows the answer to `initialize`, and an error answer to either ends the read as unknown

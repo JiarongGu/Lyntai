@@ -357,7 +357,9 @@ internal sealed class AcpAgentReader
 
     private void ReadResponse(int id, JsonElement root, List<AgentStreamEvent> events)
     {
-        var error = WireJson.Object(root, "error");
+        // an error of any other shape is still an error: reading it as none would take a refusal for an answer
+        var error = WireJson.Object(root, "error")
+            ?? (root.ValueKind == JsonValueKind.Object && root.TryGetProperty("error", out var odd) && odd.ValueKind != JsonValueKind.Null ? odd : null);
         var result = WireJson.Object(root, "result") ?? default;
         if (_kept && _phase == Phase.Kept)
         {
@@ -733,15 +735,16 @@ internal sealed class AcpAgentReader
                 events.Add(new Thinking(thought) { ParentCallId = ParentOf(update) });
                 break;
 
-            case "plan":
+            // a known kind without the member it is read by is unread: an absent entries list is no statement that the plan is empty
+            case "plan" when WireJson.Array(update, "entries") is not null:
                 events.Add(new PlanUpdated(ReadPlan(update)));
                 break;
 
-            case "tool_call":
+            case "tool_call" when WireJson.String(update, "toolCallId") is not null:
                 ReadToolCall(update, events);
                 break;
 
-            case "tool_call_update":
+            case "tool_call_update" when WireJson.String(update, "toolCallId") is not null:
                 ReadToolUpdate(update, events);
                 break;
 

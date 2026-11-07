@@ -7,6 +7,31 @@ to `.agents/knowledge/pitfalls.md`; the release-facing line goes to `CHANGELOG.m
 
 ---
 
+## 2026-11-07 — the agent layer's pool kept a failed store write out of the store for good, and four smaller faults found beside it
+
+**Symptom.** None reported; found by reading (`docs/task-archive.md` Part 474). A pool over a store that threw once on a write had memory and store disagree until the process
+ended: a restart read back a hold the process never wrote, or a hold it had removed.
+
+**Root cause.** `AgentAccountPool.CommitAsync` set `_state` before writing and diffed the next commit against `_state`, not against what was written, so a hold the failed commit left
+out was in both sides of every later diff and was never written (nor was a delete repeated). Beside it: `ReportAsync` and `AbandonAsync` settled the pick before taking the gate,
+so a cancelled wait consumed a pick that had reported nothing (it then read "already reported", and a probe's lease stood for 30 minutes); `PickAsync` left the lease it had
+reserved in memory when its commit threw, for a token no caller held; `RecordingAgentSession` handed an event after the terminal to a recorder that had closed the turn and refuses it;
+and the ACP reader read an `error` that was a string, array or number as no error, so a refused `session/new` with a resume token carried on and prompted a session that never
+opened. The reader also dropped a `tool_call` without a string `toolCallId` and turned a `plan` without `entries` into `PlanUpdated([])`, which tells a host the plan was cleared.
+
+**Fix.** A failed commit marks the store unsynced and the next commit writes every hold and deletes every key no hold names; the pick is settled once the gate and the load are
+held; a pick whose commit threw restores the state it took the seat from; the decorator records up to the terminal and forwards the rest; an `error` of any other shape is an
+error (a string is its message), and a known update without the member it is read by is noted unread. `AgentAccountPool.cs`, `AgentTranscriptRecorder.cs`,
+`AcpAgentReader.cs`, `AcpFailure.cs`.
+
+**Verify.** One test each in `AgentAccountPoolTests` (a failed write, a failed delete, a failed pick, a cancelled report), `AgentTranscriptRecorderTests`, and
+`AcpAgentSessionTests` (four error shapes on two ids, three malformed updates); the 249 ACP and stream-JSON tests and the 58 pool tests pass. The tests were written to fail against the old code for
+the pool: all four failed against the old code when run. The recorder and reader tests were written beside their fixes and not run against the old code.
+
+**Introduced by.** `CommitAsync`'s diff against memory and the reader's `WireJson.Object` reading of `error`, each as first written.
+
+---
+
 ## 2026-11-07 — the usage-process never-answers test raced node's cold start against its 3 s ceiling
 
 **Symptom.** `AgentUsageProcessTests.A_server_that_never_answers_is_ended_with_its_children_when_the_time_runs_out` failed with "the stand-in never wrote its pids", 21 to 50 s

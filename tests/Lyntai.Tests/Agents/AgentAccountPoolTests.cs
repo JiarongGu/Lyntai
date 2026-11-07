@@ -744,6 +744,91 @@ public class AgentAccountPoolTests
         Assert.Equal("a", Name(await Take(pool)));
     }
 
+    // ── a store that fails ───────────────────────────────────────────────────────────────────────
+
+    /// <summary>A store whose next <see cref="Failures"/> writes or deletes throw, then behaves.</summary>
+    private sealed class FlakyStore(IKeyValueStore inner) : IKeyValueStore
+    {
+        public int Failures { get; set; }
+        private void Maybe() { if (Failures > 0) { Failures--; throw new IOException("the store is down"); } }
+        public Task<string?> GetAsync(string key, CancellationToken ct = default) => inner.GetAsync(key, ct);
+        public Task<IReadOnlyList<string>> ListKeysAsync(string? prefix = null, CancellationToken ct = default) => inner.ListKeysAsync(prefix, ct);
+        public Task SetAsync(string key, string value, CancellationToken ct = default) { Maybe(); return inner.SetAsync(key, value, ct); }
+        public Task DeleteAsync(string key, CancellationToken ct = default) { Maybe(); return inner.DeleteAsync(key, ct); }
+    }
+
+    [Fact]
+    public async Task A_write_that_failed_is_made_by_the_next_commit_so_a_restart_reads_what_the_process_held()
+    {
+        var clock = new ManualTimeProvider();
+        var inner = new InMemoryKeyValueStore();
+        var flaky = new FlakyStore(inner);
+        var pool = Pool(clock, flaky, Options(null, Choice(null, "claude-cli", "a", "b")));
+        var pick = await Take(pool);
+        flaky.Failures = 1;
+        await Assert.ThrowsAsync<IOException>(() =>
+            pool.ReportAsync(pick, Limit(RestrictionRecovery.OwnerAction, RestrictionCause.Credit)));
+
+        // an unrelated call that changes nothing still commits, and the hold the failed write left out is written now
+        await pool.ClearAsync("no-such-hold", 1);
+
+        var restarted = Pool(clock, inner, Options(null, Choice(null, "claude-cli", "a", "b")));
+        Assert.Single(await pool.HoldsAsync());
+        Assert.Equal(await pool.HoldsAsync(), await restarted.HoldsAsync());
+    }
+
+    [Fact]
+    public async Task A_delete_that_failed_is_made_by_the_next_commit_so_a_cleared_hold_does_not_return()
+    {
+        var clock = new ManualTimeProvider();
+        var inner = new InMemoryKeyValueStore();
+        var flaky = new FlakyStore(inner);
+        var pool = Pool(clock, flaky, Options(null, Choice(null, "claude-cli", "a")));
+        await pool.ReportAsync(await Take(pool), Limit(RestrictionRecovery.ResetAt(clock.GetUtcNow())));
+        clock.Advance(TimeSpan.FromSeconds(1));
+        var probe = await Take(pool);
+        flaky.Failures = 1;   // the success removes the hold, and the write that follows fails
+        await Assert.ThrowsAsync<IOException>(() => pool.ReportAsync(probe, Ok()));
+        Assert.Empty(await pool.HoldsAsync());
+
+        await pool.ClearAsync("no-such-hold", 1);
+
+        Assert.Empty(await Pool(clock, inner, Options(null, Choice(null, "claude-cli", "a"))).HoldsAsync());
+    }
+
+    [Fact]
+    public async Task A_pick_whose_commit_failed_leaves_no_lease_behind()
+    {
+        var clock = new ManualTimeProvider();
+        var inner = new InMemoryKeyValueStore();
+        var setup = Pool(clock, inner, Options(null, Choice(null, "claude-cli", "a")));
+        await setup.ReportAsync(await Take(setup), Limit(RestrictionRecovery.ResetAt(clock.GetUtcNow())));
+        clock.Advance(TimeSpan.FromSeconds(1));
+
+        var flaky = new FlakyStore(inner);
+        var pool = Pool(clock, flaky, Options(null, Choice(null, "claude-cli", "a")));
+        flaky.Failures = 1;
+        await Assert.ThrowsAsync<IOException>(() => pool.PickAsync());
+
+        var again = await pool.PickAsync();
+        Assert.NotNull(again.Pick);   // the token never reached a caller, so the seat is not leased to it
+    }
+
+    [Fact]
+    public async Task A_report_that_could_not_start_leaves_its_pick_to_be_reported_again()
+    {
+        var pool = Pool(new ManualTimeProvider(), Choice(null, "claude-cli", "a"));
+        var pick = await Take(pool);
+        using var cancelled = new CancellationTokenSource();
+        await cancelled.CancelAsync();
+
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => pool.ReportAsync(pick, Ok(), cancelled.Token));
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => pool.AbandonAsync(pick, cancelled.Token));
+
+        await pool.ReportAsync(pick, Ok());
+        await Assert.ThrowsAsync<InvalidOperationException>(() => pool.ReportAsync(pick, Ok()));
+    }
+
     [Fact]
     public async Task Without_a_store_the_pool_works_in_process()
     {
