@@ -455,8 +455,8 @@ legitimate reasons, and `pitfalls.md` records line numbers rotting twice and bei
 names; gating them would fail every refactor for no defect. `local/**` is skipped (untracked by design).
 
 **The path half reads only the top-level directories `PATH_PATTERN` names** — `src`, `tests`, `devtools`,
-`bench`, `samples`, `docs`, `local` and `.claude` — so a path under `.agents/` (where the knowledge tier and the
-skills now live) or at the repository root is never checked, and a dead one reports exactly like a live one.
+`bench`, `samples`, `docs`, `local`, `.claude` and `.agents` (where the knowledge tier and the skills live) — so a
+path at the repository root is never checked, and a dead one reports exactly like a live one.
 
 **One structural blind spot, stated so nobody relies on the gate for it.** A citation of the form
 `` `CLAUDE.md` `` — a bare basename with no directory prefix — is invisible to the path half, and a

@@ -41,7 +41,7 @@ export { HISTORICAL, IN_SCOPE, IS_SCANNED, LIVE_PREFIX };
  * not scan; pinned by check-links.test.mjs' "matches a LONG extension whole".
  */
 export const PATH_PATTERN =
-  /(?<![\w/.-])((?:src|tests|devtools|bench|samples|docs|local|\.claude)\/[A-Za-z0-9_./-￿-]+\.(?:csproj|props|slnx|html|json|yaml|mjs|sql|txt|yml|md|cs))(?::\d+)?/g;
+  /(?<![\w/.-])((?:src|tests|devtools|bench|samples|docs|local|\.claude|\.agents)\/[A-Za-z0-9_./-￿-]+\.(?:csproj|props|slnx|html|json|yaml|mjs|sql|txt|yml|md|cs))(?::\d+)?/g;
 
 /**
  * A reference that names one of the two task records AND a Part in it: `` `TASKS.md` Part 53 ``, link-ok: pattern SHAPES, not live citations
