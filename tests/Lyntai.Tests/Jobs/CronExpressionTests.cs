@@ -111,4 +111,12 @@ public class CronExpressionTests
             () => cron.Next(new DateTimeOffset(2026, 1, 1, 0, 0, 0, TimeSpan.Zero)));
         Assert.Contains("0 0 30 2 *", ex.Message);
     }
+
+    [Fact] // 2100 is no leap year, so the gap between two Feb 29ths is eight years there, past a five-year search
+    public void Feb_29_is_found_across_a_century_that_is_not_a_leap_year()
+    {
+        var cron = CronExpression.Parse("0 0 29 2 *");
+        var next = cron.Next(new DateTimeOffset(2097, 1, 1, 0, 0, 0, TimeSpan.Zero));
+        Assert.Equal(new DateTimeOffset(2104, 2, 29, 0, 0, 0, TimeSpan.Zero), next);
+    }
 }

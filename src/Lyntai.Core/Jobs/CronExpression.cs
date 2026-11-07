@@ -65,7 +65,7 @@ public sealed class CronExpression
     {
         var u = after.UtcDateTime;
         var t = new DateTime(u.Year, u.Month, u.Day, u.Hour, u.Minute, 0, DateTimeKind.Utc).AddMinutes(1);
-        var limit = t.AddYears(5); // bound: an impossible expression (e.g. Feb 30) throws rather than spinning
+        var limit = t.AddYears(8); // bound: an impossible expression (e.g. Feb 30) throws rather than spinning; 8 = the longest gap between two Feb 29ths (2096 to 2104)
         while (t < limit)
         {
             if (!_month[t.Month]) { t = new DateTime(t.Year, t.Month, 1, 0, 0, 0, DateTimeKind.Utc).AddMonths(1); continue; }
@@ -75,7 +75,7 @@ public sealed class CronExpression
             return new DateTimeOffset(t, TimeSpan.Zero);
         }
         throw new InvalidOperationException(
-            $"cron '{_expression}' has no occurrence within 5 years after {after:O} — impossible expression?");
+            $"cron '{_expression}' has no occurrence within 8 years after {after:O} — impossible expression?");
     }
 
     private bool DayMatches(DateTime t)

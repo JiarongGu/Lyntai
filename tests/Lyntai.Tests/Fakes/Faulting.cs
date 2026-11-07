@@ -12,7 +12,8 @@ namespace Lyntai.Tests.Fakes;
 public class Faulting : DispatchProxy
 {
     private object _inner = null!;
-    private ConcurrentDictionary<string, byte> _faults = null!;
+    private ConcurrentDictionary<string, Func<Exception>> _faults = null!;
+    private ConcurrentDictionary<string, int> _calls = null!;
 
     /// <param name="inner">What every unfaulted call reaches.</param>
     /// <param name="faults">Member names (<c>nameof(IJobStore.CompleteAsync)</c>) that throw an
@@ -22,16 +23,17 @@ public class Faulting : DispatchProxy
         var proxy = Create<T, Faulting>();
         var self = (Faulting)(object)proxy;
         self._inner = inner;
-        self._faults = new ConcurrentDictionary<string, byte>(StringComparer.Ordinal);
-        faults = new FaultSet(self._faults);
+        self._faults = new ConcurrentDictionary<string, Func<Exception>>(StringComparer.Ordinal);
+        self._calls = new ConcurrentDictionary<string, int>(StringComparer.Ordinal);
+        faults = new FaultSet(self._faults, self._calls);
         return proxy;
     }
 
     protected override object? Invoke(MethodInfo? targetMethod, object?[]? args)
     {
         ArgumentNullException.ThrowIfNull(targetMethod);
-        if (_faults.ContainsKey(targetMethod.Name))
-            throw new InvalidOperationException($"the store faulted on {targetMethod.Name}");
+        _calls.AddOrUpdate(targetMethod.Name, 1, (_, n) => n + 1);
+        if (_faults.TryGetValue(targetMethod.Name, out var fault)) throw fault();
         try { return targetMethod.Invoke(_inner, args); }
         catch (TargetInvocationException ex) when (ex.InnerException is not null)
         {
@@ -41,9 +43,20 @@ public class Faulting : DispatchProxy
     }
 
     /// <summary>The members a <see cref="Faulting"/> proxy currently throws from.</summary>
-    public sealed class FaultSet(ConcurrentDictionary<string, byte> names)
+    public sealed class FaultSet(ConcurrentDictionary<string, Func<Exception>> names, ConcurrentDictionary<string, int> calls)
     {
-        public void Add(params string[] members) { foreach (var m in members) names[m] = 0; }
+        public void Add(params string[] members)
+        {
+            foreach (var m in members) names[m] = () => new InvalidOperationException($"the store faulted on {m}");
+        }
+
+        /// <summary>Throw what <paramref name="exception"/> makes — a <see cref="TaskCanceledException"/> a store's
+        /// own timeout raises, where <see cref="Add"/> throws an <see cref="InvalidOperationException"/>.</summary>
+        public void Add(string member, Func<Exception> exception) => names[member] = exception;
+
         public void Clear() => names.Clear();
+
+        /// <summary>How many times <paramref name="member"/> was called, faulted or not.</summary>
+        public int Calls(string member) => calls.TryGetValue(member, out var n) ? n : 0;
     }
 }

@@ -181,7 +181,7 @@ public sealed class JobRunner(
             try { await Task.Delay(every, ct).ConfigureAwait(false); }
             catch (OperationCanceledException) { return; }
             try { await _store.HeartbeatSlotsAsync(_workerId, ct).ConfigureAwait(false); }
-            catch (OperationCanceledException) { return; }
+            catch (OperationCanceledException) when (ct.IsCancellationRequested) { return; }
             catch (Exception ex) { _logger.LogWarning(ex, "slot heartbeat failed; retrying next beat"); }
         }
     }
@@ -288,7 +288,7 @@ public sealed class JobRunner(
             try
             {
                 var result = await handler.HandleAsync(ctx, jobCts.Token).ConfigureAwait(false);
-                outcome = await ApplyAsync(job, result, result.Error, ct).ConfigureAwait(false);
+                outcome = await ApplyAsync(job, result, result.Error).ConfigureAwait(false);
             }
             catch (OperationCanceledException) when (jobCts.IsCancellationRequested && !ct.IsCancellationRequested)
             {
@@ -305,7 +305,7 @@ public sealed class JobRunner(
             catch (Exception ex)
             {
                 _logger.LogWarning(ex, "job {Id} ('{Type}') threw; scheduling a retry", job.Id, job.Type);
-                outcome = await ApplyAsync(job, JobOutcome.Retry(), ex.Message, ct).ConfigureAwait(false); // a throw is transient
+                outcome = await ApplyAsync(job, JobOutcome.Retry(), ex.Message).ConfigureAwait(false); // a throw is transient
             }
             finally
             {
@@ -321,26 +321,30 @@ public sealed class JobRunner(
 
     /// <summary>While a job runs, poll the store for a cancel request; on seeing one, cancel the job's
     /// linked token so the handler stops cooperatively. Ends when <paramref name="stop"/> fires (the handler
-    /// returned) or the cancel is observed. Swallows its own cancellation + any transient store error.</summary>
+    /// returned) or the cancel is observed. A failed read is logged and the poll goes on: one store error must not
+    /// leave the rest of a long job uncancellable.</summary>
     private async Task PollForCancelAsync(Guid id, CancellationTokenSource jobCts, CancellationToken stop)
     {
-        try
+        while (!stop.IsCancellationRequested)
         {
-            while (!stop.IsCancellationRequested)
+            try
             {
                 await Task.Delay(Opts.PollInterval, stop).ConfigureAwait(false);
                 var current = await _store.GetAsync(id, stop).ConfigureAwait(false);
                 if (current?.CancelRequested == true) { await jobCts.CancelAsync().ConfigureAwait(false); return; }
             }
+            catch (OperationCanceledException) when (stop.IsCancellationRequested) { return; } // the handler finished
+            catch (Exception ex) { _logger.LogDebug(ex, "cancel poll for job {Id} errored; polling again", id); }
         }
-        catch (OperationCanceledException) { /* the handler finished (stop fired) or shutdown */ }
-        catch (Exception ex) { _logger.LogDebug(ex, "cancel poll for job {Id} errored (ignored)", id); }
     }
 
     /// <summary>Maps the outcome onto the store and returns a telemetry label
     /// (succeeded / retry / failed / lost_lease).</summary>
-    private async Task<string> ApplyAsync(JobRecord job, JobOutcome outcome, string? error, CancellationToken ct)
+    private async Task<string> ApplyAsync(JobRecord job, JobOutcome outcome, string? error)
     {
+        // Not cancellable: the handler has finished, and a shutdown already under way must not discard what it
+        // returned — a completed job would stay Running, redelivered once its lease lapsed.
+        var ct = CancellationToken.None;
         bool ok;
         string label;
         switch (outcome.Result)
