@@ -15,7 +15,7 @@ to `.agents/knowledge/pitfalls.md`; the release-facing line goes to `CHANGELOG.m
 
 **Fix.** The SQLite delete, neighbour and typed-link reads take one JSON parameter; both SQL stores record subjects in one transaction, Postgres under `pg_advisory_xact_lock` on the node as the trace, score and prompt stores take theirs; the anchor clamps a time to `DateTimeOffset.MaxValue` and a count mark to a quarter of the `long` range on either side.
 
-**Verify.** `MemoryGraphStoreContract.DeleteAsync_takes_a_list_past_the_engines_parameter_limit` and `Reads_of_an_id_list_past_the_engines_parameter_limit_answer` failed on SQLite and `Racing_recordings_of_one_node_leave_exactly_one_set` failed on SQLite and, with Docker up, on Postgres, before the change (the in-memory and file backends pass both, so they are pins); `MemoryGraphAnchorTests` failed five of eleven cases before. The Postgres delete was not under test as a failure: `= ANY(@ids)` takes the list.
+**Verify.** `MemoryGraphStoreContract.DeleteAsync_takes_a_list_past_the_engines_parameter_limit` and `Reads_of_an_id_list_past_the_engines_parameter_limit_answer` failed on SQLite and `Racing_recordings_of_one_node_leave_exactly_one_set` failed on SQLite and, with Docker up, on Postgres, before the change (the in-memory and file backends pass both, so they are pins); `MemoryGraphAnchorTests` failed five of ten cases before. The Postgres delete was not under test as a failure: `= ANY(@ids)` takes the list.
 
 **Introduced by.** Not traced to a commit for each.
 
