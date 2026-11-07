@@ -7,6 +7,20 @@ to `.agents/knowledge/pitfalls.md`; the release-facing line goes to `CHANGELOG.m
 
 ---
 
+## 2026-11-08 — a judge that rejected everything reported no judgement, a failing fetch in a seed source sank the whole recall, and a count of buried entries included history
+
+**Symptom.** None reported; found by reading the memory engine core and each reproduced here. With `VerificationFilters` on and a verifier that endorses nothing, a recall returned no items and `Answered == null`, where `docs/memory.md` says `false` is a judge that looked and found none, so a consumer abstaining on `false` never abstained in exactly that case; through a blend (every DI-registered engine is one) the value was dropped again. A store whose `GetAsync` threw while the semantic or the subject seed source fetched the nodes it had found made the recall return nothing, lexical hits included. `CountAsync(...).Buried` counted an ended entry that `PruneAsync` never removes.
+
+**Root cause.** `RecallCoreAsync` built its result only when the filtered page was non-empty and otherwise kept `MemoryRecall.Empty`; `CompositeMemoryEngine.RecallAsync` returned `Empty` whenever it held no items, discarding the folded `answered` and `ran`. Both seed sources wrapped their search in the fail-open catch and left the fetch loop outside it, and nothing between the source and `TryGatherAsync` catches, so the whole gather was lost. `CountAsync` tested grade and retrievability and not `StatesEnd`, which `PruneAsync` tests.
+
+**Fix.** An emptied page answers `false` when a judge looked, and a blend with no items returns its folded `Answered` and `Ran` when any member judged (null still returns the shared `Empty`); each seed source's fetch is inside its catch and a fault returns no candidates; `Buried` skips an entry that states an end.
+
+**Verify.** `MemoryVerificationOrderingTests.A_filtering_judge_that_rejects_everything…`, `CompositeMemoryEngineTests.A_blend_whose_judge_left_no_items…`, `MemorySeedFetchFaultTests` (both) and `GraphMemoryCountTests.An_ended_entry_is_not_buried` failed before the change (five of five, with the source diff reversed) and pass after. The shared `StaticEngine` fake dropped `answered` on an empty result as the engine did, so it carries it now.
+
+**Introduced by.** Not traced to a commit for each.
+
+---
+
 ## 2026-11-08 — an approver saw the model's spelling of a tool's name, a null tool result crashed the loop, a vector-space declaration broke a keyed store and promoted a scoped one, a JSON retry dropped a shot's usage, and a curated kind could forge a heading
 
 **Symptom.** None reported; found by reading the tool loop, the guards, the cortex and the composition root, each reproduced here. An approver that refuses `write_file` was not asked about a call the model spelled `WRITE_FILE`, which the registry resolves, so the tool ran. A tool that returned `null` threw `NullReferenceException` out of the loop. `UseVectorSpace` over a container that also holds a keyed `IVectorStore` made the unkeyed one throw on resolve, and a scoped store resolved as one cached singleton. `CompleteJsonAsync` returned the retry's usage alone, so `ToolLoopResult.Usage` undercounted a retried prompt-protocol turn. A curated entry whose kind carried a newline wrote a `## Known facts (authoritative)` heading into the prompt.

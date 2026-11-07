@@ -61,6 +61,21 @@ public class GraphMemoryCountTests
         Assert.Equal(6, counts!.Buried);
     }
 
+    /// <summary>An ended entry is history, which a prune never targets, so it is not counted as buried either.</summary>
+    [Fact]
+    public async Task An_ended_entry_is_not_buried()
+    {
+        var engine = await SeededAsync(new InMemoryMemoryGraphStore());
+        var first = (await engine.RecallAsync(new MemoryQuery(Task, "s", Limit: 100)))
+            .Items.First(i => i.Grade == MemoryGrade.Associative);
+        await engine.EndAsync(Task, first.Reference, new MemoryEnding("superseded by hand"));
+
+        var counts = await engine.CountAsync(Task, minRetrievability: 1.5);
+
+        Assert.Equal(5, counts!.Buried);
+        Assert.Equal(7, counts.Entries);                    // still held, only not a prune's target
+    }
+
     /// <summary>A floor of zero is PruneAsync's opt-out, and buries nothing — retrievability is never below zero.</summary>
     [Fact]
     public async Task A_zero_floor_buries_nothing()

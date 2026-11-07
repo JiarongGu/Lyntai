@@ -59,7 +59,7 @@ internal sealed class StaticEngine(
     public Task<MemoryRecall> RecallAsync(MemoryQuery query, CancellationToken ct = default)
     {
         ct.ThrowIfCancellationRequested();
-        return Task.FromResult(items.Count == 0
+        return Task.FromResult(items.Count == 0 && answered is null
             ? MemoryRecall.Empty
             : new MemoryRecall(items, ran, answered));
     }

@@ -88,15 +88,26 @@ public sealed class SemanticSeedSource(
 
         var results = new List<GraphNode>(take);
         var seen = new HashSet<long>();
-        foreach (var match in ordered)
+        try
         {
-            if (!long.TryParse(match.Id, NumberStyles.Integer, CultureInfo.InvariantCulture, out var id)) continue;
-            if (!seen.Add(id)) continue;
-            var node = await request.Store.GetAsync(request.Engine, id, ct).ConfigureAwait(false);
-            // The cosine rides out as this source's own gradient — see the type's remarks. A fetch by id
-            // reports Relevance 0 / Matched null ("nobody asked"), and this read DID ask.
-            if (node is not null)
-                results.Add(node with { Relevance = Math.Clamp(match.Score, 0, 1), Matched = true });
+            foreach (var match in ordered)
+            {
+                if (!long.TryParse(match.Id, NumberStyles.Integer, CultureInfo.InvariantCulture, out var id)) continue;
+                if (!seen.Add(id)) continue;
+                var node = await request.Store.GetAsync(request.Engine, id, ct).ConfigureAwait(false);
+                // The cosine rides out as this source's own gradient — see the type's remarks. A fetch by id
+                // reports Relevance 0 / Matched null ("nobody asked"), and this read DID ask.
+                if (node is not null)
+                    results.Add(node with { Relevance = Math.Clamp(match.Score, 0, 1), Matched = true });
+            }
+        }
+        catch (OperationCanceledException) when (ct.IsCancellationRequested) { throw; }
+        catch (Exception ex)
+        {
+            // the fetch is the source's too: a throw here would sink the other sources' candidates with it
+            _logger.LogWarning(ex, "semantic seeding failed for {Engine}; returning no semantic candidates",
+                request.Engine);
+            return [];
         }
         return results;
     }

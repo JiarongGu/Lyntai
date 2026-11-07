@@ -1366,10 +1366,12 @@ public sealed class GraphMemoryEngine(
             // is relative by construction, so a page of uniformly-irrelevant material ranks perfectly well
             // among itself. Null when nothing judged, so the shipped default (no verifier) never reports
             // `false` and a consumer abstaining on `false` does not abstain on everything.
-            if (scored.Count > 0)
-                recall = new MemoryRecall(
+            // a filter that emptied the page still says a judge looked: `false`, never the null of "no judge"
+            recall = scored.Count > 0
+                ? new MemoryRecall(
                     await WithRelationsAsync(query.TaskKey, ToItems(scored, query), ct).ConfigureAwait(false),
-                    RecallSources, verdict.Judged ? verdict.RelevantIds.Count > 0 : null);
+                    RecallSources, verdict.Judged ? verdict.RelevantIds.Count > 0 : null)
+                : new MemoryRecall([], RecallSources, verdict.Judged ? false : null);
         }
 
         return query.Explain
@@ -1797,7 +1799,7 @@ public sealed class GraphMemoryEngine(
 
     /// <summary>How much this engine holds under (<paramref name="taskKey"/>, <paramref name="scope"/>): the store's
     /// <see cref="ICountableMemoryGraphStore"/> counts, with <see cref="MemoryGraphCounts.Buried"/> filled in — the
-    /// associative entries whose retrievability, as a recall reports it, is below the floor. Reads only; nothing is
+    /// associative entries that state no end and whose retrievability, as a recall reports it, is below the floor. Reads only; nothing is
     /// reinforced, linked, logged or removed.
     /// <para>Burial is the exact criterion <see cref="PruneAsync"/> applies when an age policy is
     /// <see cref="MemoryAgeKind.Derivable"/>; its cheaper in-store path uses a conservative cutoff and may remove
@@ -1824,7 +1826,8 @@ public sealed class GraphMemoryEngine(
             .ConfigureAwait(false);
         return counts with
         {
-            Buried = nodes.Count(n => n.Grade != MemoryGrade.Authoritative && Retrievability(n) < floor),
+            // an ended entry is history, which no prune targets
+            Buried = nodes.Count(n => n.Grade != MemoryGrade.Authoritative && !StatesEnd(n) && Retrievability(n) < floor),
         };
     }
 
