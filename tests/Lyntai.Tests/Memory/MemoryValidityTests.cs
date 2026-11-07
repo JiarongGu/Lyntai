@@ -27,12 +27,12 @@ public class MemoryValidityTests
 
     /// <summary>Per-write ageing, so a burst of writes ages entries as the same writes spread out would; the clock
     /// stands in July, after every interval below, unless a test moves it.</summary>
-    private static Rig Build(IMemoryGraphStore? store = null, string name = Name)
+    private static Rig Build(IMemoryGraphStore? store = null, string name = Name, bool derivable = true)
     {
         store ??= new InMemoryMemoryGraphStore();
         var clock = new MutableClock { Now = Jul };
         return new Rig(new GraphMemoryEngine(name, store, null,
-            new GraphMemorySeams { AgePolicies = [new PerWriteAgePolicy()], Clock = clock.Get }), store, clock);
+            new GraphMemorySeams { AgePolicies = derivable ? [new PerWriteAgePolicy()] : [], Clock = clock.Get }), store, clock);
     }
 
     private static MemoryWrite Fact(string content, DateTimeOffset? from = null, DateTimeOffset? to = null,
@@ -260,6 +260,39 @@ public class MemoryValidityTests
         var itself = Assert.Single(expanded.Items, i => i.Reference == paris);
         Assert.Equal("lives in Paris", itself.Content);          // asking for it by reference is how history is read
         Assert.Equal(Mar, itself.Validity!.SupersededAt);
+    }
+
+    [Theory] // the floor above removes an ordinary entry, so what it leaves was spared, not missed
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task A_prune_that_removes_an_ordinary_entry_leaves_the_ended_one(bool derivable)
+    {
+        var rig = Build(derivable: derivable);
+        var paris = (await rig.Engine.RememberAsync(Fact("lives in Paris", from: Jan))).Reference;
+        await rig.Engine.RememberAsync(Fact("lives in Berlin", from: Mar, supersedes: paris));
+        var bicycle = (await rig.Engine.RememberAsync(new MemoryWrite("t", "s", "owns a bicycle"))).Reference;
+        for (var i = 0; i < 300; i++) await rig.Engine.RememberAsync(new MemoryWrite("t", "filler", $"filler {i}"));
+
+        var removed = await rig.Engine.PruneAsync("t", "s", minRetrievability: 0.9);
+
+        Assert.True(removed >= 1);
+        Assert.Null(await rig.Store.GetAsync(Name, Id(bicycle)));
+        var kept = (await rig.Store.GetAsync(Name, Id(paris)))!;
+        Assert.Equal(Mar, kept.SupersededAt);
+    }
+
+    [Fact] // reading history is not recalling a fact: it keeps nothing alive
+    public async Task A_history_recall_and_an_expansion_by_reference_do_not_reinforce_an_ended_entry()
+    {
+        var rig = Build();
+        var (paris, _) = await MoveAsync(rig);
+        var before = (await rig.Store.GetAsync(Name, Id(paris)))!;
+
+        await rig.Engine.RecallAsync(Ask(MemoryValidityReading.History));
+        await rig.Engine.ExpandAsync(paris);
+
+        var after = (await rig.Store.GetAsync(Name, Id(paris)))!;
+        Assert.Equal((before.RecallCount, before.Stability, before.Age), (after.RecallCount, after.Stability, after.Age));
     }
 
     [Fact]

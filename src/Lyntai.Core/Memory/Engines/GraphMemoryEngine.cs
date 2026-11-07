@@ -1702,6 +1702,7 @@ public sealed class GraphMemoryEngine(
 
         var doomed = candidates
             .Where(n => n.Grade != MemoryGrade.Authoritative) // never eligible — retrievability fixed at 1
+            .Where(n => !StatesEnd(n)) // history: only a forget removes it, as on the store's own path
             .Where(n =>
                 // both age axes are resolved through the installed policies (ResolvedState), so a
                 // connected entry's boost is computed in the same unit as its age and the retrievability
@@ -1716,6 +1717,9 @@ public sealed class GraphMemoryEngine(
         await _vectors.RemoveAsync(doomed, ct).ConfigureAwait(false);
         return count;
     }
+
+    // a successor, a ValidTo or an end with a reason, whether or not its instant has come
+    private static bool StatesEnd(GraphNode n) => n.SupersededAt is not null || n.ValidTo is not null || n.EndedReason is not null;
 
     /// <summary>The cheap prune path, plus the census that keeps the similarity index in step with it.
     /// <para>The store decides alone here and reports only a COUNT, so the ids it removed have to be
@@ -2295,7 +2299,8 @@ public sealed class GraphMemoryEngine(
 
         try
         {
-            var reinforceable = nodes.Where(n => n.Grade != MemoryGrade.Authoritative).ToList(); // r = 1, nothing to reinforce
+            // r = 1, nothing to reinforce; and an entry that states an end is history, which a read does not keep alive
+            var reinforceable = nodes.Where(n => n.Grade != MemoryGrade.Authoritative && !StatesEnd(n)).ToList();
 
             // THE BREADTH GATE, and it is the graded form of the act gate above. A recall hands back a
             // RANKED list of guesses; reinforcing all of them treats the tenth hit as equal evidence to the

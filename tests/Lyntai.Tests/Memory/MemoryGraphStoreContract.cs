@@ -1352,6 +1352,42 @@ public static class MemoryGraphStoreContract
         Assert.Single(await store.SeedAsync("e", key, "s", null, 10));
     }
 
+    /// <summary><b>An entry that states an end is history: a prune leaves it, and a touch does not keep it alive.</b>
+    /// Superseded, bounded by a <c>ValidTo</c> and ended with a reason are one rule, on every backend; only the entries
+    /// that state nothing are removed at a cutoff every age passes.</summary>
+    public static async Task An_entry_that_states_an_end_is_neither_pruned_nor_touched(IMemoryGraphStore store, string key)
+    {
+        var temporal = Assert.IsAssignableFrom<ITemporalMemoryGraphStore>(store);
+        var endable = Assert.IsAssignableFrom<IEndableMemoryGraphStore>(store);
+        const string engine = "tv-prune";
+        var superseded = await store.UpsertAsync(Write(engine, key, "lives in Paris") with { ValidFrom = Jan });
+        var next = await store.UpsertAsync(Write(engine, key, "lives in Berlin") with { ValidFrom = Mar });
+        var bounded = await store.UpsertAsync(Write(engine, key, "worked at the bank") with { ValidFrom = Jan, ValidTo = Mar });
+        var ended = await store.UpsertAsync(Write(engine, key, "owns a bicycle"));
+        var ordinary = await store.UpsertAsync(Write(engine, key, "likes tea"));
+        await temporal.SupersedeAsync(engine, [new GraphSupersession(superseded, next, Mar)]);
+        await endable.EndAsync(engine, new GraphEnd(ended, "sold it", Mar));
+        await Crowd(store, engine, key, 3);
+        var before = new Dictionary<long, GraphNode>();
+        foreach (var id in new[] { superseded, bounded, ended, ordinary }) before[id] = (await store.GetAsync(engine, id))!;
+
+        await store.TouchAsync(engine, [.. before.Keys.Select(id => new GraphTouch(id, 99, 0, 5))]);
+
+        foreach (var id in new[] { superseded, bounded, ended })
+        {
+            var held = (await store.GetAsync(engine, id))!;
+            Assert.Equal((before[id].RecallCount, before[id].Stability, before[id].Age), (held.RecallCount, held.Stability, held.Age));
+        }
+        var touched = (await store.GetAsync(engine, ordinary))!;
+        Assert.Equal(before[ordinary].RecallCount + 1, touched.RecallCount);   // the control: a touch does reach an entry that states nothing
+
+        var removed = await store.PruneAsync(engine, key, "s", -1, null);   // any age at all qualifies
+
+        Assert.Equal(2, removed);   // the ordinary entry and the successor, which states no end of its own
+        var left = (await store.SeedAsync(engine, key, "s", null, 10)).Select(n => n.Id).Order().ToArray();
+        Assert.Equal(new[] { superseded, bounded, ended }.Order().ToArray(), left);
+    }
+
     /// <summary>Ordinals need only be MONOTONE, not dense: a deletion must leave a harmless gap, never force
     /// a renumbering. <see cref="GraphNode.OrdinalAge"/> is not "how many rows currently exist after me" — it
     /// is "how many writes have happened since me", and the two diverge the moment a row in between is gone.
