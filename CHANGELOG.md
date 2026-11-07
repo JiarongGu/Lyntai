@@ -42,6 +42,16 @@ every addition.
 - **A judge's unknown winner is no verdict, a constant series has no correlation, and a recovery envelope has an iteration ceiling.** `LlmPairwiseComparer` read any
   winner but `a` and `b` as a tie; `JudgeAgreement` reported a correlation for a constant series that is not exactly representable; and a stored envelope naming billions of
   KDF iterations now fails as a corrupt one, at 10 million, where it ran for hours.
+- **An HTTP registration with no `BaseUrl` is unavailable instead of a throw, and an Azure host named `openai-…` keeps its `/openai/v1` surface.** A vector or rerank
+  registration whose `BaseUrl` is empty (as `AddAzureOpenAiProvider` seeds it) threw `UriFormatException` while the container resolved providers; it builds and answers `NotConfigured`.
+  A base URL whose host merely starts with `openai` was taken for an `/openai` path and composed `/v1/…`; a whitespace key sends no `Authorization` header; a cancel while a streamed
+  error body is read propagates; and an Ollama tool call replayed with non-object arguments is sent as `{}`.
+- **An ONNX export with no token axis is refused when it is loaded, and a truncated model2vec file says so.** A pooling head over a graph whose output has no per-token axis threw
+  `IndexOutOfRangeException` on every call; `OnnxProvider.FromDirectory` now throws `InvalidOperationException` naming the output, and disposes the session it opened. A cut-short `model.safetensors` is an
+  `InvalidDataException`, not an `EndOfStreamException`.
+- **Generation backends no longer throw for a very long budget, hand sd-cli a relative path, or call an empty piper run a success.** A request `TimeoutSeconds` past about 49.7 days (or a `TimeSpan.MaxValue`
+  option) threw out of every HTTP backend's fail-safe call and now means no deadline. sd-cli's binary, model, work and LoRA paths are made absolute; a size side near `int.MaxValue` keeps its ceiling; a piper run that
+  streams no audio is `Failed`; an init image whose media type does not parse is `Unsupported`; and a ComfyUI or fal operation id that is not one path segment sends nothing.
 - **A running job stays cancellable, and a finished one is recorded through a shutdown.** One failed store read no longer ends the cancel poll, a store timeout
   no longer ends the poll or the slot heartbeat, and a handler's outcome is written even when the pass is already stopping. A cron that never occurs is said once
   per schedule, a cron of Feb 29 is found across 2100, and the in-memory job store keeps its own copy of a stage's arguments.
