@@ -74,10 +74,13 @@ public sealed class HttpModelProvider : IModelProvider, IVectorProvider, IScoreP
         _chat = ServesText(config)
             ? new HttpChatEngine(id, new OpenAiChatWire(config), httpFactory, options, log, disposeHttpClient, exchanges)
             : null;
-        _embeddings = ServesVectors(config)
+        // A transport needs an absolute endpoint, so a registration with no BaseUrl builds none and answers
+        // NotConfigured: it is unavailable, not a throw while the container resolves providers.
+        var configured = !string.IsNullOrWhiteSpace(config.BaseUrl);
+        _embeddings = ServesVectors(config) && configured
             ? new HttpVectorTransport(id, VectorSettings(config), httpFactory, options, log, disposeHttpClient)
             : null;
-        _rerank = ServesScores(config)
+        _rerank = ServesScores(config) && configured
             ? new HttpRerankTransport(id, RerankSettings(config), httpFactory, options, log, disposeHttpClient)
             : null;
     }
@@ -185,15 +188,19 @@ public sealed class HttpModelProvider : IModelProvider, IVectorProvider, IScoreP
     /// <remarks>A registration that does not produce vectors answers <see cref="ProviderVerdict.Unsupported"/>
     /// — a router checks <see cref="Capabilities"/> first, so only a direct caller sees it.</remarks>
     public Task<VectorResponse> CallAsync(VectorRequest request, CancellationToken ct = default) =>
-        _embeddings?.CallAsync(request, ct) ?? Task.FromResult(VectorResponse.Failure(
-            ProviderVerdict.Unsupported, WrongKindCall.Detail(_id, _config.Produces, ProviderKinds.Vector)));
+        _embeddings?.CallAsync(request, ct) ?? Task.FromResult(ServesVectors(_config)
+            ? VectorResponse.Failure(ProviderVerdict.NotConfigured, $"{_id}: not configured: no BaseUrl")
+            : VectorResponse.Failure(ProviderVerdict.Unsupported,
+                WrongKindCall.Detail(_id, _config.Produces, ProviderKinds.Vector)));
 
     /// <inheritdoc/>
     /// <remarks>A registration that does not produce scores answers <see cref="ProviderVerdict.Unsupported"/>
     /// — a router checks <see cref="Capabilities"/> first, so only a direct caller sees it.</remarks>
     public Task<ScoreResponse> CallAsync(ScoreRequest request, CancellationToken ct = default) =>
-        _rerank?.CallAsync(request, ct) ?? Task.FromResult(ScoreResponse.Failure(
-            ProviderVerdict.Unsupported, WrongKindCall.Detail(_id, _config.Produces, ProviderKinds.Score)));
+        _rerank?.CallAsync(request, ct) ?? Task.FromResult(ServesScores(_config)
+            ? ScoreResponse.Failure(ProviderVerdict.NotConfigured, $"{_id}: not configured: no BaseUrl")
+            : ScoreResponse.Failure(ProviderVerdict.Unsupported,
+                WrongKindCall.Detail(_id, _config.Produces, ProviderKinds.Score)));
 
     /// <inheritdoc/>
     /// <remarks>A registration that does not produce text answers <see cref="ProviderVerdict.Unsupported"/>.</remarks>

@@ -175,6 +175,7 @@ internal sealed class HttpChatEngine(
             if (!response.IsSuccessStatusCode)
             {
                 var errorBody = await HttpBody.SafeRead(response, timeoutCts.Token).ConfigureAwait(false);
+                ct.ThrowIfCancellationRequested(); // SafeRead swallows a cancel; the caller's is not a verdict
                 exchanges?.Rejected(response.StatusCode, response.Headers, errorBody);
                 startupError = TextChunk.Error(
                     ProviderVerdictClassifier.FromHttpFailure(response.StatusCode, errorBody, _hasCredentials),

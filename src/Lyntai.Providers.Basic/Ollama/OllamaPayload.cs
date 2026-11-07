@@ -107,7 +107,7 @@ internal static class OllamaPayload
     private static JsonNode ParseObject(string? json)
     {
         if (string.IsNullOrWhiteSpace(json)) return new JsonObject();
-        try { return JsonNode.Parse(json) ?? new JsonObject(); }
+        try { return JsonNode.Parse(json) as JsonObject ?? new JsonObject(); }
         catch (System.Text.Json.JsonException) { return new JsonObject(); }
     }
 }

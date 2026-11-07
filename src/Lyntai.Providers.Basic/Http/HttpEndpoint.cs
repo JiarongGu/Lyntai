@@ -27,10 +27,18 @@ internal static class HttpEndpoint
         // Azure's OpenAI-shaped v1 surface lives under /openai/v1 on the resource host — a bare
         // resource URL (https://my-res.openai.azure.com) would otherwise compose /v1/… and 404. A base
         // that already includes /openai(…/v1) falls through to the generic suffix logic below.
-        var path = azureConventions && !b.Contains("/openai", StringComparison.OrdinalIgnoreCase)
+        // The path alone is searched: "//openai-prod.example.com" would otherwise count as an /openai segment.
+        var path = azureConventions && !PathOf(b).Contains("/openai", StringComparison.OrdinalIgnoreCase)
             ? $"/openai/v1/{openAiRoute}"
             : b.EndsWith("/v1", StringComparison.OrdinalIgnoreCase) ? $"/{openAiRoute}" : $"/v1/{openAiRoute}";
         return new Uri(b + path);
+    }
+
+    private static string PathOf(string baseUrl)
+    {
+        var afterScheme = baseUrl.IndexOf("://", StringComparison.Ordinal) is var i and >= 0 ? baseUrl[(i + 3)..] : baseUrl;
+        var slash = afterScheme.IndexOf('/');
+        return slash < 0 ? "" : afterScheme[slash..];
     }
 
     /// <summary>Whether a call carries credentials — what separates NotConfigured from AuthFailed on a
@@ -43,7 +51,7 @@ internal static class HttpEndpoint
     /// flow on one code path.</summary>
     internal static void ApplyAuth(HttpRequestMessage request, string? apiKey, bool azureConventions)
     {
-        if (string.IsNullOrEmpty(apiKey)) return;
+        if (!HasCredentials(apiKey)) return;
         request.Headers.Authorization = new("Bearer", apiKey);
         if (azureConventions)
             request.Headers.TryAddWithoutValidation("api-key", apiKey);

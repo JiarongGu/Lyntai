@@ -165,6 +165,17 @@ public class Model2VecProviderTests : IDisposable
         Assert.Throws<InvalidDataException>(() => Model2VecProvider.FromDirectory(Dir));
     }
 
+    [Fact] // a download cut short is the common partial-file case, and the documented failure is InvalidDataException
+    public void A_truncated_safetensors_file_fails_as_InvalidDataException_not_EndOfStream()
+    {
+        WriteModel(Vocabulary("alpha", "beta"));
+        var path = Path.Combine(Dir, "model.safetensors");
+        var bytes = File.ReadAllBytes(path);
+        File.WriteAllBytes(path, bytes[..^8]);
+
+        Assert.Throws<InvalidDataException>(() => Model2VecProvider.FromDirectory(Dir));
+    }
+
     [Fact]
     public async Task Has_NO_context_limit_which_is_the_one_thing_this_class_has_over_a_small_transformer()
     {

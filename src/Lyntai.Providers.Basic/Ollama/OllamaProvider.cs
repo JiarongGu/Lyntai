@@ -59,7 +59,8 @@ public sealed class OllamaProvider : IModelProvider, IVectorProvider
         _chat = ServesText(config)
             ? new HttpChatEngine(id, new OllamaChatWire(config, log), httpFactory, options, log, disposeHttpClient)
             : null;
-        _embed = ServesVectors(config)
+        // No BaseUrl, no absolute endpoint: the registration is unavailable and answers NotConfigured.
+        _embed = ServesVectors(config) && !string.IsNullOrWhiteSpace(config.BaseUrl)
             ? new HttpVectorTransport(id, EmbedSettings(config), httpFactory, options, log, disposeHttpClient)
             : null;
     }
@@ -170,6 +171,8 @@ public sealed class OllamaProvider : IModelProvider, IVectorProvider
     /// <remarks>A registration that does not produce vectors answers <see cref="ProviderVerdict.Unsupported"/>
     /// — a router checks <see cref="Capabilities"/> first, so only a direct caller sees it.</remarks>
     public Task<VectorResponse> CallAsync(VectorRequest request, CancellationToken ct = default) =>
-        _embed?.CallAsync(request, ct) ?? Task.FromResult(VectorResponse.Failure(
-            ProviderVerdict.Unsupported, WrongKindCall.Detail(_id, _config.Produces, ProviderKinds.Vector)));
+        _embed?.CallAsync(request, ct) ?? Task.FromResult(ServesVectors(_config)
+            ? VectorResponse.Failure(ProviderVerdict.NotConfigured, $"{_id}: not configured: no BaseUrl")
+            : VectorResponse.Failure(ProviderVerdict.Unsupported,
+                WrongKindCall.Detail(_id, _config.Produces, ProviderKinds.Vector)));
 }

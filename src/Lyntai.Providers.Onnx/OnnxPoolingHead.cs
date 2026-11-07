@@ -20,9 +20,14 @@ internal sealed class OnnxPoolingHead(OnnxPooling pooling, bool normalize) : IOn
     public string ResolveOutput(InferenceSession session)
     {
         ArgumentNullException.ThrowIfNull(session);
-        foreach (var candidate in new[] { "last_hidden_state", "token_embeddings" })
-            if (session.OutputMetadata.ContainsKey(candidate)) return candidate;
-        return session.OutputMetadata.Keys.First();
+        var name = new[] { "last_hidden_state", "token_embeddings" }.FirstOrDefault(session.OutputMetadata.ContainsKey)
+            ?? session.OutputMetadata.Keys.First();
+        var rank = session.OutputMetadata[name].Dimensions.Length;
+        if (rank != 3)
+            throw new InvalidOperationException(
+                $"Output '{name}' has rank {rank}, but pooling reads a per-token output of [batch, tokens, hidden]. "
+                + "An export that returns only a pooled vector carries no token axis to pool; export last_hidden_state.");
+        return name;
     }
 
     /// <inheritdoc />
@@ -63,6 +68,10 @@ internal sealed class OnnxPoolingHead(OnnxPooling pooling, bool normalize) : IOn
         var width = rows.Max(e => e.Ids.Length);
         using var results = session.Run(OnnxGraph.Feed(session, rows, width), [outputName]);
         var hidden = results[0].AsTensor<float>();
+        if (hidden.Dimensions.Length != 3 || hidden.Dimensions[0] != rows.Length || hidden.Dimensions[1] != width)
+            throw new InvalidOperationException(
+                $"Output '{outputName}' came back [{string.Join(", ", hidden.Dimensions.ToArray())}], not "
+                + $"[{rows.Length}, {width}, hidden] for {rows.Length} row(s) of {width} token(s).");
         var hiddenSize = hidden.Dimensions[2];
         var flat = hidden.ToArray();
 

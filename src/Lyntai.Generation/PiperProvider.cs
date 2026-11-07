@@ -201,11 +201,18 @@ public sealed class PiperProvider(PiperOptions options, IProcessRunner runner) :
             yield return MediaChunk.Content(data, mediaType);
         }
 
+        // an engine that exits cleanly having written nothing made no speech, as sd-cli's "no image produced"
+        if (total == 0)
+        {
+            yield return MediaChunk.Failure(ProviderVerdict.Failed, "piper produced no audio");
+            yield break;
+        }
+
         // Seconds is DERIVED from the bytes actually streamed and the voice's declared rate — measured,
         // never estimated — and omitted when the rate is unknown rather than computed from a guess.
         yield return MediaChunk.Completed(new MediaUsage(
             Count: 1,
-            Seconds: rate is { } r && total > 0 ? total / (r * 2.0) : null));
+            Seconds: rate is { } r ? total / (r * 2.0) : null));
     }
 
     /// <summary>The engine's argument list: the voice, the raw-PCM switch, then

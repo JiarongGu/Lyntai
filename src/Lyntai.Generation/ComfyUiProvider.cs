@@ -472,6 +472,8 @@ public sealed class ComfyUiProvider(
         string operationId, CancellationToken ct)
     {
         if (string.IsNullOrWhiteSpace(options.BaseUrl)) return (null, "no BaseUrl configured", false, null);
+        if (!QueueCalls.IsPathSegment(operationId))
+            return (null, $"malformed operation id '{operationId}'", false, null);
 
         using var lease = HttpClientLease.From(httpFactory, disposeHttpClient);
         using var message = new HttpRequestMessage(HttpMethod.Get, $"{Url(options.HistoryPath)}/{operationId}");

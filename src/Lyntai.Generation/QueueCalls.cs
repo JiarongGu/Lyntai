@@ -10,6 +10,13 @@ namespace Lyntai.Generation.Providers;
 /// dead-lettered a render that was already billed.</summary>
 internal static class QueueCalls
 {
+    /// <summary>Whether <paramref name="id"/> can be one URL path segment: letters, digits, <c>-</c>, <c>_</c>
+    /// and <c>.</c>, and not only dots. An operation id comes back from a model through the generation tools,
+    /// and one holding <c>/</c>, <c>?</c>, <c>#</c> or <c>..</c> would address another route of the host's
+    /// own server or account. Both backends' ids are UUIDs.</summary>
+    public static bool IsPathSegment(string id) =>
+        id.Length > 0 && id.Any(c => c != '.') && id.All(c => char.IsAsciiLetterOrDigit(c) || c is '-' or '_' or '.');
+
     /// <summary>A status call under <paramref name="budget"/>. A fired deadline reports the operation still
     /// RUNNING: no answer is not a failed render, and reading it as terminal abandons one already paid for.</summary>
     public static Task<QueuedOperation> PollGuard(TimeSpan budget, string operationId, CancellationToken ct,
