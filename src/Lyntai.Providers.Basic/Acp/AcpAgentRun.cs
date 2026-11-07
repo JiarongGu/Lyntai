@@ -33,6 +33,9 @@ internal sealed class AcpAgentRun : IAgentRun
         public int Terminated;
     }
 
+    // a timer's due time is a uint of milliseconds (about 49.7 days)
+    private static readonly TimeSpan MaxWokenTurnQuiet = TimeSpan.FromDays(49);
+
     private readonly Host _host;
     private readonly AgentRunOptions _run;
     private readonly bool _queuedWords;
@@ -80,6 +83,8 @@ internal sealed class AcpAgentRun : IAgentRun
     {
         if (run.WokenTurnQuiet is { } quiet && quiet <= TimeSpan.Zero)
             throw new ArgumentException("A woken turn's quiet is a span of silence, so it must be positive.", nameof(run));
+        if (run.WokenTurnQuiet > MaxWokenTurnQuiet)
+            throw new ArgumentException("A woken turn's quiet is counted by a timer, which holds at most 49 days.", nameof(run));
         var instance = new AcpAgentRun(host, options, run, queuedWords);
         instance.Start();
         try

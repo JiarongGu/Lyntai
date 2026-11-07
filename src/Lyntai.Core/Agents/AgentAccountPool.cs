@@ -62,7 +62,7 @@ public sealed class AgentAccountPool
     /// <exception cref="ArgumentException">No choice, a choice with no account, an account whose key is neither its
     /// choice's provider nor the agent that provider shares, or one account listed with two homes.</exception>
     /// <exception cref="ArgumentOutOfRangeException">A bound is not positive (or <c>UnknownProbeAfter</c> is
-    /// negative).</exception>
+    /// negative), or is longer than 3650 days.</exception>
     /// <exception cref="InvalidOperationException">A source states an allowance with a blank id or no evidence.</exception>
     public AgentAccountPool(
         AgentPoolOptions options, IKeyValueStore? store = null, TimeProvider? time = null,
@@ -285,9 +285,14 @@ public sealed class AgentAccountPool
         if (_store is not null)
         {
             var holds = new List<AgentHoldEntry>();
+            var ids = new HashSet<string>(StringComparer.Ordinal);
             foreach (var key in await _store.ListKeysAsync(_prefix, ct).ConfigureAwait(false))
-                if (Parse(key, await _store.GetAsync(key, ct).ConfigureAwait(false)) is { } hold)
-                    holds.Add(hold);
+            {
+                if (Parse(key, await _store.GetAsync(key, ct).ConfigureAwait(false)) is not { } hold) continue;
+                // two keys naming one id would fail the snapshot on every load
+                if (ids.Add(hold.Id)) holds.Add(hold);
+                else _logger.LogWarning("agent pool: skipping '{Key}' — it names hold '{Id}' a second time", key, hold.Id);
+            }
             state = AgentPoolSnapshot.Create(holds, ParseRevisions(await _store.GetAsync(_revisionsKey, ct).ConfigureAwait(false)));
         }
         _state = state;
@@ -379,6 +384,8 @@ public sealed class AgentAccountPool
             ["recovery"] = hold.Restriction.Recovery.Kind.ToString(),
             ["observedAt"] = Stamp(hold.ObservedAt),
         };
+        if (hold.Restriction.Window is { } window) o["window"] = window;
+        if (hold.Restriction.Scope is { } limitScope) o["limitScope"] = limitScope;
         if (hold.Restriction.Recovery.At is { } at) o["at"] = Stamp(at);
         if (hold.Restriction.Recovery.Reason != OwnerActionReason.Unknown) o["reason"] = hold.Restriction.Recovery.Reason.ToString();
         if (hold.ReleasedAt is { } released) o["releasedAt"] = Stamp(released);
@@ -393,21 +400,29 @@ public sealed class AgentAccountPool
         try
         {
             var o = JsonNode.Parse(raw)!.AsObject();
-            var recovery = Enum.Parse<RecoveryKind>(Text(o, "recovery"));
+            // a word this build lacks (a newer build's) reads as Unknown, which still holds: skipping the hold would free its seat
+            var recovery = Word<RecoveryKind>(o, "recovery");
             var stated = o["at"] is { } at ? Time(at) : (DateTimeOffset?)null;
             if (recovery is RecoveryKind.ResetAt or RecoveryKind.RetryNotBefore && stated is null)
                 throw new FormatException("a stated recovery with no moment");
             if (o["revision"]!.GetValue<long>() < 1) throw new FormatException("a revision below 1");
+            var id = Text(o, "id");
+            var scope = Text(o, "scope");
+            if (id.Length == 0 || scope.Length == 0) throw new FormatException("a blank id or scope");
             return new AgentHoldEntry(
-                Text(o, "id"), o["revision"]!.GetValue<long>(), Text(o, "scope"),
+                id, o["revision"]!.GetValue<long>(), scope,
                 new AgentRestriction(
-                    Enum.Parse<RestrictionCause>(Text(o, "cause")), Enum.Parse<RestrictionSubject>(Text(o, "subject")),
+                    Word<RestrictionCause>(o, "cause"), Word<RestrictionSubject>(o, "subject"),
                     new RestrictionRecovery(recovery, stated)
                     {
                         // a hold written before the reason existed, or by a newer word, reads as no reason said
                         Reason = o["reason"] is { } reason && Enum.TryParse<OwnerActionReason>(reason.GetValue<string>(), out var said)
                             ? said : OwnerActionReason.Unknown,
-                    }),
+                    })
+                {
+                    Window = o["window"]?.GetValue<string>(),
+                    Scope = o["limitScope"]?.GetValue<string>(),
+                },
                 Time(o["observedAt"]!),
                 o["releasedAt"] is { } released ? Time(released) : null,
                 o["leaseUntil"] is { } until ? Time(until) : null,
@@ -425,6 +440,10 @@ public sealed class AgentAccountPool
 
     private static DateTimeOffset Time(JsonNode node) =>
         DateTimeOffset.ParseExact(node.GetValue<string>(), "O", CultureInfo.InvariantCulture);
+
+    // a numeric word is no name of the enum: it reads as Unknown (0) too
+    private static T Word<T>(JsonObject o, string name) where T : struct, Enum =>
+        Enum.TryParse<T>(Text(o, name), out var word) && Enum.IsDefined(word) ? word : default;
 
     private static string Text(JsonObject o, string name) =>
         o[name]?.GetValue<string>() ?? throw new FormatException($"no '{name}'");

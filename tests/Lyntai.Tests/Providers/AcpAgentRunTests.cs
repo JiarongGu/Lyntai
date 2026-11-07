@@ -714,6 +714,17 @@ public class AcpAgentRunTests
 
     // ── what a kept run cannot place ─────────────────────────────────────────
 
+    [Theory] // a quiet is a span of silence a timer can count: not zero, and not past what its due time holds
+    [InlineData(0)]
+    [InlineData(50 * 24 * 3600)]
+    public async Task A_woken_turn_quiet_outside_what_a_timer_counts_is_refused_at_the_open(int seconds)
+    {
+        var agent = new KeptAgent();
+
+        await Assert.ThrowsAsync<ArgumentException>(() => Open(agent, new AgentRunOptions { WokenTurnQuiet = TimeSpan.FromSeconds(seconds) }));
+        Assert.Equal(0, agent.Spawns);
+    }
+
     private static string UnknownRequest() => """{"jsonrpc":"2.0","id":"u1","method":"fs/read_text_file","params":{"path":"a"}}""";
 
     private static string UnknownNotification() => """{"jsonrpc":"2.0","method":"telemetry/ping","params":{}}""";
