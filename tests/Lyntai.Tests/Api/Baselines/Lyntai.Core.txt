@@ -710,6 +710,18 @@ sealed class Lyntai.Agents.AgentTaskStarted
     SubagentType : String { get; init; }
     TaskId : String { get; init; }
     ToString() : String
+sealed class Lyntai.Agents.AgentTaskUpdated
+    .ctor(String TaskId, String Status)
+    Deconstruct(String& TaskId, String& Status) : Void
+    EqualityContract : Type { protected get; }
+    Equals(AgentStreamEvent other) : Boolean
+    Equals(AgentTaskUpdated other) : Boolean
+    Equals(Object obj) : Boolean
+    GetHashCode() : Int32
+    PrintMembers(StringBuilder builder) : Boolean
+    Status : String { get; init; }
+    TaskId : String { get; init; }
+    ToString() : String
 sealed class Lyntai.Agents.AgentToolDenied
     .ctor(String Tool, String CallId, String Reason)
     CallId : String { get; init; }

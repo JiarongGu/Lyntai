@@ -1072,9 +1072,11 @@ been re-measured across a resumed conversation.
 **Background work.** Claude's binary ends the work it backgrounded (a command left running, a subagent) when the turn
 ends, so a `SessionEnded` does not mean that work finished. The Claude door yields `AgentTaskStarted` (the task id,
 the agent's own kind word, a description, and the call that started it, which is the `ParentCallId` of a subagent's
-calls) and `AgentTaskEnded` (the id and the agent's status word, uninterpreted). A task still open at the result is
-ended after the turn's one `SessionEnded`: read on past the terminal if you want its end. Codex and the ACP doors
-emit neither. What to show of a task is yours.
+calls), `AgentTaskUpdated` (the id and the status word the agent patched, uninterpreted: it is not an end) and
+`AgentTaskEnded` (the id and the agent's status word, uninterpreted). A task still open at the result is
+ended after the turn's one `SessionEnded`: read on past the terminal if you want its end, and a command the binary
+killed after the turn may only ever be updated (`killed`), never ended, so a host that must close it takes its last
+update. Codex and the ACP doors emit no `AgentTaskUpdated`. What to show of a task is yours.
 
 **A subagent's words and life** (D245). A subagent's complete message yields one `TextDelta` or `Thinking` per block, each with
 the `ParentCallId` of the call that spawned it (null on the session's own, which arrive as stream deltas, or whole from their message when no delta preceded it), and never a plan, a
@@ -1086,8 +1088,10 @@ start states the lineage the frame did: `CallId` (the `ParentCallId` of the chil
 
 **A task's output file** (`AgentTaskOutputFile`). Where a frame names the file a task's output goes to, the door yields its path once
 per task, as a field of the frame: the Claude door's `output_file` (on the start if it carries one, else just before the task's end)
-and a kept run's `outputFilePath` (on a spawn, progress or state frame). The library reads no file and never parses a result's words
-for a path: a host tails the file, and one that wants it from the start reads the harness's own words in the `ToolResult`.
+and a kept run's `outputFilePath` (on a spawn, progress or state frame). The Claude door also reads it, while a backgrounded command
+runs, from that command's result: the sentence `Output is being written to: <path>.` in a result whose structured `tool_use_result`
+names the task (`backgroundTaskId`), the one place the path is stated before the end (**D254**); a result without both yields no file.
+The library reads no file: a host tails it.
 
 **Which message said the words** (`TextDelta.MessageId`). Through the Claude door each `TextDelta` carries the `message.id` of the frame that
 said it, so words can be grouped by message: a streamed delta has the id of the `message_start` before it, a whole message (a subagent's
