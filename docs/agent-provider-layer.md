@@ -46,6 +46,8 @@ or HTTP agent, and the restriction reducer's behaviour on a real shared allowanc
 
 ## 3. What Lyntai has, against the five
 
+_The table is the tree as the proposal found it; every entry of its Missing column is built (§5 and §9)._
+
 | Need | Exists | Missing |
 |---|---|---|
 | Contract | `IAgentSession` with a neutral `AgentSessionOptions`; Claude and Codex sessions keyed by id; adapter-local options; `CliProviderEngine`'s shared rules (D21); the honest-subset rule (D35) | a description of a provider (its doors and what each can do, with a source for each claim); a registry; a conformance suite; an ACP door |
@@ -235,8 +237,8 @@ host-enabled, validated per door and version, side effects declared, unknown on 
   `IAgentAccountPolicy` seam. Only the ordered walk ships.
 - **As built (AG6):** `AgentAccountPool` over `AgentPoolOptions.Choices` (`AgentChoice`: provider, model, effort and
   its accounts); `PickAsync` answers an `AgentSeat` once per turn, `ReportAsync` takes the turn's `SessionEnded`
-  back, and the rotation therefore lands on the next pick. The reducer (`AgentPoolReducer`, internal and pure) holds
-  a set of `HoldRow`s, one per scope and cause. **What a failure holds:** its own `Restriction` (a limit or an access
+  back, and the rotation therefore lands on the next pick. The reducer (`AgentPoolReducer`, a public static class of
+  pure functions over an `AgentPoolSnapshot`, **D247**) holds a set of `AgentHoldEntry` rows, one per scope and cause. **What a failure holds:** its own `Restriction` (a limit or an access
   failure holds something even when the door stated nothing; a transient or fatal one only when it carries one). The
   subject picks the scope: `Account` the account, `Endpoint` the provider, `Pool` the allowance an
   `IAgentAllowanceSource` showed (else only the account it was seen on, since an unknown extent is not guessed),
@@ -247,7 +249,8 @@ host-enabled, validated per door and version, side effects declared, unknown on 
   it; its failure restates the hold one revision up. A success, a clear or a reading names the revision or the time
   it is about, so none can undo a newer failure. A reading (`ReportReadingAsync`, the input AG9's `HasRoom` fits) lifts
   only holds with a stated moment, and only if measured strictly after the hold was taken. State is one key per
-  hold under `lyntai:agent-pool:<name>:hold:`, written through, and read back on first use. **Out of scope, and
+  hold under `lyntai:agent-pool:<name>:hold:` and one record of the highest revision each removed hold reached under
+  `lyntai:agent-pool:<name>:revisions`, written through and read back on first use. **Out of scope, and
   stated on the type: two processes sharing one pool**, since the store has no compare-and-set (§7, **D219**'s
   re-open condition). No door implements `IAgentAllowanceSource` yet, so every `Pool` restriction holds one account
   today.
@@ -291,8 +294,10 @@ host-enabled, validated per door and version, side effects declared, unknown on 
    **Built (AG8) as one generic door**: the two agents are two registrations of it, each with its own `errorKind` or
    `codexErrorInfo` read from the error's `data`, and neither agent's own `_meta` beyond the typed failure and the
    forwarded rate-limit frame is read.
-3. **Any other agent** by a host registering its own `IAgentProvider`. **Hosted or HTTP agents are not in
-   scope**: they need an executor, a workspace and a cancellation story nobody has measured.
+3. **Any other agent** by a host registering its own `IAgentProvider`. **Hosted agents are not in
+   scope**: they need an executor, a workspace and a cancellation story nobody has measured. A chat-completions
+   endpoint is the one HTTP case that is in, because Lyntai's own tool loop is its executor: `AddHttpAgentSession`,
+   `AgentDoorKinds.Http` (**D233**, `docs/agent-provider-daoris-study.md` §4).
 
 ## 7. How it is tested without a paid API
 

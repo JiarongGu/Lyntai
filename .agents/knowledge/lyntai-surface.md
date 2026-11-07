@@ -24,7 +24,7 @@ the next upgrade.
 |---|---|---|
 | The contracts and engines of every domain: inference, routing, prompts, scoring, traces, memory, jobs, guards, secrets, storage interfaces | `Lyntai.Core` | `src/Lyntai.Core/DependencyInjection/ServiceCollectionExtensions.cs` (`AddLyntai`); the namespace map is the brief |
 | The metapackage most consumers take | `Lyntai` (`src/Lyntai.Bundle`) | its csproj's references are the membership |
-| Backends needing nothing beyond Core: the `claude`/`codex` CLIs, OpenAI-compatible HTTP and friends | `Lyntai.Providers.Basic` | `docs/guide.md` §Install and compose |
+| Backends needing nothing beyond Core: the `claude`/`codex` CLIs and agent sessions (CLI, Agent Client Protocol, chat-completions), OpenAI-shaped HTTP (chat, embeddings, reranking), Ollama's native API, an in-process model2vec embedder | `Lyntai.Providers.Basic` | `docs/guide.md` §Install and compose |
 | In-process GGUF inference | `Lyntai.Providers.LlamaSharp` | `docs/guide.md` §Local in-process inference |
 | In-process ONNX embeddings / reranking | `Lyntai.Providers.Onnx` | its csproj `Description` |
 | Media generation backends (image, video, audio, 3D) | `Lyntai.Generation`, namespace `Lyntai.Generation.Providers` | `docs/generation.md` |

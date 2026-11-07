@@ -43,7 +43,7 @@ _A MEASUREMENT RECORD is listed here too: what was measured on one day is the sa
 
 | Date | Topic | Shipped in | Spec | Plan | Conclusions live in |
 |---|---|---|---|---|---|
-| 2026-10-24 | An external competitive review (Graphiti, Mem0, Letta, Mastra, Agent Framework, LiteLLM, the OpenAI Agents SDK) and its proposed roadmap — an evaluation, not a design; every proposal was audited against the tree before anything was filed | open | ✓ | ✓ (every review id mapped to its task and disposition; one sub-agent session per task) | `docs/task-archive.md` Parts 349–374 (what survived the audit, built or refused) · `docs/task-archive.md` Part 387 (the second round, §22–32: memory intelligence and a user profile; its Track A gate, with RV28 in Part 390) |
+| 2026-10-24 | An external competitive review (Graphiti, Mem0, Letta, Mastra, Agent Framework, LiteLLM, the OpenAI Agents SDK) and its proposed roadmap — an evaluation, not a design; every proposal was audited against the tree before anything was filed | not a release; every task it filed is closed | ✓ | ✓ (every review id mapped to its task and disposition; one sub-agent session per task) | `docs/task-archive.md` Parts 349–374 (what survived the audit, built or refused) · `docs/task-archive.md` Part 387 (the second round, §22–32: memory intelligence and a user profile; its Track A gate, with RV28 in Part 390) |
 | 2026-09-27 | Vector read-back, filtered search and re-embedding a graph in place — design (an optional read interface, an id-set filter with a default body, a re-embed serialized against removals, chosen over metadata, an embed cache and a shadow vector space) and its four-task plan | 3.5.0 | ✓ | ✓ | **D194** (the rules and the rejected shapes) · `docs/task-archive.md` Part 323 |
 | 2026-09-26 | Run-time text providers and front-door call tracing — design (a registry snapshot the DEFAULT router reads, chosen over a governed client per edit; tracing as a front-door decorator at slot 30, deterministic scorers by default) and its four-task plan | 3.5.0 | ✓ | ✓ | **D193** (the rules and the rejected shapes) · `docs/task-archive.md` Part 322 |
 | 2026-09-26 | Run-time job schedules and coded job messages — design (a schedule store over the key-value store, one read/write interface; a `JobMessage` whose store members are required) and its seven-task plan | 3.5.0 | ✓ | ✓ | **D192** (the rules and the rejected shapes) · `docs/task-archive.md` Part 321 |
@@ -63,20 +63,20 @@ _A MEASUREMENT RECORD is listed here too: what was measured on one day is the sa
 | 2026-08-27 | The gist tier — design, then the support RULE, then a field-research pass. **Nothing shipped: refuted as scoped** | not shipped | 3 records | — | **D94** · **D106** · `docs/memory-measurements.md` §5 (three sweeps + the field survey) · `docs/task-archive.md` Parts 104, 108, 153 |
 | 2026-08-26 | The "superhuman memory" proposal — assessment, then Phase 1 and Phase 2 | 3.2.0 | ✓ | ✓ | **D90** · design §5.7.0 · `docs/memory.md` §7 · `docs/FIXES.md` (two entries) · `pitfalls.md` (§Second doors, §Environment, CLI) · `windows-machine.md` · `docs/task-archive.md` Parts 97, 98, 100 · `TASKS.md` Part 99 |
 | 2026-08-26 | Graph-engine COST at 1k / 10k / 100k (`memory-scale`, the §7 blind spot) — plus a `--repeat 5` run that settled the read-vs-write-back split the single-cell run could not | 3.2.0 | — | 2 records | `docs/memory.md` §7 · `docs/task-archive.md` Part 97 |
-| 2026-08-09 | Ranking × forgetting policy measurement (the D49 falsification pass) | 3.0.0 | — | record | **D49** · `docs/memory-measurements.md` §5 · `docs/task-archive.md` Parts 54–55 (Part 56 is still OPEN) |
+| 2026-08-09 | Ranking × forgetting policy measurement (the D49 falsification pass) | 3.0.0 | — | record | **D49** · `docs/memory-measurements.md` §5 · `docs/task-archive.md` Parts 54–56, and 281 for the last item the backlog held there |
 | 2026-08-08 | The memory subsystem design PAGE (a published snapshot, not a spec) | 2.5.0 | — | record | design §5.7 · `docs/memory.md` · D39–D42 · `docs/task-archive.md` Parts 46–52 |
 | 2026-08-08 | Named memory-engine seam (MEM1) | 2.5.0 | ✓ | ✓ | design §5.7 · D39 · `docs/task-archive.md` Part 46 |
 | 2026-08-08 | Graph memory engine (MEM2) | 2.5.0 | ✓ | ✓ | design §5.7 · D40–D41 · `docs/task-archive.md` Parts 47–52 |
 | 2026-08-08 | Graph memory on SQLite + Postgres (MEM2b) | 2.5.0 | — | ✓ | `.agents/knowledge/storage.md` · `docs/task-archive.md` Part 48 |
 | 2026-08-05 | Provider pool / lifetime seam | 2.2.0 | ✓ | ✓ | D30 · `docs/task-archive.md` Part 37 |
-| 2026-08-04 | The media generation platform (Plan 1 of 7) — the last document to leave `docs/` | 2.0.1 | — | ✓ | **D24**/**D25** · design §6 · `docs/task-archive.md` Parts 32–33 · `docs/guide.md` §Generation · `TASKS.md` Part 33 (GEN-VERIFY/GEN6/GEN7, which carry the CURRENT framing — see below) |
+| 2026-08-04 | The media generation platform (Plan 1 of 7) — the last document to leave `docs/` | 2.0.1 | — | ✓ | **D24**/**D25** · design §6 · `docs/task-archive.md` Parts 32–33 · `docs/guide.md` §Generation · `TASKS.md` Part 33 (GEN-VERIFY-FAL, the one item left, which carries the CURRENT framing) |
 | 2026-08-04 | The 2.0.1 package restructure | 2.0.1 | — | ✓ | design §3 amendment · D25–D27 · `docs/task-archive.md` Part 32 |
 | 2026-07-28 | 1.0 readiness | 1.0.0 | ✓ | ✓ | `docs/ROADMAP.md` (the v1.0.0 row) · D16 |
 | 2026-07-27 | Curated memory metadata catalog | 0.31.0 | ✓ | — | CHANGELOG 0.31.0 · archive |
 | 2026-07-19 | Agent-session surface | 0.28.5 | ✓ | — | D35 · archive · CHANGELOG 0.28.5 |
 
 **Nothing is still tracked but the contract.** `docs/2026-07-17-lyntai-design.md` is maintained state and
-never moves; `docs/` otherwise holds only records that are current by design.
+never moves; `docs/` otherwise holds only what `docs/documents.md` lists, each with where it stands.
 
 **A "still live" note is a claim with an expiry date, like a blocker** (`task-lifecycle.md`) — and it
 expires the same silent way, because nothing fails when the live half quietly dies (**D149**: the generation

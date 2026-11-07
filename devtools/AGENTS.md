@@ -21,10 +21,9 @@ repository does not already use.
 
 ## Traps
 
-- Several gates still name `.claude/knowledge/` and treat `.claude/` as the documents' scope
-  (`scripts/check-pitfalls.mjs` `RECORD`, `scripts/check-docs.mjs` `IN_SCOPE`, the path pattern in
-  `scripts/check-links.mjs`) while the knowledge now lives in `.agents/`: a gate that cannot see a file
-  reports exactly like a clean one.
+- `scripts/check-links.mjs`'s path pattern still names `.claude/` and not `.agents/`, while the knowledge now
+  lives in `.agents/`: a gate that cannot see a file reports exactly like a clean one. (`scripts/check-pitfalls.mjs`
+  `RECORD` and `scripts/check-docs.mjs` `IN_SCOPE` already read `.agents/`.)
 - The script and exit-code traps are `.claude/rules/windows-machine.md` and the shared `windows-machine`
   rule: never read an exit code through a pipe, and never `process.exit()` with a request in flight.
 

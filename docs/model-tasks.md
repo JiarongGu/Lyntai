@@ -28,7 +28,7 @@ does and does not cover, and a blank means *not yet shown to fit the budget*, ne
 | **score-a-pair** (generative) | grade this output against this input, 0..1 | `LlmScorerBase`, and `RelevancyScorer` under it | per evaluation, per scorer | composition root | no |
 | **classify** | is this fact durable enough to keep verbatim | `LlmAnnotationOptions.SuggestGrade`, off by default | per WRITE, when on | option | no |
 | **affordance** | given these tools, what do you want | `AddMemoryTools`, `AddGenerationTools`, an MCP-hosted toolset | per model tool call, unbounded by this library | no | **yes — §3.1** |
-| **embed** | place this text in a vector space | `ProviderKinds.Vector` | per WRITE **and** per RECALL | no | **yes — §3.3** |
+| **embed** | place this text in a vector space | `ProviderKinds.Vector` | per WRITE **and** per RECALL | graph engine only: a provider id | **yes — §3.3** |
 | **repair** | re-emit that, as JSON this time | the shared JSON completion helper | at most once per call, under three seams | inherited | no |
 | **delegate a run** | here is a task, do it | `IAgentSession` | per session, model-driven | n/a — you pick a CLI | out of scope |
 
@@ -357,7 +357,9 @@ try its own; the shipped default was left alone because no tested wording earned
 
 **Two consequences for anyone wiring a tool loop.** A roster is not a menu the model will decline **on the
 prompt protocol** — narrow it before the model sees it, because there the model supplies no bound of its
-own, and §1 marks this the one row *unbounded by this library*. And a 806,058,240 B model is the mirror
+own, and §1 marks this the one row *unbounded by this library*. `AddVectorToolSelector` is the shipped, opt-in way to
+narrow it: an `IToolSelector` that keeps the `ToolSelectorOptions.Limit` tools (8 by default) whose name and description
+best match the request, and shows the whole roster when it faults or returns nothing. And a 806,058,240 B model is the mirror
 failure: 0-5% false calls, but it never invokes a tool when one DOES fit (81-93% of the time), emitting
 `{"final": "…Please wait a moment while I retrieve the data."}` — the task understood, the grammar
 unavailable. **One prompt, two opposite pathologies, decided by size.**
@@ -372,7 +374,8 @@ costs 2.4-9.6 points of choice accuracy. **Check the template before relying on 
 tool section returns 200 with `tool_calls: null` and answers anyway, which is why `ToolLoop` keeps the
 prompt protocol as its portable fallback.
 <br>**And the run reports which transport it took**: `ToolLoopResult.Transport` (**D117**) reports
-which of the two actually ran, so a deployment that silently landed in the second column above can see it.
+which one ran (`Native`, `Prompt`, or `None` when no tool was registered), so a deployment that silently landed in the
+second column above can see it.
 It is a fact about the run rather than a warning, so it fires no threshold and says nothing about whether
 the fallback was the wrong answer for your model.
 
@@ -488,7 +491,7 @@ guard's block is advisory rather than terminal — there is no "abandon the sess
 can be reported and not enforced. **A structural constraint is only available where the library owns the
 loop**, which is worth checking before you rely on one.
 
-## 5. Pinning a model per seam — three seams configure it, everything else is composition
+## 5. Pinning a model per seam — four seams configure it, everything else is composition
 
 **The argument for pinning is the library's own:** a subsystem that calls a model on your behalf should not
 silently run on whatever backend happens to be default. The surface does not yet reflect that evenly.
@@ -546,7 +549,7 @@ directly.
 | seam | the obstacle |
 |---|---|
 | `IPairwiseComparer` | Frozen at **N = 2**, over two `string`s rather than identified options, returning A/B/Tie with **no score**. Costs up to **four** model calls per pair (both orders, each able to trigger one JSON repair). No aggregator ships — `JudgeAgreement` compares two verdict vectors, it does not pick a winner. |
-| `IToolLoop` | The right roster shape, the wrong SOURCE: options come from a process-wide DI `IToolRegistry`, and the interface's own doc says the tools come "from the registry, not `TextRequest.Tools`". A per-call 3-7 option list reaches it only by constructing `ToolLoop` and `ToolRegistry` by hand — both public, so possible, but not configurable. **Check your model emits `tool_calls` before relying on the native path**: a model whose template has no tool section returns 200 with none and answers anyway (`pitfalls.md`), which is why the loop's prompt-protocol fallback is the portable transport. |
+| `IToolLoop` | The right roster shape, the wrong SOURCE: options come from a process-wide DI `IToolRegistry`, and the interface's own doc says the tools come "from the registry, not `TextRequest.Tools`". A per-call 3-7 option list reaches it only by constructing `ToolLoop` and `ToolRegistry` by hand — both public, so possible, but not configurable. The one configured lever is an `IToolSelector` (`AddVectorToolSelector`), which narrows the registry's roster per call by similarity and does not take a caller's list. **Check your model emits `tool_calls` before relying on the native path**: a model whose template has no tool section returns 200 with none and answers anyway (`pitfalls.md`), which is why the loop's prompt-protocol fallback is the portable transport. |
 | `IScorer` / `LlmScorerBase` | The one-pair PRIMITIVE, not a chooser. N options is N calls plus a caller-side argmax, and `ScoringService` keys results by SCORER rather than by candidate, so N options cannot be told apart inside one evaluation. |
 | `IMemoryAnnotationPolicy` | Closer than it looks — its `Known` list IS a bounded candidate set, and the prompt asks the model to reuse one "copied exactly". But the output is free-form strings unconstrained to that list, with no id echo, so it expresses "pick from these" only by asking nicely. |
 

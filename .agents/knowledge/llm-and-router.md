@@ -165,13 +165,15 @@ Three properties of that split are load-bearing:
 
 ## Streaming (`TextRouter.StreamAsync`) — two invariants
 
-1. **No fallback after the first content token.** Once a *real* content chunk is yielded (`committed`),
-   every later chunk — including an `Error` — passes through unchanged and the stream ends; no second
-   candidate is tried. Falling back mid-stream would duplicate tokens. Only a **pre-content** failure
-   advances.
-2. **Only real content commits.** The commit gate is `Kind == Content && Text.Length > 0`. An
-   empty/role-only first chunk must NOT commit (the router is the trust boundary; a third-party provider
-   might yield one). A `Refused` pre-content error surfaces without fallback, same as non-streaming.
+1. **No fallback after the first content token or tool call.** Once a *real* content chunk or a tool-call chunk
+   is yielded (`committed`), every later chunk — including an `Error` — passes through unchanged and the stream
+   ends; no second candidate is tried. Falling back mid-stream would duplicate tokens, and after a tool call
+   would duplicate an action (`ToolLoop` may already have run it). Only a **pre-content** failure advances.
+2. **Only real content commits.** The commit gate is a `Content` chunk with `Text.Length > 0`, or a `ToolCall`
+   chunk that carries a call. An empty/role-only first chunk and a call-less `ToolCall` chunk must NOT commit
+   (the router is the trust boundary; a third-party provider might yield one), and a `Final` with nothing
+   before it is turned into a `Failed` error so it falls over. A `Refused` pre-content error surfaces without
+   fallback, same as non-streaming.
 
 ## Provider streaming timeout = inactivity clock
 
@@ -190,7 +192,8 @@ which is the same core with the read swapped and therefore the same clocks and t
 
 ## Dead-host tracker
 
-N consecutive failures → dead for a cooldown window; any success resets. Clock is injected
+N consecutive failures (default 3) → dead for a FIXED cooldown window (default 30 s, no backoff); any success
+resets, and once the window lapses a single further failure benches the host again. Clock is injected
 (`Func<DateTimeOffset>`), never `DateTime.Now`, so it's deterministically testable. All state access is under
 a lock. `MarkDead` benches immediately (RateLimited/AuthFailed); `RecordFailure` counts toward the threshold
 (Failed/Timeout). Keys are namespaced per domain — `TextRouter` keys bare (the historical format, which is

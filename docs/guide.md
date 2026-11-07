@@ -64,9 +64,12 @@ Lyntai is a library a .NET application links in. It has no server, no UI and no 
   schema, so `AddHttpProvider` can point at it.
 - **You want a memory service that extracts facts for you.** Mem0 and Zep turn conversations into facts
   and user profiles with a model, and Zep tracks when a fact stopped being true. Lyntai stores what you write
-  (subject annotation is opt-in, `AddMemoryAnnotation()`); it does not extract facts, and a `MemoryWrite`
-  carries no valid time, so nothing supersedes anything. An old fact fades as newer material is written and
-  recalled; it is never marked false. They also serve many languages over HTTP, which Lyntai does not.
+  (subject annotation is opt-in, `AddMemoryAnnotation()`); it does not extract facts, and a fact stops being true
+  only when the caller says so: a `MemoryWrite` can carry valid time (`ValidFrom`, `ValidTo`) and `Supersedes`,
+  which ends the entry it names without deleting it. The graph engine holds that; the keyword, semantic and
+  curated engines refuse a write that states any. Nothing is inferred from similar text, so an entry nobody
+  supersedes only fades as newer material is written and recalled; it is never marked false. They also serve
+  many languages over HTTP, which Lyntai does not.
 
 ## Start from a scenario
 
@@ -277,7 +280,7 @@ anything being wrong with it). They hang off the enum, so they read the same off
 - **Prompt overrides** live in the key-value store under `lyntai.prompt.<name>`; an override that
   drops a `{placeholder}` present in the default is rejected (falls back to the default, with a warning).
 - **Memory recall is bounded and fail-open:** FTS5 trigram match, LIKE fallback, capped per (task, scope) —
-  and it never throws into your prompt path.
+  and it never throws into your prompt path (your own cancellation excepted).
 - **Recall is not English-only, and needs no setup to not be.** A query splits into words for a spaced
   script and character **trigrams** for one without spaces, the same way on every backend, so
   `"我的配偶叫什么名字"` finds `"我的配偶是爱丽丝"`. Backends differ in how they RANK matches, never in which they find.
@@ -477,7 +480,7 @@ expands it. Four rules decide how the engine behaves:
   everything, a recall refreshes what it returned, and it is all computed at read time: no background job.
 - **Decay buries; it does not cut** (**D41**). An entry is hidden because something outranks it, never because
   it crossed a threshold, and it stays reachable directly or through a neighbour, its `Retrievability` saying
-  how faint it has become. Nothing is deleted unless you call `PruneAsync`.
+  how faint it has become. Decay deletes nothing: an entry goes only when you call `PruneAsync` or `ForgetAsync`.
 - **Grades reserve slots** (**D56**). An `Authoritative` entry never decays, is never shortened, and takes a
   reserved slot within your `Limit`, so only another exact fact displaces it
   (`GraphMemoryOptions.AuthoritativeReserve` bounds how many slots).
@@ -552,7 +555,7 @@ meterProviderBuilder.AddMeter(LyntaiDiagnostics.GenerationMeterName);         //
 
 // the agentic subsystems (tool loop, durable jobs, guards) emit on a third source/meter:
 tracerProviderBuilder.AddSource(LyntaiDiagnostics.AgentActivitySourceName);   // "Lyntai.Agents" spans
-meterProviderBuilder.AddMeter(LyntaiDiagnostics.AgentMeterName);              // tool/job/guard metrics
+meterProviderBuilder.AddMeter(LyntaiDiagnostics.AgentMeterName);              // tool/job/guard, cache and refusal counters
 ```
 
 `chat {model}` spans carry `gen_ai.system` (provider id), `gen_ai.request.model`, token usage and
@@ -577,7 +580,7 @@ reply waits for the step and the scores, so a slow store or an opted-in LLM scor
 Lyntai defines the interfaces; your app owns the resource lifecycle wherever that matters.
 
 <!-- compile-skip: a tour of BYO seams. compile-given was measured and rejected here: IProcessRunner
-     alone is three eight-parameter methods, and with MyCustomProvider (IModelProvider, four members) and a
+     alone is two required eight-parameter methods beside five optional members, and with MyCustomProvider (IModelProvider, four members) and a
      connection factory the context runs past 26 lines for a 16-line sample — a whole program, not a few
      declarations. -->
 ```csharp
@@ -612,8 +615,9 @@ as text (**D165**).
 a class the library ships, and a BYO decorator joins a chain beside them. A decorator forwards every member
 to the instance it wraps; where a member can go unanswered, its own documentation says what to return, under
 **Implementing it**. A member added to one of these takes no default body (**D67**), so a decorator that
-misses it fails to compile instead of silently running a default. The one older default body named below
-falls back correctly, only more slowly. `DecoratedInterfaceTests` holds this table to the tree: a newly
+misses it fails to compile instead of silently running a default, unless the default is only slower (**D99**).
+The two default bodies named below, `IDbConnectionFactory.OpenAsync` and `IVectorStore`'s filtered
+`SearchAsync`, fall back correctly, only more slowly. `DecoratedInterfaceTests` holds this table to the tree: a newly
 decorated interface fails the tests until it is listed here, and so does a row nothing decorates any more.
 
 <!-- decorated-interfaces:begin -->
@@ -637,7 +641,7 @@ decorated interface fails the tests until it is listed here, and so does a row n
 `ProbeAsync` is on `IModelProvider` itself (**D127**), so *every* backend answers "is this usable right now?"
 without running a completion. Three **optional** capabilities — `IProviderUpdater`,
 `IProviderVersionInstaller`, `IProviderAuth` — are discovered by pattern-matching, and all **fail safe**: an
-absent, stalled or erroring backend is reported, never thrown. An HTTP backend answers by ASKING its server
+absent, stalled or erroring backend is reported, never thrown (your own cancellation excepted). An HTTP backend answers by ASKING its server
 — one GET of its model listing (`/v1/models`, Ollama's `/api/tags`), which generates nothing — so a setup
 screen's "test connection" learns whether the server is reachable, whether it accepts the key, and what it
 serves (`probe.Models`). A server with no listing route is reachable, and a configured model it does not list
@@ -1423,8 +1427,9 @@ else
 }
 ```
 
-`pick.Apply(options)` sets the options' `Account` and, when the choice names one, the `Model`. `Effort` is yours to
-read off `pick.Seat.Choice`: no neutral option carries it. The pool never sleeps and never decides to wait.
+`pick.Apply(options)` sets the options' `Account` and, when the choice names them, the `Model` and the `Effort` (the
+host's own stand otherwise); a door that does not carry the effort refuses the turn. The pool never sleeps and never
+decides to wait.
 
 **What a failure holds.** The door's own `Restriction` (never the agent's words) is held on what it covers, and a seat
 runs only if EVERY restriction covering it permits: `Account` holds the account, `Endpoint` the provider (all its
@@ -1556,8 +1561,9 @@ await queue.EnqueueAsync("summarize", "summarize", payloadJson);
 await runner.RunAsync(ct);   // in your IHostedService — claims across lanes and runs them in parallel
 ```
 
-Run several `IJobRunner` instances, in one process or many, and the atomic claim gives each job to exactly one.
-Delivery is at-least-once, so a handler must be idempotent from its checkpoint. Higher priority runs first
+A lane absent from `LaneConcurrency` runs one job at a time (`DefaultLaneConcurrency`, 1), and both limits are per
+process; `GlobalMaxConcurrency` caps every process sharing the store. Run several `IJobRunner` instances, in one
+process or many, and the atomic claim gives each job to exactly one. Delivery is at-least-once, so a handler must be idempotent from its checkpoint. Higher priority runs first
 within a lane, and a job that exhausts its retries lands in the dead-letter queue (`JobStatus.Dead`):
 
 <!-- compile-given: string payloadJson;
@@ -1600,10 +1606,13 @@ await ctx.ReportStageAsync(3, 10, new JobMessage("Copying 3 of 10")
 
 ## Guards, orchestration, secrets, vision
 
-- **Guards** (`Lyntai.Guards`) — `IGuard`s inspect requests/replies and Allow/Block/Replace; `AddGuard<T>()`
-  registers them, `GuardedTextClient` gates any completion, and the chat orchestrator applies them as gates.
-- **Two-gate chat** (`IChatOrchestrator`) — one call runs: input gate → memory recall → model (via the
-  tool loop) → output gate → remember. A batteries-included, guarded chat entry point.
+- **Guards** (`Lyntai.Guards`) — `IGuard`s inspect requests and responses and answer Allow/Block/Replace;
+  `AddGuard<T>()` registers them, `GuardedTextClient` gates any completion, and the chat orchestrator applies them
+  as gates. The tool loop and the hosted MCP endpoint put each tool call and each observation through them too.
+- **Two-gate chat** (`IChatOrchestrator`) — one call runs: input gate → memory recall → model → output gate →
+  remember. Recall and remember run only when the `ChatTurn` carries a `TaskKey` (remember also needs `Remember`,
+  on by default), and the model goes through the tool loop only when `UseTools` (on by default) is set and a tool
+  is registered; else it is one plain completion. A batteries-included, guarded chat entry point.
 - **Secret vault** (`Lyntai.Secrets`) — `AddSecretVault(key)` gives an `ISecretVault` encrypted at rest
   (AES-256-GCM, your key) over your storage backend. `AddEnvelopeSecretVault(machineProtector)` instead uses a
   Lyntai-generated key sealed to the host and backed by a one-time recovery key (`GenerateMasterKeyAsync()`,

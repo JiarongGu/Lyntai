@@ -1,10 +1,11 @@
 # Memory a model-driven knowledge system keeps current — Lyntai's synthesis, round 1
 
-**Status: a synthesis (`docs/documents.md`), 2026-10-30; nothing is built.** It settles `docs/memory-currency-proposal.md`
-against the other maker's sealed proposal, written from the same brief, and the accepted knowledge-freshness design, as
-a decision of this repository (**D241**), in the shape of Daoris's D191: each of the brief's five questions answered once,
-each difference chosen with its reason, and what each choice rejects. The rows are `TASKS.md` Part 417, MC1 to MC9; the
-study's rulings it builds on are **D239** and **D240** (`docs/memory-currency-study.md`).
+**Status: a synthesis (`docs/documents.md`), 2026-10-30; round 1, and its rows are built except MC8.** It settles
+`docs/memory-currency-proposal.md` against the other maker's sealed proposal, written from the same brief, and the accepted
+knowledge-freshness design, as a decision of this repository (**D241**), in the shape of Daoris's D191: each of the brief's
+five questions answered once, each difference chosen with its reason, and what each choice rejects. The rows are MC1 to MC9:
+MC1 to MC7 and MC9 are archived (`docs/task-archive.md` Parts 419 to 423, 426 and 418; MC3 measured at Part 440), and MC8 is the one open in `TASKS.md` Part 417. The study's rulings it builds
+on are **D239** and **D240** (`docs/memory-currency-study.md`).
 
 ## 0. Where the two proposals already agree, and the owner's proposal
 
@@ -141,7 +142,9 @@ current checks the revision at presentation.
 **Not chosen:** a transaction over the successor's insert and the predecessor's end. That widens a store contract the
 shipped stores implement; the order today (insert, then end) fails toward both entries live, and a repeat of the same write
 passes, so no fact is lost and the repair is the retry. MC1 measures races, retries and a failure between the two, and
-reports whether that is enough.
+reports whether that is enough. **Amended since by D242**: a host that holds the successor after approval can apply a
+supersession as one change, `ISupersedingMemory.SupersedeAsync` (MC12, `docs/task-archive.md` Part 425); the gate's agent path
+stays insert-then-end.
 
 ## 5. The order and the instruments
 
