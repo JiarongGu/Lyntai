@@ -60,6 +60,13 @@ internal static class GraphReceiptSql
         }
 
         var (value, landed) = await effect(conn, tx).ConfigureAwait(false);
+        // an effect guarded by a revision that reports none may have lost a race: under READ COMMITTED it waited on the winner's row,
+        // found it changed, and the winner's receipt is committed by now
+        if (landed is null && await ReplayAsync(conn, tx, engine, key, ct).ConfigureAwait(false) is { } won)
+        {
+            await tx.CommitAsync(ct).ConfigureAwait(false);
+            return new GraphKeyed<T>(replay(won), true, won);
+        }
         GraphReceipt? receipt = null;
         if (landed is { } l)
         {
