@@ -8,7 +8,7 @@ namespace Lyntai.Memory.Engines;
 /// an <see cref="IVectorStore"/> under <see cref="MemoryVectorCollection"/>'s address.
 /// <para><b>Every removal verb must reach it</b> — the store's own contract cannot see it, so a forget that
 /// cleared only the nodes would leave their full content readable here
-/// (<c>.claude/knowledge/pitfalls.md</c>, "A projection the OWNING STORE does not hold").</para></summary>
+/// (<c>.agents/knowledge/pitfalls.md</c>, "A projection the OWNING STORE does not hold").</para></summary>
 /// <param name="engine">The owning engine's name — the head of every collection address.</param>
 /// <param name="providers">The registered backends; one declaring <see cref="ProviderKinds.Vector"/> embeds.</param>
 /// <param name="vectors">The index, or null when none is wired.</param>

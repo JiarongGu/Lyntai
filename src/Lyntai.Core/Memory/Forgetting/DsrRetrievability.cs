@@ -43,7 +43,7 @@ public sealed record DsrOptions
     /// <c>PruneAsync</c> deletes rows the curve itself rates fully retrievable. A positive value drives the
     /// curve's base negative at large ages, which is <c>NaN</c>. <c>-Infinity</c> also makes <c>r ≡ 1</c> and
     /// turns the cutoff <c>NaN</c>, so pruning silently stops — the opposite failure from the same option
-    /// (<c>.claude/knowledge/pitfalls.md</c>, "a clamp is not a finiteness guard").</para></summary>
+    /// (<c>.agents/knowledge/pitfalls.md</c>, "a clamp is not a finiteness guard").</para></summary>
     /// <exception cref="ArgumentOutOfRangeException">Set to zero, a positive value, a non-finite value
     /// (<c>NaN</c>, <c>+Infinity</c>, or <c>-Infinity</c>).</exception>
     public double Decay
@@ -58,7 +58,7 @@ public sealed record DsrOptions
     /// ASSOCIATIVE entry become permanently retrievable while still labelled associative. <b>Unmeasured.</b>
     /// <para><b>Must be a FINITE positive number — the one option here whose bad values reach PERSISTED
     /// state</b>, since <see cref="DsrRetrievability.Reinforce"/>'s result is written back. <c>NaN</c> passes
-    /// the clamp and its floor (<c>.claude/knowledge/pitfalls.md</c>, "a clamp is not a finiteness guard") and stores a stability that neither ranks nor prunes; a non-positive
+    /// the clamp and its floor (<c>.agents/knowledge/pitfalls.md</c>, "a clamp is not a finiteness guard") and stores a stability that neither ranks nor prunes; a non-positive
     /// ceiling would shorten every memory, breaking <see cref="IMemoryRetrievabilityPolicy.Reinforce"/>'s
     /// never-shorter guarantee; <c>+Infinity</c> removes the ceiling — write <see cref="double.MaxValue"/> to
     /// mean that. An entry already stored above the ceiling is FROZEN, never cut.</para></summary>
@@ -79,7 +79,7 @@ public sealed record DsrOptions
     /// (<see cref="DsrRetrievability.EffectiveStability"/> floors at the stored stability) — it makes
     /// connectedness a silent NO-OP while <see cref="MaxConnectionBoost"/> still widens the cutoff for it.
     /// <c>+Infinity</c> is <c>Infinity × ln(1) = NaN</c> at strength zero, the commonest state, and reaches
-    /// the difficulty <see cref="DsrRetrievability.Reinforce"/> writes back (<c>.claude/knowledge/pitfalls.md</c>, "a clamp is not a finiteness guard"). Zero turns connectedness
+    /// the difficulty <see cref="DsrRetrievability.Reinforce"/> writes back (<c>.agents/knowledge/pitfalls.md</c>, "a clamp is not a finiteness guard"). Zero turns connectedness
     /// off, deliberately.</para></summary>
     /// <exception cref="ArgumentOutOfRangeException">Set to a negative value or a non-finite value
     /// (<c>NaN</c>, <c>+Infinity</c>, or <c>-Infinity</c>).</exception>
@@ -99,7 +99,7 @@ public sealed record DsrOptions
     /// connectedness exists to protect. <b>Unmeasured.</b>
     /// <para><b>Must be FINITE and at or above 1.</b> Both readers floor it at 1, so a smaller value
     /// silently means a DIFFERENT number. <c>NaN</c> turns both retrievability and
-    /// <see cref="DsrRetrievability.CandidateCutoff"/> <c>NaN</c>, so <c>PruneAsync</c> stops pruning (<c>.claude/knowledge/pitfalls.md</c>, "a clamp is not a finiteness guard");
+    /// <see cref="DsrRetrievability.CandidateCutoff"/> <c>NaN</c>, so <c>PruneAsync</c> stops pruning (<c>.agents/knowledge/pitfalls.md</c>, "a clamp is not a finiteness guard");
     /// <c>+Infinity</c> makes every prune a full in-scope scan.</para></summary>
     /// <exception cref="ArgumentOutOfRangeException">Set to a value below 1 or a non-finite value
     /// (<c>NaN</c>, <c>+Infinity</c>, or <c>-Infinity</c>).</exception>
@@ -120,11 +120,11 @@ public sealed record DsrOptions
     /// the same default of <c>100</c> and governs a DIFFERENT thing</b> — that one decays an edge's WEIGHT
     /// during traversal, which is what stops the graph saturating, and the engine reads it for every arm
     /// regardless of which retrievability policy is installed. They agree by coincidence, not by design, so
-    /// name which one you mean whenever you tune either (`.claude/knowledge/pitfalls.md`).</para>
+    /// name which one you mean whenever you tune either (`.agents/knowledge/pitfalls.md`).</para>
     /// <para><b>Must be a FINITE positive number.</b> Zero, a negative value or <c>+Infinity</c> switch
     /// connection-strength decay OFF, so a neighbourhood that went quiet props the memory up forever; a
     /// <c>NaN</c> slips past <see cref="DsrRetrievability.EffectiveStrength"/>'s <c>&lt;= 0</c> branch into a
-    /// <c>NaN</c> retrievability (<c>.claude/knowledge/pitfalls.md</c>, "a clamp is not a finiteness guard").</para></summary>
+    /// <c>NaN</c> retrievability (<c>.agents/knowledge/pitfalls.md</c>, "a clamp is not a finiteness guard").</para></summary>
     /// <exception cref="ArgumentOutOfRangeException">Set to zero, a negative value, or a non-finite value
     /// (<c>NaN</c>, <c>+Infinity</c>, or <c>-Infinity</c>).</exception>
     public double EdgeHalfLife

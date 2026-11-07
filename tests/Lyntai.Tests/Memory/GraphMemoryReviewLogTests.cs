@@ -12,7 +12,7 @@ namespace Lyntai.Tests.Memory;
 /// bounded by default, opt-out rather than opt-in, best-effort at a STRICTER grain than the reinforcement it
 /// logs, and — the property this file argues hardest for — provably inert data.
 /// <para>SQLite by default, because the no-feedback fact compares RANKED results and only a relational store
-/// ranks (<c>.claude/knowledge/pitfalls.md</c>); the best-effort fact needs a hostile in-process double and a
+/// ranks (<c>.agents/knowledge/pitfalls.md</c>); the best-effort fact needs a hostile in-process double and a
 /// query-less recall.</para></summary>
 public class GraphMemoryReviewLogTests
 {

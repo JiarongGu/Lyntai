@@ -2020,7 +2020,7 @@ public sealed class GraphMemoryEngine(
     /// <summary>Clamp one component of a composed <see cref="MemoryTick"/> to something a store may keep.
     /// <para>Both components are PERSISTED, and a bare <see cref="Math.Max(double,double)"/> propagates a BYO
     /// <see cref="IMemoryAgePolicy.Advance"/>'s <c>NaN</c> into every later entry's age
-    /// (<c>.claude/knowledge/pitfalls.md</c>, "a clamp is not a finiteness guard").</para>
+    /// (<c>.agents/knowledge/pitfalls.md</c>, "a clamp is not a finiteness guard").</para>
     /// <para>A non-finite component becomes <c>1</c> rather than <c>0</c> because <see cref="MemoryTick.One"/>
     /// already defines that as an ordinary write ("crowds by one and is fully encoded"). <c>0</c> would be a
     /// second, invented meaning — and on the encoding side it multiplies

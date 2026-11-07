@@ -64,7 +64,7 @@ export const DERIVED = 'SUPERSEDED';
  * knowledge-update workload measures, and `correction` is a corpus class in `memory-density`. Restricting
  * it to CAPITALS did not help — the surviving hits were a table row reading `| the SUPERSEDED fact |` and a
  * heading asking *"Does a CORRECTION separate from a RECURRENCE?"*. That is the failure
- * `.claude/knowledge/pitfalls.md` records: a gate whose false positives are legitimate authorial choices
+ * `.agents/knowledge/pitfalls.md` records: a gate whose false positives are legitimate authorial choices
  * cannot be tightened into usefulness, only given an exclusion list nobody can see rot — so reach for a
  * REGISTRY whenever "wrong" depends on intent. The registry here is `status=` and `supersedes=`.
  *

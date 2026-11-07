@@ -40,7 +40,7 @@ public class MemoryGistSupportRuleTests
     /// <summary>Raw and weighted support over the same corpus under two write pacings.
     /// <para><b>Both arms state their pacing as an INJECTED clock</b> - no wall clock is read anywhere in
     /// this test, so no figure here is a fact about how fast this machine ran the replay
-    /// (<c>.claude/knowledge/pitfalls.md</c> §Testing). Both drive the SHIPPED
+    /// (<c>.agents/knowledge/pitfalls.md</c> §Testing). Both drive the SHIPPED
     /// <see cref="BurstDampenedAgePolicy"/>: <c>bulk</c> steps 100ms per write, inside that policy's own
     /// 5-second window, so the whole import arbitrates within ONE burst; <c>spaced</c> steps 10s per write,
     /// outside it, so every write starts its own burst and the damping degenerates to per-write ticks.</para>

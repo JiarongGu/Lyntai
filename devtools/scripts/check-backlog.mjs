@@ -9,7 +9,7 @@
 // reason on 2026-09-03 and then regrew a 19-line one in the same place.
 //
 // THE MANIFEST: the startable-set banner has advertised finished work FOUR times, always because a summary
-// and the items it summarizes were maintained separately. `.claude/knowledge/pitfalls.md` refuted deriving
+// and the items it summarizes were maintained separately. `.agents/knowledge/pitfalls.md` refuted deriving
 // that banner from the checkboxes — "Part 99 is a WATCH item" is not computable from a `- [ ]` — and
 // pointed at a registry instead. This is that registry: state is AUTHORED on each item in an
 // `<!-- item: … -->` marker, and the roster at the head of the file is GENERATED from it, so the two cannot

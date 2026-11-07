@@ -304,7 +304,7 @@ public class DsrRetrievabilityTests : RetrievabilityPolicyContractFacts
     //
     // A record where one field is domain-guarded and its neighbours are not is more dangerous than one with
     // no guards at all, because the guard reads as evidence the record was audited
-    // (`.claude/knowledge/pitfalls.md`).
+    // (`.agents/knowledge/pitfalls.md`).
 
     [Theory]
     [InlineData(0.0)]
@@ -412,7 +412,7 @@ public class DsrRetrievabilityTests : RetrievabilityPolicyContractFacts
     public void Every_option_on_the_record_now_rejects_a_NaN()
     {
         // Prefer a test that walks the WHOLE options surface over one that pins the field just fixed
-        // (`.claude/knowledge/pitfalls.md`).
+        // (`.agents/knowledge/pitfalls.md`).
         // Reflection over the record's own properties, so a property ADDED later without a guard fails here
         // rather than shipping as the next unguarded neighbour — the compiler cannot see that omission.
         var offenders = typeof(DsrOptions).GetProperties()
@@ -984,7 +984,7 @@ public class DsrRetrievabilityTests : RetrievabilityPolicyContractFacts
     /// <para><b>Which <c>EdgeHalfLife</c>:</b> <see cref="DsrOptions.EdgeHalfLife"/>, the curve's own
     /// connection-strength half-life — NOT <see cref="GraphMemoryOptions.EdgeHalfLife"/>, which has the same
     /// name and the same default of 100 and decays an EDGE'S WEIGHT during traversal
-    /// (<c>.claude/knowledge/pitfalls.md</c>).</para></summary>
+    /// (<c>.agents/knowledge/pitfalls.md</c>).</para></summary>
     [Fact]
     public void A_neighbourhood_that_went_quiet_reinforces_more_like_an_isolated_entry()
     {

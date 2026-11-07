@@ -27,7 +27,7 @@ public sealed record MediaResponse(
     public bool IsOk => Verdict == ProviderVerdict.Ok;
 
     /// <summary>A successful result. Throws for an EMPTY artifact list: an "Ok" carrying nothing is the
-    /// empty-Ok mistake the LLM side already paid for (<c>.claude/knowledge/pitfalls.md</c>) — it robs routing
+    /// empty-Ok mistake the LLM side already paid for (<c>.agents/knowledge/pitfalls.md</c>) — it robs routing
     /// of its chance to fall over and hands the caller a successful nothing.</summary>
     public static MediaResponse Success(
         IReadOnlyList<MediaArtifact> artifacts, MediaUsage? usage = null, string? detail = null)

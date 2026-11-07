@@ -18,7 +18,7 @@ namespace Lyntai.Tests.Memory;
 /// writes AND queries (which touch whatever they recall) through a real engine over a real store, and checks
 /// the two numbers agree after EVERY step, so a touch's own stamping is covered as thoroughly as a write's.</para>
 /// <para>The guard that matters is the TOUCH count: a store whose recall never matches this corpus leaves
-/// this passing with zero touches (<c>.claude/knowledge/pitfalls.md</c>), because re-deriving untouched
+/// this passing with zero touches (<c>.agents/knowledge/pitfalls.md</c>), because re-deriving untouched
 /// primitives cannot fail on a broken touch path.</para>
 /// </summary>
 public class MemoryAgePrimitiveIdentityTests

@@ -32,7 +32,7 @@ namespace Lyntai.Benchmarks;
 /// <para><b>The control is DISTINCT VALUES, never the firing count.</b> A knob that scales a signal is
 /// unmeasurable while that signal is tied across candidates, so the verdict refuses to interpret its own
 /// table unless the values genuinely differ. Firing is presence; only distinct values are discrimination.
-/// See <c>.claude/knowledge/pitfalls.md</c> for the measured version of both traps.</para>
+/// See <c>.agents/knowledge/pitfalls.md</c> for the measured version of both traps.</para>
 ///
 /// <para>The question, the result and what neither settles live in <c>docs/task-archive.md</c> Part 98 and
 /// <c>docs/memory-measurements.md</c> §5; <c>PrintNotSwept</c> states the limits at the point of use.</para>

@@ -11,7 +11,7 @@
 // `FIXTURE`'s margin is a number read against a `--control`, never a verdict. The reranker screen could
 // assert a hard case because it had a PUBLISHED reference score; there is no such number for an embedder.
 //
-// The rest are traps `.claude/knowledge/pitfalls.md` records: ORDERING is not discrimination, so the
+// The rest are traps `.agents/knowledge/pitfalls.md` records: ORDERING is not discrimination, so the
 // cosine RANGE is asserted beside it; the serving configuration is measured before the model (D107), so
 // `--pooling` is swept rather than assumed; and the EXTREME input is probed, never the typical one —
 // which here decides ROLE FIT rather than health, since a 512-position model serves a query fine.
@@ -397,7 +397,7 @@ async function screenOne({ model, pooling, opts, serverExe, scratchDir, isContro
     // Unconditional, not `if (pids.length)`: a start that THREW is the most likely moment to have
     // leaked one, so the survivor re-read must run on that path above all. An ENDPOINT row started
     // nothing and must tear down nothing — killing a server this screen did not start is the image-name
-    // mistake `.claude/knowledge/pitfalls.md` records, aimed at a port instead of a process name.
+    // mistake `.agents/knowledge/pitfalls.md` records, aimed at a port instead of a process name.
     const { survivors } = manage ? await stopServers(pids, [opts.port]) : { survivors: [] };
     if (survivors.length) {
       console.error(`  *** PORT STILL LISTENING after teardown: ${JSON.stringify(survivors)} — kill by PID ***`);

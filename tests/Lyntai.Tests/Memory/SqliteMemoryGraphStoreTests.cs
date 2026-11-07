@@ -33,7 +33,7 @@ public class SqliteMemoryGraphStoreTests : IDisposable
     /// one and reads them once.
     /// <para>Countable rather than timed on purpose — <c>memory-scale</c>'s 10k p50 spans 8.9–11.2ms across
     /// runs of identical code, so a before/after latency pair here would report noise
-    /// (<c>.claude/knowledge/pitfalls.md</c>). A connection open is a real cost on this backend: the factory
+    /// (<c>.agents/knowledge/pitfalls.md</c>). A connection open is a real cost on this backend: the factory
     /// applies three pragmas to each one.</para></summary>
     [Fact]
     public async Task The_whole_write_back_opens_ONE_connection()

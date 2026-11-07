@@ -56,7 +56,7 @@ export const migrationSource = (num, cls) => [
   '        // CAST(x AS REAL) when you SELECT them. Searchable text? add an FTS5 trigram',
   "        // external-content mirror + AFTER INSERT/DELETE/UPDATE triggers (emit 'delete' rows on",
   '        // delete AND update) + an in-migration backfill — see M202607280003_Memory and',
-  '        // .claude/knowledge/storage.md.',
+  '        // .agents/knowledge/storage.md.',
   '    }',
   '',
   '    public override void Down()',

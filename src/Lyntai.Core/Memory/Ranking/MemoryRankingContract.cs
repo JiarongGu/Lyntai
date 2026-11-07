@@ -9,7 +9,7 @@ namespace Lyntai.Memory.Ranking;
 /// (<see cref="MultiplicativeRankingPolicy"/>, <see cref="ReciprocalRankFusionPolicy"/>,
 /// <see cref="CompositeRankingPolicy"/>) carried byte-identical versions of each, every one annotated
 /// "same … as the other policies". That is the shape
-/// <c>.claude/knowledge/pitfalls.md</c> §Storage names for a stored VALUE — <i>one thing read at N sites
+/// <c>.agents/knowledge/pitfalls.md</c> §Storage names for a stored VALUE — <i>one thing read at N sites
 /// grows N rules, and the divergence is silent</i> — applied to a contract RULE instead: the id tiebreak
 /// and the buried-not-cut floor are not each policy's own choice, they are what
 /// <see cref="IMemoryRankingPolicy.Rank"/> promises its callers, and three copies is three chances for one

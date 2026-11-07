@@ -14,7 +14,7 @@ namespace Lyntai.Benchmarks;
 ///
 /// <para><b>Why they are here rather than in each sweep.</b> <c>CountingSaliencePolicy</c> was written twice,
 /// privately, in two sweeps that measure the same signal, and a third copy was one file away when this was
-/// extracted. <c>.claude/knowledge/pitfalls.md</c> records where that ends: one stored value read at N sites
+/// extracted. <c>.agents/knowledge/pitfalls.md</c> records where that ends: one stored value read at N sites
 /// grows N coercion rules, and the divergence is silent. An instrument is worse than ordinary code for this,
 /// because its output is a NUMBER and a number is never obviously wrong — two counters that disagree about
 /// what "salient" means produce two believable tables.</para>
@@ -183,7 +183,7 @@ internal static class SweepDoubles
     /// competition (<c>docs/DECISIONS.md</c> D82) gives a uniformly-tied signal the same contribution at
     /// every weight, so either extreme produces a perfectly flat curve that reads as a clean exoneration.
     /// A study over such a knob must report <see cref="Salient"/> AGAINST <see cref="Judged"/> and say so
-    /// when the ratio is 0 or 1 — see <c>.claude/knowledge/pitfalls.md</c>, which records this trap being
+    /// when the ratio is 0 or 1 — see <c>.agents/knowledge/pitfalls.md</c>, which records this trap being
     /// walked into deliberately and caught only by asking what the arms actually differed in.</para>
     /// </summary>
     /// <param name="inner">The policy being counted; null takes the shipped

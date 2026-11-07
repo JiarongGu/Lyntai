@@ -15,7 +15,7 @@ namespace Lyntai.Tests.Memory;
 /// <para>The ranking fakes order by id, so the expected order is exact and needs no arithmetic: what is under
 /// test is the ENGINE's resolution logic over a real store's seed/gather pipeline, not a ranking formula. Every
 /// ordering fact asserts the recalled ids, so a recall that matched nothing fails rather than passing on the
-/// write path alone (<c>.claude/knowledge/pitfalls.md</c>).</para></summary>
+/// write path alone (<c>.agents/knowledge/pitfalls.md</c>).</para></summary>
 public sealed class GraphMemoryRankingOverrideTests : IDisposable
 {
     private readonly TempDb _db = new();

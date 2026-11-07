@@ -167,7 +167,7 @@ public sealed class GraphMemoryCurveOverrideTests : IDisposable
         // Observed through MemoryItem.Retrievability, which is what modulation actually moves, rather than
         // through provenance (ModulatedRetrievability reports the inner curve's bit verbatim, by design, so
         // provenance cannot distinguish wrapped from unwrapped) or through reflection over a private field
-        // (a rename site no build can see — `.claude/knowledge/pitfalls.md`).
+        // (a rename site no build can see — `.agents/knowledge/pitfalls.md`).
         var withModulation = await RecalledRetrievability(retention: 8);
         var without = await RecalledRetrievability(retention: null);
 

@@ -27,7 +27,7 @@ public class PairwiseComparerTests
     public async Task IDENTICAL_outputs_tie_without_asking_the_judge_at_all()
     {
         // "Give the model only what it is genuinely better at. It is not better at exact comparison"
-        // (`.claude/knowledge/model-decoupling.md`). Two identical strings are a string comparison, and
+        // (`.agents/knowledge/model-decoupling.md`). Two identical strings are a string comparison, and
         // asking costs TWO calls under the default position-bias mitigation.
         var llm = new FakeTextClient();
         var comparer = new LlmPairwiseComparer(llm);

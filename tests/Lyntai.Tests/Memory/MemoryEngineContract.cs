@@ -103,7 +103,7 @@ public static class MemoryEngineContract
     /// neighbours at separate call sites, so repairing only one leaves the entry the caller asked for with
     /// null metadata beside neighbours that carry it, inside one <see cref="MemoryRecall"/>. A grep for the
     /// constructor misses a site written target-typed as <c>new(...)</c> —
-    /// <c>.claude/knowledge/pitfalls.md</c> §Second doors.</para>
+    /// <c>.agents/knowledge/pitfalls.md</c> §Second doors.</para>
     /// <para><paramref name="expands"/> is the caller's declaration that expanding an entry this engine
     /// wrote returns that entry, and all three branches assert positively. An engine with no expansion
     /// surface asserts it has none; a composite whose owning member cannot expand asserts the documented

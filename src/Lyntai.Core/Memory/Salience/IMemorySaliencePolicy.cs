@@ -131,7 +131,7 @@ public sealed record SalienceOptions
     /// novelty above zero a negative factor floors to the neutral value and the policy returns no signal at
     /// all. Inverting the SIGN of the preference needs a different policy, not a negative weight here.</para>
     /// <para>The guard is finiteness only: the policy feeds this to <see cref="Math.Clamp(double,double,double)"/>,
-    /// which PROPAGATES <c>NaN</c> into the stored signal (<c>.claude/knowledge/pitfalls.md</c>, "a clamp is not
+    /// which PROPAGATES <c>NaN</c> into the stored signal (<c>.agents/knowledge/pitfalls.md</c>, "a clamp is not
     /// a finiteness guard").</para></summary>
     /// <exception cref="ArgumentOutOfRangeException">Set to a non-finite value.</exception>
     public double NoveltyWeight

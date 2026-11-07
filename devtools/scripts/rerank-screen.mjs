@@ -4,7 +4,7 @@
 // is a live question (`docs/model-tasks.md` §3). A survey alone is not enough: a community GGUF can load
 // and score garbage, or load and reject the inputs the benches actually send.
 //
-// Every check is a trap `.claude/knowledge/pitfalls.md` already records — read it there rather than here.
+// Every check is a trap `.agents/knowledge/pitfalls.md` already records — read it there rather than here.
 // The four rules, each one line: assert ORDERING **and** DISTINCT scores (llama.cpp #16407); probe the
 // EXTREME input, never the typical one; check the SPECIFIC port immediately before binding; enumerate
 // neighbours as PROCESSES and re-check them after teardown.

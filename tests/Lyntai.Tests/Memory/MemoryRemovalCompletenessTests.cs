@@ -19,7 +19,7 @@ namespace Lyntai.Tests.Memory;
 /// <para><b>Why the graph store's own contract cannot catch it.</b> The same defect for SUBJECT rows lives
 /// inside <c>IMemoryGraphStore</c>, where a contract fact can see it. Vectors live in
 /// a store the graph store does not own, so the removal verbs are a SECOND DOOR onto shared state — the
-/// shape <c>.claude/knowledge/pitfalls.md</c> §Second doors records, where the question is not "is this code
+/// shape <c>.agents/knowledge/pitfalls.md</c> §Second doors records, where the question is not "is this code
 /// correct" but "what else can reach these objects, and does it apply the same rules".</para>
 ///
 /// <para><b>The asymmetry these facts pin.</b> Enrichment is best-effort — a failing vector backend costs links,

@@ -10,7 +10,7 @@ namespace Lyntai.Memory;
 /// and each of the three shipped backends implemented that promise with its own inline copy of
 /// <c>Trim().ToLowerInvariant()</c> — six copies of a rule that has to be IDENTICAL across backends or the
 /// same annotation links a different cluster depending on where it was stored. That is the shape
-/// <c>.claude/knowledge/pitfalls.md</c> §Storage records for <c>salience</c>: <i>one stored value read at N
+/// <c>.agents/knowledge/pitfalls.md</c> §Storage records for <c>salience</c>: <i>one stored value read at N
 /// sites grows N coercion rules, and the divergence is silent</i>. <see cref="MemorySignals.Salience"/> is
 /// the same fix for that one.</para>
 ///

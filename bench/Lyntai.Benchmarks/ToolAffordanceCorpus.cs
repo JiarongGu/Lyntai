@@ -16,7 +16,7 @@ namespace Lyntai.Benchmarks;
 /// the mistake LoCoMo's plural evidence field already cost this repository once.</para>
 ///
 /// <para><b>A request must not echo its tool's NAME or DESCRIPTION.</b> A prompt that names the answer in
-/// an option label measures label-following (<c>.claude/knowledge/model-decoupling.md</c>), so every request
+/// an option label measures label-following (<c>.agents/knowledge/model-decoupling.md</c>), so every request
 /// is written as a user would put it and the <c>cosine</c> arm is kept in the table as the readout of how
 /// much surface leakage is left.</para></summary>
 internal static class ToolAffordanceCorpus

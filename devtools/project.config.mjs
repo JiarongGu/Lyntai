@@ -770,7 +770,7 @@ export default {
       // `CHANGELOG.md`'s live prefix. **Two true positives against sixteen false ones**, which is the
       // cry-wolf ratio `docs/GATES.md` §Writing a new gate refuses: those sixteen would each take a
       // `drift-ok`, and an exclusion added to quiet a gate is the exclusion that rots. The two sites are
-      // fixed by hand; the lesson is a TRAP (`.claude/knowledge/pitfalls.md`), not a rule.
+      // fixed by hand; the lesson is a TRAP (`.agents/knowledge/pitfalls.md`), not a rule.
       term: '\\bLyntai[.]Providers[.]Default\\b',
       why: 'Default named a position in a list rather than a property of the contents (D144)',
       use: '`Lyntai.Providers.Basic`',
@@ -1052,7 +1052,7 @@ export default {
     // this repository taught for its own storage seams — and it is the DEFECT, not a shorthand for it: an
     // `HttpClient` deadline arrives as `TaskCanceledException`, which IS an `OperationCanceledException`,
     // so a bare rethrow makes a fail-open seam fail CLOSED on the one failure a network-backed store
-    // actually has. Fixed at 21 sites across two commits; `.claude/knowledge/storage.md` was still teaching
+    // actually has. Fixed at 21 sites across two commits; `.agents/knowledge/storage.md` was still teaching
     // it afterwards, where a BYO backend author would have reimplemented it.
     //
     // Narrow on purpose. It bans the RULE ("rethrow only ..."), never the type name, which every correct
@@ -1603,7 +1603,7 @@ export default {
   },
 
   /**
-   * TRAP FACETS — the two CLOSED vocabularies every trap in `.claude/knowledge/pitfalls.md` is filed under,
+   * TRAP FACETS — the two CLOSED vocabularies every trap in `.agents/knowledge/pitfalls.md` is filed under,
    * enforced by `dev.mjs check-pitfalls` (part of `verify`), which also GENERATES the index at the head of
    * that file from them.
    *
@@ -1763,7 +1763,7 @@ export default {
    *
    * TO PAY ONE DOWN: strike every sentence a reader could get from the record that OWNS it — the
    * measurement record (`docs/memory-measurements.md` §5 for the memory Parts, which is where most of this debt sits),
-   * `docs/DECISIONS.md` for a choice, `docs/FIXES.md` for an incident, `.claude/knowledge/pitfalls.md` for
+   * `docs/DECISIONS.md` for a choice, `docs/FIXES.md` for an incident, `.agents/knowledge/pitfalls.md` for
    * a reusable trap. RELOCATE BEFORE DELETING: several of these entries are the only maintained home for a
    * trap, and cutting one without moving it first loses it. Then lower or delete the entry here.
    *
@@ -1800,7 +1800,7 @@ export default {
    * a budget.
    *
    * TO PAY ONE DOWN: move the design argument to the record that owns it (`docs/DECISIONS.md` for a
-   * choice, `.claude/knowledge/pitfalls.md` for a trap, the design contract for semantics), keep the RULE
+   * choice, `.agents/knowledge/pitfalls.md` for a trap, the design contract for semantics), keep the RULE
    * plus a pointer in the code, then lower or delete the entry. The rule is
    * `.claude/rules/code-commentary.md`. Deleting an entry outright is the goal, not an edge case.
    */

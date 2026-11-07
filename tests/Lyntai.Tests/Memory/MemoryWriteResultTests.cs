@@ -184,7 +184,7 @@ public class MemoryWriteResultTests
     public async Task A_caller_cancel_during_the_vector_upsert_propagates_rather_than_reading_as_not_indexed()
     {
         // Cancelled MID-CALL from inside the upsert and asserted by MARKER, so another component's own cancel
-        // cannot satisfy it — the vacuous caller-cancel twin `.claude/knowledge/pitfalls.md` §Storage records.
+        // cannot satisfy it — the vacuous caller-cancel twin `.agents/knowledge/pitfalls.md` §Storage records.
         using var cts = new CancellationTokenSource();
         var engine = Graph(new FakeVectorProvider(), new CancellingVectorStore(cts));
 

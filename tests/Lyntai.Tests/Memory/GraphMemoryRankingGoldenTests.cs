@@ -17,7 +17,7 @@ namespace Lyntai.Tests.Memory;
 /// formula. Every fact passes the policy EXPLICITLY, because its subject is a named formula whose terms have no
 /// RRF analogue, not "whatever today's default is" (that subject is <c>MemoryDefaultRecallQualityTests</c>).
 /// <para><b>One fact per term</b> — a golden test that exercises only some of a formula's terms lets a rewrite
-/// drop or mis-wire the others and still pass (<c>.claude/knowledge/pitfalls.md</c>, "Testing"). Each corpus
+/// drop or mis-wire the others and still pass (<c>.agents/knowledge/pitfalls.md</c>, "Testing"). Each corpus
 /// makes its term DO WORK, shown by perturbing that one term and watching the order move:</para>
 /// <list type="bullet">
 /// <item><see cref="Recall_order_over_a_fixed_corpus_is_what_it_is_today"/> — <c>HopAttenuation</c>: 0.5 → 0.9

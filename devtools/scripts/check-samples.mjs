@@ -11,7 +11,7 @@
 //
 // Each block is wrapped by SHAPE — declaration (namespace scope), member (a class body), statement (a
 // method over the stub PREAMBLE), expression (`_ = ( … );`) — guessed, then retried until one compiles.
-// Two rules keep it honest (`.claude/knowledge/pitfalls.md`): Roslyn binds NOTHING in a compilation
+// Two rules keep it honest (`.agents/knowledge/pitfalls.md`): Roslyn binds NOTHING in a compilation
 // carrying a syntax error, so a block passes only in a compilation where nothing errored; and a type
 // declared in source outranks the same type from a reference, so a block declaring a namespace under the
 // library root compiles ISOLATED.

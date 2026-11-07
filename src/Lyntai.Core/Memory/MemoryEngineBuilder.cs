@@ -158,7 +158,7 @@ public sealed class MemoryEngineBuilder
     /// <summary>
     /// The ONE place a <see cref="GraphMemoryEngine"/> is constructed from a container, so a parameter added
     /// to the engine reaches <see cref="UseGraph"/> and <see cref="UseBestAvailable"/> alike — two copies of
-    /// this list drifted once (<c>.claude/knowledge/pitfalls.md</c>, "TWO construction sites"; pinned by
+    /// this list drifted once (<c>.agents/knowledge/pitfalls.md</c>, "TWO construction sites"; pinned by
     /// <c>GraphMemoryWiringTests.The_one_line_AddMemory_path_honours_a_registered_annotation_and_verification_policy</c>).
     /// <para>Every seam is filled from the container unless <paramref name="chosen"/> — the per-engine
     /// selections <see cref="UseGraph"/> exposes — names it.</para>

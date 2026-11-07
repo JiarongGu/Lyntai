@@ -8,7 +8,7 @@ namespace Lyntai.Storage.Postgres.Migrations;
 /// <para>Same shape deliberately, because the two backends run the SAME acquire SQL apart from their
 /// locking frame — <c>FOR UPDATE SKIP LOCKED</c> here, single-writer <c>UPDATE…RETURNING</c> there. A
 /// divergence in the SCHEMA would let that shared predicate mean two different things, which
-/// <c>.claude/knowledge/sql-storage.md</c> records as where wrong-data bugs live.</para>
+/// <c>.agents/knowledge/sql-storage.md</c> records as where wrong-data bugs live.</para>
 ///
 /// <para><c>timestamptz</c> rather than the text SQLite stores, matching how every other timestamp differs
 /// between these two backends.</para></summary>
