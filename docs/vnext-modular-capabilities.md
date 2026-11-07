@@ -18,9 +18,9 @@ since this table was written) or `Later` (sequenced behind a ruling). Evidence i
 | NEXT-001 capability inventory | Exists | this table, plus D39, D175, D188, D200–D204, D209, D213–D216 |
 | NEXT-002 profile ownership (Curated or a ledger) | Decided | RV26 is yes (**D220**); **VN2** compares the two on one scenario set, with a partial amendment and the second-authority question added |
 | NEXT-003 package graph | Decided | **VN1** is yes within a bound (**D221**): D25 gains the whole promotion gate; bridge packages referencing several capability packages are not authorized |
-| NEXT-004 consumer story, P-fixtures, no-model baseline | Later | RV27, behind VN2 and serving the profile alone; §3 reconciles the RFC's two fixture lists |
+| NEXT-004 consumer story, P-fixtures, no-model baseline | Partly | RV27's Track A is built, serving the profile alone (`docs/task-archive.md` Part 387); its Track B is the extractor behind D217's trigger and is not a row; §3 reconciles the RFC's two fixture lists |
 | NEXT-005 what D217 refused | Exists | D217 names it: a model-named key as identity. What stays open is its trigger, a consumer-supplied schema |
-| NEXT-101 to 106 profiles package | Later | Wave 1: VN2, then a prototype (RV28) held to RV27's Track A, then a package only through D221's gate |
+| NEXT-101 to 106 profiles package | Partly | Wave 1: VN2 (D224) and the prototype (RV28, test-only, held to RV27's Track A: `docs/task-archive.md` Part 390) are built; the package follows only through D221's gate, which §8 reads as not passed |
 | NEXT-201 to 207 ingestion | Later | Wave 2, behind Wave 1 and D217's trigger. The RFC's constrained arm (the model picks from allowed attribute ids or abstains) is exactly what the trigger asks for |
 | NEXT-301 does the composer already serve many sources | Partly | `IPromptComposer` and `EngineBackedPromptComposer` own the budget; D201's manifest already reports cuts. A context package is an adapter over them or nothing |
 | NEXT-302 budgeted contributions with an omission manifest | Exists | D201 |
@@ -28,7 +28,7 @@ since this table was written) or `Later` (sequenced behind a ruling). Evidence i
 | NEXT-304 Agent Framework adapter | Refused | D216: a tested recipe (`docs/extensions-ai.md`); reconsidered when a second consumer needs the same mapping |
 | NEXT-305 tool and MCP recipes | Exists | `ITool`, `Lyntai.Tools.Mcp`, D210's approval seam |
 | NEXT-306 fault injection, compatibility | Partly | D211 (every contract on every backend, `docs/task-archive.md` Part 366) and the redelivery in Part 367. A package-absent run belongs to whichever wave ships a package |
-| NEXT-401, 402 grants and multi-agent shared memory | Later | Wave 4. No consumer has asked; the RFC itself leaves orchestration to hosts, which D219 holds for agents |
+| NEXT-401, 402 grants and multi-agent shared memory | Partly | Wave 4. A host asked, and the read half is built: a read-only view of another task as a blend member, `IViewableMemory` (**D242**, MC7, `docs/task-archive.md` Part 426). Grants stay the host's, and a writable shared task is refused; the RFC itself leaves orchestration to hosts, which D219 holds for agents |
 | NEXT-403 revocation-aware import | Refused | D198 refused a tombstone fence and D204 says a file older than a forget brings the content back (`docs/memory.md`). Re-opens on a consumer that needs the fence |
 | NEXT-404 to 406 | Later | Wave 4, on demand |
 | ADR-A to D (appendix) | Decided / Later / Exists | package boundary is D221; ownership is VN2; subject, actor and scope is D92 plus the host authorizing before a read; change and forget propagation is D198 and D213 |

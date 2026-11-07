@@ -15,17 +15,21 @@ LLM-ops layer (prompt registry, scoring, traces, memory). `AddLyntai(...)` and g
 
 <!-- open-items:begin — GENERATED. Edit the per-item `item:` markers, never this table. -->
 
-## Open items — 4 across 4 Parts: 3 blocked, 1 watch
+## Open items — 8 across 5 Parts: 4 startable, 3 blocked, 1 watch
 
 _Generated from the per-item `<!-- item: … -->` markers by `node devtools/dev.mjs check-backlog --write`._
 _Edit a marker, never this table — `verify` fails the moment the two disagree._
 
 | line | Part | item | state | waiting on |
 | ---: | ---: | --- | --- | --- |
-| 105 | 33 | GEN-VERIFY-FAL, the last line — the Hugging Face route | blocked · env | an hf_ token for the router route |
-| 146 | 75 | Decide what an aggregator's in-band `code` means | blocked · env+data | two or three real aggregators to measure an in-band code against |
-| 173 | 99 | `verify`'s test step intermittently fails EXACTLY 9 tests, and once aborted… | watch · data | the same nine tests to recur — the fix is unconfirmed as the cure, and a gr… |
-| 245 | 417 | MC8 — run the wrong-end instrument on an adjudicated corpus, with a bar wri… | blocked · decision+data | two reviewers' independent labels on a sample of the pairs, and a bar a per… |
+| 109 | 33 | GEN-VERIFY-FAL, the last line — the Hugging Face route | blocked · env | an hf_ token for the router route |
+| 150 | 75 | Decide what an aggregator's in-band `code` means | blocked · env+data | two or three real aggregators to measure an in-band code against |
+| 177 | 99 | `verify`'s test step intermittently fails EXACTLY 9 tests, and once aborted… | watch · data | the same nine tests to recur — the fix is unconfirmed as the cure, and a gr… |
+| 249 | 417 | MC8 — run the wrong-end instrument on an adjudicated corpus, with a bar wri… | blocked · decision+data | two reviewers' independent labels on a sample of the pairs, and a bar a per… |
+| 270 | 474 | A prune and a reinforcement reach an ended memory entry | startable |  |
+| 280 | 474 | `check-links` reads no path under `.agents/` | startable |  |
+| 284 | 474 | Forty-odd files point at `.claude/knowledge/`, a directory that no longer e… | startable |  |
+| 290 | 474 | Two comments say what the code does not | startable |  |
 
 <!-- open-items:end -->
 
@@ -236,8 +240,8 @@ there is nothing here to code: what remains is evidence only recurrence can supp
 ## Part 417 — keeping an agent's memory current, after Daoris's requests LQ16 to LQ20 (2026-10-30)
 
 _The study is `docs/memory-currency-study.md`, the rulings are **D239** and **D240**, and the synthesis that orders and
-amends them is `docs/memory-currency-synthesis.md` (**D241**). Each row is one sitting and none is built; the order is MC4,
-MC6, MC2, MC5, MC7, with MC8 free to run now that MC3 has landed. Every member a row adds is
+amends them is `docs/memory-currency-synthesis.md` (**D241**). MC8 is the one row still open; the others, MC1 to MC7 and MC9 to
+MC12, are closed in `docs/task-archive.md`. Every member a row adds is
 unreleased until a release carries it (**D70**, **D235**). **What a YES does to the library is each row's contract**;
 **D242**'s MC11 (a caller's key and receipt), MC12 (the one-change supersession) and MC7 (the widened read-only view) are built (`docs/task-archive.md` Part 424, 425 and 426). MC3 is measured (`docs/task-archive.md` Part 440), and MC8's instrument states what a YES and a NO change, and a measured step pairs its arms
 (`docs/memory-currency-synthesis.md` §5)._
@@ -257,6 +261,37 @@ unreleased until a release carries it (**D70**, **D235**). **What a YES does to 
   the first model run, then one run per (model, corpus) pair. **What a YES does:** names that pair in `docs/memory.md` and
   `docs/memory-measurements.md` §5 as one whose proposal a host may confirm by review of a bounded claim pair; **a NO changes nothing** and is
   recorded as a refutation. **Stop rule.** The first actionable rate stops the instrument; no run is spent after it.
+
+## Part 474 — defects a read of the documents against the code found (2026-11-07)
+
+_Each row is a defect in CODE, TOOLING or a code comment, found while the documents were rewritten from the code; the
+documents now say what the code does, so a fix here re-opens the sentence named in its row._
+
+- [ ] **A prune and a reinforcement reach an ended memory entry** (lanes `memory` + `storage`). <!-- item: state=startable -->
+  `MemoryGraphSql.Prune` (`src/Lyntai.Core/Storage/MemoryGraphSql.cs`), the file and in-memory store's `PruneIds`
+  (`src/Lyntai.Storage.Basic/InMemory/MemoryGraphState.cs`) and the derivable path in `GraphMemoryEngine.PruneAsync` filter on
+  grade and age only, never on `superseded_at` or `valid_to`, so an ended associative entry past the cutoff is deleted and its
+  history with it. `MemoryGraphSql.Touch` and `GraphMemoryEngine.ReinforceAsync` skip only authoritative grade, so a `History`
+  recall or an expansion by reference resets an ended entry's age. The one test that says an ended entry stays unpruned
+  (`A_superseded_entry_stays_whole_countable_expandable_and_unpruned`) prunes at `minRetrievability: 0`, which removes nothing.
+  **Contract:** an end never deletes through a prune, and a read of ended history does not reinforce it, on every store. **Proof:** a
+  prune test at a retrievability that removes an ordinary entry, run per store, leaves the ended one. Then restate `docs/memory.md`
+  §7 and §9, which now describe the removal.
+- [ ] **`check-links` reads no path under `.agents/`** (lane `platform`). <!-- item: state=startable -->
+  `PATH_PATTERN` in `devtools/scripts/check-links.mjs` lists `src|tests|devtools|bench|samples|docs|local|.claude`, so a dead
+  path to `.agents/knowledge/…` or `.agents/skills/…` is never reported. **Proof:** a fixture with a dead `.agents/` path fails the
+  gate, and `docs/GATES.md` §check-links and `devtools/AGENTS.md` §Traps lose the caveat they now carry.
+- [ ] **Forty-odd files point at `.claude/knowledge/`, a directory that no longer exists** (lane `platform`). <!-- item: state=startable -->
+  Shipped XML docs among them (`IAgentSession`, `ICliBackend`, `IMediaRouter`, `MediaResponse`, `GraphMemoryEngine`,
+  `DsrRetrievability` and others under `src/Lyntai.Core`), two migrations, a string `new-migration.mjs` emits into a generated
+  migration, and comments in `devtools/scripts/` and `devtools/project.config.mjs`. The knowledge is `.agents/knowledge/`.
+  `git grep -l "claude/knowledge"` lists them. Repoint each to the file that now holds the fact, and relocate a rule that lives only
+  in the dead pointer before cutting it. **Proof:** that grep is empty outside `devtools/scripts/__tests__/` fixtures.
+- [ ] **Two comments say what the code does not** (lanes `platform` + `generation`). <!-- item: state=startable -->
+  `ParameterRefusal`'s doc (`src/Lyntai.Generation/ParameterRefusal.cs`) calls it the refusal "every local backend makes" by "the
+  three backends", and all six backends call it (`Automatic1111Provider`, `ComfyUiProvider`, `FalProvider`,
+  `LocalDiffusionProvider`, `OpenAiImageProvider`, `PiperProvider`). `devtools/scripts/new-package.mjs` (~line 162) says the
+  registries are CRLF under `core.autocrlf=true`, where `.gitattributes` declares LF (D95).
 
 ## Retired — five Parts that outlived their open work (2026-09-16)
 

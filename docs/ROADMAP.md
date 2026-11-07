@@ -8,7 +8,7 @@
 
 | Version | What it added |
 |---|---|
-| v0.1–v0.30 | **the pre-1.0 line.** The substrate and fallback router; three storage backends; the §9 platform kit (in-process local inference, the agentic tool loop, native tool-calling, MCP, durable jobs with priorities/cron/cancellation, guards); observability, response caching, usage budgeting, rate limiting; semantic + curated memory; recoverable secrets and app-owned storage. **Every 0.x version is unlisted on nuget.org (D44)**, so none is resolvable by a consumer and none carries the SemVer promise, which begins at 1.0. |
+| v0.1–v0.31 | **the pre-1.0 line.** The substrate and fallback router; three storage backends; the §9 platform kit (in-process local inference, the agentic tool loop, native tool-calling, MCP, durable jobs with priorities/cron/cancellation, guards); observability, response caching, usage budgeting, rate limiting; semantic + curated memory; recoverable secrets and app-owned storage. **Every 0.x version is unlisted on nuget.org (D44)**, so none is resolvable by a consumer and none carries the SemVer promise, which begins at 1.0. |
 | **v1.0.0** (2026-07-28) | **the API freeze** — SemVer 2.0 from here, gated by `ApiSurfaceTests` (D16, amended by D18) |
 | v1.1–v1.2.2 | CLI tool-hosting generalized; turn-free backend probe/auth + pinned self-install |
 | v2.0.1 (2026-08-04) | the generation platform + a coherent package graph (D24–D25; 2.0.0 is burned — D23) |

@@ -6,8 +6,8 @@
 [![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](https://github.com/JiarongGu/Lyntai/blob/master/LICENSE)
 
 **A .NET 10 library for building LLM applications.** One `ITextClient` front door routes and fails over
-across OpenAI, Azure OpenAI, OpenRouter, Ollama, llama.cpp, in-process GGUF and ONNX models and the `claude`
-and `codex` CLIs. The same `AddLyntai(...)` call wires long-term agent memory, MCP tools, a prompt registry,
+across OpenAI, Azure OpenAI, OpenRouter, Ollama, llama.cpp, in-process GGUF models and the `claude` and
+`codex` CLIs, with ONNX embedders and rerankers in process beside them. The same `AddLyntai(...)` call wires long-term agent memory, MCP tools, a prompt registry,
 evals, run traces, durable jobs and image, video and audio generation, over SQLite, PostgreSQL (pgvector),
 plain files or memory.
 
@@ -86,7 +86,7 @@ down, rate-limited, unconfigured or refused the request. Add `Lyntai.Storage.Sql
 | Long-term memory for an agent | `AddMemory()`, `AddMemoryEngine(…)`, `IMemoryEngineFactory` | [memory engines](https://github.com/JiarongGu/Lyntai/blob/master/docs/guide.md#named-memory-engines), [graph memory](https://github.com/JiarongGu/Lyntai/blob/master/docs/guide.md#graph-memory--forgetting-relinking-and-a-cheap-first-load), [the memory guide](https://github.com/JiarongGu/Lyntai/blob/master/docs/memory.md) |
 | Retrieval by meaning (RAG) | `AddSemanticMemory()`, `IVectorStore` on SQLite or pgvector | [semantic memory](https://github.com/JiarongGu/Lyntai/blob/master/docs/guide.md#semantic-memory) |
 | Tool calling and MCP | `IToolLoop`, `AddTool`, `AddMcpTools`, `AddMcpToolHost` | [tool-calling](https://github.com/JiarongGu/Lyntai/blob/master/docs/guide.md#tool-calling-lyntaiagents) |
-| Claude Code or Codex as an agent | `IAgentSession`, `AddClaudeCliAgentSession()` | [CLI-agent sessions](https://github.com/JiarongGu/Lyntai/blob/master/docs/guide.md#cli-agent-session-vs-itoolloop-iagentsession) |
+| Claude Code or Codex as an agent | `IAgentSession`, `AddClaudeCliAgentSession()`, `AddAcpAgentSession(…)` | [CLI-agent sessions](https://github.com/JiarongGu/Lyntai/blob/master/docs/guide.md#cli-agent-session-vs-itoolloop-iagentsession) |
 | Prompts, scores, traces, OpenTelemetry | `IPromptRegistry`, `AddScorer<T>()`, `ITraceService`, `AddTextCallTracing()` | [observability](https://github.com/JiarongGu/Lyntai/blob/master/docs/guide.md#observability) |
 | Background work that survives a restart | `AddJobHandler<T>()`, `IJobQueue`, `AddCronSchedule` | [durable jobs](https://github.com/JiarongGu/Lyntai/blob/master/docs/guide.md#durable-jobs-lyntaijobs) |
 | Image, video, audio and 3D | `Lyntai.Generation`, `IMediaRouter` | [generation](https://github.com/JiarongGu/Lyntai/blob/master/docs/guide.md#generation-image--video--audio--3d-lyntaigeneration), [the generation guide](https://github.com/JiarongGu/Lyntai/blob/master/docs/generation.md) |
@@ -106,6 +106,8 @@ down, rate-limited, unconfigured or refused the request. Add `Lyntai.Storage.Sql
 | LM Studio, vLLM, any server speaking OpenAI's schema | `AddHttpProvider(id, o => o.BaseUrl = …)` | `Lyntai.Providers.Basic` |
 | Claude Code (`claude` CLI) | `AddClaudeCliProvider()`, `AddClaudeCliAgentSession()` | `Lyntai.Providers.Basic` |
 | OpenAI Codex (`codex` CLI) | `AddCodexCliProvider()`, `AddCodexCliAgentSession()` | `Lyntai.Providers.Basic` |
+| An agent speaking the Agent Client Protocol (`claude-agent-acp`, `codex-acp`, …) | `AddAcpAgentSession(id, command)` | `Lyntai.Providers.Basic` |
+| A chat-completions endpoint as an agent (Lyntai's tool loop is the executor) | `AddHttpAgentSession(id, o => …)` | `Lyntai.Providers.Basic` |
 | `model2vec` embeddings, in process | `AddModel2VecProvider(dir)` | `Lyntai.Providers.Basic` |
 | GGUF models, in process | `AddLlamaSharpProvider(modelPath)` | `Lyntai.Providers.LlamaSharp` |
 | ONNX embedders and rerankers, in process | `AddOnnxProvider(dir)` | `Lyntai.Providers.Onnx` |
@@ -123,7 +125,7 @@ model first and a local one as the offline backstop is one `UseDefaultCandidates
 |---|---|
 | **`Lyntai`** | **The starting set (5 of 11)** — Core + the dependency-free LLM backends + both halves of MCP + **in-memory** storage + **file** storage (on once you name a root). Not the whole library: add `Lyntai.Storage.Sqlite` for a database and `Lyntai.Generation` for media. |
 | `Lyntai.Core` | Every domain's contracts and engines: LLM routing/fallback, generation, cortex (prompt/scoring/trace), jobs, guards, secrets, memory, storage interfaces, tools, DI — plus `Lyntai.Text.WordPieceTokenizer`, a BERT tokenizer owned rather than depended on (**D122**), usable anywhere a token-aware step is wanted. Deps: DI + Logging abstractions only. |
-| `Lyntai.Providers.Basic` | The dependency-free **LLM** backends — Core, the BCL and `Microsoft.Extensions.Http`, no native payload: authenticated `claude` and `codex` CLIs (completions and agent sessions); any OpenAI-shaped endpoint (OpenAI, Azure OpenAI, OpenRouter, llama-server) for chat, embeddings or reranking; Ollama's native API for chat and embeddings; `AddModel2VecProvider(dir)` — in-process embedding over a `model2vec` table with no server, GPU or port. Media backends are in `Lyntai.Generation`. |
+| `Lyntai.Providers.Basic` | The dependency-free **LLM** backends — Core, the BCL and `Microsoft.Extensions.Http`, no native payload: authenticated `claude` and `codex` CLIs (completions and agent sessions); agent sessions over the Agent Client Protocol and over a chat-completions endpoint; any OpenAI-shaped endpoint (OpenAI, Azure OpenAI, OpenRouter, llama-server) for chat, embeddings or reranking; Ollama's native API for chat and embeddings; `AddModel2VecProvider(dir)` — in-process embedding over a `model2vec` table with no server, GPU or port. Media backends are in `Lyntai.Generation`. |
 | `Lyntai.Providers.LlamaSharp` | In-process local GGUF inference via LLamaSharp — add an `LLamaSharp.Backend.*` for your hardware. Named for the dependency, not the deployment: `AddLlamaSharpProvider(modelPath)`. |
 | `Lyntai.Storage.Sqlite` | SQLite for every storage domain (Dapper + FluentMigrator + FTS5; ships a native SQLite binary). |
 | `Lyntai.Storage.Postgres` | PostgreSQL storage (Npgsql + `pg_trgm` recall) for a server-backed deployment. |
@@ -192,12 +194,12 @@ wrong when it writes against Lyntai:
 
 <!-- agent-rules:begin — llms.txt and context7.json's `rules` carry these same lines; check-docs holds the three equal (D197) -->
 - Compose everything through `services.AddLyntai(cfg => …)` and inject what it registers; never construct a provider, router or store by hand.
-- Call models through the injected `ITextClient`. `UseDefaultCandidates(…)` sets the fallback order over registered provider ids — by default "openai", "azure-openai", "openrouter", "llama", "ollama", "claude-cli", "codex-cli" and "llamasharp".
-- A failed call returns a verdict, never an exception: check `reply.Verdict.IsOk()` and read `reply.Detail`. A bridge registered with `AddBridgeProvider` returns `ProviderVerdict.Failed` rather than throwing.
+- Call models through the injected `ITextClient`. `UseDefaultCandidates(…)` sets the fallback order over registered provider ids, and with none set nothing is tried and the reply is `Failed`. A registration's id is "openai", "azure-openai", "openrouter", "llama", "ollama", "claude-cli", "codex-cli" or "llamasharp" unless you pass another.
+- A failed call returns a verdict, not an exception (your own cancellation still throws): check `reply.Verdict.IsOk()` and read `reply.Detail`. A bridge registered with `AddBridgeProvider` should report failure as a non-Ok `ProviderVerdict` on its reply; a delegate that throws is classified into a verdict by the router.
 - The `Lyntai` package is a starting set: nothing persists until you choose storage (`UseSqliteStorage` from Lyntai.Storage.Sqlite, `UsePostgresStorage` from Lyntai.Storage.Postgres, or `UseFileSystemStorage`), and media generation needs Lyntai.Generation.
 - An embedder is a registration of its own with `o.Produces = ProviderKinds.Vector`, even on a server that also hosts the chat model; `AddSemanticMemory()` then fails at startup when no embedder is registered.
-- Long-term memory goes through `AddMemory()` or `AddMemoryEngine(name, …)` and `IMemoryEngineFactory`. Graph memory decays by interference and hides rather than deletes; only `PruneAsync` removes an entry.
-- Add a cross-cutting layer to the front door with `AddFrontDoorDecorator(order, …)` and a class derived from `DelegatingTextClient`; registering your own `ITextClient` silently discards the cache, budget and rate limit.
+- Long-term memory goes through `AddMemory()` or `AddMemoryEngine(name, …)` and `IMemoryEngineFactory`. Graph memory decays by interference and hides rather than deletes; only an explicit `PruneAsync` or `ForgetAsync` call removes an entry.
+- Add a cross-cutting layer to the front door with `AddFrontDoorDecorator(order, …)` and a class derived from `DelegatingTextClient`; registering your own `ITextClient` discards the cache, budget and rate limit, silently when it is registered inside the `AddLyntai` callback or after it.
 - The builder extensions are in namespace `Lyntai`; `ITextClient`, `TextRequest`, `TextMessage` and `ProviderVerdict` are in `Lyntai.Inference`; the memory types are in `Lyntai.Memory`.
 <!-- agent-rules:end -->
 

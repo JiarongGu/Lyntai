@@ -1,8 +1,9 @@
 # Memory a model-driven knowledge system keeps current — Lyntai's sealed proposal, round 1
 
 **Status: a proposal (`docs/documents.md`), 2026-10-30, written from Daoris's brief alone before the other maker's is
-read; nothing is built and nothing here is decided.** It builds on `docs/memory-currency-study.md` (D239, D240,
-`TASKS.md` MC1 to MC5) and answers the brief's five questions, each with a choice, its reason and what it rejects.
+read; it decides nothing, and the synthesis (**D241**, `docs/memory-currency-synthesis.md`) settled it.** It builds on
+`docs/memory-currency-study.md` (D239, D240, rows MC1 to MC5, built: `docs/task-archive.md` Parts 419, 420, 422, 423 and 440) and answers the brief's five questions, each with a choice, its reason and what it rejects. The
+rows it names are built (MC6 and MC7 in `docs/task-archive.md` Parts 421 and 426) except MC8, which is open in `TASKS.md` Part 417.
 
 ## 1. The retirement channel: end for a replaced or false entry, decay for an unused one
 
@@ -121,5 +122,4 @@ shape (the marks are the records' author's statement, so they are applied by who
 7. **MC8: the wrong-end instrument** — Q2's bar. Its YES lets a host opt an agent into applying alone; its NO changes nothing,
    which is stated before the run (`.claude/rules/task-lifecycle.md`).
 
-**Numbering.** The study's D236, D237 and Part 416 collide with an earlier answer's on another unlanded branch;
-whichever lands second renumbers, and this round's decisions take the next free numbers at the synthesis.
+**Numbering.** The study's decisions landed as D239 and D240 and its rows as `TASKS.md` Part 417; the synthesis took D241.

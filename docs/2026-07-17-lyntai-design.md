@@ -3,7 +3,7 @@
 > 灵台 (língtái, "the numinous platform") — a classical Chinese name for the seat of the mind.
 > Lyntai is the shared **cortex + persistence** substrate the sibling apps plug into.
 
-Status: **approved design — SHIPPED and amended** (see the dated amendments in §6/§9) · Date: 2026-07-17 ·
+Status: **approved design — SHIPPED and amended** (see the dated amendments throughout) · Date: 2026-07-17 ·
 Scope: *Brain + persistence core → platform kit (D11)*
 
 > **How to read this doc post-1.0-track:** it governs *semantics* (the rules code must follow); the
@@ -47,8 +47,9 @@ LLM + storage + LLM-ops for free — `AddLyntai(...)` and go, no rebuild.
 ## 2. Goal & non-goals
 
 **Goal:** a NuGet-packable, DI-first .NET (net10.0) library providing (a) an LLM provider abstraction
-with routing + fallback across CLI / API / bridged providers, (b) pluggable storage (SQLite now,
-interfaces so other backends can follow as separate packages), (c) the LLM-ops layer (prompt
+with routing + fallback across CLI / API / bridged providers, (b) pluggable storage (SQLite, Postgres
+and the dependency-free in-memory and file-system backends of `Lyntai.Storage.Basic`; interfaces so other
+backends can follow as separate packages), (c) the LLM-ops layer (prompt
 registry, scoring/eval, run traces, task-scoped memory), and (d) config + DI wiring — all generic,
 no domain assumptions.
 
@@ -122,6 +123,12 @@ around MEAI's types" was reaching for (**D147**).)*
 `Lyntai.Storage.Sqlite` implements all of them. Interfaces are designed so a mastra-style *composite
 store* (route each domain to a different backend) can be layered on later without breaking consumers.
 
+*(2026-11-07: "one SQLite package" was the starting point, not the constraint — `docs/DECISIONS.md` **D2**. Three
+packages hold four backends today: `Lyntai.Storage.Sqlite`, `Lyntai.Storage.Postgres` and `Lyntai.Storage.Basic`'s
+in-memory and file-system stores, each implementing as many domains as it chooses, and `StorageFeature` picks which
+domains one wiring registers. No composite store type exists: two wirings in one container each keep their own
+domains over their own database.)*
+
 ## 5. Core surface (interfaces)
 
 ### 5.1 LLM
@@ -171,7 +178,9 @@ REQUIRED member with no default (`IModelProvider.Capabilities`): a backend that 
 deliberately invisible to every router, because an empty declaration must be a composition mistake heard
 early rather than a backend handed every request. And selection is capability-filtered as well as typed —
 a router asks the type test AND the declared `ProviderCapabilities`, because one class can implement a call
-shape and be configured not to serve it. `docs/DECISIONS.md` **D125–D130**, **D153**.)*
+shape and be configured not to serve it. `docs/DECISIONS.md` **D125–D130**, **D153**. The seed's three type names
+moved the same way: today the provider seam is `IModelProvider`, the router `ITextRouter` and the candidate
+`ProviderCandidate`.)*
 
 ### 5.2 Prompt registry
 ```csharp
@@ -181,8 +190,10 @@ public interface IPromptRegistry {
         IReadOnlyDictionary<string, string>? vars = null, CancellationToken ct = default);
 }
 ```
-Contract guard: an override that drops a `{placeholder}` present in the default is rejected (silent
-content loss otherwise — Gatherlight's placeholder guard).
+Contract guard: an override that drops a `{placeholder}` present in the default is rejected — the registry logs a
+warning and renders the default, fail-open (silent content loss otherwise — Gatherlight's placeholder guard). The
+guard sees identifier-shaped placeholders only. The override is the active `IPromptVersionStore` revision when one
+is wired, else the key-value entry above.
 
 ### 5.3 Cortex / LLM-ops
 <!-- compile-skip: a v0.1 seed snippet kept for its semantic commentary — the API baseline is current (see the preamble) -->
@@ -370,11 +381,13 @@ ordering presumes lines you TRADE, and each of these is an absolute with no acce
 > **4.** Current and historical facts resolve correctly by time, *for any feature offering a temporal answer
 > at all*.
 
-**Invariants 3 and 4 make no claim about the base engine**, which has no temporal or conflict concept — a
-`MemoryWrite` carries no valid-time and nothing supersedes anything, so they are vacuous here by
-construction and bind whatever is built on that data instead. Saying so is the point: an objective naming
-guarantees the code does not provide misleads everyone who reads it. **Miss and pollution remain the only
-two numbers this subsystem optimises**; the invariants are pass/fail conditions on a change, so no figure,
+**Invariants 3 and 4 bind the engine wherever a write states valid time** (**D215**; `docs/memory.md` §3). A
+`MemoryWrite` may carry `ValidFrom`, `ValidTo` and `Supersedes`; a read is `Current` unless it asks `AsOf` or
+`History`; and an entry is ended by what supersedes it, never deleted. A write that states none is untimed and
+valid at every instant, so neither invariant can fail on it. The engine never infers a conflict from similar
+text and never picks between two entries valid at once, and an engine or store that cannot hold valid time
+refuses a write that states any (`NotSupportedException`) rather than drop it. **Miss and pollution remain the
+only two numbers this subsystem optimises**; the invariants are pass/fail conditions on a change, so no figure,
 sweep or default on record changes meaning.
 
 **Constraints an optimization may not spend.** Stated because each was a real temptation during the 3.0 work:
@@ -721,8 +734,9 @@ public interface IMemoryEngine {
   that window — and so which edges get PERMANENTLY written to the store — depends on this ordering too.
   **Ships two implementations, `MultiplicativeRankingPolicy` and `ReciprocalRankFusionPolicy` (THE DEFAULT
   as of 3.0)** — `Score = Σₛ wₛ / (K + rankₛ)`, summed over each candidate's 1-based RANK
-  POSITION (never its raw value) on relevance, retrievability, salience and hop, so it needs no shared scale
-  across signals the way a product does. Fusing by rank rather than value deliberately COMPRESSES the score
+  POSITION (never its raw value) on relevance (one term per source that matched the candidate), retrievability,
+  salience and hop — plus a diagnosticity (`Degree`) term whose weight ships `0`, refused by measurement, D62 — so
+  it needs no shared scale across signals the way a product does. Fusing by rank rather than value deliberately COMPRESSES the score
   range (forty candidates fused at the default `K = 60` span a `100/61 ≈ 1.639×` ratio top to bottom), which is
   why `ReciprocalRankFusionOptions.RelativeFloor` defaults to `0` rather than
   `MultiplicativeRankingOptions`'s `0.02` — that floor would never cross a single score at this range and
@@ -763,8 +777,9 @@ public interface IMemoryEngine {
   than replace it — usually.** `IMemoryAgePolicy` (`Lyntai.Memory.Interference`), `IMemoryRetrievabilityPolicy`
   (`Lyntai.Memory.Forgetting`), `IMemoryRetentionPolicy` (`Lyntai.Memory.Modulation`), `IMemorySaliencePolicy`
   (`Lyntai.Memory.Salience`), `IMemoryRankingPolicy` (`Lyntai.Memory.Ranking`), `IMemoryAnnotationPolicy`
-  (`Lyntai.Memory.Annotation`) and `IMemoryVerificationPolicy` (`Lyntai.Memory.Verification`) are the seven
-  domains so far, each its own sub-namespace holding the seam plus every shipped implementation. `.Ranking` is the
+  (`Lyntai.Memory.Annotation`) and `IMemoryVerificationPolicy` (`Lyntai.Memory.Verification`) are seven of the
+  eight domains so far — the eighth is `IMemorySeedSource` (`Lyntai.Memory.Seeding`), a plural producer seam
+  (**D103**) — each its own sub-namespace holding the seam plus every shipped implementation. `.Ranking` is the
   live proof — `MultiplicativeRankingPolicy` and `ReciprocalRankFusionPolicy` (the default as of 3.0, above)
   genuinely coexist. `.Forgetting` is the counter-example, on purpose: it shipped two curves through 2.5.x
   — `HalfLifeRetrievability`, the exponential curve, alongside `DsrRetrievability` — and 3.0 DELETES the
@@ -774,7 +789,7 @@ public interface IMemoryEngine {
   (a power law with a heavier tail plus FSRS's three stability-increase laws in
   `Reinforce`) is therefore the ONLY implementation this domain ships — **the registered default as of 3.0**,
   `docs/DECISIONS.md` D49, on FSRS's own external validation rather than this library's corpus. Accumulation
-  is the norm the other six domains demonstrate, not a law this one was ever exempt from breaking when a
+  is the norm the other seven domains demonstrate, not a law this one was ever exempt from breaking when a
   measured defect said to. A domain earns a seam when a plausible alternative algorithm
   genuinely exists, not merely because it is a rule.
   <br>**`.Annotation` and `.Verification` are the two that read like exceptions and are not.** Both are
@@ -783,7 +798,7 @@ public interface IMemoryEngine {
   **singular** rather than plural (D48) and default to **none**, so the
   whole library runs model-free unless a consumer registers one. That default is why this list said "five"
   until 2026-08-15 while the tree held seven: a domain nothing constructs by default is invisible to
-  everything except the namespace map. They are domains by the same test as the other five — one seam, its
+  everything except the namespace map. They are domains by the same test as the other six — one seam, its
   own sub-namespace, implementations that would accumulate — and `docs/memory.md` is where a consumer is
   told what registering one costs and buys. **What lives where is settled by OWNERSHIP, not by
   consumption:** a
@@ -915,13 +930,15 @@ count, a cooldown-key scope, and a sole-candidate exemption — overridable via 
   hard-stop variant as a bug, issue #22296 / PR #22375 — and circuit-break-only fails the whole
   request even when a healthy fallback exists.)* `Refused` = surface, don't fall back (content policy
   follows the prompt, not the host).
-- **Streaming:** once the first content token is emitted, **no fallback** — pass errors through
-  unchanged (never duplicate output). Only pre-content failures move to the next candidate.
-- **Dead-host cooldown** (not exponential backoff): after N consecutive connection failures a
-  provider/host is marked dead for a short cooldown; any success resets. One log line per state change.
+- **Streaming:** once the first content token or tool call is emitted, **no fallback** — pass errors
+  through unchanged (never duplicate output, never run a tool call twice). Only pre-content failures move to the
+  next candidate, and a stream that ends with no content at all is a `Failed`, never a clean end.
+- **Dead-host cooldown** (not exponential backoff): after N consecutive failures (`Failed`/`Timeout`; default
+  `3`) a provider/host is marked dead for a fixed cooldown (default 30 seconds); any success resets. One log line
+  per state change.
 
 *(2026-09-24: **live routing moves a ROUTE** — `docs/DECISIONS.md` **D176**. Under `AddLiveModelRouting()` a
-consumer's route — `lyntai.route.<consumer>` = `provider:model[, …]`, read through
+consumer's route — `lyntai.route.<consumer>` (the default `RouteKeyPrefix`) = `provider:model[, …]`, read through
 `IModelRoutingStore.GetRouteAsync` by the router once per call and once per capability probe, and by the
 response cache once per call — REPLACES the candidates the call was given, on both doors, for TEXT calls only
 (embeds, reranks and media under the same consumer keep their own). An entry's model is its own, else the
@@ -936,13 +953,16 @@ backend serves a text call when its `ProviderCapabilities.Produces` lists `Provi
 list — the default candidates, a named client's resolved candidates — naming a registered backend that does not
 throws when that front door is resolved; a candidate naming no registered backend is still skipped per call. A
 list passed at run time skips such a candidate on both doors and in the capability probe, with a warning. When
-no candidate could be tried, the synthetic reply names each one and why: `Unsupported` when every one serves no
-text, else `Failed`.)*
+no candidate could be tried, the synthetic reply names each one and why: `Unsupported` when every one is a
+capability gap (serves no text, does not declare the door, or lacks what a `RequireNativeSupport` call carries),
+else `Failed`.)*
 
 **CLI hygiene** (Gatherlight/Sonora): `UseShellExecute=false`, `ArgumentList` only (never a shell —
-prompts carry newlines + metacharacters), prompt over **stdin**, **BOM-less UTF-8** both directions,
-resolved-path cache (`where.exe`/`which`, prefer `.cmd`/`.exe`), `Kill(entireProcessTree:true)` on
-cancel, per-call timeout. Cheap utility calls run from a **neutral cwd** (no project config loaded).
+prompts carry newlines + metacharacters), prompt over **stdin** by default (a backend may declare a trailing
+argument instead — `ICliBackend.PromptDelivery`), **BOM-less UTF-8** both directions, resolved-path cache
+(`where.exe`/`which`, prefer `.cmd`/`.exe`/`.ps1`), `Kill(entireProcessTree:true)` on cancel or timeout, an
+**inactivity** timeout (never one wall clock over the call) under an absolute `MaxProviderTimeout` backstop.
+Cheap utility calls run from a **neutral cwd** (no project config loaded).
 *(2026-08-04, names updated for D154/D159: the spawn half lives once in `ProcessRunner`
 (`Lyntai.Processes`) and the call half — the prompt assembled for stdin, the neutral cwd — once in
 `CliProviderEngine` (`Lyntai.Inference.Cli`); a new CLI backend is an `ICliBackend`, never a second copy —
@@ -1017,8 +1037,9 @@ below names is now two calls: `AddProvider(factory, declares)` + `AddMediaRoutin
   CONSTRAINT).
 - **FTS5 `trigram`** external-content virtual tables kept in sync by AFTER INSERT/DELETE/UPDATE
   triggers, backfilled in the same migration; fall back to LIKE, rank with `bm25()`.
-  <br>**The ONE tokenization is `Lyntai.Storage.SearchTerms`** (**D55**, 2026-08-12) — words for a
-  space-separated script, character trigrams for one written without spaces (Chinese, Japanese, Korean), so
+  <br>**The ONE tokenization is `Lyntai.Storage.SearchTerms`** (**D55**, 2026-08-12) — whole words for a
+  space-separated script, character n-grams for one written without spaces or attaching particles to the stem
+  (Han, kana, Hangul, and the Thai, Lao, Khmer, Myanmar and Tibetan scripts, each a `ScriptProfile`), so
   every backend admits the same entries whatever the language. `FtsQuery` keeps only the FTS5 SYNTAX on top
   of it (quoting, and confining the expression to a named column where the table indexes more than one).
   A backend that splits a query its own way is the divergence D55 exists to prevent.

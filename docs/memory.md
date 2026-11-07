@@ -130,8 +130,9 @@ handle, and the store is the thing that must NOT be per-request.
 **The chat's binding is ONE seam with a read half and a write half.** `IPromptComposer.ComposeAsync` builds
 the prompt from memory and `RememberAsync` writes each exchange back to where `ComposeAsync` will read it, so
 a chat can never recall from one store while remembering into another. `UseMemoryComposer("x")` backs both
-halves with the named engine; without it the default composer is an engine blending the keyword store and
-semantic memory, keyword first, every write fanned out to both. The memory TOOLS only read.
+halves with the named engine; without it the default composer is an engine blending whichever of the keyword
+store and semantic memory the container holds, keyword first, every write fanned out to both. The tools
+`AddMemoryTools` registers only read; writing is the separate `AddMemoryWriteTools` (§9).
 
 ## 3. What the engine is FOR
 
@@ -156,7 +157,8 @@ instant, and neither can fail on it. What a write may state is the writer's expl
 infers one, never picks between two entries valid at once, and ends an entry only because a caller named it.
 
 **What an optimization may not spend:** a sweeper or background job (decay is computed when read); more
-than one embed and one bounded candidate query per recall; a deletion no caller asked for (`ForgetAsync` is
+than one embed and one bounded candidate query per recall (the one case that asks again is the widened
+re-seed of §9, *Say when a fact held*, and only where ended entries fill a window); a deletion no caller asked for (`ForgetAsync` is
 a withdrawal that must be complete, `PruneAsync` best-effort capacity management, **D72**); `Stability`'s
 unit, the position delta at which retrievability is `0.5`; and any PERMANENT change driven by the engine's
 own retrieval decisions, which banks the ranker's errors (**D54**; the effects are separable through
@@ -169,10 +171,11 @@ query
   ↓  SeedAsync            lexical candidates from the store (FTS/trigram/substring)
   ↓  subject seeding      entries indexed under a SUBJECT the query names (needs an annotator)
   ↓  traversal            walk edges up to `Hops`, gathering neighbours
+  ↓  validity reading     entries the query's reading does not admit leave the candidate set (§9)
   ↓  IMemoryRankingPolicy score and order the candidates
-  ↓  verification         (opt-in) a model promotes what actually ANSWERED
-  ↓  authoritative reserve exact facts take slots WITHIN the limit
-  ↓  Take(limit)
+  ↓  authoritative reserve exact facts are split off and take slots WITHIN the limit
+  ↓  verification         (opt-in) a model promotes what actually ANSWERED, over the ordinary rest
+  ↓  Take(limit)          the ordinary page, then the reserved exact facts
   ↓  reinforcement        age reset and/or stability growth on what survived
 ```
 
@@ -365,7 +368,7 @@ the library by shape, what is measured about each, and why list LENGTH is the va
 
 **Memory's model calls bill to a name, and a cap on that name degrades a recall rather than failing it**
 (`docs/DECISIONS.md` **D163**). Every memory-seam embed, semantic recall and scoring verification carries
-`ProviderConsumers.Memory`, so an operator's `Budget.PerConsumer["memory"]` genuinely fences memory spend —
+`ProviderConsumers.Memory` — the annotation and judge calls too — so an operator's `Budget.PerConsumer["memory"]` genuinely fences memory spend —
 and when the cap is reached the refusal arrives as a VERDICT through the seams' existing fail-open paths:
 the recall still returns, with its semantic channel or its verification silently absent. That is the
 model-free floor again, reached by an accounting decision instead of by configuration, which is worth
@@ -561,7 +564,8 @@ is well-defined but only meaningful if `Stability` and `EdgeHalfLife` are chosen
 
 **The default, `ReciprocalRankFusionPolicy`, fuses by RANK POSITION** — `Σ w / (K + rank)` over
 retrievability, salience, hop, diagnosticity and each matching source's relevance — so no signal's raw scale
-can drown another (**D49**, **D82**). `MultiplicativeRankingPolicy`, a product of the same factors, ships
+can drown another (**D49**, **D82**). Salience and diagnosticity ship at weight `0`, so at the defaults only
+relevance, retrievability and hop vote. `MultiplicativeRankingPolicy`, a product of the same factors, ships
 beside it and is one line away: `UseGraph(ranking: new MultiplicativeRankingPolicy())` for one engine, or
 `services.AddSingleton<IMemoryRankingPolicy>(new MultiplicativeRankingPolicy())` for every engine that names
 none. **`CompositeRankingPolicy(primary, secondary)` blends two whole policies the same way** — by each one's
@@ -600,7 +604,8 @@ Each of these cost a real measurement to find.
   startup, and `StrictWiring()` makes that a failure rather than a log line (**D85**).
 - **`IMemoryVerificationPolicy` and `IMemoryAnnotationPolicy` are consulted by a GRAPH member only.**
   Registered onto a blend with none, they never run — and a recall then reports `Answered = null`, which is
-  exactly what it reports with nothing registered at all. That is the second thing the wiring check reports.
+  exactly what it reports with nothing registered at all. The wiring check reports that too
+  (`MemoryWiringProblem.VerificationUnconsulted`, `AnnotationUnconsulted`).
 - **A recall with no scope searches every scope of the task** (**D86**), for semantic memory as much as for
   the rest. Through 3.0.0 the semantic member returned nothing there, so a consumer treating scope as an
   optional filter got no semantic recall on its ordinary path. It needs an `IListableVectorStore` underneath;
@@ -612,8 +617,9 @@ Each of these cost a real measurement to find.
   default (`AddMemorySemanticSeeds`), so no recall reads any of it. That gap is now reported at wiring time
   (**D85**) — but the shape is worth knowing, since the bill arrives per write and the benefit does not
   arrive at all until you register the source.
-- **The review log records every returned entry, not every reinforced one.** A judge-rejected entry is
-  logged with `Verified = false` and never touched, which is what lets the log contain failures at all.
+- **The review log records every returned associative entry, not every reinforced one.** A judge-rejected entry is
+  logged with `Verified = false` and never touched, which is what lets the log contain failures at all. An
+  authoritative entry is neither logged nor reinforced, since its retrievability is fixed at `1`.
   `null` (no verifier ran) and `false` (judged irrelevant) are **not** interchangeable.
 - **`VerificationFilters: false` does NOT mean the verdict leaves the results alone.** Off — the default,
   and what the option's own docs recommend — a verdict still **promotes** every endorsed candidate to the
@@ -642,7 +648,9 @@ Each of these cost a real measurement to find.
   reading.** Burial is a rank (§4), and an outranked entry can still surface under another query; an ended one
   leaves every `Current` and `AsOf` reading it does not cover and returns only under `Validity = History` or by
   reference. For an entry nothing timed this changes nothing, so the surprise is reachable only by a write that
-  stated valid time. **It is also not a deletion**: `CountAsync` still counts it and `PruneAsync` leaves it.
+  stated valid time. **It is also not a deletion**: `CountAsync` still counts it. `PruneAsync` does not read valid
+  time, so it removes an ended associative entry exactly as it removes any other one below the floor or past
+  `olderThan`.
 - **A model-extracted PROFILE beside the raw exchange is REFUTED, on valid time as well** — so the recommendation
   stays: write the raw exchange, and where the application KNOWS which entry a new one replaces, say so with
   `Supersedes`. A write supersedes only an entry it names, and a model asked to file each fact under an attribute
@@ -765,8 +773,8 @@ foreach (var item in recall.Items)
     Console.WriteLine($"{item.Headline}  (r={item.Retrievability:F2}, ref={item.Reference.Id})");
 ```
 
-`TaskKey` and `Scope` are the two-level namespace: everything is stored and recalled within a
-`(taskKey, scope)` pair, and a `null` scope means "the task's default".
+`TaskKey` and `Scope` are the two-level namespace: a write names both, and everything is stored within a
+`(taskKey, scope)` pair. A recall naming no scope (`null`) searches every scope of the task (§7).
 
 ### Know whether a write kept its vector — and its subjects
 
@@ -848,7 +856,8 @@ await engine.RememberAsync(new MemoryWrite("project", "backend",
     Grade: MemoryGrade.Authoritative));
 ```
 
-Everything else defaults to `Associative`: it decays, competes, and can be buried. **That two-tier split is
+Everything else defaults to `Associative` (unless an annotator opted into `LlmAnnotationOptions.SuggestGrade` and advises
+otherwise on a write that states none): it decays, competes, and can be buried. **That two-tier split is
 the design** — §3 objective (1) applies only to the first tier.
 
 ### Say when a fact held, and what it replaced
@@ -895,8 +904,9 @@ asking for it by reference is how history is read.
 **To supersede is to END, never to delete.** `Supersedes` names entries of this engine in this write's task; each
 takes the successor's start as its end and records who ended it. A write that supersedes and states no
 `ValidFrom` starts when it is written, and repeating that write moves nothing. The ended entry keeps its text,
-metadata, decay state and links: it is not buried (its retrievability is whatever it was), not reinforced, and not
-removed by `PruneAsync`; only `ForgetAsync` removes it, as it removes anything. **An entry has one successor**: naming
+metadata, decay state and links: the end itself buries nothing (its retrievability is whatever it was), reinforces
+nothing and deletes nothing. `ForgetAsync` removes it as it removes anything, and `PruneAsync` as it removes any
+associative entry below its floor, since a prune does not read valid time. **An entry has one successor**: naming
 one another entry already ended throws `InvalidOperationException` before anything is written — supersede the
 newer entry instead, or bound the older with `ValidTo`. A successor that was later forgotten does not reopen what it
 ended, and a new write may then take over. **An entry cannot be superseded before it began**: a stated start earlier
@@ -1057,7 +1067,7 @@ await foreach (var step in engine.WalkAsync(new MemoryQuery("project", Query: "d
 ```
 
 Step 1 is the recall; each later step expands up to `MemoryWalkOptions.SeedsPerStep` (3) of the previous
-step's new arrivals, `Hops` deep. **Your `break` is the stop condition**, because the useful depth belongs to
+step's new arrivals, `MemoryWalkOptions.Hops` (1) edges deep (an expansion clamps that to the engine's `Hops`). **Your `break` is the stop condition**, because the useful depth belongs to
 the question (**D100**); the walk also ends on its own when a step discovers and upgrades nothing, or once it
 holds `MaxItems` entries (by default twice what step 1 returned). `UpgradedCount` says how many held
 headlines a step turned into full content — ask for `MemoryDetail.Full` and every entry arrives whole, leaving
@@ -1313,7 +1323,7 @@ line's own. Each line is one object:
 
 | field | meaning |
 |---|---|
-| `v` | the format version, `1` — or `2` on a `graph` line that carries valid time (below), and nowhere else. A reader refuses any version it does not know, rather than guess what a newer writer added: that is what stops a reader that predates valid time importing an ended fact as an open one |
+| `v` | the format version, `1` — or `2` on a `graph` line that carries valid time, a re-check or a confirmation (below), and nowhere else. A reader refuses any version it does not know, rather than guess what a newer writer added: that is what stops a reader that predates valid time importing an ended fact as an open one |
 | `record` | what the line holds: `curated`, or a graph engine's `graph` and `link` (below) |
 | `engine` | the engine that exported it; a blend routes an import by it, a single engine ignores it |
 | `taskKey`, `scope` | where it was exported from — informational, since the import names its target |
@@ -1322,8 +1332,8 @@ line's own. Each line is one object:
 | `grade` | what the exporting engine's `Grade` delegate read; an import re-derives its own from `metadata` |
 | `createdAt`, `updatedAt`, `revision` | the source's record. An imported entry is NEW: its timestamps are the import's and its revision starts at 1 |
 
-**What an import promises.** The whole file is checked before the first write: a malformed line, a version other
-than 1 or a record the engine cannot hold throws `InvalidDataException` naming the line, and nothing is written. An
+**What an import promises.** The whole file is checked before the first write: a malformed line, a version the
+line's record does not take or a record the engine cannot hold throws `InvalidDataException` naming the line, and nothing is written. An
 entry the target already holds — the same kind, content, task and scope — is left exactly as it is, so importing a
 file twice adds nothing, and a disabled entry arrives disabled. **What it cannot promise is that nothing comes back.**
 No store records a forget, so a file taken before one brings the forgotten content back with it: import only a file
@@ -1344,6 +1354,7 @@ which every shipped store implements; over a store of your own without it, both 
 | `subjects` | what it is about, as the annotator recorded it, or absent |
 | `age`, `ordinalAge`, `volumeAge`, `elapsedAge` | how far behind its engine's position it sits on each scale |
 | `validFrom`, `validTo`, `supersededAt`, `supersededBy` | its valid time, each present only where set: when it started and stopped holding as its writer stated, when a successor took over, and that successor's `id` in the SOURCE. A line carrying any is `v: 2`; an untimed one is exactly the line it always was |
+| `endedReason`, `recheck`, `confirmedAt` | why the entry was ended, the host's opaque re-check text and when a check last held, each present only where set. A line carrying a `recheck` or a `confirmedAt` is `v: 2` too |
 | `from`, `to`, `kind`, `weight` | a `link` line: two `id`s, the relation and the raw weight, with the same four ages |
 
 **Ages are relative, so the state survives a different clock.** An imported entry or link is stamped as far behind
@@ -1358,7 +1369,8 @@ named by its NEW id — or not at all, when the file does not hold it, which lea
 an import cut short never leaves an ended fact open. An entry the
 target already holds keeps its own valid time, as it keeps everything else. A file carrying valid time imported into
 an engine whose store does not implement `ITemporalMemoryGraphStore` throws `NotSupportedException` before anything is
-written. The review log does not travel. With a vector index, the
+written, and so does a file carrying a re-check or a confirmation into a store that does not implement
+`IConfirmableMemoryGraphStore`. The review log does not travel. With a vector index, the
 engine embeds each imported entry, best-effort; one whose embed fails is stored without its vector until a
 `ReindexAsync`.
 

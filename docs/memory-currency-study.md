@@ -1,11 +1,13 @@
 # Keeping an agent's memory current — a study
 
-**Status: a study (`docs/documents.md`), 2026-10-30; nothing is built.** Daoris asked five things of the memory engine
+**Status: a study (`docs/documents.md`), 2026-10-30; every row it files is built.** Daoris asked five things of the memory engine
 (its requests LQ16 to LQ20): what an agent or a host still cannot do to keep what it remembers current by replacement.
-This reads each against what the engine ships (`docs/memory.md` §9, *Say when a fact held, and what it replaced*;
+This reads each against what the engine shipped then (`docs/memory.md` §9, *Say when a fact held, and what it replaced*;
 `MemoryValidity.cs`, `MemoryRecords.cs`, `MemoryTools.cs`), answers each by the generic-library test, and files rows
-MC1 to MC5 in `TASKS.md` (Part 417 there). The rulings are **D239** and **D240**. A type named below is a shipped one
-unless a row proposes it, and every name a row proposes is settled against `docs/glossary.md` when it is built.
+MC1 to MC5. They are built: MC1, MC4, MC2 and MC5 in `docs/task-archive.md` Parts 419, 420, 422 and 423, and MC3's list
+(`IMemoryCandidates`), whose similarity basis `docs/task-archive.md` Part 440 measured and refused. Of the rows D241 and D242 add
+(MC6 to MC12), all are built but MC8, which is open in `TASKS.md` Part 417. The rulings are **D239** and **D240**. Where a
+name below differs from the one that shipped, the paragraph says so; `docs/memory.md` §9 and the `ApiSurface` baselines hold what shipped.
 
 ## 1. What the requests rest on, and what binds any answer
 
@@ -34,7 +36,7 @@ way of ending needs, `ITemporalMemoryGraphStore.SupersedeAsync`, and the engine 
 
 **MC1 proposes `IEndableMemory.EndAsync(taskKey, entry, MemoryEnding)`**, where `MemoryEnding` carries a required
 `Reason`, an optional `At` (default: now by the engine's clock) and an optional `By`, an entry of this engine that took
-over. With `By` it records the supersession exactly as a write does, at `At` (default: the successor's start); without
+over (built as `Successor`, beside an `ExpectedRevision` and an `OperationKey` that D241 and D242 added). With `By` it records the supersession exactly as a write does, at `At` (default: the successor's start); without
 it, it states the entry's own `ValidTo`. Either way the entry is **kept**, not buried, not reinforced, not pruned, and
 read back under `Validity = History` through an `EndedReason` on `MemoryValidity`. Refusals are the ones supersession already
 has: a reference outside this engine or task throws `ArgumentException`, an end before the entry began throws, and
@@ -56,12 +58,15 @@ drift.
 `AddMemoryTools` stays read-only, and a host that wants an agent to write calls a second registration, so an agent
 that could only read still can only read (**D218**). **MC2 proposes `AddMemoryWriteTools(name, taskKey, scope?, prefix?,
 options?)`**, registering `<prefix>_remember` (content, optional headline, `supersedes` refs, `validFrom`, `validTo`) and
-`<prefix>_end` (a ref, a reason, optionally the `by` ref and `at`), from MC1.
+`<prefix>_end` (a ref, a reason, optionally the `by` ref and `at`), from MC1. **As built**, `supersedes` and `<prefix>_end` also
+take the `revision` the model read off a recall and go through `MemoryChangeGate` and the host's `IMemoryChangeApprover`
+(MC6, `docs/task-archive.md` Part 421): with no approver nothing ends and a successor lands live and unlinked. `_remember`
+also takes `disputes` and `amends` (§5).
 
 - **The task is never an argument**: it is `MemoryToolScope.Resolve`'s, as the read tools' is. The scope is the host's
   unless its options let the model name one, because a scope is a namespace and never authorization (**D92**).
-- **There is no grade argument.** A tool write is `Associative`; a host that wants more sets it in the options.
-  Nothing a model supplies can make an entry exempt from decay.
+- **There is no grade argument.** A tool write is always `Associative`, and no option raises it. Nothing a model
+  supplies can make an entry exempt from decay.
 - **A refusal reads as a result the model can act on**, not an exception: *"entry 7 was already superseded by entry 9;
   supersede entry 9 instead"* is the engine's own message, rendered as `{"error": …}`.
 - The host's `Metadata` stamp (for example which agent wrote it) rides on every write, so a later reader sees where an
@@ -86,7 +91,9 @@ that DEMOTES by a relevance judgement, and a candidate list that a writer reads 
 few. `memory-longmemeval --haystack` already holds revised-against-superseded pairs (the profile run of **D217**); the
 measurement reports the rate per basis and is not gated. **A low rate changes the default limit and the guidance in
 `docs/memory.md`, and ships nothing less**, since nothing is applied unconfirmed. The default of four is the other
-server's habit, not a finding.
+server's habit, not a finding. **Measured since** (`docs/memory-measurements.md` §5, `update-candidates-lexical-haystack-n70`): the
+lexical basis holds the true predecessor in the first four for 54% of 70 pairs and in the first ten for 89%, so the shipped default is
+ten; an embedder did not raise it at any k (`update-candidates-similarity-haystack-n70`), and the measurement changed nothing in `src/` (`docs/task-archive.md` Part 440).
 
 **The subject basis is left out of the default.** An entry's subjects exist only after an annotator, which is a model
 call, has read the write; a read that made one would break **D175**. A host that annotates first can pass the subjects
@@ -111,7 +118,9 @@ weighed:
   answer to the related question in §7.
 
 The row's first step is to read how an edge keeps a kind through co-activation, decay and traversal. If it does not
-survive them unchanged, the relation gets its own column and the row says so.
+survive them unchanged, the relation gets its own column and the row says so. **Read when built**: an edge is keyed by
+source, target and kind in all four stores, so no column was added; what was missing was a read of an edge's kind
+(`ITypedLinkMemoryGraphStore.LinksAmongAsync`, `docs/task-archive.md` Part 420).
 
 ## 6. A stored fact can be re-checked (LQ19, MC5)
 
@@ -124,8 +133,8 @@ the library never reads, bounded in length; `IConfirmableMemory.ConfirmAsync(tas
 **`Held`** stamps `ConfirmedAt` (never backwards, and no other field moves: it is not a recall and not a reinforcement)
 and **`Failed`** ends the entry through `EndAsync` with the note as its reason; and `DueAsync(taskKey, scope,
 notConfirmedSince, limit)`, the live entries that carry a `Recheck` and were last confirmed before an instant or never,
-which is how a host's loop finds what to run. a `Confirmation` on `MemoryItem` carries both on read, so a renderer can show *last
-confirmed* beside an entry and nothing else about it changes.
+which is how a host's loop finds what to run. `Recheck` and `ConfirmedAt` on `MemoryItem` carry both on read (built so, not as one
+`Confirmation` type), so a renderer can show *last confirmed* beside an entry and nothing else about it changes.
 
 **A failed check ends; it does not flag.** The request allows "ends or flags", and a flagged-but-live entry that a recall
 does not return as current is an ended entry under another name, with a third state every reading would have to answer
@@ -157,7 +166,7 @@ choose.
 ## 9. Build order, and what Daoris may rely on
 
 MC1 first, since four rows stand on it; then MC2 and MC3, which are independent of each other (the tool shows
-candidates only when both exist); then MC4; then MC5. None is released: every member added is frozen only from the
+candidates only when both exist); then MC4; then MC5. All five are built and none is released: every member added is frozen only from the
 release that first carries it (**D70**), and a host builds against the unreleased rows as **D235** says. What Daoris
 may rely on today is the shipped base the requests cite (`Supersedes`, `SupersedeAsync` on every shipped store, the
 `Current`, `AsOf` and `History` readings), which does not move.

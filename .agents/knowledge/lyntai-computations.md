@@ -24,12 +24,15 @@ budget read as a hard ceiling.
 | **A host benched** (dead-host cooldown) | repeated `Failed`/`Timeout`, or one `RateLimited`/`AuthFailed`, keyed per provider (or provider + model under `CooldownScope.ProviderAndModel`) | `TextRouter`'s `deadHosts` parameter and `RoutingPolicy.CooldownScope` |
 | **A call's cost** (`CostUsd`) | **what the backend reported**, when it reported anything; Lyntai holds no price table | `ProviderUsage` (`src/Lyntai.Core/Inference/ProviderUsage.cs`); per-shape `TextUsage` / `MediaUsage` project into it |
 | **A budget refusal** | the accumulated `CostUsd` and input + output tokens, global and per consumer, checked BEFORE each call — a SOFT ceiling: the crossing call runs, the next is refused; consumer ids fold case. With `BudgetOptions.ReserveCostUsd`/`ReserveTokens` set over a tracker that can reserve, the check also counts every call in flight at its held amount (**D206**) | `BudgetOptions` (`src/Lyntai.Core/BudgetOptions.cs`), `BudgetGate` (`Inference/Budgeting/`), `IUsageTracker` |
-| **A cache hit** | SHA-256 over the length-framed output-determining request fields (messages, model, max tokens, temperature, JSON schema); `Consumer` is excluded, so two consumers share a hit — unless `CacheOptions.PartitionByConsumer` prefixes it with the lower-cased consumer (`ResponseCacheKey.ForConsumer`) | `ResponseCacheKey` (`src/Lyntai.Core/Inference/Caching/IResponseCache.cs`) |
+| **A cache hit** | SHA-256 over the length-framed output-determining request fields (messages with their tool calls and attachments, the effective model, max tokens, temperature, JSON schema, the reasoning level, and `RequireNativeSupport` when set); `Consumer` is excluded, so two consumers share a hit — unless `CacheOptions.PartitionByConsumer` prefixes it with the lower-cased consumer (`ResponseCacheKey.ForConsumer`) | `ResponseCacheKey` (`src/Lyntai.Core/Inference/Caching/IResponseCache.cs`) |
 | **A run's total cost** | the sum of its trace steps' `CostUsd` | `TotalCostUsd` (`src/Lyntai.Core/Cortex/TraceModels.cs`) |
 | **A scorer aggregate** | mean score and count per scorer across sessions; a re-score of a session replaces that scorer's row | `IScoreStore.AggregateAsync` / `SaveAsync` (`src/Lyntai.Core/Storage/IScoreStore.cs`); a score is `ScoreResult` (`Cortex/ScoreModels.cs`) |
 | **A job's state** (`Pending`, `Running`, `Succeeded`, `Failed`, `Cancelled`, `Dead`, `Paused`) | the lease and the handler's outcome; `Dead` is retries exhausted and replayable, `Failed` is a declared permanent failure | `JobStatus` (`src/Lyntai.Core/Jobs/JobModels.cs`), `IJobStore` |
 | **What a memory recall returns** | an n-shot walk over headlines, decayed by interference rather than a clock, burying rather than deleting | `docs/memory.md` (the contract, §4 How a recall actually works); figures in `docs/memory-measurements.md` §5 |
 
-**Not confirmed**: which providers report `CostUsd` at all. `ProviderUsage` documents it as "what the
-backend said it cost, when it said anything", so a budget capped on cost is only as complete as the
-providers in use; each provider's own source under `src/Lyntai.Providers.*` would settle it per backend.
+**Few providers report `CostUsd`.** `ProviderUsage` documents it as "what the backend said it cost, when it
+said anything", so a budget capped on cost is only as complete as the providers in use. In the shipped
+providers the `claude` CLI backend reads the wire's `total_cost_usd` (`ClaudeCli/StreamJsonParser.cs`) and
+`FalProvider` reads a response field named in `FalOptions.CostFields`; the `codex` CLI, Ollama and
+OpenAI-shaped HTTP chat wires report tokens and leave it null, and the other media backends report only a
+count. A BYO provider reports what it puts in its own `TextUsage` / `MediaUsage`.

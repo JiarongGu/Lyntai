@@ -67,8 +67,10 @@ would not be.
 
 **The bag is the default; a signal is promoted to its own column only when the DATABASE itself must sort or
 filter on it** — no portable index reaches into a JSON blob. `salience` is the first and, so far, only
-promotion, because a salient entry must be admitted as a candidate even when it matches the query, or
-recency, poorly.
+promotion made for that reason, because a salient entry must be admitted as a candidate even when it matches
+the query, or recency, poorly. (`difficulty` is a promoted column too, but as live retrievability state with a
+second writer, `TouchAsync` — arithmetic reads it, nothing sorts on it, and only a bag that NAMES a difficulty
+overwrites it.)
 
 **The promoted column is the COERCED materialisation of the bag's value, not a copy of it** — so the two are
 not byte-for-byte equal, and expecting them to be is the trap. `MemorySignals.Salience(write.Signals)` is the
@@ -193,10 +195,11 @@ dialect only — FTS5, `IN @ids` vs `= ANY`, `MAX` vs `GREATEST`, `::jsonb`/`::t
 text and nothing more.
 
 **Dialect-free CODE is one linked source, not a package.** `src/Shared/Relational/*.cs` (`DapperConventions`,
-`ReflectionJson`, `GovernanceGuard`, `StoreWiring`) is compiled into each relational adapter through
+`ReflectionJson`, `GovernanceGuard`, `StoreWiring`, and the Dapper-executing graph statements `GraphReceiptSql` and
+`GraphSupersedeSql`) is compiled into each relational adapter through
 `<Compile Include="..\Shared\Relational\*.cs" LinkBase="Shared\Relational" />`, never referenced: an
 adapter→adapter reference breaks the package rule, Core has no Dapper, and a package would be a published id
-and nine registries for under two hundred internal lines.
+and nine registries for about four hundred internal lines.
 Everything there is `internal`, so each adapter gets its own copy of every type — the SQLite and Postgres
 `FeatureSelection` services are distinct for exactly that reason — and nothing public may go there, since two
 adapters in one app would then collide on it. `check-packages` counts only `src/*/*.csproj`.

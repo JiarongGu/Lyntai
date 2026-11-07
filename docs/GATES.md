@@ -134,7 +134,7 @@ nobody can see opening.
 | `check-counts` | `count-ok` | a sentence quoting a HISTORICAL count ("the list said seven and had eleven") |
 | `check-comments` | `comment-ok` | on a block's first line; reserve it for a block no reader would want shorter — a table, a wire-format capture |
 | `check-tautology` | `tautology-ok` | a line that names the collapsed contrast deliberately |
-| `check-measurements` | `measure-ok` | a line discussing ANOTHER result's retraction; naming what this row supersedes is the better fix, and it is also the bookkeeping the index needs |
+| `check-measurements` | `measure-ok` | on a section HEADING that uses the retraction vocabulary without retracting anything; naming what a row supersedes is the better fix, and it is also the bookkeeping the index needs |
 | `test` | `LYNTAI_ALLOW_POSTGRES_SKIP=1` | an environment variable, not a line marker: the RUN declares that its Postgres leg is expected to skip (§test) |
 | `check-decisions`, `check-archive`, `check-backlog`, `check-pitfalls`' length ratchet | **none** | an allowance is a visible ratcheted number and is the only way out |
 
@@ -235,9 +235,9 @@ silently skipped any file with a non-ASCII NAME — in this repository, `docs/�
 leak past a "clean" run. The three measured defects are pinned as regression tests and each was
 mutation-checked against the old behaviour.
 
-**Every guard script now has a test.** What is left untested is the two deterministic stubs
-(`provider-stub`, `codex-stub`) and the live pack/restore/build/run of `consumer-smoke` itself — a seam
-that stubbed the pack would test the bookkeeping and none of the risk.
+**Every guard script now has a test.** What is left untested here is the three deterministic stubs
+(`provider-stub`, `codex-stub`, `acp-stub`) and the live pack/restore/build/run of `consumer-smoke` itself — a
+seam that stubbed the pack would test the bookkeeping and none of the risk.
 
 **It also holds a baseline**: on a green run it compares its own counts against `CLAUDE.md`'s
 `guard-script tests N/N` and fails on a mismatch or an absent sentence (§Which numbers a gate holds).
@@ -335,9 +335,9 @@ the former: the release stamp deletes that region on its way past.
 
 **It also scans code COMMENTS** in `src/`, `tests/`, `bench/` and `devtools/` — the compiler resolves
 `<see cref>` and nothing else, so a retired CLAIM in a `<c>` tag or a `//` comment was checked by no one.
-Three `devtools/` files are out because quoting retired vocabulary is their job: the registry itself
-(`project.config.mjs`), the roster of published package ids (`nuget-unlist.mjs`) and the guards' own tests,
-whose fixtures are the terms. Excluding the whole tier once hid a stale embedder name in a sweep script.
+Three `devtools/` paths are out because quoting retired vocabulary is their job: the registry itself
+(`project.config.mjs`), the roster of published package ids (`nuget-unlist.mjs`) and the guards' own tests
+folder (`devtools/scripts/__tests__/`), whose fixtures are the terms. Excluding the whole tier once hid a stale embedder name in a sweep script.
 **An empty `retiredTerms` registry FAILS** rather than reporting a clean tree it never checked.
 
 **The two files written for coding agents** — `llms.txt` and `context7.json` (**D197**) — are admitted by NAME,
@@ -453,6 +453,10 @@ files carry, only **13** name `docs/`.
 **EXISTENCE only, never line numbers** — a `file.cs:123` reference rots on the next edit for entirely
 legitimate reasons, and `pitfalls.md` records line numbers rotting twice and being deleted in favour of
 names; gating them would fail every refactor for no defect. `local/**` is skipped (untracked by design).
+
+**The path half reads only the top-level directories `PATH_PATTERN` names** — `src`, `tests`, `devtools`,
+`bench`, `samples`, `docs`, `local` and `.claude` — so a path under `.agents/` (where the knowledge tier and the
+skills now live) or at the repository root is never checked, and a dead one reports exactly like a live one.
 
 **One structural blind spot, stated so nobody relies on the gate for it.** A citation of the form
 `` `CLAUDE.md` `` — a bare basename with no directory prefix — is invisible to the path half, and a
@@ -653,9 +657,9 @@ property's name, an expression-bodied accessor and a positional record's paramet
 the first pattern — 41 options nothing checked — so it reads each of those shapes.
 
 **It fails closed on an empty scan** — a scan finding no options has proved the pattern stopped matching,
-not that the tree is clean — and `optionDocAllowances` (`devtools/project.config.mjs`) excuses a single
-option with a reason, where **a dead allowance FAILS** the moment its option is documented, renamed or
-deleted. Scope is `src/` only: a test's or a bench's options type is an instrument, not a contract.
+not that the tree is clean — and `optionDocAllowances` (a list of `{ type, prop, why }` entries read from
+`devtools/project.config.mjs`, where the key is absent while nothing needs one) excuses a single option with a
+reason, where **a dead allowance FAILS** the moment its option is documented, renamed or deleted. Scope is `src/` only: a test's or a bench's options type is an instrument, not a contract.
 
 **What it does NOT hold:** whether the prose is any good, whether a default is right, or whether the doc
 still describes the code — that last is `check-decision-claims`' question, one tier up, and only for
@@ -696,14 +700,17 @@ heading's, and that second marker is what lets the gate tell the live half from 
 **`SUPERSEDED` is never authored.** An author writes `CURRENT` or `RETRACTED` and names what a new result
 replaces in `supersedes=`; the index derives the rest. Two-sided bookkeeping is exactly where a record like
 this rots, because the losing half of the pair is the half nobody revisits — and a hand-written
-`status=SUPERSEDED` fails with that as its message. `supersedes=` resolves BACKWARDS only, which is what
-makes a cycle unrepresentable rather than merely unlikely.
+`status=SUPERSEDED` fails with that as its message. `supersedes=` may name a row ABOVE or BELOW the one
+that carries it — the record often announces a correction in a heading and quotes the replaced figure under
+it — so the gate checks ACYCLICITY directly (a depth-first walk over `supersedes=`), and a cycle, a
+duplicate id or a target naming no result all fail.
 
-The check that repays the rest: **a result still reading CURRENT whose own body says something was
-corrected, retracted, went stale or was superseded FAILS.** The common false positive — a row that is doing
-the superseding — is exempted by `supersedes=` rather than by a token, so the escape for the ordinary case
-is the bookkeeping the index needed anyway. `measure-ok` remains for a line genuinely discussing a third
-result.
+The check that repays the rest: **a section HEADING that announces a retraction (`CORRECTED`, `RETRACTED`,
+`STALE`, `SUPERSEDED`, `WITHDRAWN`) while every result under it still reads CURRENT FAILS.** A section clears
+it with any row that is not derived-CURRENT or that names what it supersedes, so the ordinary escape is the
+bookkeeping the index needed anyway. A BODY is deliberately not scanned (§The cold-start measurement: 63
+hits, zero defects). `measure-ok` goes on the heading, for one that uses the vocabulary in its domain
+sense.
 
 `measurementMetrics` (`devtools/project.config.mjs`) is CLOSED and a slug no result uses fails, for
 `pitfallFacets`' reason. Two columns carry the questions the probe could not answer — **`ships`**, whether
@@ -933,7 +940,9 @@ Note it has written CRLF into the working tree; see `.claude/rules/windows-machi
 
 ### `check-version` — the pre-commit version-authorship guard
 
-Run by hand. It blocks a hand-edited `<VersionPrefix>` and a hand-stamped `## Unreleased` heading.
+It blocks a hand-edited `<VersionPrefix>` and a hand-stamped `## Unreleased` heading, over the STAGED diff. The
+pre-commit hook runs it on every commit; `node devtools/dev.mjs check-version` runs it by hand. `LYNTAI_RELEASE=1`
+is its one escape.
 
 ### `nuget-unlist` — hiding a superseded version from the feed
 
@@ -974,9 +983,11 @@ carries a second `--screen` mode for the model ladder; and `memory-decision` cro
 model size.
 
 **`memory-locomo` and `memory-longmemeval` belong to a different family** — they are the FIELD's
-benchmarks, measured on data this repository did not build. Both are model-free (the dataset names the
-evidence turn, so no reader and no judge can be credited or blamed), and both need a dataset the command
-prints a `curl` for.
+benchmarks, measured on data this repository did not build, and both need a dataset the command prints a
+`curl` for. Their retrieval paths are model-free — `memory-longmemeval`'s default table, `memory-locomo`'s
+`--shots` and the mechanical arms of its `--retrieval` (whose judge arm is additive) — because the dataset
+names the evidence turn, so no reader and no judge can be credited or blamed. `memory-locomo`'s default QA
+path, and `memory-longmemeval`'s `--extract` and `--layers` paths, call a chat model.
 
 **Two runs are compared PAIRED, through one result shape.** `memory-locomo` (its `--retrieval`, `--shots` and
 QA modes) and `memory-longmemeval` (the default and `--extract` paths) write one row per arm × question

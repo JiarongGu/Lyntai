@@ -347,9 +347,9 @@ Implement the domain interfaces the consumer needs — they're independent, and 
 them. A backend implements up to **twelve**: the eight in `src/Lyntai.Core/Storage/` (`IKeyValueStore`,
 `IConversationStore`, `IMemoryStore`, `IScoreStore`, `ITraceStore`, `IPromptVersionStore`, `IJobStore`,
 `ICuratedMemoryStore`) plus `IVectorStore` (`Memory/`), `IResponseCache` (`Inference/Caching/`), `IUsageTracker`
-(`Inference/Budgeting/`) and **`IMemoryGraphStore` (`Memory/`)**. A thirteenth storage seam,
-`IModelRoutingStore`, is never yours to write: Core serves it as `KeyValueModelRoutingStore` over your
-`IKeyValueStore`.
+(`Inference/Budgeting/`) and **`IMemoryGraphStore` (`Memory/`)**. Two further storage seams,
+`IModelRoutingStore` and `IJobScheduleStore`, are never yours to write: Core serves them as
+`KeyValueModelRoutingStore` and `KeyValueJobScheduleStore` over your `IKeyValueStore`.
 
 **`IMemoryGraphStore` is the LARGEST contract in the storage layer, and the easiest to plan a backend without.**
 It is also the only one with a per-backend migration asymmetry (`.agents/knowledge/storage.md` §Migrations)
@@ -365,7 +365,7 @@ answered with an empty list would silently get **no subject seeding** at all (**
 subject handles in use under a task and scope, most-used first. **And an id is never reissued**, not after a
 delete, a forget or a restart — a SQL backend gets that from `AUTOINCREMENT` or an identity column, where a plain
 rowid would hand the deleted top id out again, and an in-process one from a persisted high-water mark.
-**Beside it sit three OPTIONAL interfaces.** `ICountableMemoryGraphStore` (**D202**): `CountAsync` reports entries,
+**Beside it sit OPTIONAL interfaces.** `ICountableMemoryGraphStore` (**D202**): `CountAsync` reports entries,
 authoritative entries, edges and distinct subjects per engine, task and scope, leaving `Buried` null — the engine
 judges burial. Skip it and `GraphMemoryEngine.CountAsync` answers `null`; every shipped store implements it, and
 `MemoryGraphSql.Counts` is the statement both SQL backends share. `IPortableMemoryGraphStore` (**D213**): an export
@@ -381,7 +381,13 @@ writes over no live successor but the same one, and returns how many it wrote (`
 all four NULLABLE and leave old rows NULL, which reads as untimed. **Skip it and the engine REFUSES a write that
 states valid time, or an import of one, rather than store it open-ended** — a store that never heard of it reads
 every node as untimed, which is right for reads. The engine, not the store, judges validity, so there is nothing
-to index.
+to index. Layered on `ITemporalMemoryGraphStore`, each extending the one before it, are
+`IEndableMemoryGraphStore` (`EndAsync`), `IConfirmableMemoryGraphStore` (`ConfirmAsync`, `DueAsync`) and
+`IKeyedMemoryGraphStore` (`ReceiptAsync` and the `*KeyedAsync` calls, which also needs
+`ITypedLinkMemoryGraphStore`'s `LinksAmongAsync`), then `ISupersedingMemoryGraphStore` (`SupersedeWithAsync`).
+Each is opted into by implementing it, its contract is the XML doc on the interface, and the relational
+backends share `GraphReceiptSql` and `GraphSupersedeSql` (`src/Shared/Relational/`) for the keyed and
+superseding halves.
 
 **`ICuratedMemoryStore` has one OPTIONAL interface too, `IRevisionedCuratedMemoryStore`**: an `UpdateAsync`
 overload that writes only while the entry is at the caller's `expectedRevision`. Implement it and you owe three

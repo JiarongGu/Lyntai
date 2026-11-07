@@ -10,7 +10,7 @@ renaming anything: a rename sweep breaks these without failing anything. The sha
 - `Lyntai.Inference`: everything about CALLING a backend, flat (**D154**) — the provider seam, the verdict
   taxonomy, the four call shapes, the text front door and both routers (`TextRouter`, `MediaRouter`: peers
   **D153** refused to merge). Plus `.Cli` (ONE engine; a new CLI is an `ICliBackend`, **D21**/**D159**) and
-  the front-door decorators `.Caching` / `.Budgeting` / `.RateLimiting` / `.Streaming`.
+  the front-door decorators `.Caching` / `.Budgeting` / `.RateLimiting` / `.Tracing`, and `.Streaming`'s stream guard.
 - `Lyntai.Generation` (+ `.Jobs` / `.Tools`): what RUNS a generation. The media backends are the separate
   `Lyntai.Generation` package, namespace `Lyntai.Generation.Providers`.
 - `Lyntai.Memory`: the engines (`.Engines`), semantic memory, the vector store.

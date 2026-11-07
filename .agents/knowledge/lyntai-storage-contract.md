@@ -26,10 +26,16 @@ database someone else edited has no shape it expects.
   (`src/Lyntai.Core/Inference/Budgeting/`), `IVectorStore` and `IMemoryGraphStore`
   (`src/Lyntai.Core/Memory/`). These are public surface (`lyntai-surface.md` §What is promised).
 - **Which backend serves which**: `UseSqliteStorage` (`src/Lyntai.Storage.Sqlite/SqliteStorageBuilderExtensions.cs`)
-  and `UsePostgresStorage` (`src/Lyntai.Storage.Postgres/PostgresStorageBuilderExtensions.cs`) serve all of
-  them; `UseFileSystemStorage` (`src/Lyntai.Storage.Basic/FileSystem/FileSystemStorageBuilderExtensions.cs`)
-  serves only the domains a person reads, and `UseInMemoryStorage` holds nothing past the process. The
-  first registration of a domain wins (`TryAdd`), so backends compose.
+  and `UsePostgresStorage` (`src/Lyntai.Storage.Postgres/PostgresStorageBuilderExtensions.cs`) wire the
+  stores of nine domains — key-value, prompt versions, conversations, memory, the memory graph, scores, traces,
+  jobs and curated memory. The persistent response cache, usage tracker and vector store are opt-in on top
+  (`UseSqliteResponseCache`, `UseSqliteUsageTracking`, `UseSqliteVectorStore` and their `UsePostgres*` twins),
+  and need `StorageFeature.Governance` whenever Lyntai is the one migrating (the Postgres vector store, which
+  creates its own table on first use, is the exception). `UseFileSystemStorage`
+  (`src/Lyntai.Storage.Basic/FileSystem/FileSystemStorageBuilderExtensions.cs`) serves only the domains a person
+  reads (key-value, prompt versions, conversations, memory, curated memory, the memory graph), and
+  `UseInMemoryStorage` holds nothing past the process. The first registration of a domain wins (`TryAdd`), so
+  backends compose.
 - **`StorageFeature`** (`src/Lyntai.Core/Storage/StorageFeature.cs`) selects domains; a disabled one lands
   no store and no table, and `None` creates nothing, not even the version table.
 
@@ -39,7 +45,9 @@ database someone else edited has no shape it expects.
   `tests/Lyntai.Tests/Storage/Snapshots/sqlite-schema.sql` (`MigrationSchemaSnapshotTests`) and
   `pg-schema.txt` (`PgMigrationSchemaSnapshotTests`) — read those rather than a list kept here.
 - **Version table**: `lyntai_version_info` (`Migrations/LyntaiVersionTable.cs` in both SQL packages),
-  FluentMigrator's record of applied migrations, run at startup by each package's `MigrationRunnerService`.
+  FluentMigrator's record of applied migrations, run by each package's `MigrationRunnerService` — by default
+  while `UseSqliteStorage` / `UsePostgresStorage` is called (`SchemaMigration.OnStartup`); `OnFirstUse` defers it
+  and `None` leaves the schema to the app.
 - **Files**: the file-system backend writes one Markdown record per file under the consumer's
   `FileSystemStorageOptions.Root`, the memory graph under `graph/<engine>/<task>/<scope>/` and its learning
   journal under `graph/<engine>/state/`.
