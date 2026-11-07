@@ -1066,10 +1066,94 @@ public class StreamJsonAgentReaderTests
     [InlineData("""{"type":"system","subtype":"task_started","task_id":"","description":"empty id"}""")]
     [InlineData("""{"type":"system","subtype":"task_notification","status":"completed"}""")]
     [InlineData("""{"type":"system","subtype":"task_progress","task_id":"a9b1","description":"Reading README.md"}""")]
-    [InlineData("""{"type":"system","subtype":"task_updated","task_id":"a9b1","patch":{"status":"completed"}}""")]
+    [InlineData("""{"type":"system","subtype":"task_updated","patch":{"status":"completed"}}""")]
+    [InlineData("""{"type":"system","subtype":"task_updated","task_id":"a9b1","patch":{"end_time":1760950801000}}""")]
+    [InlineData("""{"type":"system","subtype":"task_updated","task_id":"a9b1","patch":{"status":""}}""")]
+    [InlineData("""{"type":"system","subtype":"task_updated","task_id":"a9b1"}""")]
     public void A_task_line_that_names_no_task_or_says_nothing_new_yields_nothing(string line)
     {
         Assert.Empty(new StreamJsonAgentReader().Read(line));
+    }
+
+    [Fact]
+    public void A_patched_status_is_the_agents_word_and_never_a_second_end()
+    {
+        var events = BackgroundTurn.SelectMany(new StreamJsonAgentReader().Read).ToList();
+
+        Assert.Equal(
+            [new AgentTaskUpdated("b0fetch", "completed"), new AgentTaskUpdated("b1gates", "killed")],
+            events.OfType<AgentTaskUpdated>());
+        Assert.Equal(2, events.OfType<AgentTaskEnded>().Count());
+    }
+
+    [Fact]
+    public void A_command_ended_only_by_its_update_after_the_turn_is_not_ended()
+    {
+        var reader = new StreamJsonAgentReader();
+
+        var events = new[]
+        {
+            """{"type":"system","subtype":"task_started","task_id":"b1gates","tool_use_id":"toolu_gates","task_type":"local_bash"}""",
+            """{"type":"result","subtype":"success","is_error":false,"result":"running","session_id":"s"}""",
+            """{"type":"system","subtype":"task_updated","task_id":"b1gates","patch":{"status":"killed"}}""",
+        }.SelectMany(reader.Read).ToList();
+
+        Assert.Equal(new AgentTaskUpdated("b1gates", "killed"), events[^1]);
+        Assert.DoesNotContain(events, e => e is AgentTaskEnded);
+    }
+
+    // SOURCE-DERIVED: the result of a command the agent left running, as a host's capture states it: the structured
+    // `tool_use_result` names the task and the harness's words to the model name the file.
+    private const string BackgroundResult =
+        """{"type":"user","message":{"role":"user","content":[{"tool_use_id":"toolu_gates","type":"tool_result","content":"Command running in background with ID: b1gates. Output is being written to: /tasks/b1gates.output. You will be notified when it completes."}]},"parent_tool_use_id":null,"tool_use_result":{"stdout":"","stderr":"","backgroundTaskId":"b1gates"}}""";
+
+    [Fact]
+    public void A_backgrounded_commands_result_names_its_output_file_while_it_runs()
+    {
+        var reader = new StreamJsonAgentReader();
+        reader.Read("""{"type":"system","subtype":"task_started","task_id":"b1gates","tool_use_id":"toolu_gates","task_type":"local_bash"}""");
+
+        var events = reader.Read(BackgroundResult);
+
+        Assert.IsType<ToolResult>(events[0]);
+        Assert.Equal(new AgentTaskOutputFile("b1gates", "/tasks/b1gates.output"), Assert.Single(events.OfType<AgentTaskOutputFile>()));
+    }
+
+    [Fact]
+    public void A_file_the_result_named_is_not_named_again_by_the_end()
+    {
+        var reader = new StreamJsonAgentReader();
+
+        var events = new[]
+        {
+            BackgroundResult,
+            """{"type":"system","subtype":"task_notification","task_id":"b1gates","status":"stopped","output_file":"/tasks/b1gates.output"}""",
+        }.SelectMany(reader.Read).ToList();
+
+        Assert.Single(events.OfType<AgentTaskOutputFile>());
+    }
+
+    [Fact]
+    public void A_path_with_spaces_is_read_up_to_the_sentences_full_stop()
+    {
+        var line = BackgroundResult.Replace("/tasks/b1gates.output", "C:/My Tasks/b1gates.output");
+
+        var file = Assert.Single(new StreamJsonAgentReader().Read(line).OfType<AgentTaskOutputFile>());
+
+        Assert.Equal("C:/My Tasks/b1gates.output", file.Path);
+    }
+
+    [Theory]
+    [InlineData("""{"type":"user","message":{"content":[{"type":"tool_result","tool_use_id":"t","content":"Output is being written to: /tasks/x.output. done"}]},"tool_use_result":{"stdout":""}}""")]
+    [InlineData("""{"type":"user","message":{"content":[{"type":"tool_result","tool_use_id":"t","content":"Output is being written to: /tasks/x.output. done"}]}}""")]
+    [InlineData("""{"type":"user","message":{"content":[{"type":"tool_result","tool_use_id":"t","content":"started"}]},"tool_use_result":{"backgroundTaskId":"b1"}}""")]
+    [InlineData("""{"type":"user","message":{"content":[{"type":"tool_result","tool_use_id":"t","content":"Output is being written to: /tasks/x.output. done"}]},"tool_use_result":{"backgroundTaskId":""}}""")]
+    public void A_result_that_names_no_task_or_no_path_names_no_file(string line)
+    {
+        var events = new StreamJsonAgentReader().Read(line);
+
+        Assert.Single(events);
+        Assert.IsType<ToolResult>(events[0]);
     }
 
     [Fact]

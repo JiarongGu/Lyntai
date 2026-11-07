@@ -90,7 +90,7 @@ internal static class CliAgentLoop
         ToolResult => AgentShownKind.ToolResult,
         UsageLive or UsageFinal or UsageReading or ContextReading => AgentShownKind.Usage,
         PlanUpdated => AgentShownKind.Plan,
-        AgentTaskStarted or AgentTaskEnded or AgentTaskOutputFile => AgentShownKind.Task,
+        AgentTaskStarted or AgentTaskUpdated or AgentTaskEnded or AgentTaskOutputFile => AgentShownKind.Task,
         _ => null,
     };
 

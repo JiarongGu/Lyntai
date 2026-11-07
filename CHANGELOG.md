@@ -119,6 +119,12 @@ every addition.
 
 ### Added
 
+- **A task's patched status is the new `AgentTaskUpdated(TaskId, Status)` event, and a backgrounded command's output file is named
+  while it runs** (**D254**). The Claude door yields `AgentTaskUpdated` for each `task_updated` that states a `patch.status`, in the
+  agent's word; it is not an end, so a command the binary killed after the turn with no `task_notification` after it is updated
+  `killed` and not ended. A backgrounded command's result (`tool_use_result.backgroundTaskId` and the sentence `Output is being
+  written to: <path>.`) now yields `AgentTaskOutputFile` at the result, where it was named only at the end; a result without both
+  yields none.
 - **A subagent's start and end carry the lineage the agent stated, and a task names its output file** (**D253**). No `ChildStarted`
   or `ChildEnded` event is added (**D245**): a subagent is the `AgentTaskStarted` of Kind `local_agent` and the `AgentTaskEnded` of
   its task. `AgentTaskStarted` gains `ParentTaskId`, `Depth` and `SubagentType` (the Claude door's `parent_task_id`, `spawn_depth` and

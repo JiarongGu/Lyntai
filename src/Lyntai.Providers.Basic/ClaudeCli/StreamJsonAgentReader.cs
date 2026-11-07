@@ -1,6 +1,7 @@
 using Lyntai.Inference;
 using System.Text;
 using System.Text.Json;
+using System.Text.RegularExpressions;
 using Lyntai.Agents;
 using Lyntai.Providers.Basic;
 
@@ -177,10 +178,10 @@ internal sealed class StreamJsonAgentReader : ICliAgentLineReader
 
     // A `task_*` line is routed here before ReadSystem, so it can never announce a session or move anything the
     // session owns. `task_notification` is the end: every capture carries one per task, while `task_updated` is a
-    // patch that precedes it with a status of its own, so reading both would end a task twice. `task_progress` and
-    // `background_tasks_changed` say nothing these two do not. A task's output file is named by whichever of the two
-    // carries `output_file` first (the capture's notification does), and an end is keyed by the call its start named
-    // when its own line names none.
+    // patch that precedes it with a status of its own, so it is its own event and never a second end. `task_progress` and
+    // `background_tasks_changed` say nothing these do not. A task's output file is named by whichever line carries
+    // `output_file` first (the capture's notification does, else a command's result: see ReadUser), and an end is
+    // keyed by the call its start named when its own line names none.
     private IEnumerable<AgentStreamEvent> ReadTask(JsonElement root, string subtype)
     {
         if (WireJson.String(root, "task_id") is not { Length: > 0 } id)
@@ -197,19 +198,28 @@ internal sealed class StreamJsonAgentReader : ICliAgentLineReader
                         Depth = WireJson.Int32(root, "spawn_depth"),
                         SubagentType = WireJson.String(root, "subagent_type"),
                     },
-                    .. OutputFile(root, id)];
+                    .. OutputFile(id, WireJson.String(root, "output_file"))];
+            case "task_updated":
+                return WireJson.Object(root, "patch") is { } patch && WireJson.String(patch, "status") is { Length: > 0 } status
+                    ? [new AgentTaskUpdated(id, status)]
+                    : [];
             case "task_notification":
-                return [.. OutputFile(root, id),
+                return [.. OutputFile(id, WireJson.String(root, "output_file")),
                     new AgentTaskEnded(id, WireJson.String(root, "status")) { CallId = callId ?? _taskCalls.GetValueOrDefault(id) }];
             default:
                 return [];
         }
     }
 
-    private IEnumerable<AgentStreamEvent> OutputFile(JsonElement root, string id) =>
-        WireJson.String(root, "output_file") is { Length: > 0 } path && _taskOutputs.Add((id, path))
+    private IEnumerable<AgentStreamEvent> OutputFile(string id, string? path) =>
+        path is { Length: > 0 } && _taskOutputs.Add((id, path))
             ? [new AgentTaskOutputFile(id, path)]
             : [];
+
+    // The harness's words to the model in a backgrounded command's result: the one place the path is named while the
+    // command runs. The id is the result's own structured `backgroundTaskId`, so words with no such id name no task, and
+    // a result whose words carry no path (the harness rewording it) yields nothing rather than a guess.
+    private static readonly Regex OutputPath = new(@"Output is being written to: (?<path>\S.*?)\.(?:\s|$)", RegexOptions.CultureInvariant);
 
     // ── stream_event (partial content deltas) ────────────────────────────────
 
@@ -375,6 +385,9 @@ internal sealed class StreamJsonAgentReader : ICliAgentLineReader
         if (!msg.TryGetProperty("content", out var content) || content.ValueKind != JsonValueKind.Array)
             yield break;
 
+        var backgroundTask = WireJson.Object(root, "tool_use_result") is { } structured
+            ? WireJson.String(structured, "backgroundTaskId") : null;
+
         foreach (var block in content.EnumerateArray())
         {
             if (WireJson.String(block, "type") != "tool_result")
@@ -395,6 +408,12 @@ internal sealed class StreamJsonAgentReader : ICliAgentLineReader
                     : StreamJsonFields.ConcatTextBlocks(contentEl); // array → concat text blocks; else ""
 
             yield return new ToolResult(callId, contentStr, isError) { ParentCallId = parentCallId };
+
+            if (backgroundTask is { Length: > 0 } && OutputPath.Match(contentStr) is { Success: true } named)
+            {
+                foreach (var file in OutputFile(backgroundTask, named.Groups["path"].Value))
+                    yield return file;
+            }
         }
     }
 

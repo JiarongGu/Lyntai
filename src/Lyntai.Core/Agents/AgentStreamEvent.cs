@@ -106,9 +106,19 @@ public sealed record AgentTaskEnded(string TaskId, string? Status) : AgentStream
     public string? CallId { get; init; }
 }
 
+/// <summary>A task's status as the agent patched it (the Claude door's <c>task_updated</c>), in the agent's own word. It is not
+/// an ending: <see cref="AgentTaskEnded"/> is the agent's own end and is read from its own frame, so a task can be updated
+/// <c>killed</c> and never ended when the agent's process is gone first. One per patch that states a status, in the order
+/// the agent sent them, each possibly more than once for one task; a patch that states none yields nothing. It can arrive
+/// after the turn's <see cref="SessionEnded"/>.</summary>
+/// <param name="TaskId">The <see cref="AgentTaskStarted.TaskId"/> it updates.</param>
+/// <param name="Status">The agent's own word (for example <c>completed</c> or <c>killed</c>), uninterpreted.</param>
+public sealed record AgentTaskUpdated(string TaskId, string Status) : AgentStreamEvent;
+
 /// <summary>The file a task's output is written to, as a frame names it: a path on the agent's machine, never the output
 /// itself. The library reads no file, so a host that wants the stream reads it from here. Yielded once per task and path,
-/// at the frame that first names it, which may be the task's end.</summary>
+/// at the frame that first names it: a task frame's own field, or (the Claude door) a backgrounded command's result, which
+/// names it while the command runs; it may be the task's end.</summary>
 /// <param name="TaskId">The <see cref="AgentTaskStarted.TaskId"/> the file belongs to.</param>
 /// <param name="Path">The path as the frame spells it.</param>
 public sealed record AgentTaskOutputFile(string TaskId, string Path) : AgentStreamEvent;
