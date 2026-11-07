@@ -145,8 +145,9 @@ public static class LyntaiServiceCollectionExtensions
                 // it used to reach chat alone, and an operator's retries were silently text-only
                 sp.GetService<LyntaiOptions>(),
                 // the one wallet (D163): present exactly when the host opted in via AddUsageBudget /
-                // AddRateLimit, so a deployment that did neither routes exactly as before
-                sp.GetService<IUsageTracker>(),
+                // AddRateLimit, so a deployment that did neither routes exactly as before. The tracker is
+                // read by the budget's key — a storage package registers an unkeyed one for its ledger alone.
+                sp.GetKeyedService<IUsageTracker>(LyntaiBuilder.BudgetSpendKey),
                 sp.GetService<IRateLimiter>()));
     }
 

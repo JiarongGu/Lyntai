@@ -67,6 +67,37 @@ public class MediaRouterTests
     }
 
     [Fact]
+    public async Task A_caller_cancel_that_tears_the_transport_down_does_not_fall_over_or_strike_the_host()
+    {
+        // What a disposed transport throws is not an OperationCanceledException, so classifying it would bench
+        // the host and render the same request on the next candidate for a caller who left.
+        using var cts = new CancellationTokenSource();
+        var torn = new FakeGenerationProvider { Id = "byo", OnGenerate = () => cts.Cancel(), Throws = new IOException("connection torn down") };
+        var healthy = new FakeGenerationProvider { Id = "a1111" };
+
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() =>
+            Router(torn, healthy).GenerateAsync([new ProviderCandidate("byo"), new ProviderCandidate("a1111")], Image(), cts.Token));
+
+        Assert.Equal(0, healthy.GenerateCalls);
+    }
+
+    [Fact]
+    public async Task A_caller_cancel_that_tears_a_submit_down_is_not_an_inconclusive_submission()
+    {
+        using var cts = new CancellationTokenSource();
+        var torn = new FakeGenerationJobProvider
+        {
+            Id = "byo-video", OnSubmit = () => cts.Cancel(), SubmitThrows = new TimeoutException("torn down"),
+        };
+        var healthy = new FakeGenerationJobProvider { Id = "other-video" };
+
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() =>
+            Router(torn, healthy).SubmitAsync([new ProviderCandidate("byo-video"), new ProviderCandidate("other-video")], Video(), cts.Token));
+
+        Assert.Equal(0, healthy.SubmitCalls);
+    }
+
+    [Fact]
     public async Task A_submit_throw_that_never_left_the_process_PROPAGATES_so_the_job_runner_retries_it()
     {
         // The submit catch must not swallow EVERY throw into an Inconclusive result: GenerationRenderJobHandler

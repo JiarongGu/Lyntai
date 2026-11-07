@@ -39,6 +39,29 @@ public class McpToolsTests
     }
 
     [Fact]
+    public void ToText_reads_an_embedded_text_resource_and_names_a_resource_link_beside_the_text()
+    {
+        // a file-read tool answers its content as an embedded resource, and a listing answers links: a result
+        // that held any text block used to drop both, and a resource alone read as "[resource content]"
+        var mixed = new CallToolResult
+        {
+            Content =
+            [
+                new TextContentBlock { Text = "read ok" },
+                new EmbeddedResourceBlock { Resource = new TextResourceContents { Uri = "file:///a.txt", Text = "the file body" } },
+                new ResourceLinkBlock { Uri = "file:///b.txt", Name = "b.txt" },
+            ],
+        };
+        Assert.Equal("read ok\nthe file body\n[resource link: b.txt file:///b.txt]", McpToolset.ToText(mixed));
+
+        var resourceOnly = new CallToolResult
+        {
+            Content = [new EmbeddedResourceBlock { Resource = new TextResourceContents { Uri = "file:///a.txt", Text = "the file body" } }],
+        };
+        Assert.Equal("the file body", McpToolset.ToText(resourceOnly));
+    }
+
+    [Fact]
     public async Task AddMcpTools_registers_them_so_the_loop_can_call_them()
     {
         var mcpTools = new ITool[]

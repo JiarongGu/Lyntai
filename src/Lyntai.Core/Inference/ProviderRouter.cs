@@ -181,6 +181,9 @@ public sealed class ProviderRouter<TRequest, TResponse>(
     private async Task<TResponse> AttemptAsync(
         IProviderCall<TRequest, TResponse> provider, TRequest request, CancellationToken ct)
     {
+        // a caller already gone takes no permit and calls nobody, whichever candidate this is
+        ct.ThrowIfCancellationRequested();
+
         // the permit is taken BEFORE the span opens, so a queued call's wait never inflates the reported latency
         using var permit = await _bookkeeping.EnterAsync(provider, ct).ConfigureAwait(false);
         using var span = LyntaiDiagnostics.StartCall(Operation, provider.Id);
@@ -196,6 +199,9 @@ public sealed class ProviderRouter<TRequest, TResponse>(
         }
         catch (Exception ex)
         {
+            // a transport torn down by the caller's cancel throws something other than the cancel: that is the
+            // caller leaving, so it neither strikes the host nor starts a fallback
+            ct.ThrowIfCancellationRequested();
             _logger.LogWarning(ex, "router: {Provider} threw; classifying and advancing", provider.Id);
             response = synthesize(ProviderVerdictClassifier.FromThrown(ex), $"{provider.Id}: {ex.Message}");
         }

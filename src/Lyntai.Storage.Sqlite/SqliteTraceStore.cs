@@ -27,12 +27,14 @@ public sealed class SqliteTraceStore(IDbConnectionFactory factory) : ITraceStore
     public async Task<RunTrace?> GetAsync(string sessionId, CancellationToken ct = default)
     {
         await using var conn = await factory.OpenAsync(ct).ConfigureAwait(false);
+        // one snapshot for both reads (WAL): a re-save between them would pair the old header with the new steps
+        await using var tx = await conn.BeginTransactionAsync(ct).ConfigureAwait(false);
         var header = await conn.QuerySingleOrDefaultAsync<TraceSessionRow>(new CommandDefinition(
-            TraceStoreSql.GetTrace, new { sessionId }, cancellationToken: ct)).ConfigureAwait(false);
+            TraceStoreSql.GetTrace, new { sessionId }, tx, cancellationToken: ct)).ConfigureAwait(false);
         if (header is null) return null;
 
         var steps = await conn.QueryAsync<TraceStepRow>(new CommandDefinition(
-            TraceStoreSql.GetSteps, new { sessionId }, cancellationToken: ct)).ConfigureAwait(false);
+            TraceStoreSql.GetSteps, new { sessionId }, tx, cancellationToken: ct)).ConfigureAwait(false);
         return header.ToRecord(steps);
     }
 }

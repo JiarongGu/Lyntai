@@ -9,6 +9,10 @@ public sealed class PostgresScoreStore(IDbConnectionFactory factory) : IScoreSto
     {
         await using var conn = await factory.OpenAsync(ct).ConfigureAwait(false);
         await using var tx = await conn.BeginTransactionAsync(ct).ConfigureAwait(false);
+        // two batches of one session in opposite scorer order take the same row locks in opposite order and
+        // deadlock; one writer per session at a time cannot
+        await conn.ExecuteAsync(new CommandDefinition("SELECT pg_advisory_xact_lock(hashtext('lyntai_score:' || @sessionId))",
+            new { sessionId }, tx, cancellationToken: ct)).ConfigureAwait(false);
         var now = DateTimeOffset.UtcNow;
         foreach (var r in results)
         {
@@ -28,7 +32,7 @@ public sealed class PostgresScoreStore(IDbConnectionFactory factory) : IScoreSto
     {
         await using var conn = await factory.OpenAsync(ct).ConfigureAwait(false);
         var rows = await conn.QueryAsync<ScoreAggregateRow>(new CommandDefinition("""
-            SELECT scorer_id AS ScorerId, MAX(scorer_name) AS ScorerName,
+            SELECT scorer_id AS ScorerId, MAX(scorer_name COLLATE "C") AS ScorerName,
                    AVG(score) AS AverageScore, COUNT(*) AS Count
             FROM lyntai_score_result GROUP BY scorer_id ORDER BY scorer_id COLLATE "C"
             """, cancellationToken: ct)).ConfigureAwait(false);

@@ -7,6 +7,48 @@ to `.agents/knowledge/pitfalls.md`; the release-facing line goes to `CHANGELOG.m
 
 ---
 
+## 2026-11-08 — a Postgres trace save raced to `23505`, two score batches deadlocked, a trace read paired two saves, and SQLite's id list and term chain hit the engine's limits
+
+**Symptom.** None reported; found by reading (`docs/task-archive.md` Part 484, closed in Part 487) and each reproduced here. Four savers of one session on Postgres: three failed `23505 lyntai_run_trace_pkey`. Two score batches of one session naming the same scorers in opposite order: `40P01 deadlock detected`. A trace read racing re-saves of two sizes returned a header of one save with the steps of the other, on SQLite and on Postgres. On SQLite, a scope of 33,000 entries evicted by a size budget threw `too many SQL variables` after the new entry was stored, and the access touch of a recall that large was swallowed; a query of 1,500 words gave `Expression tree is too large (maximum depth 1000)`, which the recall's fail-open catch turned into no entries where Postgres answered. `alpha-1` and `Beta-1` named one scorer differently on Postgres than on the other stores.
+
+**Root cause.** `PostgresTraceStore.SaveAsync` deletes then inserts in READ COMMITTED with no lock, so each saver deletes nothing and the second insert collides; `PostgresScoreStore.SaveAsync` upserts row by row in the caller's order, so two orders take the same row locks in opposite order. `GetAsync` read the header and the steps as two statements with no transaction. `IN @ids` expands to a parameter per id and the engine bounds them; `SearchTerms` capped the terms per token and not in all, and a substring clause is an `OR` chain with a link per term. `MAX(scorer_name)` takes the database collation where `ORDER BY … COLLATE "C"` beside it did not.
+
+**Fix.** Both Postgres saves take `pg_advisory_xact_lock` on the session first, the shape `PostgresPromptVersionStore` has per name; the trace read runs in one transaction (REPEATABLE READ on Postgres, a WAL snapshot on SQLite); the aggregate is `MAX(scorer_name COLLATE "C")`; the SQLite memory store passes its id lists as one `json_each` parameter, as `SqliteVectorStore` does; `SearchTerms` stops at 256 terms, keeping the leading ones.
+
+**Verify.** `TraceStoreContract` (`Concurrent_saves_of_one_session…`, `A_read_between_re_saves…`) and `ScoreStoreContract` (`Batches_of_one_session_in_opposite_order…`, `Aggregate_takes_the_ordinally_greatest_name…`) ran on Postgres with Docker up and failed with the Postgres change reverted (the read fact also on SQLite, three runs of three); `SqliteMemoryLargeScopeTests` (33,000 rows) and `SearchTermsExpressionDepthTests` (1,500 and 5,000 words) failed before the change with the engine's own messages quoted above.
+
+**Introduced by.** Not traced to a commit for each.
+
+---
+
+## 2026-11-08 — an MCP tool's text resource was dropped, and a truncated argument string called the tool with its defaults
+
+**Symptom.** None reported; found by reading (`docs/task-archive.md` Part 484, closed in Part 486). A file-read tool that answers its content as an embedded text resource reached the model as the literal `[resource content]`, or not at all when the result also held a text block. A model's argument string `{"path":"/tmp/x"`, cut off at its token limit, called the remote tool with an empty argument set, so a tool with defaults ran something the model never asked for.
+
+**Root cause.** `McpToolset.ToText` read `TextContentBlock` alone and described the other blocks only when no text existed. The toolset's argument parser sent a string that was unparseable or not an object to an empty dictionary, the same value a deliberate `{}` gives.
+
+**Fix.** `ToText` reads each text block and embedded text resource and names each resource link, in order; a blob, an image and audio stay described. `TryParseArgs` accepts a blank string, `null` and an object and answers an `error:` observation for anything else, without calling the tool.
+
+**Verify.** `ToText_reads_an_embedded_text_resource_and_names_a_resource_link_beside_the_text` and `An_argument_string_that_is_not_a_JSON_object_is_an_error_observation_and_the_tool_does_not_run` (three malformed strings, through a hosted endpoint and Lyntai's own client, with the no-argument spellings still calling the tool) failed with the change reverted.
+
+**Introduced by.** Not traced to a commit.
+
+---
+
+## 2026-11-08 — the embed, rerank and media routers struck a host for a caller's cancel, an out-of-range environment seconds threw at startup, and a registered ledger governed embeds without a budget
+
+**Symptom.** None reported; found by reading (`docs/task-archive.md` Part 484, closed in Part 485). A provider whose transport the caller's cancel tore down threw an `IOException` through the generic router or the media router, which read it as the host failing: it benched the host and called the next candidate (a render, or a second submit that could bill twice). `LYNTAI_CACHE_TTL_SECONDS=1e12` or `Infinity` was an `OverflowException` out of `AddLyntai`, where a malformed value is ignored. A host with `UseSqliteUsageTracking` and no `AddUsageBudget` that set `LYNTAI_BUDGET_MAX_TOKENS` had embeds and reranks refused while text was not.
+
+**Root cause.** `ProviderRouter.AttemptAsync` and the three `MediaRouter` attempts rethrew only an `OperationCanceledException` raised under a cancelled token, the same gap `TextRouter` had until Part 484. `TimeSpan.FromSeconds` was called on any parsed double that passed a sign test. The router factory read the unkeyed `IUsageTracker`, which the storage packages register for their ledger alone, though D163 says only `AddUsageBudget()` and `AddRateLimit()` reach it.
+
+**Fix.** Each attempt calls `ct.ThrowIfCancellationRequested()` before the permit and in its catch (a submit's filtered catch too). `TryEnvSeconds` ignores a value that is not finite or reaches `TimeSpan.MaxValue`, for the ten duration knobs. `AddUsageBudget` registers the shared tracker under `LyntaiBuilder.BudgetSpendKey`, and the router factory reads that key, the shape `MediaSpendKey` has.
+
+**Verify.** `EmbeddingRoutingTests`, `MediaRouterTests` (generate and submit) and `MediaRouterStreamTests` each have a test through a provider that cancels then throws, and the four failed with the router change reverted. `A_duration_env_override_outside_the_range_of_a_TimeSpan_is_ignored` covers every knob; `ProviderRouterFactoryTests` builds the container with a ledger and a zero token cap, with and without the budget. The duration and ledger tests were written against the fixed code and not seen failing; the first was reproduced by hand from the row.
+
+**Introduced by.** Not traced to a commit for each.
+
+---
+
 ## 2026-11-08 — a failing cache write replaced a paid reply with its exception, a cancelled caller started a fallback, and the smaller faults beside them in the front door, the hosted MCP door and the scorers
 
 **Symptom.** None reported; found by reading (`docs/task-archive.md` Part 484). A response cache whose store threw (SQLITE_BUSY, a BYO cache down) made `CompleteAsync` throw after the backend had answered and the budget had recorded the spend; the next

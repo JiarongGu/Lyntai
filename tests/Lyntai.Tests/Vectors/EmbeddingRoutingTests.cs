@@ -18,6 +18,7 @@ public class EmbeddingRoutingTests
         public int Calls { get; private set; }
         public Exception? Throws { get; set; }
         public EmbeddingRole? SawRole { get; private set; }
+        public Action? OnCall { get; set; }
 
         public ProviderCapabilities Capabilities { get; set; } = new()
         {
@@ -33,6 +34,7 @@ public class EmbeddingRoutingTests
         {
             Calls++;
             SawRole = request.Role;
+            OnCall?.Invoke();
             if (Throws is not null) throw Throws;
             return Task.FromResult(VectorResponse.Success([[1f, 2f]]));
         }
@@ -139,6 +141,21 @@ public class EmbeddingRoutingTests
         var second = new StubVectorProvider("b");
         using var cts = new CancellationTokenSource();
         await cts.CancelAsync();
+
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(
+            () => EmbeddingRouting.EmbedAsync(Router(first, second), ["x"], EmbeddingRole.Document, ct: cts.Token));
+
+        Assert.Equal(0, second.Calls);
+    }
+
+    [Fact]
+    public async Task A_callers_cancel_that_tears_the_transport_down_is_not_a_failure_to_fall_over_from()
+    {
+        // The throw a disposed transport raises is not an OperationCanceledException, so classifying it
+        // would bench the host and call the next backend for a caller who left.
+        using var cts = new CancellationTokenSource();
+        var first = new StubVectorProvider("a") { OnCall = () => cts.Cancel(), Throws = new IOException("connection torn down") };
+        var second = new StubVectorProvider("b");
 
         await Assert.ThrowsAnyAsync<OperationCanceledException>(
             () => EmbeddingRouting.EmbedAsync(Router(first, second), ["x"], EmbeddingRole.Document, ct: cts.Token));

@@ -46,11 +46,17 @@ public sealed class SqliteMemoryStore(
             await MemoryEviction.ApplyAsync(policy, now,
                 c => FetchScopedAsync(conn, taskKey, scope, c),
                 (ids, c) => conn.ExecuteAsync(new CommandDefinition(
-                    "DELETE FROM lyntai_memory_entry WHERE id IN @ids", new { ids }, cancellationToken: c)),
+                    "DELETE FROM lyntai_memory_entry WHERE id IN (SELECT value FROM json_each(@ids))",
+                    new { ids = IdArray(ids) }, cancellationToken: c)),
                 ct).ConfigureAwait(false);
         else if (policy.MaxEntriesPerScope is int cap and > 0)
             await CapEvictAsync(conn, taskKey, scope, cap, policy.Mode, now, ct).ConfigureAwait(false);
     }
+
+    // An id list travels as ONE JSON parameter: `IN @ids` expands to a parameter per id, which SQLite refuses past
+    // its bound-variable limit.
+    private static string IdArray(IEnumerable<long> ids) =>
+        "[" + string.Join(',', ids.Select(i => i.ToString(System.Globalization.CultureInfo.InvariantCulture))) + "]";
 
     // One atomic statement: race-free, and no scope fetch — which is why this exists beside ApplyAsync.
     private static Task CapEvictAsync(IDbConnection conn, string taskKey, string scope, int cap,
@@ -162,8 +168,8 @@ public sealed class SqliteMemoryStore(
             {
                 var ids = hits.Select(h => h.Id).ToList();
                 await conn.ExecuteAsync(new CommandDefinition(
-                    "UPDATE lyntai_memory_entry SET last_accessed_at = @now WHERE id IN @ids",
-                    new { now, ids }, cancellationToken: ct)).ConfigureAwait(false);
+                    "UPDATE lyntai_memory_entry SET last_accessed_at = @now WHERE id IN (SELECT value FROM json_each(@ids))",
+                    new { now, ids = IdArray(ids) }, cancellationToken: ct)).ConfigureAwait(false);
             }
             catch (OperationCanceledException) when (ct.IsCancellationRequested) { throw; }
             catch (Exception ex)

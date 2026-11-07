@@ -89,6 +89,19 @@ public class MediaRouterStreamTests
     }
 
     [Fact]
+    public async Task A_caller_cancel_that_tears_the_transport_down_does_not_fall_over()
+    {
+        using var cts = new CancellationTokenSource();
+        var torn = new ScriptedStreamProvider { Id = "torn", OnStream = () => cts.Cancel(), Throws = new IOException("connection torn down") };
+        var healthy = new ScriptedStreamProvider { Id = "healthy", Script = [MediaChunk.Content([9]), MediaChunk.Completed()] };
+
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(async () =>
+            await Router(torn, healthy).StreamAsync(Candidates(torn, healthy), Speech(), cts.Token).ToListAsync());
+
+        Assert.Equal(0, healthy.StreamCalls);
+    }
+
+    [Fact]
     public async Task A_failure_AFTER_data_is_final_and_the_next_candidate_is_never_tried()
     {
         // THE INVARIANT. The caller already holds bytes this router cannot take back; a second backend would
