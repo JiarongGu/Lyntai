@@ -7,6 +7,42 @@ to `.agents/knowledge/pitfalls.md`; the release-facing line goes to `CHANGELOG.m
 
 ---
 
+## 2026-11-07 — the usage-process never-answers test raced node's cold start against its 3 s ceiling
+
+**Symptom.** `AgentUsageProcessTests.A_server_that_never_answers_is_ended_with_its_children_when_the_time_runs_out` failed with "the stand-in never wrote its pids", 21 to 50 s
+in, in about half of the full `verify` runs that touched it across six sessions, and passed alone.
+
+**Root cause.** The usage source's 3 s ceiling started at spawn, so under load a node that took longer than that to start was killed before it wrote its pid file, and the test
+then waited out `Pids` for a file that never came. Reproduced here with twice as many busy processes as cores: the committed test failed 1 run in 4, 23 s, the same message.
+The cause is in the test's clock, not in `CliUsageSource` or `ProcessRunner`, whose kill is what the test is there to pin.
+
+**Fix.** The test owns the ceiling's clock (`ProcessRunner.CeilingClock`, as in `docs/task-archive.md` Part 396), waits for the pids, then moves the clock past 3 s; `Pids` waits
+up to 60 s, and the result is awaited with a 45 s bound since the stand-in ends itself at 60 s. No real elapsed time is asserted. `tests/Lyntai.Tests/Agents/AgentUsageProcessTests.cs`.
+
+**Verify.** The 67 tests of this class and `InputSegmenterTests` passed 4 of 4 under the same load. Left to the person's full `verify` runs; one green run is not evidence.
+
+**Introduced by.** The test's first version: a real ceiling measured against a real process start.
+
+---
+
+## 2026-11-07 — the NFKC-linearity test timed two ~25 ms runs, and a stall moved their ratio
+
+**Symptom.** `InputSegmenterTests.Counting_NFKC_is_LINEAR_in_the_length_of_the_text` failed in two full `verify` runs, once reading a ratio of 17.3 (0.027 s against 0.462 s)
+where linear code reads about 4.
+
+**Root cause.** A ratio of two wall-clock timings on a loaded machine: measured here for linear code the old test read 2.9 to 11.9 against its bound of 10. The code under
+test was not quadratic.
+
+**Fix.** The test counts bytes allocated by its own thread (`GC.GetAllocatedBytesForCurrentThread`), the least of three runs at each of two sizes 4x apart, and asserts the ratio
+under 8. The linear code reads 4.00 every time, load or none. A least-of-three because a first run allocates more while the method is unoptimised (7.5x on a quadratic `Split`),
+so one run of each size could hide it. A mutation that made `Spans` normalise the remaining text on each piece read 12.1x and failed it. **It cannot see a quadratic that allocates nothing.**
+
+**Verify.** Passed 4 of 4 beside twice as many busy processes as cores, and red on the mutation above. `tests/Lyntai.Tests/Providers/InputSegmenterTests.cs`.
+
+**Introduced by.** The test's first version.
+
+---
+
 ## 2026-11-07 — a Claude limit row whose model has a null id, or any row the reader could not read, read the whole usage answer as unrecognised
 
 **Symptom.** A real read on the installed Claude server (2.1.319), made after the object-scope fix, still gave `unrecognised-answer` with no windows: the scoped row's

@@ -15,19 +15,17 @@ LLM-ops layer (prompt registry, scoring, traces, memory). `AddLyntai(...)` and g
 
 <!-- open-items:begin — GENERATED. Edit the per-item `item:` markers, never this table. -->
 
-## Open items — 6 across 4 Parts: 3 blocked, 3 watch
+## Open items — 4 across 4 Parts: 3 blocked, 1 watch
 
 _Generated from the per-item `<!-- item: … -->` markers by `node devtools/dev.mjs check-backlog --write`._
 _Edit a marker, never this table — `verify` fails the moment the two disagree._
 
 | line | Part | item | state | waiting on |
 | ---: | ---: | --- | --- | --- |
-| 107 | 33 | GEN-VERIFY-FAL, the last line — the Hugging Face route | blocked · env | an hf_ token for the router route |
-| 148 | 75 | Decide what an aggregator's in-band `code` means | blocked · env+data | two or three real aggregators to measure an in-band code against |
-| 175 | 99 | `verify`'s test step intermittently fails EXACTLY 9 tests, and once aborted… | watch · data | the same nine tests to recur — the fix is unconfirmed as the cure, and a gr… |
-| 234 | 99 | `InputSegmenterTests.Counting_NFKC_is_LINEAR_in_the_length_of_the_text` fai… | watch · data | a recurrence under the full parallel run, with the ratio it read — the mess… |
-| 252 | 99 | `AgentUsageProcessTests.A_server_that_never_answers_is_ended_with_its_child… | watch · data | a recurrence under the full parallel run, with the load it ran under; it fa… |
-| 290 | 417 | MC8 — run the wrong-end instrument on an adjudicated corpus, with a bar wri… | blocked · decision+data | two reviewers' independent labels on a sample of the pairs, and a bar a per… |
+| 105 | 33 | GEN-VERIFY-FAL, the last line — the Hugging Face route | blocked · env | an hf_ token for the router route |
+| 146 | 75 | Decide what an aggregator's in-band `code` means | blocked · env+data | two or three real aggregators to measure an in-band code against |
+| 173 | 99 | `verify`'s test step intermittently fails EXACTLY 9 tests, and once aborted… | watch · data | the same nine tests to recur — the fix is unconfirmed as the cure, and a gr… |
+| 245 | 417 | MC8 — run the wrong-end instrument on an adjudicated corpus, with a bar wri… | blocked · decision+data | two reviewers' independent labels on a sample of the pairs, and a bar a per… |
 
 <!-- open-items:end -->
 
@@ -230,53 +228,10 @@ there is nothing here to code: what remains is evidence only recurrence can supp
   <br>**2026-10-29: the SQLite pool race (`docs/FIXES.md`) does not explain this.** Seven of the nine open no SQLite store, and
   the two `CortexIntegrationTests` that do would fail with a transaction or disposed-handle error, where the one captured
   failure was `IsAvailable` false on a command that did not resolve. The item stays as it is.
-
-- [ ] **`InputSegmenterTests.Counting_NFKC_is_LINEAR_in_the_length_of_the_text` failed once in AG6's `verify` run.** <!-- item: state=watch kind=data needs="a recurrence under the full parallel run, with the ratio it read — the message prints it, and a single failure with no ratio cannot say whether a stall or a real quadratic did it" -->
-  It spawns no process and holds no ceiling: it takes a RATIO of two in-process timings (`InputSegmenter.Split` over
-  25,000 and 100,000 repeats, 4x apart, best of three each), and asserts `ratio < 10`, where linear work reads about
-  4 and quadratic about 16. It was listed beside the `ProcessRunnerTests` chatty-child tests and the bridge's
-  stream-timeout test, which have since closed (`docs/task-archive.md` Parts 395 and 396).
-  <br>**Not those, and so not fixed by what fixed them.** Neither a real-time margin nor a node start is in it, so
-  there is no clock for the test to own. The reading is that a stall landing inside one size's three runs and not the
-  other's moves a ratio of two timings; that is a reading, not a capture, and one failure is all there is.
-  <br>**Recurred 2026-10-28 with its ratio: 17.3** (0.027 s for the smaller size, 0.462 s for the larger), in a full
-  `verify` that also failed the usage-process test above, and green in the two other full runs of that pass. A ratio
-  near 16 that does not come back is one reading, so it does not separate a stall from a quadratic; a quadratic would
-  not have been green twice.
-  <br>**Watch, not startable:** nothing here is known to be wrong. A recurrence with the ratio the assertion
-  prints either shows a stall (the ratio far from 4 in either direction) or a real quadratic (near 16 every time),
-  and only then is there something to change.
-  <br>**2026-10-29: not the SQLite pool race** (`docs/FIXES.md`). The test times two in-process runs of `InputSegmenter.Split`
-  and opens no connection.
-
-- [ ] **`AgentUsageProcessTests.A_server_that_never_answers_is_ended_with_its_children_when_the_time_runs_out` failed in two of the fal session's three `verify` runs.** <!-- item: state=watch kind=data needs="a recurrence under the full parallel run, with the load it ran under; it failed twice there and passes alone" -->
-  It spawns a node stand-in that never answers, gives the usage source a 3 s timeout, and failed with "the stand-in
-  never wrote its pids" in two of three full `verify` runs on 2026-10-28, passing run alone. It is a different test from
-  the three above, and the same shape.
-  <br>**Recurred in the steward pass that recorded it** (its second full `verify`, then green on the unmodified re-run,
-  as its first had been): the same message, at `Pids` (`AgentUsageProcessTests.cs:90`), after 21 s, and the same run
-  failed the NFKC test below, so a loaded machine took two timing tests at once. That is three failures in six full runs
-  across both sessions, none standalone.
-  <br>**Recurred again in the Z-Image-Turbo session's `verify`** (`21de4e6a`): its first run failed on this test and the
-  re-run was green with nothing changed: four failures in eight full runs across three sessions, still none
-  standalone. The load that run ran under was not captured.
-  <br>**Recurred three more times in the image-pipeline session** (`9b270b06`): its first two `verify` runs and one full
-  `dotnet test` failed on it, about 50 s into the run, with the same message, and it passed alone, with that session's own
-  tests, and in a run without them; its third `verify` was green. That machine was shared with other sessions' builds and the
-  GPU was busy, which is the load it ran under, uncaptured as a figure. With the fourteenth steward pass's first `verify`
-  (green), that is seven failures in thirteen full runs across five sessions, none standalone.
-  <br>**Twice more in the last fal session** (two `verify` runs in a row, the same message, 21 s in), and the test passed
-  alone straight after. Nine failures in sixteen full runs across six sessions, none standalone.
-  <br>**A reading, not a capture:** the test reads the pid file AFTER the usage source has returned, so a node that
-  starts later than the 3 s ceiling is killed before it writes anything, and the assertion reports exactly that message.
-  That is the family of the timing tests above and of those already closed (`docs/task-archive.md` Parts 395 and 396):
-  a real process's start measured against a real ceiling, on a machine loaded by the parallel suite. **Not yet known:**
-  whether the child was late or something else emptied the file.
-  <br>**Watch, not startable:** nothing here is known to be wrong in shipped code, and a widening chosen from one
-  failure with no capture would repeat Part 395's first one, which failed once in twenty runs anyway. A recurrence with
-  the load it ran under says whether the ceiling or the start owns it.
-  <br>**2026-10-29: not the SQLite pool race** (`docs/FIXES.md`). The test spawns a node stand-in and reads its pid file, and
-  opens no connection.
+  <br>**2026-11-07: tried to reproduce on demand, and could not.** 24 runs of the nine's classes alone and beside CPU load
+  (twice as many busy node processes as cores), and the 106-test set around them under the same load, all green. The two
+  timing flakes beside it WERE reproduced the same way and had causes in their own tests (`docs/FIXES.md`), so the load
+  was real enough to fail something; it did not fail these. The item stays a watch, still waiting on the nine to recur.
 
 ## Part 417 — keeping an agent's memory current, after Daoris's requests LQ16 to LQ20 (2026-10-30)
 

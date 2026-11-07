@@ -245,29 +245,32 @@ public class InputSegmenterTests
     [Fact]
     public void Counting_NFKC_is_LINEAR_in_the_length_of_the_text()
     {
-        // Text that is not NFKC-normal: re-normalising each candidate piece would be quadratic. Timed at two
-        // sizes 4x apart, best of three each: linear work takes ~4x as long, quadratic ~16x. A RATIO, because
-        // a loaded machine slows both sizes alike where it would push a fixed wall-clock bound either way.
-        static (TimeSpan Best, IReadOnlyList<string> Pieces) Time(int repeats)
+        // Text that is not NFKC-normal: re-normalising each candidate piece would be quadratic. Counted in BYTES
+        // ALLOCATED by this thread at two sizes 4x apart, the least of three runs each: linear work allocates 4x as
+        // much, quadratic ~16x. Not timed — a wall-clock ratio of two ~25 ms runs read 2.9 to 11.9 on a loaded
+        // machine for linear code, while the thread's allocation read 4.00 every time. The LEAST of three because a
+        // first run allocates more while the method is still unoptimised (7.5x against 4.00 on a quadratic Split),
+        // so a single run of each size could hide the quadratic. It cannot see a quadratic that allocates nothing.
+        static (long Least, IReadOnlyList<string> Pieces) Allocate(int repeats)
         {
             var input = string.Concat(Enumerable.Repeat("㎡ ℃ ", repeats));
-            var best = TimeSpan.MaxValue;
+            var least = long.MaxValue;
             IReadOnlyList<string> pieces = [];
             for (var run = 0; run < 3; run++)
             {
-                var clock = System.Diagnostics.Stopwatch.StartNew();
+                var before = GC.GetAllocatedBytesForCurrentThread();
                 pieces = InputSegmenter.Split(input, 1_000);
-                if (clock.Elapsed < best) best = clock.Elapsed;
+                least = Math.Min(least, GC.GetAllocatedBytesForCurrentThread() - before);
             }
-            return (best, pieces);
+            return (least, pieces);
         }
 
-        Time(2_500);   // JIT and caches, outside the measurement
-        var small = Time(25_000).Best;
-        var (large, pieces) = Time(100_000);
+        Allocate(2_500);   // JIT and caches, outside the measurement
+        var small = Allocate(25_000).Least;
+        var (large, pieces) = Allocate(100_000);
 
-        var ratio = large.TotalMilliseconds / Math.Max(small.TotalMilliseconds, 0.001);
-        Assert.True(ratio < 10, $"4x the text took {ratio:F1}x as long ({small} -> {large}); quadratic reads ~16x");
+        var ratio = (double)large / Math.Max(small, 1);
+        Assert.True(ratio < 8, $"4x the text allocated {ratio:F1}x as much ({small} -> {large} bytes); quadratic reads ~16x");
         Assert.All(pieces, p => Assert.True(InputSegmenter.Measure(p) <= 1_000));
     }
 

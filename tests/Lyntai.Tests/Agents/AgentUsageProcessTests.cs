@@ -97,12 +97,13 @@ public class AgentUsageProcessTests
     }
 
     private static (CliUsageSource Source, StandInDialect Dialect) Standing(
-        ScratchDir scratch, string mode, TimeSpan timeout, out string pidFile, bool ordered = false)
+        ScratchDir scratch, string mode, TimeSpan timeout, out string pidFile, bool ordered = false,
+        ProcessRunner? runner = null)
     {
         pidFile = scratch.Combine("pids.txt");
         var script = scratch.File("server.cjs", ordered ? OrderedServer : Server);
         var dialect = new StandInDialect(pidFile, mode, ordered);
-        var source = new CliUsageSource(dialect, new ProcessRunner(),
+        var source = new CliUsageSource(dialect, runner ?? new ProcessRunner(),
             new AgentUsageReadingOptions { Enabled = true, Timeout = timeout, VersionPolicy = AgentUsageVersionPolicies.AnyVersion },
             logger: null, command: $"node \"{script}\"", environment: null);
         return (source, dialect);
@@ -112,7 +113,7 @@ public class AgentUsageProcessTests
 
     private static async Task<List<int>> Pids(string pidFile)
     {
-        for (var i = 0; i < 200; i++)
+        for (var i = 0; i < 600; i++)
         {
             try
             {
@@ -249,15 +250,21 @@ public class AgentUsageProcessTests
     [Fact]
     public async Task A_server_that_never_answers_is_ended_with_its_children_when_the_time_runs_out()
     {
+        // The test owns the ceiling's clock and moves it past the 3 s window once the stand-in has written its pids,
+        // so node's cold start on a loaded machine is not spent from the ceiling, and no real elapsed time is asserted.
+        // The stand-in ends itself at 60 s, so a ceiling that bounds nothing fails the guard below instead of hanging.
         using var scratch = new ScratchDir("usage-process");
-        var (source, _) = Standing(scratch, "silent", TimeSpan.FromSeconds(3), out var pidFile);
-        var clock = Stopwatch.StartNew();
+        var clock = new ManualTimeProvider();
+        var (source, _) = Standing(scratch, "silent", TimeSpan.FromSeconds(3), out var pidFile,
+            runner: new ProcessRunner { CeilingClock = clock });
 
-        var reading = await source.ReadAllowanceAsync(Account("/homes/work"));
+        var reading = source.ReadAllowanceAsync(Account("/homes/work"));
+        var pids = await Pids(pidFile);
+        while (!reading.IsCompleted && clock.Pending == 0) await Task.Delay(10);
+        clock.Advance(TimeSpan.FromSeconds(3));
 
-        Assert.Equal(AgentAllowanceUnknown.TimedOut, reading.UnknownReason);
-        Assert.True(clock.Elapsed < TimeSpan.FromSeconds(20), $"took {clock.Elapsed}");
-        await AssertNoneAlive(await Pids(pidFile));
+        Assert.Equal(AgentAllowanceUnknown.TimedOut, (await reading.WaitAsync(TimeSpan.FromSeconds(45))).UnknownReason);
+        await AssertNoneAlive(pids);
     }
 
     [Fact]
