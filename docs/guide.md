@@ -1249,8 +1249,12 @@ services.AddLyntai(b => b
 `IAgentRunProvider`, found by type test on what the registry returns. `OpenRunAsync` spawns the agent once and opens its session
 once; each `SendAsync` is a turn of it, the one-turn stream with exactly one `SessionEnded`, the open's `AgentOffers` and
 `SessionStarted` leading the first. `AgentSessionOptions.Prompt` is read as nothing there, `SystemPrompt` leads the first prompt only,
-and an `Account` is the run's for its life. **A refusal is a turn, never a throw**: `SendAsync` on a busy run returns a turn whose
-only event is an `Unsupported` `SessionEnded` with subtype `run-busy` and `NeverSent`. A run whose open failed, or that was refused
+and an `Account` is the run's for its life. **A word** is a `SendAsync` on a busy run, taken where the door states `queued-words`
+`Supported`: the agent queues it and folds it into the running turn at its next step, so the earlier turn ends `Ok` with subtype
+`folded` and every usage count 0, and the later turn owns the rest; the run never sends `session/cancel` with a word on its way
+(`StopAsync` then sends nothing and returns false: stop again once the earlier turn has ended). **A refusal is a turn, never a
+throw**: `SendAsync` is refused with an `Unsupported` `SessionEnded` (`NeverSent`) of subtype `run-busy` where the door takes no
+word, and `run-request-held` while a permission request is held, since no record shows a word beside one. A run whose open failed, or that was refused
 before a spawn (an option the door cannot honour, a blank resume token, a runner that cannot pause its window), is already over: its
 `Ended` holds the typed failure, and the host opens another run, since the library never repeats an open. `StopAsync` sends
 `session/cancel` as the one-turn door does and the turn ends as a cancelled one does; whether a turn after a stop is usable is the

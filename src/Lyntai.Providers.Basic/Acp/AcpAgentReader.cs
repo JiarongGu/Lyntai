@@ -188,7 +188,8 @@ internal sealed class AcpAgentReader
         }
     }
 
-    /// <summary>Send a prompt on a kept run's idle process. Decided and sent under one lock.</summary>
+    /// <summary>Send a prompt on a kept run: the first turn of an idle one, or a word on a busy one when <paramref name="queuedWords"/>.
+    /// Decided and sent under one lock, so a woken turn or a held request cannot begin between the look and the frame.</summary>
     /// <param name="text">The prompt's words.</param>
     /// <param name="queuedWords">Whether the door takes a word on a busy run.</param>
     /// <param name="sinkFor">Builds what receives the turn's events, called under the lock with the turn.</param>
@@ -199,7 +200,8 @@ internal sealed class AcpAgentReader
         {
             turn = null;
             if (!_kept || _phase != Phase.Kept) return AcpPromptRefusal.Over;
-            if (_outstanding.Count > 0) return AcpPromptRefusal.Busy;
+            if (_held.Count > 0) return AcpPromptRefusal.RequestHeld;
+            if (_outstanding.Count > 0 && !queuedWords) return AcpPromptRefusal.Busy;
 
             // what the readers held from the last turn's updates (a rejected allowance report) is not this turn's failure
             if (_outstanding.Count == 0) _extensions = new AcpExtensionSet(_readers, _time);
@@ -213,7 +215,8 @@ internal sealed class AcpAgentReader
         }
     }
 
-    /// <summary>Cancel the sent turn that runs. False, sending nothing, where none runs or a stop is already out.</summary>
+    /// <summary>Cancel the one sent turn that runs. False, sending nothing, where none runs, a stop is already out, or a word is on
+    /// its way: a cancel then loses that word's answer, since the agent keeps what is queued and runs it with its output dropped.</summary>
     public bool TryCancelRun(out AcpTurnState? turn)
     {
         lock (_gate)
@@ -775,7 +778,7 @@ internal sealed class AcpAgentReader
         switch (stopReason)
         {
             case "end_turn":
-                End(events, new SessionEnded(ProviderVerdict.Ok, false, null,
+                End(events, new SessionEnded(ProviderVerdict.Ok, false, laterOutstanding && UsageIsZero(result) ? AgentRunSubtypes.Folded : null,
                     _sessionId, _current.Answer.Length > 0 ? _current.Answer.ToString() : null, null));
                 break;
             case "refusal":
@@ -789,6 +792,11 @@ internal sealed class AcpAgentReader
                 break;
         }
     }
+
+    // a fold's answer states no work done: no usage, or every count 0 (recorded: the earlier prompt of a folded word)
+    private static bool UsageIsZero(JsonElement result) =>
+        WireJson.Object(result, "usage") is not { } usage
+        || new[] { "inputTokens", "outputTokens", "cachedReadTokens", "cachedWriteTokens" }.All(name => (WireJson.Int64(usage, name) ?? 0) == 0);
 
     // codex-acp's counts exclude what it read from a cache, claude's do not: the figures are the agent's own,
     // and only a count the agent sent is a number

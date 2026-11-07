@@ -32,4 +32,5 @@ internal enum AcpPromptRefusal
     None,
     Over,
     Busy,
+    RequestHeld,
 }

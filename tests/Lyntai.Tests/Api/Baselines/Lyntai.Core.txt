@@ -545,7 +545,9 @@ sealed class Lyntai.Agents.AgentRetryOptions
 static class Lyntai.Agents.AgentRunSubtypes
     Busy : String const
     Disposed : String const
+    Folded : String const
     Over : String const
+    RequestHeld : String const
 sealed class Lyntai.Agents.AgentRunTurn
     .ctor(IAsyncEnumerable<AgentStreamEvent> events, Task<SessionEnded> ended)
     Ended : Task<SessionEnded> { get; }

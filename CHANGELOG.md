@@ -96,6 +96,12 @@ every addition.
 
 ### Added
 
+- **A word taken mid-turn on a kept run** (**D251**). `SendAsync` on a busy run whose door states `queued-words` `Supported` sends a
+  second prompt, which the Claude agent queues and folds in at its next step. The earlier turn then ends `Ok` with subtype `folded`
+  (`AgentRunSubtypes.Folded`, every usage count the agent sent 0) and the later turn owns the rest of the work; an earlier prompt
+  that did its work first is an ordinary turn. `StopAsync` returns false and sends no `session/cancel` while a word is on its way,
+  since the agent would keep the word and drop its answer. `SendAsync` is refused as a turn, `run-request-held` (`AgentRunSubtypes.RequestHeld`),
+  while a permission request is held for the host.
 - **A run kept across turns on the Claude protocol door** (**D251**). A provider that is also an `IAgentRunProvider` (found by type test;
   `IAgentSession` gains no member) opens an `IAgentRun`: one agent process, one `initialize` and one `session/new`, then a turn per
   `SendAsync`, each the one-turn stream with exactly one `SessionEnded`. `StopAsync` sends `session/cancel` as the one-turn door does,

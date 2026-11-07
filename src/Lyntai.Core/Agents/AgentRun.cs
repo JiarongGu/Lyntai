@@ -39,14 +39,18 @@ public interface IAgentRun : IAsyncDisposable
     /// <see cref="IAsyncDisposable.DisposeAsync"/>. A turn still open then ends first, failed, with the same cause.</summary>
     Task<SessionEnded> Ended { get; }
 
-    /// <summary>Send a prompt. On an idle run it starts a turn. Refused while a turn runs, and on an ended run.</summary>
+    /// <summary>Send a prompt. On an idle run it starts a turn. On a busy run it is a word: taken only where the door states
+    /// <see cref="AgentAbilities.QueuedWords"/> <see cref="AgentSupport.Supported"/>, when the earlier turn then ends
+    /// <see cref="AgentRunSubtypes.Folded"/> (success, every usage count 0) and this one owns the rest of the work. Refused while a
+    /// permission request is held, while a woken turn runs, on a busy run whose door takes no word, and on an ended run.</summary>
     /// <param name="prompt">The words.</param>
     /// <param name="ct">Cancels the send before it is made; a sent prompt is stopped by <see cref="StopAsync"/>.</param>
     Task<AgentRunTurn> SendAsync(string prompt, CancellationToken ct = default);
 
     /// <summary>Stop the running turn as the one-turn door cancels one (<c>session/cancel</c>), which ends as a cancelled turn does.
-    /// Whether the next turn after a stop is usable is <see cref="AgentAbilities.KeepingStop"/>.</summary>
-    /// <returns>True when a cancel was sent; false when no sent turn runs or a stop is already out.</returns>
+    /// <b>Sends nothing while a word is on its way</b>, since a cancel then loses the word's answer: stop again once the earlier
+    /// turn has ended. Whether the next turn after a stop is usable is <see cref="AgentAbilities.KeepingStop"/>.</summary>
+    /// <returns>True when a cancel was sent; false when no sent turn runs, a word is on its way, or a stop is already out.</returns>
     Task<bool> StopAsync(CancellationToken ct = default);
 }
 
@@ -73,8 +77,14 @@ public sealed class AgentRunTurn
 /// <summary>The <see cref="SessionEnded.Subtype"/> words a run says, each the library's own and never an agent's.</summary>
 public static class AgentRunSubtypes
 {
-    /// <summary>Refused: a turn is running and a run takes no word on it.</summary>
+    /// <summary>A turn the agent answered <c>end_turn</c> with every usage count 0 because a later word took over its work.</summary>
+    public const string Folded = "folded";
+
+    /// <summary>Refused: the run is busy and its door states no <see cref="AgentAbilities.QueuedWords"/>.</summary>
     public const string Busy = "run-busy";
+
+    /// <summary>Refused: a permission request is held for the host, and no record shows a word with one.</summary>
+    public const string RequestHeld = "run-request-held";
 
     /// <summary>Refused, or a turn cut off: the run is over.</summary>
     public const string Over = "run-over";

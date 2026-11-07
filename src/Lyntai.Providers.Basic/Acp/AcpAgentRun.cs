@@ -128,7 +128,9 @@ internal sealed class AcpAgentRun : IAgentRun
                 Window();
                 return Task.FromResult(((TurnSink)turn!.Sink!).Turn);
             case AcpPromptRefusal.Busy:
-                return Task.FromResult(Refused(AgentRunSubtypes.Busy, "a turn is running, and this run takes no word on it."));
+                return Task.FromResult(Refused(AgentRunSubtypes.Busy, "a turn is running and this door states no queued-words, so a word has nowhere to go."));
+            case AcpPromptRefusal.RequestHeld:
+                return Task.FromResult(Refused(AgentRunSubtypes.RequestHeld, "a permission request is held for the host, and no record shows a word taken beside one."));
             default:
                 return Task.FromResult(Refused(AgentRunSubtypes.Over, "the run is not open."));
         }

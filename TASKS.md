@@ -15,21 +15,20 @@ LLM-ops layer (prompt registry, scoring, traces, memory). `AddLyntai(...)` and g
 
 <!-- open-items:begin — GENERATED. Edit the per-item `item:` markers, never this table. -->
 
-## Open items — 8 across 5 Parts: 2 startable, 3 blocked, 3 watch
+## Open items — 7 across 5 Parts: 1 startable, 3 blocked, 3 watch
 
 _Generated from the per-item `<!-- item: … -->` markers by `node devtools/dev.mjs check-backlog --write`._
 _Edit a marker, never this table — `verify` fails the moment the two disagree._
 
 | line | Part | item | state | waiting on |
 | ---: | ---: | --- | --- | --- |
-| 109 | 33 | GEN-VERIFY-FAL, the last line — the Hugging Face route | blocked · env | an hf_ token for the router route |
-| 150 | 75 | Decide what an aggregator's in-band `code` means | blocked · env+data | two or three real aggregators to measure an in-band code against |
-| 177 | 99 | `verify`'s test step intermittently fails EXACTLY 9 tests, and once aborted… | watch · data | the same nine tests to recur — the fix is unconfirmed as the cure, and a gr… |
-| 236 | 99 | `InputSegmenterTests.Counting_NFKC_is_LINEAR_in_the_length_of_the_text` fai… | watch · data | a recurrence under the full parallel run, with the ratio it read — the mess… |
-| 254 | 99 | `AgentUsageProcessTests.A_server_that_never_answers_is_ended_with_its_child… | watch · data | a recurrence under the full parallel run, with the load it ran under; it fa… |
-| 292 | 417 | MC8 — run the wrong-end instrument on an adjudicated corpus, with a bar wri… | blocked · decision+data | two reviewers' independent labels on a sample of the pairs, and a bar a per… |
-| 318 | 446 | AG47 — a word taken mid-turn, and when a run refuses one | startable |  |
-| 325 | 446 | AG48 — the turn a task wakes, and background work read until it ends | startable |  |
+| 108 | 33 | GEN-VERIFY-FAL, the last line — the Hugging Face route | blocked · env | an hf_ token for the router route |
+| 149 | 75 | Decide what an aggregator's in-band `code` means | blocked · env+data | two or three real aggregators to measure an in-band code against |
+| 176 | 99 | `verify`'s test step intermittently fails EXACTLY 9 tests, and once aborted… | watch · data | the same nine tests to recur — the fix is unconfirmed as the cure, and a gr… |
+| 235 | 99 | `InputSegmenterTests.Counting_NFKC_is_LINEAR_in_the_length_of_the_text` fai… | watch · data | a recurrence under the full parallel run, with the ratio it read — the mess… |
+| 253 | 99 | `AgentUsageProcessTests.A_server_that_never_answers_is_ended_with_its_child… | watch · data | a recurrence under the full parallel run, with the load it ran under; it fa… |
+| 291 | 417 | MC8 — run the wrong-end instrument on an adjudicated corpus, with a bar wri… | blocked · decision+data | two reviewers' independent labels on a sample of the pairs, and a bar a per… |
+| 317 | 446 | AG48 — the turn a task wakes, and background work read until it ends | startable |  |
 
 <!-- open-items:end -->
 
@@ -314,13 +313,6 @@ Captures a row's tests use are labelled REAL or SOURCE-DERIVED as `tests/Lyntai.
 a SOURCE-DERIVED one rests on Daoris's recorded captures, which a real one replaces when it arrives. Order: AG43 first (a defect
 in built code), AG37 before AG36 and AG42, AG25 to AG27 before AG28, AG30 before AG31, AG40 before AG41, AG43 before AG44, and AG46 before
 AG47 and AG48 (the kept run, designed by AG39 in **D251**); the rest in any order. No row spends an account or calls a paid service._
-
-- [ ] **AG47 — a word taken mid-turn, and when a run refuses one** (lanes `platform` + `inference`, after AG46, **D251**). <!-- item: state=startable -->
-  **Contract.** `SendAsync` on a busy run whose door states `queued-words` Supported sends a second prompt; the earlier turn ends with a
-  `SessionEnded` of subtype `folded` (success, every usage count 0) and the later owns the rest; the run never sends `session/cancel`
-  while a word is on its way, and refuses `SendAsync` while a permission request is held or a woken turn runs. **Proof.** The recorded
-  fold (the earlier prompt answered `end_turn` with zero usage at the next step, SOURCE-DERIVED from Daoris's steer note), a stop with a
-  word on its way sending nothing, and the two refusals.
 
 - [ ] **AG48 — the turn a task wakes, and background work read until it ends** (lanes `platform` + `inference`, after AG46, **D251**). <!-- item: state=startable -->
   **Contract.** A turn the agent starts unprompted after a task's end is an `AgentRunTurn` on `IAgentRun.WokenTurns`, ended by silence only <!-- link-ok: the member lands with this row -->

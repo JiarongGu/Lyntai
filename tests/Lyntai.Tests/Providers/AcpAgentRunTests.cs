@@ -145,6 +145,9 @@ public class AcpAgentRunTests
 
     private const string NoUsage = """{"inputTokens":0,"outputTokens":0,"cachedReadTokens":0,"cachedWriteTokens":0}""";
 
+    private static string PermissionRequest() =>
+        """{"jsonrpc":"2.0","id":"agent-1","method":"session/request_permission","params":{"sessionId":"s1","toolCall":{"toolCallId":"c1","title":"Edit"},"options":[{"optionId":"allow-once","name":"Allow","kind":"allow_once"},{"optionId":"reject-once","name":"Reject","kind":"reject_once"}]}}""";
+
     // ── the run ──────────────────────────────────────────────────────────────
 
     private static AgentSessionOptions Session(AgentToolPolicy policy = AgentToolPolicy.ReadOnly) =>
@@ -404,6 +407,100 @@ public class AcpAgentRunTests
         Assert.Equal(AgentProvider.OptionRefusedSubtype, (await unhonourable.Ended).Subtype);
         Assert.Equal(1, agent.Spawns);
         await Assert.ThrowsAsync<KeyNotFoundException>(() => provider.OpenRunAsync("cli", Session()));
+    }
+
+    // ── AG47: a word taken mid-turn ──────────────────────────────────────────
+
+    [Fact] // SOURCE-DERIVED: steer note §6 turn A, the earlier prompt answered end_turn with every count 0 at the next step
+    public async Task A_word_folds_the_earlier_turn_and_the_later_one_owns_the_rest()
+    {
+        var agent = new KeptAgent();
+        await using var run = await Open(agent);
+        var task = await run.SendAsync("read five files");
+        agent.Say(Call("r1", "in_progress"));
+
+        var note = await run.SendAsync("put PINEAPPLE after the words");   // a word, on a busy run
+        agent.Say(CallDone("r1"), Answer(100, "end_turn", NoUsage), Chunk("alpha PINEAPPLE"), Answer(101));
+        var taskEvents = await Read(task);
+        var noteEvents = await Read(note);
+
+        var folded = Ended(taskEvents);
+        Assert.Equal((ProviderVerdict.Ok, false, AgentRunSubtypes.Folded), (folded.Verdict, folded.IsError, folded.Subtype));
+        var zero = taskEvents.OfType<UsageFinal>().Single();
+        Assert.Equal((0L, 0L, 0L, 0L), (zero.InputTokens, zero.OutputTokens, zero.CacheReadTokens, zero.CacheCreateTokens));
+        Assert.Contains(taskEvents, e => e is ToolResult);
+        Assert.Equal("alpha PINEAPPLE", Assert.IsType<TextDelta>(noteEvents[0]).Text);
+        var later = Ended(noteEvents);
+        Assert.Equal((ProviderVerdict.Ok, (string?)null, "alpha PINEAPPLE"), (later.Verdict, later.Subtype, later.FinalText));
+        var counted = noteEvents.OfType<UsageFinal>().Single();
+        Assert.Equal(15L, counted.InputTokens + counted.OutputTokens);
+        Assert.DoesNotContain(agent.Written, f => Method(f) == "session/cancel");
+        Assert.Equal(2, agent.Written.Count(f => Method(f) == "session/prompt"));
+    }
+
+    [Fact] // an earlier prompt that did real work and ended before the word was taken is a finished turn, not a fold
+    public async Task An_earlier_turn_that_ended_with_work_done_is_not_folded()
+    {
+        var agent = new KeptAgent();
+        await using var run = await Open(agent);
+        var first = await run.SendAsync("one");
+        var word = await run.SendAsync("two");
+
+        agent.Say(Chunk("done"), Answer(100), Chunk("then"), Answer(101));
+
+        var ended = Ended(await Read(first));
+        Assert.Equal((ProviderVerdict.Ok, (string?)null, "done"), (ended.Verdict, ended.Subtype, ended.FinalText));
+        Assert.Equal("then", Ended(await Read(word)).FinalText);
+    }
+
+    [Fact] // SOURCE-DERIVED: a cancel with a word on its way loses its answer (steer note §3), so the run sends none
+    public async Task A_stop_with_a_word_on_its_way_sends_nothing()
+    {
+        var agent = new KeptAgent();
+        await using var run = await Open(agent);
+        var first = await run.SendAsync("one");
+        await run.SendAsync("two");
+
+        Assert.False(await run.StopAsync());
+
+        await Task.Delay(100);
+        Assert.DoesNotContain(agent.Written, f => Method(f) == "session/cancel");
+        agent.Say(Answer(100, "end_turn", NoUsage), Answer(101));
+        Assert.Equal(AgentRunSubtypes.Folded, (await first.Ended.WaitAsync(Wait)).Subtype);
+        Assert.False(await run.StopAsync());   // the word was taken, and nothing runs now
+    }
+
+    [Fact] // no record shows a folded word with a request held, so the run does not offer an unknown
+    public async Task A_prompt_is_refused_while_a_permission_request_is_held()
+    {
+        var release = new TaskCompletionSource<AcpPermissionAnswer>(TaskCreationOptions.RunContinuationsAsynchronously);
+        var asked = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var approver = new HoldingApprover(release.Task, asked);
+        var agent = new KeptAgent();
+        await using var run = await Open(agent, approver: approver);
+        var turn = await run.SendAsync("edit it");
+
+        agent.Say(PermissionRequest());
+        await asked.Task.WaitAsync(Wait);
+        var refused = Ended(await Read(await run.SendAsync("a word")));
+        release.SetResult(AcpPermissionAnswer.Approve);
+        await agent.Wrote(f => IdOf(f) == "agent-1");
+        var taken = await run.SendAsync("a word, now");
+
+        Assert.Equal((ProviderVerdict.Unsupported, AgentRunSubtypes.RequestHeld, AgentDelivery.NeverSent), (refused.Verdict, refused.Subtype, refused.Failure!.Delivery));
+        Assert.Equal(1, agent.Written.Count(f => Method(f) == "session/prompt" && IdOf(f) == "100"));
+        agent.Say(Answer(100, "end_turn", NoUsage), Answer(101));
+        Assert.Equal(AgentRunSubtypes.Folded, (await turn.Ended.WaitAsync(Wait)).Subtype);
+        Assert.Equal(ProviderVerdict.Ok, (await taken.Ended.WaitAsync(Wait)).Verdict);
+    }
+
+    private sealed class HoldingApprover(Task<AcpPermissionAnswer> answer, TaskCompletionSource asked) : IAcpPermissionApprover
+    {
+        public Task<AcpPermissionAnswer> ApproveAsync(AcpPermissionRequest request, CancellationToken ct = default)
+        {
+            asked.TrySetResult();
+            return answer;
+        }
     }
 
 }
