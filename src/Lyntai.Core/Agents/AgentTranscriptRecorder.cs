@@ -177,9 +177,12 @@ public sealed class RecordingAgentSession : IAgentSession
     {
         ArgumentNullException.ThrowIfNull(options);
         _recorder.BeginTurn(_source, options);
+        var ended = false;
         await foreach (var e in _inner.StreamAsync(options, ct).WithCancellation(ct).ConfigureAwait(false))
         {
-            _recorder.Add(e);
+            // a door may print after the terminal (a task's end); the turn is closed, so that event is only forwarded
+            if (!ended) _recorder.Add(e);
+            if (e is SessionEnded) ended = true;
             yield return e;
         }
     }
