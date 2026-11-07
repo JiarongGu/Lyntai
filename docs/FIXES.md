@@ -7,6 +7,30 @@ to `.agents/knowledge/pitfalls.md`; the release-facing line goes to `CHANGELOG.m
 
 ---
 
+## 2026-11-08 — a job's cancel poll died on one failed read, its outcome was dropped by a shutdown, and fifteen smaller faults of the jobs, the file backend and the Codex door
+
+**Symptom.** None reported; found by reading (`docs/task-archive.md` Part 483). One failed `GetAsync` ended the cancel poll, so `IJobQueue.CancelAsync` returned true and a long job ran on; a store timeout that surfaced as an
+`OperationCanceledException` ended the poll or the slot heartbeat the same way, and with no heartbeat a slot lapsed under a running job. A handler that finished while the pass was stopping left its job `Running`, redelivered once the lease lapsed.
+`Next` threw for `0 0 29 2 *` from 2097. A vector listing returned nothing for a prefix holding an emoji. A reset of every consumer left the in-memory global cost at `1.1e-16`. One failed first write of a thread left its id refused for good.
+
+**Root cause.** `PollForCancelAsync` held its `while` inside the `try`, and the heartbeat and the poll caught any `OperationCanceledException` rather than the caller's. `RunJobAsync` passed the shutdown token to `ApplyAsync`, so a store that honours a
+token threw before it wrote. The cron search stopped at five years, and 2100 is no leap year, so two Feb 29ths can be eight years apart. `ListCollectionsAsync` bound `prefix.Length` (UTF-16 units) to `substr`, which counts characters.
+`InMemoryUsageTracker` subtracted a reset consumer from a running double. `CreateThreadAsync` refused any existing directory, and an interrupted `Write` leaves one holding only its `.tmp`. Codex's refresh sentences matched no auth pattern, and
+`where.exe` searches the working directory first.
+
+**Fix.** The poll and the heartbeat keep going past a failed read and end only on their own stop; `ApplyAsync` writes with no token; the cron search is eight years; `length(@prefix)` on both SQL stores; the global usage total is summed on
+read; the in-memory score aggregate takes the greatest name as `MAX` does; the file backend deletes a directory's strays before judging it, encodes before it opens a temporary file, removes a prompt revision whose pointer write failed and loads one
+entry for an id two files hold. The scheduler says a never-occurring cron once and hands the schedule list a token the timeout cancels; the in-memory job store copies a stage's arguments; the classifier reads Codex's refresh sentences as
+auth; a `declined` item is an error; `Locate` asks `where.exe` for `$PATH:name`. `JobRunner.cs`, `CronExpression.cs`, `IJobScheduler.cs`, `FileSystemRoot.cs`, `ProcessRunner.cs`.
+
+**Verify.** Each test failed before its change (`JobRunnerStoreFaultTests`, `CronExpressionTests`, `JobSchedulerTests`, the job, vector, usage and score contract facts on every backend that runs them, `FileSystemRestartTests`,
+`CodexAgentFailureTests`, `CodexAgentSessionTests`, `ProcessRunnerTests`); the Postgres leg ran with Docker up. **The Codex sentences and `declined` come from Codex's source, not a capture here.** `Faulting` gained a thrown-exception choice and a call count for
+these tests.
+
+**Introduced by.** Not traced to a commit for each; the cancel poll is the original runner's.
+
+---
+
 ## 2026-11-08 — an out-of-range rate-limit stamp ended a Claude turn with no terminal, and four smaller faults of the Claude door and the agent core
 
 **Symptom.** None reported; found by reading (`docs/task-archive.md` Part 481, closed in Part 482). A `rate_limit_event` whose `resetsAt` was written in epoch milliseconds made

@@ -29,6 +29,13 @@ every addition.
 
 ### Changed
 
+- **A running job stays cancellable, and a finished one is recorded through a shutdown.** One failed store read no longer ends the cancel poll, a store timeout
+  no longer ends the poll or the slot heartbeat, and a handler's outcome is written even when the pass is already stopping. A cron that never occurs is said once
+  per schedule, a cron of Feb 29 is found across 2100, and the in-memory job store keeps its own copy of a stage's arguments.
+- **A vector listing by a prefix with an emoji in it finds its collections on SQLite and Postgres.** The in-memory usage total is exact after every consumer is reset, and
+  its score aggregate names a scorer as the SQL stores do. On the file backend a thread whose first write was cut short can be created again, a prompt save that failed leaves no revision
+  behind, and a hand-made copy of a curated or memory file is one entry that a removal takes with it.
+- **A login Codex could not refresh is a sign-in the account needs,** a `declined` command item is an error result, and a command lookup on Windows answers from PATH, never from the working directory.
 - **A rate-limit stamp the Claude door cannot read as a date is no time, where it ended the turn with no terminal.** A `resetsAt` written in
   epoch milliseconds threw out of the reader (the protocol door's rejection shares the read); a cost too large for a double reads as no
   cost; an `init` that repeats the id of an earlier `system` frame is the announced start. The HTTP agent door's terminal states its `Turn`,
