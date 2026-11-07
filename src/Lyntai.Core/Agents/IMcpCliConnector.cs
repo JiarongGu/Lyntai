@@ -35,7 +35,15 @@ public interface IMcpCliConnector
 /// <summary>The running tool host a CLI should connect to: its <paramref name="Url"/>, the bearer token
 /// every request must carry, and the MCP server name it is published under (which some CLIs also use to
 /// build tool-permission patterns, e.g. <c>mcp__&lt;server&gt;__*</c>).</summary>
-public sealed record McpEndpoint(string Url, string AuthToken, string ServerName);
+public sealed record McpEndpoint(string Url, string AuthToken, string ServerName)
+{
+    // the compiler's ToString lists every member, which would print the token that authorises tool execution
+    private bool PrintMembers(System.Text.StringBuilder builder)
+    {
+        builder.Append("Url = ").Append(Url).Append(", ServerName = ").Append(ServerName);
+        return true;
+    }
+}
 
 /// <summary>What <see cref="IMcpCliConnector.BuildArgsAsync"/> is handed: the live
 /// <see cref="Endpoint"/> plus a temp-file writer whose output the caller tracks and deletes.</summary>

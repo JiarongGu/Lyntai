@@ -4,6 +4,7 @@ using Lyntai.Guards;
 using Microsoft.Extensions.AI;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
+using ModelContextProtocol.Protocol;
 
 namespace Lyntai.Tools.Mcp.Hosting;
 
@@ -44,7 +45,16 @@ internal sealed class ToolFunction(
         var gated = await ToolInvocation.InvokeGatedAsync(
             tool, JsonArgs.Serialize(arguments), guards, approvers, consumer, callId: null, _logger,
             cancellationToken).ConfigureAwait(false);
-        return gated.Observation;
+        if (!ToolObservations.IsError(gated.Observation)) return gated.Observation;
+
+        // a plain string is a success on the wire; the caller's agent must be told the call failed or was
+        // refused. The prefix is the loop's own convention, so it is dropped here and the client adds it back
+        var message = gated.Observation[ToolObservations.ErrorPrefix.Length..].TrimStart();
+        return new CallToolResult
+        {
+            IsError = true,
+            Content = [new TextContentBlock { Text = message }],
+        };
     }
 
     private static JsonElement ParseSchema(string? json)

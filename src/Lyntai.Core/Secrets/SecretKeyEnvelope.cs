@@ -30,6 +30,10 @@ public sealed record SecretKeyEnvelope
     /// than run with a downgraded KDF (a tampered/portable envelope can't weaken the key derivation).</summary>
     public const int MinRecoveryIterations = 100_000;
 
+    // the ceiling matters as much as the floor: a stored envelope naming int.MaxValue would spin PBKDF2 for
+    // hours with no way to cancel it. About fifty times the default is minutes at worst, never hours.
+    private const int MaxRecoveryIterations = 10_000_000;
+
     /// <summary>The newest envelope format this build can read. A higher <see cref="Version"/> is rejected
     /// (a future format must not be silently misparsed as this one).</summary>
     public const int CurrentVersion = 1;
@@ -147,6 +151,9 @@ public sealed record SecretKeyEnvelope
             if (iterations < MinRecoveryIterations)
                 throw new CryptographicException(
                     $"Secret-key envelope recovery KDF iterations ({iterations}) is below the {MinRecoveryIterations} floor — corrupt or downgraded.");
+            if (iterations > MaxRecoveryIterations)
+                throw new CryptographicException(
+                    $"Secret-key envelope recovery KDF iterations ({iterations}) is above the {MaxRecoveryIterations} ceiling — corrupt.");
             return new SecretKeyEnvelope
             {
                 Version = version,
@@ -192,6 +199,9 @@ public sealed record SecretKeyEnvelope
         if (iterations < MinRecoveryIterations)
             throw new CryptographicException(
                 $"Recovery KDF iteration count ({iterations}) is below the {MinRecoveryIterations} floor — envelope corrupt or downgraded.");
+        if (iterations > MaxRecoveryIterations)
+            throw new CryptographicException(
+                $"Recovery KDF iteration count ({iterations}) is above the {MaxRecoveryIterations} ceiling — envelope corrupt.");
         return Rfc2898DeriveBytes.Pbkdf2(Encoding.UTF8.GetBytes(recoveryKey), salt, iterations, HashAlgorithmName.SHA256, DekLen);
     }
 
