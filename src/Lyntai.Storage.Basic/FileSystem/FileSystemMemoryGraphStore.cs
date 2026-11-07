@@ -325,6 +325,11 @@ internal sealed class FileSystemMemoryGraphStore(FileSystemRoot root, Func<DateT
             ? Path.Combine(FilesOf(after.Record.Engine).Directory, RecordName.For(after.Record.TaskKey),
                 RecordName.For(after.Record.Scope), FileSystemRoot.IdFile(after.Id))
             : _files[after.Id][^1];
+        // A refresh whose memory file changes appends its receipt AFTER the file: the receipt of a NEW entry rides with the state (a
+        // restart drops one whose file is gone), but one of a refresh would answer a repeat for a change the file never took.
+        var receiptLast = before is not null && change.Receipts.Count > 0 && !MemoryGraphState.SameRecord(before.Record, after.Record);
+        var receipts = receiptLast ? change.Receipts.ToList() : [];
+        if (receiptLast) change.Receipts.Clear();
         List<EngineFiles> journaled;
         try
         {
@@ -340,6 +345,18 @@ internal sealed class FileSystemMemoryGraphStore(FileSystemRoot root, Func<DateT
             throw;
         }
         if (before is null) _files[after.Id] = [file];
+        if (receiptLast)
+        {
+            change.Receipts.AddRange(receipts);
+            try { journaled = [.. journaled.Union(JournalReceipts(change))]; }
+            catch
+            {
+                // the refresh is on disk, so this process takes it; only the receipt is lost, and a repeat applies as a new call
+                change.Receipts.Clear();
+                ApplyAndCompact(change, journaled);
+                throw;
+            }
+        }
         ApplyAndCompact(change, journaled);
         return after.Id;
     }
@@ -393,7 +410,8 @@ internal sealed class FileSystemMemoryGraphStore(FileSystemRoot root, Func<DateT
             {
                 // The successor's file first: without journal state it is unreachable, so it cannot outrun the commit. The commit is
                 // ONE journal line holding the successor, every end and the receipt — a crash tears it whole, and a restart sees
-                // the supersession entirely or not at all.
+                // the supersession entirely or not at all. A REFRESHED successor's file takes its refresh first, so a torn line
+                // leaves that refresh applied and the supersession not; a repeat applies it.
                 if (before is null || !MemoryGraphState.SameRecord(before.Record, after.Record))
                     root.Write(file, MemoryFile(after.Record));
                 journaled = Journal(change, successor.Engine, atomic: true);
@@ -457,13 +475,23 @@ internal sealed class FileSystemMemoryGraphStore(FileSystemRoot root, Func<DateT
     }
 
     // The memory file first, as an un-keyed end or confirmation writes it, then the receipt's line: a crash between leaves the
-    // effect without its receipt, which a repeat settles by itself (an end reports AlreadyEnded, a confirmation Unchanged).
+    // effect without its receipt, so a repeat is a new call — an unguarded end reports AlreadyEnded and a confirmation Unchanged, but
+    // a call guarded by the revision it reviewed reports Changed, because the effect moved that revision.
     private void ApplyEffectThenReceipt(GraphChange change)
     {
         if (change.Receipts.Count == 0) return;
         foreach (var (_, after) in change.Nodes)
             root.Write(_files[after.Id][^1], MemoryFile(after.Record));
-        ApplyAndCompact(change, JournalReceipts(change));
+        List<EngineFiles> journaled;
+        try { journaled = JournalReceipts(change); }
+        catch
+        {
+            // the effect is on disk, so this process takes it; only the receipt is lost
+            change.Receipts.Clear();
+            ApplyAndCompact(change, []);
+            throw;
+        }
+        ApplyAndCompact(change, journaled);
     }
 
     public Task<int> SupersedeAsync(string engine, IReadOnlyList<GraphSupersession> supersessions,

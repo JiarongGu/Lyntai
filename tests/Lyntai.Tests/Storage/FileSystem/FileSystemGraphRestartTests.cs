@@ -533,6 +533,84 @@ public class FileSystemGraphRestartTests : IDisposable
         Assert.Equal("moved", (await Open(_temp.Reopen()).GetAsync("e", paris))!.EndedReason);   // the journal still holds it
     }
 
+    // A keyed refresh of an existing memory appends its receipt after the file takes the refresh, so a file that cannot be written
+    // leaves no receipt to answer a repeat for a change that never landed.
+    [Fact]
+    public async Task A_keyed_refresh_whose_file_cannot_be_written_leaves_no_receipt_and_the_repeat_applies()
+    {
+        var store = Open(_temp.Root);
+        var id = (await store.UpsertKeyedAsync(Write("lives in Paris"), Keyed("k1", MemoryOperationKind.Remember))).Value;
+        var file = FileHolding("lives in Paris");
+        var before = File.ReadAllText(file);
+        var reworded = Write("lives in Paris") with { Headline = "reworded", HeadlineStated = true };
+        File.Delete(file);
+        Directory.CreateDirectory(file);   // the rename onto it cannot land
+
+        await Assert.ThrowsAnyAsync<Exception>(() => store.UpsertKeyedAsync(reworded, Keyed("k2", MemoryOperationKind.Remember)));
+
+        Directory.Delete(file);
+        File.WriteAllText(file, before);
+        var reopened = Open(_temp.Reopen());
+        Assert.Null(await reopened.ReceiptAsync("e", "task", "k2", _now));
+        var again = await reopened.UpsertKeyedAsync(reworded, Keyed("k2", MemoryOperationKind.Remember));
+        Assert.False(again.Replayed);
+        Assert.Equal(("reworded", MemoryOperationOutcome.Refreshed), ((await reopened.GetAsync("e", id))!.Headline, again.Receipt!.Outcome));
+    }
+
+    // The end's memory file is written before its receipt; when the receipt cannot be appended this process still takes the end, so
+    // it does not stand behind the disk until a restart.
+    [Fact]
+    public async Task A_keyed_end_whose_receipt_cannot_be_appended_is_still_taken_by_this_process_and_a_repeat_is_not_replayed()
+    {
+        var store = Open(_temp.Root);
+        var id = await store.UpsertAsync(Write("lives in Paris"));
+        var revision = (await store.GetAsync("e", id))!.Revision!.Value;
+        File.SetAttributes(JournalPath, FileAttributes.ReadOnly);   // the append refuses; the memory file is another file
+
+        try
+        {
+            await Assert.ThrowsAnyAsync<Exception>(() =>
+                store.EndKeyedAsync("e", new GraphEnd(id, "moved", _now, null, revision), Keyed("k1", MemoryOperationKind.End)));
+        }
+        finally { File.SetAttributes(JournalPath, FileAttributes.Normal); }
+
+        Assert.Equal("moved", (await store.GetAsync("e", id))!.EndedReason);
+        Assert.Null(await store.ReceiptAsync("e", "task", "k1", _now));
+        Assert.Equal("moved", (await Open(_temp.Reopen()).GetAsync("e", id))!.EndedReason);
+    }
+
+    // A refreshed successor's file takes its refresh BEFORE the commit line, so a torn commit leaves the refresh and not the
+    // supersession; the repeat applies it.
+    [Fact]
+    public async Task A_supersession_torn_from_the_journal_keeps_a_refreshed_successors_refresh_and_a_repeat_applies()
+    {
+        var store = Open(_temp.Root);
+        var paris = await store.UpsertAsync(Write("lives in Paris") with { ValidFrom = _now.AddDays(-30) });
+        var rome = await store.UpsertAsync(Write("lives in Rome") with { ValidFrom = _now });
+        var reviewed = new GraphPredecessor(paris, (await store.GetAsync("e", paris))!.Revision!.Value);
+        var refreshed = Write("lives in Rome") with { ValidFrom = _now, Headline = "Rome now", HeadlineStated = true };
+        var parisFile = FileHolding("lives in Paris");
+        var parisBefore = File.ReadAllText(parisFile);
+        var result = await store.SupersedeWithAsync(refreshed, [reviewed], "moved", _now, Keyed("sup-1", MemoryOperationKind.Supersede));
+        Assert.Equal(rome, result.SuccessorId);
+        var lines = File.ReadAllLines(JournalPath);
+        Assert.StartsWith("{\"commit\"", lines[^1], StringComparison.Ordinal);
+        File.WriteAllText(JournalPath, string.Join("\n", lines[..^1]) + "\n" + lines[^1][..60]);
+        File.WriteAllText(parisFile, parisBefore);   // the crash had not reached the predecessor's file
+
+        var reopened = Open(_temp.Reopen());
+
+        Assert.Null((await reopened.GetAsync("e", paris))!.EndedReason);
+        Assert.Null(await reopened.ReceiptAsync("e", "task", "sup-1", _now));
+        Assert.Equal("Rome now", (await reopened.GetAsync("e", rome))!.Headline);
+        var revision = (await reopened.GetAsync("e", paris))!.Revision!.Value;
+        var again = await reopened.SupersedeWithAsync(refreshed, [new GraphPredecessor(paris, revision)], "moved", _now,
+            Keyed("sup-1", MemoryOperationKind.Supersede));
+        Assert.True(again.Applied);
+        Assert.False(again.Replayed);
+        Assert.Equal("moved", (await reopened.GetAsync("e", paris))!.EndedReason);
+    }
+
     [Fact]
     public async Task A_receipt_line_torn_by_a_crash_is_set_aside_and_its_key_is_a_new_call()
     {
