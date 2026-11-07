@@ -1,7 +1,7 @@
 using Lyntai.Inference;
 namespace Lyntai.Inference.Budgeting;
 
-/// <summary>A process-local <see cref="IUsageTracker"/>: per-consumer running totals plus a global sum,
+/// <summary>A process-local <see cref="IUsageTracker"/>: per-consumer running totals (the global one is their sum, read fresh),
 /// guarded by a single lock (usage recording is low-frequency relative to the calls it meters); every
 /// member completes synchronously. It can reserve (<see cref="IReservingUsageTracker"/>): the check and the hold
 /// happen under that same lock, so a hard cap holds across every caller in this process. For spend that must survive a restart or be shared across processes,
@@ -16,7 +16,6 @@ public sealed class InMemoryUsageTracker : IReservingUsageTracker
     // silently accrue two separate totals against one cap. The SQL trackers keep per-casing ROWS (their
     // TEXT PK) but AGGREGATE reads case-insensitively — totals agree across backends.
     private readonly Dictionary<string, Totals> _byConsumer = new(StringComparer.OrdinalIgnoreCase);
-    private readonly Totals _global = new();
     private readonly Dictionary<string, UsageReservation> _holds = new(StringComparer.Ordinal);
 
     public ValueTask RecordAsync(string consumer, ProviderUsage usage, CancellationToken ct = default)
@@ -29,15 +28,13 @@ public sealed class InMemoryUsageTracker : IReservingUsageTracker
     {
         var t = Get(consumer);
         t.In += usage.InputTokens; t.Out += usage.OutputTokens; t.Cost += usage.CostUsd ?? 0; t.Calls++;
-        _global.In += usage.InputTokens; _global.Out += usage.OutputTokens;
-        _global.Cost += usage.CostUsd ?? 0; _global.Calls++;
     }
 
     public ValueTask<UsageTotals> TotalAsync(string? consumer = null, CancellationToken ct = default)
     {
         lock (_gate)
         {
-            var t = consumer is null ? _global : (_byConsumer.TryGetValue(consumer, out var c) ? c : null);
+            var t = consumer is null ? Global() : (_byConsumer.TryGetValue(consumer, out var c) ? c : null);
             return ValueTask.FromResult(t is null ? UsageTotals.Empty : new UsageTotals(t.In, t.Out, t.Cost, t.Calls));
         }
     }
@@ -46,16 +43,8 @@ public sealed class InMemoryUsageTracker : IReservingUsageTracker
     {
         lock (_gate)
         {
-            if (consumer is null)
-            {
-                _byConsumer.Clear();
-                _global.In = _global.Out = _global.Calls = 0; _global.Cost = 0;
-            }
-            else if (_byConsumer.Remove(consumer, out var t))
-            {
-                // subtract the consumer's contribution from the global running total
-                _global.In -= t.In; _global.Out -= t.Out; _global.Cost -= t.Cost; _global.Calls -= t.Calls;
-            }
+            if (consumer is null) _byConsumer.Clear();
+            else _byConsumer.Remove(consumer);
         }
         return ValueTask.CompletedTask;
     }
@@ -94,7 +83,7 @@ public sealed class InMemoryUsageTracker : IReservingUsageTracker
     /// <summary>Committed spend plus live holds, for one consumer or (null) everyone. Caller holds the lock.</summary>
     private UsageTotals Load(string? consumer)
     {
-        var spent = consumer is null ? _global : (_byConsumer.TryGetValue(consumer, out var c) ? c : null);
+        var spent = consumer is null ? Global() : (_byConsumer.TryGetValue(consumer, out var c) ? c : null);
         long tokensIn = spent?.In ?? 0, tokensOut = spent?.Out ?? 0;
         var cost = spent?.Cost ?? 0;
         foreach (var hold in _holds.Values)
@@ -103,6 +92,15 @@ public sealed class InMemoryUsageTracker : IReservingUsageTracker
             tokensIn += hold.Amount.InputTokens; tokensOut += hold.Amount.OutputTokens; cost += hold.Amount.CostUsd ?? 0;
         }
         return new UsageTotals(tokensIn, tokensOut, cost, 0);
+    }
+
+    // Summed on read, not kept as a running figure: subtracting a reset consumer's cost from one leaves what the
+    // doubles could not cancel, where the SQL trackers' SUM over the rows they hold is exact. Caller holds the lock.
+    private Totals Global()
+    {
+        var sum = new Totals();
+        foreach (var t in _byConsumer.Values) { sum.In += t.In; sum.Out += t.Out; sum.Cost += t.Cost; sum.Calls += t.Calls; }
+        return sum;
     }
 
     private Totals Get(string consumer)

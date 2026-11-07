@@ -150,9 +150,9 @@ public sealed class PostgresVectorStore(IDbConnectionFactory factory) : IListabl
         var rows = await conn.QueryAsync<string>(new CommandDefinition(
             """
             SELECT DISTINCT collection FROM lyntai_vector
-            WHERE substr(collection, 1, @len) COLLATE "C" = @prefix
+            WHERE substr(collection, 1, length(@prefix)) COLLATE "C" = @prefix
             """,
-            new { len = prefix.Length, prefix }, cancellationToken: ct)).ConfigureAwait(false);
+            new { prefix }, cancellationToken: ct)).ConfigureAwait(false);
         return [.. rows];
     }
 

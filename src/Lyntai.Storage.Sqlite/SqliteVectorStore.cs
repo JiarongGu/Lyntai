@@ -210,8 +210,8 @@ public sealed class SqliteVectorStore(IDbConnectionFactory factory) : IListableV
         ArgumentNullException.ThrowIfNull(prefix);
         await using var conn = await factory.OpenAsync(ct).ConfigureAwait(false);
         var rows = await conn.QueryAsync<string>(new CommandDefinition(
-            "SELECT DISTINCT collection FROM lyntai_vector WHERE substr(collection, 1, @len) = @prefix",
-            new { len = prefix.Length, prefix }, cancellationToken: ct)).ConfigureAwait(false);
+            "SELECT DISTINCT collection FROM lyntai_vector WHERE substr(collection, 1, length(@prefix)) = @prefix",
+            new { prefix }, cancellationToken: ct)).ConfigureAwait(false);
         return [.. rows];
     }
 
