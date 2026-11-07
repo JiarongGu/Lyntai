@@ -71,10 +71,16 @@ internal sealed class FileSystemPromptVersionStore(FileSystemRoot root, Func<Dat
             var next = Math.Max(p.Versions.Select(v => v.Version).DefaultIfEmpty(0).Max(),
                 (int)FileSystemRoot.MaxId(p.Directory, prefix: "v")) + 1;
             var version = new PromptVersion(name, next, template, author, _clock(), IsActive: true);
-            root.Write(Path.Combine(p.Directory, $"v{version.Version.ToString("D4", CultureInfo.InvariantCulture)}.md"),
-                RecordFile.Write(new RecordHeader().Add("name", name).Add("version", version.Version)
-                    .Add("author", author).Add("created", version.CreatedAt), template));
-            WriteActive(p, name, version.Version);
+            var file = Path.Combine(p.Directory, $"v{version.Version.ToString("D4", CultureInfo.InvariantCulture)}.md");
+            root.Write(file, RecordFile.Write(new RecordHeader().Add("name", name).Add("version", version.Version)
+                .Add("author", author).Add("created", version.CreatedAt), template));
+            try { WriteActive(p, name, version.Version); }
+            catch
+            {
+                // the caller sees a failure, so the revision must not be on disk to appear at the next start
+                FileSystemRoot.Delete(file);
+                throw;
+            }
 
             p.Versions.Add(version with { IsActive = false });
             prompts[name] = p;
