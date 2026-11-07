@@ -15,27 +15,25 @@ LLM-ops layer (prompt registry, scoring, traces, memory). `AddLyntai(...)` and g
 
 <!-- open-items:begin — GENERATED. Edit the per-item `item:` markers, never this table. -->
 
-## Open items — 14 across 6 Parts: 5 startable, 3 blocked, 1 watch, 5 decision-only
+## Open items — 12 across 6 Parts: 3 blocked, 1 watch, 8 decision-only
 
 _Generated from the per-item `<!-- item: … -->` markers by `node devtools/dev.mjs check-backlog --write`._
 _Edit a marker, never this table — `verify` fails the moment the two disagree._
 
 | line | Part | item | state | waiting on |
 | ---: | ---: | --- | --- | --- |
-| 115 | 33 | GEN-VERIFY-FAL, the last line — the Hugging Face route | blocked · env | an hf_ token for the router route |
-| 156 | 75 | Decide what an aggregator's in-band `code` means | blocked · env+data | two or three real aggregators to measure an in-band code against |
-| 183 | 99 | `verify`'s test step intermittently fails EXACTLY 9 tests, and once aborted… | watch · data | the same nine tests to recur — the fix is unconfirmed as the cure, and a gr… |
-| 255 | 417 | MC8 — run the wrong-end instrument on an adjudicated corpus, with a bar wri… | blocked · decision+data | two reviewers' independent labels on a sample of the pairs, and a bar a per… |
-| 277 | 475 | Kept-run edges that need a ruling before a change | decision-only | a ruling for each: refuse a word after a stop or document the order, `Dispo… |
-| 289 | 479 | The write tools let a model end, revive or demote an entry the approver nev… | decision-only | a ruling: whether the tool may state validity and a grade at all, or the re… |
-| 295 | 479 | A supersession whose successor is an entry that already ended leaves nothin… | decision-only | a ruling: may a restated claim revive an ended entry, or does the supersess… |
-| 299 | 479 | What the approver is shown is not all that is applied | decision-only | a ruling: which of by, at, validity and scope the request must carry, or a … |
-| 302 | 479 | A keyed retry validates before it replays, so a changed world turns an answ… | startable |  |
-| 306 | 479 | A refused supersession still moves the age policy | startable |  |
-| 310 | 479 | The file store's keyed refresh and keyed end write their receipt ahead of, … | startable |  |
-| 317 | 479 | The relational stores fail a few edges the contract does not pin | startable |  |
-| 324 | 479 | Inputs the write tools leave unbounded, and edges the view and the blend le… | startable |  |
-| 331 | 479 | A receipt expires by the caller's clock and the purge runs on it | decision-only | a ruling: whether a receipt expires by the store's clock or the caller's (D… |
+| 113 | 33 | GEN-VERIFY-FAL, the last line — the Hugging Face route | blocked · env | an hf_ token for the router route |
+| 154 | 75 | Decide what an aggregator's in-band `code` means | blocked · env+data | two or three real aggregators to measure an in-band code against |
+| 181 | 99 | `verify`'s test step intermittently fails EXACTLY 9 tests, and once aborted… | watch · data | the same nine tests to recur — the fix is unconfirmed as the cure, and a gr… |
+| 253 | 417 | MC8 — run the wrong-end instrument on an adjudicated corpus, with a bar wri… | blocked · decision+data | two reviewers' independent labels on a sample of the pairs, and a bar a per… |
+| 275 | 475 | Kept-run edges that need a ruling before a change | decision-only | a ruling for each: refuse a word after a stop or document the order, `Dispo… |
+| 287 | 479 | The write tools let a model end, revive or demote an entry the approver nev… | decision-only | a ruling: whether the tool may state validity and a grade at all, or the re… |
+| 293 | 479 | A supersession whose successor is an entry that already ended leaves nothin… | decision-only | a ruling: may a restated claim revive an ended entry, or does the supersess… |
+| 297 | 479 | What the approver is shown is not all that is applied | decision-only | a ruling: which of by, at, validity and scope the request must carry, or a … |
+| 300 | 479 | A keyed end or confirmation's file is written before its receipt, so a cras… | decision-only | a ruling: accept and document the window (a guarded repeat then reads Chang… |
+| 304 | 479 | A host's `IMemoryViewCheck` is asked about an expansion's root only, not th… | decision-only | a ruling: whether the check also filters each neighbour an expansion return… |
+| 307 | 479 | A future `at` on an end or a confirmation sets `EndedReason` while recall s… | decision-only | a ruling: may an end or a failed check state an instant after now, or does … |
+| 309 | 479 | A receipt expires by the caller's clock and the purge runs on it | decision-only | a ruling: whether a receipt expires by the store's clock or the caller's (D… |
 
 <!-- open-items:end -->
 
@@ -299,35 +297,15 @@ choice, or is a crash window to close with a store test of its own. Lanes `memor
 - [ ] **What the approver is shown is not all that is applied.** `MemoryChangeRequest` carries the kind, task, targets, claim text, <!-- item: state=decision-only needs="a ruling: which of by, at, validity and scope the request must carry, or a refusal of a model-stated instant before the target's start" -->
   reason and evidence, while the model's `by`, `at` and the successor's validity, scope and headline are applied after it says yes.
   An `at` before the target began, or a successor whose `validTo` has passed, is approved unseen.
-- [ ] **A keyed retry validates before it replays, so a changed world turns an answered call into a throw.** `RelateCoreAsync` <!-- item: state=startable -->
-  refuses an end that is no longer valid now, `ResolvePredecessorsAsync` throws for a predecessor removed since, and `EndCoreAsync`
-  reads and checks the entry, each BEFORE the store looks up the key, so the retry the receipt exists for throws and the store's
-  `Missing` branch is unreachable. Move the lookup first, or let a keyed call skip the check the receipt already answered.
-- [ ] **A refused supersession still moves the age policy**: `SupersedeAsync` runs `PrepareAsync` (embed, annotate, `_age.Advance`) <!-- item: state=startable -->
-  before the store judges the revisions, so a stale call leaves `ElapsedAgePolicy`'s previous instant and a burst's count moved and the
-  next real write is aged from a write that never happened. D242 states the embed and annotation cost; it does not state this.
-  Judge the revisions first or advance after the store applies.
-- [ ] **The file store's keyed refresh and keyed end write their receipt ahead of, or apart from, the effect.** A keyed remember of an <!-- item: state=startable -->
-  existing entry journals node, totals and receipt, THEN rewrites the memory file, so a crash between leaves a receipt for a refresh
-  the file never took and a repeat answers `Refreshed` without applying it (a new entry is safe: `Restore` drops a receipt whose file
-  is gone). A keyed end or confirmation writes the file, then appends the receipt, so a crash between leaves the effect with no
-  receipt and a guarded retry gets `Changed`, where the comment says `AlreadyEnded`; a receipt append that throws leaves the process's
-  graph behind the disk. Also: a refreshed successor's file is written before the commit line in `SupersedeWithAsync`, so the
-  "torn line leaves neither" claim holds for a new successor only. Each needs a crash test of its own, as the torn-line cases have.
-- [ ] **The relational stores fail a few edges the contract does not pin.** A relation's receipt is tied to `from` only, so removing <!-- item: state=startable -->
-  `to` drops the edge and keeps a receipt that replays `true` (the file and in-process stores the same); two equal ids in
-  `predecessors` fail the whole call as `Changed` and an empty list stores the successor with a receipt (the engine dedupes and
-  guards, a direct store caller does not); a predecessor that is also the successor reads `Changed` where `Refused` is meant;
-  `GraphSupersedeSql`'s class summary says every predecessor is judged before any is ended, and the code judges and ends one at a
-  time (nothing is wrong, the sentence is); `GraphMemoryOptions.ReceiptRetention` is only checked positive, so `TimeSpan.MaxValue`
-  throws on every keyed call.
-- [ ] **Inputs the write tools leave unbounded, and edges the view and the blend leave open.** Only `content` is bounded: `headline`, <!-- item: state=startable -->
-  `reason` and `evidence` are stored verbatim (`reason` becomes `EndedReason`) and the `supersedes`, `disputes` and `amends` arrays have
-  no count cap, each element a store read. A host's `IMemoryViewCheck` is asked about `ExpandAsync`'s root only, not `RevisionOfAsync`
-  or the neighbours it returns. `CompositeMemoryEngine.DueAsync` iterates every `IConfirmableMemory` member and the graph engine throws
-  on a store that cannot confirm, though the remark says such a member adds none. An in-process rewrite of identical content leaves the
-  revision where it is while SQL advances it, against **D242**'s "a same-content write advances it". A future `at` on an end or a
-  confirmation sets `EndedReason` while recall still shows the entry until then. Read each against the code once more before changing it.
+- [ ] **A keyed end or confirmation's file is written before its receipt, so a crash between leaves the effect with no receipt.** A <!-- item: state=decision-only needs="a ruling: accept and document the window (a guarded repeat then reads Changed, an unguarded one AlreadyEnded), or journal the effect in a line a restart catches up, as a supersession's is (D242)" -->
+  guarded retry of the call the crash cut gets `Changed`. Reversing the order would leave a receipt for an effect that never landed, and
+  the end's fields (`ValidTo`, no `EndedLine`) do not fit the line a supersession uses. `FileSystemMemoryGraphStore.ApplyEffectThenReceipt`
+  states the window; closing it is a design choice about the journal.
+- [ ] **A host's `IMemoryViewCheck` is asked about an expansion's root only, not the neighbours it returns.** `IMemoryView.ExpandAsync` <!-- item: state=decision-only needs="a ruling: whether the check also filters each neighbour an expansion returns, or the host's refusal of the root is all it promises (D242)" -->
+  documents that its neighbours are not asked about, so a reference the host refuses can come back as a neighbour of one it permits.
+  Filtering them costs one call per neighbour and changes what an expansion returns.
+- [ ] **A future `at` on an end or a confirmation sets `EndedReason` while recall still shows the entry until then.** <!-- item: state=decision-only needs="a ruling: may an end or a failed check state an instant after now, or does the engine refuse it (D241, D242)" -->
+  A scheduled end is a use the engine allows, and the end tool lets a model state the instant; a refusal narrows both.
 - [ ] **A receipt expires by the caller's clock and the purge runs on it.** A host whose clock runs ahead purges receipts another <!-- item: state=decision-only needs="a ruling: whether a receipt expires by the store's clock or the caller's (D242), which shortens or lengthens retention by the skew" -->
   host's clock still counts live, and the file store's `Restore` judges expiry by its own clock where every live check uses the
   caller's. Retention is shortened or lengthened by the skew in either case.
