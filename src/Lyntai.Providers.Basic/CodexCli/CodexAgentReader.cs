@@ -238,7 +238,7 @@ internal sealed class CodexAgentReader : ICliAgentLineReader
     }
 
     /// <summary>MEASURED (codex 0.155.1): whether a completed tool item reports a failure. Two TOP-LEVEL
-    /// signals are checked — a <c>status</c> of <c>failed</c>, and a non-zero <c>exit_code</c> — and both are
+    /// signals are checked — a <c>status</c> of <c>failed</c> (or <c>declined</c>), and a non-zero <c>exit_code</c> — and both are
     /// exactly what a real <c>command_execution</c> emits: a failed run carried <c>"status":"failed"</c> AND
     /// <c>"exit_code":1</c> together, a successful one <c>"completed"</c> AND <c>0</c>, both at top level and
     /// in agreement. The inferred pair was right — not nested, not differently named (D35 re-measurement).
@@ -252,8 +252,11 @@ internal sealed class CodexAgentReader : ICliAgentLineReader
     /// <see cref="ToolResult.Content"/> either way.</para></summary>
     private static bool IsFailedItem(JsonElement item)
     {
+        // "declined" is the status Codex's own event schema gives a command the approval policy refused: no
+        // capture here carries it, and it did not run, so it is no successful step
         if (WireJson.String(item, "status") is { } status &&
-            status.Equals("failed", StringComparison.OrdinalIgnoreCase))
+            (status.Equals("failed", StringComparison.OrdinalIgnoreCase) ||
+             status.Equals("declined", StringComparison.OrdinalIgnoreCase)))
             return true;
 
         return item.TryGetProperty("exit_code", out var exit) && exit.ValueKind == JsonValueKind.Number &&

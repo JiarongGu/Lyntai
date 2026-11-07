@@ -452,12 +452,17 @@ public sealed class ProcessRunner : IProcessRunner
     /// <inheritdoc/>
     bool IProcessRunner.CommandExists(string command) => CommandExists(command);
 
-    private static string? Locate(string command) =>
-        RunLocator(OperatingSystem.IsWindows() ? "where.exe" : "which", command);
+    /// <summary>The spawnable PATH hit for <paramref name="command"/>. On Windows the name is asked as
+    /// <c>$PATH:name</c>, because a bare <c>where.exe</c> search reads the current directory first and a launcher
+    /// dropped there would answer. <paramref name="workingDirectory"/> is the locator's own, for the tests.</summary>
+    internal static string? Locate(string command, string? workingDirectory = null) =>
+        OperatingSystem.IsWindows()
+            ? RunLocator("where.exe", "$PATH:" + command, workingDirectory)
+            : RunLocator("which", command, workingDirectory);
 
     /// <summary>Run <paramref name="locator"/> against one name and pick the spawnable hit. Internal for
     /// the tests: the hang bound is only provable against a locator that actually hangs.</summary>
-    internal static string? RunLocator(string locator, string command)
+    internal static string? RunLocator(string locator, string command, string? workingDirectory = null)
     {
         var psi = new ProcessStartInfo(locator)
         {
@@ -466,6 +471,7 @@ public sealed class ProcessRunner : IProcessRunner
             RedirectStandardError = true,
             CreateNoWindow = true,
         };
+        if (workingDirectory is not null) psi.WorkingDirectory = workingDirectory;
         psi.ArgumentList.Add(command);
         try
         {

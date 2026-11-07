@@ -36,6 +36,17 @@ public static class ScoreStoreContract
         Assert.Equal("A", agg["a"].ScorerName);
     }
 
+    /// <summary>Scorers sharing an id but named differently across sessions aggregate under ONE name on every
+    /// backend — the greatest, ordinally, which is what the SQL stores' <c>MAX</c> reads.</summary>
+    [Unscoped("aggregates the whole table")]
+    public static async Task Aggregate_names_a_scorer_the_same_on_every_backend(IScoreStore store)
+    {
+        await store.SaveAsync("s1", [new ScoredResult("a", "Alpha", "g", false, 0.1)]);
+        await store.SaveAsync("s2", [new ScoredResult("a", "Beta", "g", false, 0.3)]);
+
+        Assert.Equal("Beta", Assert.Single(await store.AggregateAsync()).ScorerName);
+    }
+
     [Unscoped("exports the whole table")]
     public static async Task Export_dumps_every_session_scorer_score(IScoreStore store)
     {

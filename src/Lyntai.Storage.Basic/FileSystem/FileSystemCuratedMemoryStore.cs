@@ -17,6 +17,7 @@ internal sealed class FileSystemCuratedMemoryStore(FileSystemRoot root, Func<Dat
     private readonly Func<DateTimeOffset> _clock = clock ?? (() => DateTimeOffset.UtcNow);
     private CuratedCatalog? _catalog;
     private readonly Dictionary<long, string> _files = []; // the file each entry was LOADED from
+    private readonly Dictionary<long, string[]> _copies = []; // the other files holding the same id: hand-made copies
 
     private CuratedCatalog Catalog()
     {
@@ -26,10 +27,17 @@ internal sealed class FileSystemCuratedMemoryStore(FileSystemRoot root, Func<Dat
             h.Bool("enabled") ?? true, h.Time("created") ?? throw new FormatException("'created' is required"),
             h.Time("updated") ?? h.Time("created")!.Value, h.String("task"), h.String("scope"), h.Map("metadata"))
             { Revision = h.Long("revision") ?? 1 })); // a file written before revisions is at the first one
-        foreach (var (file, entry) in loaded) _files[entry.Id] = file;
+        // an id held by two files (a hand-made copy) is ONE entry, the later file by name, as in the key-value store
+        var entries = new List<CuratedMemory>();
+        foreach (var held in loaded.OrderBy(r => r.File, StringComparer.Ordinal).GroupBy(r => r.Entry.Id))
+        {
+            _files[held.Key] = held.Last().File;
+            if (held.Count() > 1) _copies[held.Key] = [.. held.SkipLast(1).Select(r => r.File)];
+            entries.Add(held.Last().Entry);
+        }
         var catalog = new CuratedCatalog();
         // past every numbered FILE too — one that did not parse still holds its number
-        catalog.Load(loaded.Select(r => r.Entry), FileSystemRoot.MaxId(_directory));
+        catalog.Load(entries, FileSystemRoot.MaxId(_directory));
         return _catalog = catalog;
     }
 
@@ -91,9 +99,12 @@ internal sealed class FileSystemCuratedMemoryStore(FileSystemRoot root, Func<Dat
         {
             var catalog = Catalog();
             if (catalog.Get(id) is null) return Task.FromResult(false);
-            FileSystemRoot.Delete(FileOf(id)); // the file first: a failed delete leaves the entry visible
+            // the files first: a failed delete leaves the entry visible
+            foreach (var copy in _copies.GetValueOrDefault(id) ?? []) FileSystemRoot.Delete(copy);
+            FileSystemRoot.Delete(FileOf(id));
             catalog.Remove(id);
             _files.Remove(id);
+            _copies.Remove(id);
             return Task.FromResult(true);
         }
     }

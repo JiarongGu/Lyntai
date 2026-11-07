@@ -57,10 +57,11 @@ internal sealed class FileSystemRoot : IDisposable
     public void Write(string file, string text)
     {
         Directory.CreateDirectory(System.IO.Path.GetDirectoryName(file)!);
+        var bytes = Utf8.GetBytes(text); // before the file exists: text that cannot be encoded must leave nothing behind
         var temp = file + Temporary;
         using (var stream = new FileStream(temp, FileMode.Create, FileAccess.Write, FileShare.None))
         {
-            stream.Write(Utf8.GetBytes(text));
+            stream.Write(bytes);
             stream.Flush(flushToDisk: true);
         }
         Replace(temp, file);
@@ -130,6 +131,14 @@ internal sealed class FileSystemRoot : IDisposable
     /// <summary>Deletes what an interrupted <see cref="Write"/> of <paramref name="file"/> left behind.</summary>
     public static void DeleteTemporary(string file) => Delete(file + Temporary);
 
+    /// <summary>Deletes every temporary file an interrupted <see cref="Write"/> left directly in
+    /// <paramref name="directory"/>; a directory that does not exist has none.</summary>
+    public static void DeleteStrays(string directory)
+    {
+        if (!Directory.Exists(directory)) return;
+        foreach (var stray in Directory.EnumerateFiles(directory, "*" + Temporary)) File.Delete(stray);
+    }
+
     public static void DeleteDirectory(string directory)
     {
         if (Directory.Exists(directory)) Directory.Delete(directory, recursive: true);
@@ -144,7 +153,7 @@ internal sealed class FileSystemRoot : IDisposable
     {
         var loaded = new List<T>();
         if (!Directory.Exists(directory)) return loaded;
-        foreach (var stray in Directory.EnumerateFiles(directory, "*" + Temporary)) File.Delete(stray);
+        DeleteStrays(directory);
 
         foreach (var file in Directory.EnumerateFiles(directory, "*.md").Order(StringComparer.Ordinal))
             if (TryLoad(file, project, out var record)) loaded.Add(record);

@@ -188,6 +188,25 @@ public class JobSchedulerTests
     }
 
     [Fact]
+    public async Task An_impossible_cron_says_so_once_not_on_every_tick()
+    {
+        var clock = new MutableClock();
+        var jobs = new InMemoryJobStore(clock.Get);
+        var options = new LyntaiOptions();
+        var logger = new CapturingLogger<JobScheduler>();
+        var sched = new JobScheduler(new JobQueue(jobs, options),
+            [new JobSchedule("feb30", "l", "t", "{}", Cron: "0 0 30 2 *")], options, new InMemoryKeyValueStore(), logger, clock.Get);
+
+        for (var tick = 0; tick < 3; tick++)
+        {
+            Assert.Equal(0, await sched.TickAsync());
+            clock.Advance(TimeSpan.FromHours(2));
+        }
+
+        Assert.Contains("feb30", Assert.Single(logger.Messages), StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void AddCronSchedule_validates_the_expression_eagerly()
     {
         var services = new ServiceCollection();
@@ -377,6 +396,19 @@ public class JobSchedulerStoreTests
         Assert.Single(_logger.Messages, m => m.Contains("schedule store", StringComparison.Ordinal));
     }
 
+    [Fact]
+    public async Task A_list_the_timeout_gave_up_on_is_cancelled_so_a_hung_connection_is_not_left_to_pile_up()
+    {
+        var options = new LyntaiOptions();
+        options.Jobs.ScheduleStoreTimeout = TimeSpan.FromMilliseconds(100);
+        var store = new HangingStore { Hang = true };
+        var scheduler = new JobScheduler(new JobQueue(Jobs, options), [], store, options, _kv, _logger, _clock.Get);
+
+        await scheduler.TickAsync().WaitAsync(TimeSpan.FromSeconds(5));
+
+        Assert.True(store.Seen.IsCancellationRequested);
+    }
+
     [Theory]
     [InlineData(" ", null, "@hourly")]                    // a blank name
     [InlineData("both", 10, "@hourly")]                    // both triggers
@@ -410,8 +442,15 @@ public class JobSchedulerStoreTests
     {
         public bool Hang { get; set; }
 
-        public Task<IReadOnlyList<JobSchedule>> ListAsync(CancellationToken ct = default) =>
-            Hang ? new TaskCompletionSource<IReadOnlyList<JobSchedule>>().Task : Task.FromResult<IReadOnlyList<JobSchedule>>([]);
+        /// <summary>The token the last hung list was handed.</summary>
+        public CancellationToken Seen { get; private set; }
+
+        public Task<IReadOnlyList<JobSchedule>> ListAsync(CancellationToken ct = default)
+        {
+            if (!Hang) return Task.FromResult<IReadOnlyList<JobSchedule>>([]);
+            Seen = ct;
+            return new TaskCompletionSource<IReadOnlyList<JobSchedule>>().Task;
+        }
 
         public Task<JobSchedule?> GetAsync(string name, CancellationToken ct = default) => throw new NotSupportedException();
 

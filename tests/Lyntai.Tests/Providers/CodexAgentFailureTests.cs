@@ -60,6 +60,23 @@ public class CodexAgentFailureTests
         Assert.Equal(RecoveryKind.Unknown, failure.Restriction.Recovery.Kind);
     }
 
+    // Codex's own refresh-failure sentences, from its source (codex-rs login auth manager) rather than a capture here:
+    // the login is spent and a person signs in again, so the account is not usable until then
+    [Theory]
+    [InlineData("Your access token could not be refreshed because your refresh token has expired. Please log out and sign in again.")]
+    [InlineData("Your access token could not be refreshed because your refresh token was already used. Please log out and sign in again.")]
+    [InlineData("Your access token could not be refreshed because your refresh token was revoked. Please log out and sign in again.")]
+    [InlineData("Your access token could not be refreshed. Please log out and sign in again.")]
+    public async Task A_login_codex_could_not_refresh_is_a_sign_in_the_account_needs(string sentence)
+    {
+        var ended = await Run(FailedTurn(sentence));
+
+        Assert.Equal(ProviderVerdict.AuthFailed, ended.Verdict);
+        var failure = ended.Failure!;
+        Assert.Equal(AgentFailureKind.Access, failure.Kind);
+        Assert.Equal(AccessReason.SignInAgain, failure.AccessReadings!.ByWords);
+    }
+
     [Fact] // an unrecognised failure is fatal and says what decided it; the verdict stays the classifier's
     public async Task A_failure_no_table_reads_is_fatal()
     {

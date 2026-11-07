@@ -271,7 +271,7 @@ public static partial class ProviderVerdictClassifier
     // "unauthorized" alone is NOT enough (e.g. "user is unauthorized to read file X" is a tool/
     // permission message, not a provider-auth failure) — since AuthFailed now cools the host, it needs
     // auth context (a key/token/credential/401 nearby), mirroring how the rate-limit rule guards 429.
-    [GeneratedRegex(@"(?:invalid|incorrect|missing|expired)\s+(?:api[\s_-]?key|token|credential)|api[\s_-]?key\s+(?:not\s+)?(?:valid|found|provided)|authentication\s+(?:failed|error|required)|401\s+unauthorized|(?:api[\s_-]?key|token|credential|access|auth\w*)[\s\S]{0,40}unauthorized|unauthorized[\s\S]{0,40}(?:api[\s_-]?key|token|credential|access|client)|(?:http|status(?:\s+code)?|error|code)\s*[:=]?\s*40[13]\b", RegexOptions.IgnoreCase)]
+    [GeneratedRegex(@"(?:invalid|incorrect|missing|expired)\s+(?:api[\s_-]?key|token|credential)|api[\s_-]?key\s+(?:not\s+)?(?:valid|found|provided)|authentication\s+(?:failed|error|required)|401\s+unauthorized|(?:api[\s_-]?key|token|credential|access|auth\w*)[\s\S]{0,40}unauthorized|unauthorized[\s\S]{0,40}(?:api[\s_-]?key|token|credential|access|client)|(?:http|status(?:\s+code)?|error|code)\s*[:=]?\s*40[13]\b|refresh\s+token\s+(?:has\s+expired|was\s+(?:already\s+used|revoked))|access\s+token\s+could\s+not\s+be\s+refreshed", RegexOptions.IgnoreCase)]
     private static partial Regex AuthPattern();
 
     // Claude Code's recorded sign-in sentence is "Authentication required"; the rest are the same ask in other words

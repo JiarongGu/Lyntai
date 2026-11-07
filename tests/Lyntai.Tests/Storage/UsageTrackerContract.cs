@@ -134,4 +134,19 @@ public static class UsageTrackerContract
         Assert.Equal(UsageTotals.Empty, await tracker.TotalAsync());
         Assert.Equal(UsageTotals.Empty, await tracker.TotalAsync(consumer + "-a"));
     }
+    /// <summary>A global total is what is LEFT once every consumer is reset, not a running figure that an
+    /// accumulated rounding error can leave a hair above zero (0.1 + 0.2 + 0.3 minus each in turn is not 0).</summary>
+    [Unscoped("a null consumer sums the whole ledger")]
+    public static async Task Resetting_every_consumer_in_turn_leaves_the_global_total_Empty(IUsageTracker tracker, string consumer)
+    {
+        await tracker.ResetAsync();
+        string[] consumers = [consumer + "-a", consumer + "-b", consumer + "-c"];
+        await tracker.RecordAsync(consumers[0], Call(1, 0, 0.1));
+        await tracker.RecordAsync(consumers[1], Call(1, 0, 0.2));
+        await tracker.RecordAsync(consumers[2], Call(1, 0, 0.3));
+
+        foreach (var each in consumers) await tracker.ResetAsync(each);
+
+        Assert.Equal(UsageTotals.Empty, await tracker.TotalAsync());
+    }
 }

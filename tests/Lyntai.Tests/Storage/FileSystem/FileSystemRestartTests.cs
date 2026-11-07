@@ -223,4 +223,76 @@ public class FileSystemRestartTests : IDisposable
         Assert.Equal(["the deploy key rotates monthly"],
             (await store.RecallAsync("task", query: "deploy")).Select(m => m.Content));
     }
+
+    [Fact]
+    public async Task A_first_prompt_save_whose_pointer_cannot_be_written_leaves_no_revision_to_reappear()
+    {
+        var store = new FileSystemPromptVersionStore(_temp.Root);
+        var directory = Path.Combine(_temp.Directory, "prompts", RecordName.For("greet"));
+        var blocker = Path.Combine(directory, "active.md");
+        Directory.CreateDirectory(blocker); // a directory where the pointer file must go, so its write fails
+
+        await Assert.ThrowsAnyAsync<Exception>(() => store.SaveAsync("greet", "v1"));
+        Directory.Delete(blocker);
+
+        var after = new FileSystemPromptVersionStore(_temp.Reopen());
+        Assert.Empty(await after.HistoryAsync("greet")); // the save failed, so no revision was acknowledged
+        Assert.Equal(1, (await after.SaveAsync("greet", "v1 again")).Version);
+    }
+
+    [Fact]
+    public async Task A_thread_whose_first_write_was_cut_short_can_be_created_again()
+    {
+        // what a failed or interrupted first write leaves: the thread's directory holding only the temporary file
+        var directory = Path.Combine(_temp.Directory, "conversations", RecordName.For("t1"));
+        Directory.CreateDirectory(directory);
+        File.WriteAllText(Path.Combine(directory, "thread.md.tmp"), "");
+
+        var store = new FileSystemConversationStore(_temp.Root);
+
+        Assert.Equal("t1", (await store.CreateThreadAsync("t1")).Id);
+    }
+
+    [Fact]
+    public async Task A_message_that_cannot_be_encoded_leaves_no_temporary_file_behind()
+    {
+        var store = new FileSystemConversationStore(_temp.Root);
+        await store.CreateThreadAsync("t1");
+
+        // a lone surrogate, as a reply cut in the middle of a pair would carry
+        await Assert.ThrowsAnyAsync<Exception>(() => store.AppendMessageAsync("t1", "assistant", "cut \uD83D"));
+
+        var directory = Path.Combine(_temp.Directory, "conversations", RecordName.For("t1"));
+        Assert.Empty(Directory.GetFiles(directory, "*.tmp"));
+    }
+
+    [Fact]
+    public async Task A_hand_made_copy_of_a_curated_entry_is_one_entry_and_a_removal_takes_the_copy_too()
+    {
+        var id = await new FileSystemCuratedMemoryStore(_temp.Root).AddAsync("style", "use British spelling");
+        var file = Only("curated");
+        _temp.Root.Dispose();
+        File.Copy(file, Path.Combine(Path.GetDirectoryName(file)!, "zz-copy.md"));
+
+        var after = new FileSystemCuratedMemoryStore(_temp.Reopen());
+        Assert.Equal([id], (await after.ListAsync()).Select(e => e.Id));
+
+        Assert.True(await after.RemoveAsync(id));
+        Assert.Null(await new FileSystemCuratedMemoryStore(_temp.Reopen()).GetAsync(id)); // the copy did not bring it back
+    }
+
+    [Fact]
+    public async Task A_hand_made_copy_of_a_memory_is_one_memory_and_a_forget_takes_the_copy_too()
+    {
+        await new FileSystemMemoryStore(_temp.Root, new LyntaiOptions()).RememberAsync("task", "scope", "the deploy key rotates monthly");
+        var file = Only("memory");
+        _temp.Root.Dispose();
+        File.Copy(file, Path.Combine(Path.GetDirectoryName(file)!, "zz-copy.md"));
+
+        var after = new FileSystemMemoryStore(_temp.Reopen(), new LyntaiOptions());
+        Assert.Single(await after.RecallAsync("task"));
+
+        await after.ForgetAsync("task");
+        Assert.Empty(await new FileSystemMemoryStore(_temp.Reopen(), new LyntaiOptions()).RecallAsync("task"));
+    }
 }

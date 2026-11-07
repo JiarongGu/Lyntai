@@ -148,7 +148,7 @@ public sealed class InMemoryScoreStore : IScoreStore
                 .. _bySession.Values.SelectMany(l => l)
                     .GroupBy(r => r.ScorerId, StringComparer.Ordinal)
                     .OrderBy(g => g.Key, StringComparer.Ordinal)
-                    .Select(g => new ScorerAggregate(g.Key, g.First().ScorerName, g.Average(r => r.Score), g.Count())),
+                    .Select(g => new ScorerAggregate(g.Key, g.Select(r => r.ScorerName).Max(StringComparer.Ordinal)!, g.Average(r => r.Score), g.Count())),
             ];
             return Task.FromResult(agg);
         }

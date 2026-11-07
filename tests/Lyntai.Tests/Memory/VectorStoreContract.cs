@@ -227,6 +227,18 @@ public static class VectorStoreContract
             listed.OrderBy(x => x, StringComparer.Ordinal));
     }
 
+    /// <summary>A prefix holding a character outside the Basic Multilingual Plane is two UTF-16 units and ONE
+    /// character: a store that cut the collection to the prefix's <c>Length</c> in characters would match nothing.</summary>
+    public static async Task Listing_matches_a_prefix_holding_a_supplementary_plane_character(IVectorStore store, string c)
+    {
+        await store.UpsertAsync($"{c}-\U0001F600-a", "1", [1f, 0f, 0f], "A");
+        await store.UpsertAsync($"{c}-\U0001F601-b", "1", [1f, 0f, 0f], "B");
+
+        var listed = await ((IListableVectorStore)store).ListCollectionsAsync($"{c}-\U0001F600-");
+
+        Assert.Equal(new[] { $"{c}-\U0001F600-a" }, listed);
+    }
+
     /// <summary>A prefix is DATA, not a pattern: <c>%</c> and <c>_</c> are LIKE wildcards on both SQL
     /// backends, so a store that reached for LIKE would match collections a caller never asked for.</summary>
     public static async Task A_listing_prefix_is_never_read_as_a_pattern(IVectorStore store, string c)

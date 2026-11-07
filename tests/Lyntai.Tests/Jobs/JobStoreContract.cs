@@ -327,6 +327,20 @@ public static class JobStoreContract
         Assert.False(await store.ReportStepAsync(id, "intruder", step));
     }
 
+    public static async Task A_reported_stage_is_a_snapshot_a_later_edit_of_its_arguments_does_not_reach(IJobStore store, MutableClock clock, string lane = "default")
+    {
+        // a handler reuses one dictionary between reports; a store that kept the caller's instance would show a later
+        // report's values on the stage it read back
+        var id = await store.EnqueueAsync(Spec(lane));
+        await store.ClaimNextAsync(lane, "w1", Lease);
+        var arguments = new Dictionary<string, string> { ["done"] = "3" };
+
+        Assert.True(await store.ReportStageAsync(id, "w1", 3, 10, new JobMessage("Copying") { Code = "copy.stage", Arguments = arguments }));
+        arguments["done"] = "9";
+
+        Assert.Equal("3", (await store.GetAsync(id))!.StageMessage!.Arguments!["done"]);
+    }
+
     public static async Task A_stage_written_as_text_reads_as_a_plain_message(IJobStore store, MutableClock clock, string lane = "default")
     {
         // every row written before stage_detail existed looks like this

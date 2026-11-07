@@ -60,8 +60,10 @@ internal sealed class FileSystemConversationStore(FileSystemRoot root, Func<Date
             if (threads.ContainsKey(id)) throw new InvalidOperationException($"a thread '{id}' already exists");
             // A directory on disk that did not load is this id's thread with a thread.md that failed to parse:
             // creating over it would destroy that file and adopt its events.
+            // A failed or interrupted first write leaves only its temporary file, which is no thread's content.
             var directory = Path.Combine(_directory, RecordName.For(id));
-            if (Directory.Exists(directory))
+            FileSystemRoot.DeleteStrays(directory);
+            if (Directory.Exists(directory) && Directory.EnumerateFileSystemEntries(directory).Any())
                 throw new InvalidOperationException(
                     $"'{directory}' holds a thread for '{id}' that could not be read — repair or remove its {ThreadFile}");
             var thread = new Thread(new ChatThread(id, title, _clock(), metadata), directory);
