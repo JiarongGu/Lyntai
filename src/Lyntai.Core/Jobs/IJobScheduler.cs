@@ -117,7 +117,7 @@ public sealed class JobScheduler : IJobScheduler
             if (next is null || changed)
             {
                 // first sight, or a changed cron/interval → anchor the next run, don't fire now
-                await SetNextAsync(s.Name, NextAfter(s, now), ct).ConfigureAwait(false);
+                if (NextAfter(s, now) is { } anchor) await SetNextAsync(s.Name, anchor, ct).ConfigureAwait(false);
                 return false;
             }
             if (next.Value > now) return false; // not due yet
@@ -126,7 +126,7 @@ public sealed class JobScheduler : IJobScheduler
             _logger.LogDebug("scheduler: enqueued '{Name}' ({Type})", s.Name, s.Type);
 
             // advance to the next slot strictly after now — missed slots coalesce into this ONE run
-            await SetNextAsync(s.Name, NextAfter(s, now), ct).ConfigureAwait(false);
+            if (NextAfter(s, now) is { } following) await SetNextAsync(s.Name, following, ct).ConfigureAwait(false);
             return true;
         }
         catch (OperationCanceledException) when (ct.IsCancellationRequested) { throw; }
@@ -155,9 +155,19 @@ public sealed class JobScheduler : IJobScheduler
     }
 
     /// <summary>The next fire time strictly after <paramref name="from"/> — the cron's next occurrence, or
-    /// the interval advanced past <paramref name="from"/> (so a lapsed ticker coalesces to one slot).</summary>
-    private DateTimeOffset NextAfter(JobSchedule s, DateTimeOffset from) =>
-        Cron(s)?.Next(from) ?? from + s.Interval!.Value;
+    /// the interval advanced past <paramref name="from"/> (so a lapsed ticker coalesces to one slot); null for a cron that
+    /// never occurs.</summary>
+    private DateTimeOffset? NextAfter(JobSchedule s, DateTimeOffset from)
+    {
+        if (Cron(s) is not { } cron) return from + s.Interval!.Value;
+        try { return cron.Next(from); }
+        catch (InvalidOperationException ex) // an expression with no occurrence (Feb 30) stays that way, so it is said once
+        {
+            if (FirstSight("unreachable\n" + s.Name))
+                _logger.LogWarning(ex, "scheduler: skipping '{Name}' — its cron never occurs", s.Name);
+            return null;
+        }
+    }
 
     private bool IsValid(JobSchedule s)
     {
@@ -211,8 +221,12 @@ public sealed class JobScheduler : IJobScheduler
         if (_scheduleStore is null) return [];
         try
         {
-            // bounded: a hung store must not hold the pump, and a timeout is a failure like any other
-            var stored = await _scheduleStore.ListAsync(ct).WaitAsync(_options.Jobs.ScheduleStoreTimeout, ct).ConfigureAwait(false);
+            // bounded: a hung store must not hold the pump, and a timeout is a failure like any other; the call is
+            // handed a token that gives up with the wait, so a store that honours one does not hold a connection
+            // for every tick that follows
+            using var bound = CancellationTokenSource.CreateLinkedTokenSource(ct);
+            bound.CancelAfter(_options.Jobs.ScheduleStoreTimeout);
+            var stored = await _scheduleStore.ListAsync(bound.Token).WaitAsync(_options.Jobs.ScheduleStoreTimeout, ct).ConfigureAwait(false);
             Interlocked.Exchange(ref _storeFailing, 0);
             return stored;
         }

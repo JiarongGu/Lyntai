@@ -71,7 +71,9 @@ public sealed class InMemoryJobStore(Func<DateTimeOffset>? clock = null, int ste
         lock (_lock)
         {
             if (!Owned(id, workerId, out var j)) return Task.FromResult(false);
-            _jobs[id] = j with { Progress = done, Total = total, Stage = stage?.Text, StageMessage = stage, UpdatedAt = now }; // NOT a lease renewal
+            // a copy of the arguments, as the SQL stores' stored text is one; NOT a lease renewal
+            var kept = stage is { Arguments: { } args } ? stage with { Arguments = new Dictionary<string, string>(args) } : stage;
+            _jobs[id] = j with { Progress = done, Total = total, Stage = stage?.Text, StageMessage = kept, UpdatedAt = now };
             return Task.FromResult(true);
         }
     }
