@@ -240,10 +240,31 @@ public static class AgentAbilities
     /// states it <see cref="AgentSupport.Unsupported"/>.</summary>
     public const string Environment = "environment";
 
+    /// <summary>Open an <see cref="IAgentRun"/> through <see cref="IAgentRunProvider"/>: one process kept across turns. Not
+    /// something a turn asks for. A door states it <see cref="AgentSupport.Supported"/> only where a run of it was measured.</summary>
+    public const string KeptRun = "kept-run";
+
+    /// <summary>Take a second prompt on a run's busy process: the agent queues it and folds it into the running turn at its next
+    /// step, so the earlier turn ends <c>folded</c>. Needs <see cref="KeptRun"/>.</summary>
+    public const string QueuedWords = "queued-words";
+
+    /// <summary>Stop a run's turn and then run an ordinary one on the same process and conversation. Needs <see cref="KeptRun"/>.</summary>
+    public const string KeepingStop = "keeping-stop";
+
+    /// <summary>Change the model between a run's turns. Needs <see cref="KeptRun"/>.</summary>
+    public const string ModelReask = "model-reask";
+
+    /// <summary>Tell the frames an agent replays when it loads a conversation from the ones it sends live. Needs <see cref="KeptRun"/>.</summary>
+    public const string ReplayTold = "replay-told";
+
+    /// <summary>Open the session again on a run's live process. The library never does it itself: an open that fails ends the
+    /// run, and the host opens another one. Needs <see cref="KeptRun"/>.</summary>
+    public const string RepeatableOpen = "repeatable-open";
+
     /// <summary>Every ability a provider states, in a fixed order.</summary>
     public static IReadOnlyList<string> All { get; } =
         [Resume, ReadOnlyGate, McpServers, DisallowedTools, SystemPrompt, Model, Steering, PlanEvents, LiveUsage, TypedFailures, Accounts, UsageReading, PermissionRequests,
-            PermissionMode, Effort, Plugins, Environment];
+            PermissionMode, Effort, Plugins, Environment, KeptRun, QueuedWords, KeepingStop, ModelReask, ReplayTold, RepeatableOpen];
 
     /// <summary>The abilities <paramref name="options"/> asks a door for. Only the option-shaped ones appear:
     /// an event ability (plan events, live usage) is something a door emits, not something a turn asks for.</summary>

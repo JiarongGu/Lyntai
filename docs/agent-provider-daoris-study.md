@@ -224,7 +224,7 @@ Daoris takes the layer from a pack of a named commit (§9, **D235**) and moves a
 Daoris does on that door today, case for case. It asked, read at `master` `8aacfb8f`, for twelve needs numbered **A-LQ** (the LQ
 numbers are Daoris's memory requests). Each was read against the code as it stands and put to the generic-library test with the
 asker struck; **none is built**, and a need declined keeps Daoris's own transport on that door. The rulings are **D244** to
-**D249**; the rows are `TASKS.md` Part 446, AG25 to AG45.
+**D249**; the rows were AG25 to AG45, each archived in `docs/task-archive.md` in the order it landed.
 
 | Need | Ruling | Row | Decision |
 |---|---|---|---|
@@ -379,5 +379,5 @@ re-open condition (a host that needs a word taken mid-turn) met and unserved, wh
 ### 11.4 The rows
 
 AG46 (the type, the open, a turn, a stop and the abilities of §11.1, on the Claude protocol door), then AG47 (a word taken mid-turn
-and the refusals above) and AG48 (the woken turn and background work read until it ends) in `TASKS.md` Part 446. Their captures are
+and the refusals above) and AG48 (the woken turn and background work read until it ends), archived as `docs/task-archive.md` Parts 469 to 471. Their captures are
 SOURCE-DERIVED from Daoris's notes, which a real one replaces when it arrives, and none spends an account.

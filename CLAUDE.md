@@ -11,9 +11,9 @@ SemVer 2.0 since 1.0 for every package (**D70**).
 The reasoning is `docs/DECISIONS.md`, **D1–D252** — read its generated index table rather than any list of
 decisions kept here.
 
-**The baseline a green run should match:** `7023 passed / 7108 total, 85 skipped` (every skip is a
-live-backend gate), e2e 3/3, guard-script tests 1023/1023, doc samples 82/82 — MEASURED with Docker up at
-`5dbc14e9` (2026-11-07). No gate holds the xUnit trio (`docs/GATES.md` §Which numbers a gate holds), so:
+**The baseline a green run should match:** `7050 passed / 7135 total, 85 skipped` (every skip is a
+live-backend gate), e2e 3/3, guard-script tests 1023/1023, doc samples 83/83 — MEASURED with Docker up at
+`403a27c3` (2026-11-07). No gate holds the xUnit trio (`docs/GATES.md` §Which numbers a gate holds), so:
 
 - **Re-measure it by hand after `verify`, off that run's own output**, never from a diff, and re-attest the
   COMMIT with the figures whenever they move.

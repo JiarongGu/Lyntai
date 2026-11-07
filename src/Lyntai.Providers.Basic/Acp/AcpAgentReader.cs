@@ -35,7 +35,10 @@ internal sealed class AcpAgentReader
     private const int SetEffortId = 6;
     private const int MaxOfferedNamed = 25;
 
-    private enum Phase { Initializing, Opening, Configuring, Prompting, Done }
+    // a kept run's prompts count from here, so no id of the handshake's own can be read as one
+    private const int KeptPromptBase = 100;
+
+    private enum Phase { Initializing, Opening, Configuring, Prompting, Kept, Done }
 
     private readonly AgentSessionOptions _options;
     private readonly string _cwd;
@@ -43,12 +46,26 @@ internal sealed class AcpAgentReader
     private readonly ChannelWriter<string> _outbox;
     private readonly TimeProvider _time;
     private readonly object _gate = new();
-    private readonly StringBuilder _answer = new();
-    private readonly HashSet<string> _startedTools = new(StringComparer.Ordinal);
+    private readonly bool _kept;
+    private readonly Func<AcpTurnState, object?>? _wokenSink;
+    private readonly Action? _wokenMoved;
+    private readonly AcpTurnState _single = new();
+    private readonly AcpTurnState _idle = new();
+    private readonly List<AcpTurnState> _outstanding = [];
+    private readonly List<AgentStreamEvent> _pendingTasks = [];
+    private readonly HashSet<string> _tasksStarted = new(StringComparer.Ordinal);
+    private readonly Dictionary<string, string> _tasksEnded = new(StringComparer.Ordinal);
+    private AcpTurnState _current;
+    private AcpTurnState? _frameTurn;
+    private AcpTurnState? _woken;
+    private int _nextPrompt = KeptPromptBase;
+    private int _wokenSeq;
+    private bool _systemPending;
     private Phase _phase = Phase.Initializing;
     private string? _sessionId;
     private bool _cancelSent;
-    private readonly AcpExtensionSet _extensions;
+    private readonly IReadOnlyList<IAcpExtensionReader> _readers;
+    private AcpExtensionSet _extensions;
     private AcpModelOption? _modelOption;
     private AcpModelOption? _effortOption;
     private readonly Queue<(int Id, string Frame)> _steps = new();
@@ -60,7 +77,6 @@ internal sealed class AcpAgentReader
     private readonly ILogger _logger;
     private readonly List<HeldPermission> _held = [];
     private int _frames;
-    private readonly UnreadFrames _unread = new();
     private string _line = "";
     private int _promptFrame = -1;
     private volatile bool _promptAnswered;
@@ -77,11 +93,22 @@ internal sealed class AcpAgentReader
     /// <param name="logger">Diagnostics; null = none.</param>
     /// <param name="pause">Given when the wait is the approver's: a request waits as long as the approver holds it, and the
     /// runner's inactivity window is paused for as long as any request is held. Null = half the window, then a refusal.</param>
+    /// <param name="kept">True for a run kept across turns: the open ends idle instead of prompting, <see cref="TryPrompt"/> sends
+    /// each prompt, and a prompt's answer ends that turn and nothing else. <see cref="ReadRun"/> reads, never <see cref="Read"/>.</param>
+    /// <param name="wokenSink">Kept only: builds what receives a woken turn's events, called as the turn begins.</param>
+    /// <param name="wokenMoved">Kept only: told, off the lock, when a held request is answered, since the woken turn's quiet then
+    /// counts again and no frame says so.</param>
     public AcpAgentReader(
         AgentSessionOptions options, string cwd, string clientVersion, ChannelWriter<string> outbox, TimeProvider time,
         IReadOnlyList<IAcpExtensionReader> extensions, IAcpPermissionApprover? approver = null,
-        TimeSpan inactivity = default, ILogger? logger = null, InactivityPause? pause = null)
+        TimeSpan inactivity = default, ILogger? logger = null, InactivityPause? pause = null,
+        bool kept = false, Func<AcpTurnState, object?>? wokenSink = null, Action? wokenMoved = null)
     {
+        _kept = kept;
+        _wokenSink = wokenSink;
+        _wokenMoved = wokenMoved;
+        _current = kept ? _idle : _single;
+        _systemPending = kept && !string.IsNullOrEmpty(options.SystemPrompt);
         _approver = approver;
         _pause = pause;
         // no window to halve (a host that configured none, or a reader built without one): the request waits on the approver alone
@@ -92,6 +119,7 @@ internal sealed class AcpAgentReader
         _clientVersion = clientVersion;
         _outbox = outbox;
         _time = time;
+        _readers = extensions;
         _extensions = new AcpExtensionSet(extensions, time);
     }
 
@@ -103,7 +131,7 @@ internal sealed class AcpAgentReader
     public bool PromptAnswered => _promptAnswered;
 
     /// <summary>Queue <c>initialize</c>, the first frame.</summary>
-    public void Start() => Send(AcpFrames.Initialize(InitializeId, _clientVersion));
+    public void Start() => Send(AcpFrames.Initialize(InitializeId, _clientVersion, asyncTasks: _kept));
 
     /// <summary>Ask the agent to stop the running turn with <c>session/cancel</c>. False when no prompt is in
     /// flight, which leaves nothing to cancel but the process.</summary>
@@ -121,7 +149,7 @@ internal sealed class AcpAgentReader
 
     /// <summary>The frames no case here took: a request that is not a permission request, a notification that is not a
     /// session update, and an update of a kind with no case.</summary>
-    public IReadOnlyList<AgentUnreadFrame> Unread() => _unread.Snapshot();
+    public IReadOnlyList<AgentUnreadFrame> Unread() => _single.Unread.Snapshot();
 
     /// <summary>One line the agent wrote, as 0..N events.</summary>
     public IReadOnlyList<AgentStreamEvent> Read(string line)
@@ -138,6 +166,129 @@ internal sealed class AcpAgentReader
         catch (Exception ex) when (WireJson.IsShapeFault(ex))
         {
             return [];
+        }
+    }
+
+    /// <summary>One line the agent wrote to a kept run, as 0..N events each with the turn it belongs to. A null turn is the run's
+    /// own: the open's events and its terminal. A frame no turn owns is dropped, but a task's start or end waits for the next turn
+    /// to begin, since it is the one thing a host reading turns would otherwise never see.</summary>
+    public IReadOnlyList<(AcpTurnState? Turn, AgentStreamEvent Event)> ReadRun(string line)
+    {
+        if (string.IsNullOrWhiteSpace(line)) return [];
+        _line = line;
+        try
+        {
+            using var doc = JsonDocument.Parse(line);
+            var events = new List<AgentStreamEvent>();
+            lock (_gate)
+            {
+                var open = _phase == Phase.Kept;
+                _frameTurn = null;
+                _current = _idle;
+                ReadFrame(doc.RootElement, events);
+                if (_frameTurn is null && open)
+                {
+                    _pendingTasks.AddRange(events.Where(e => e is AgentTaskStarted or AgentTaskEnded));
+                    return [];
+                }
+
+                var turn = _frameTurn;
+                return [.. events.Select(e => (turn, e))];
+            }
+        }
+        catch (Exception ex) when (WireJson.IsShapeFault(ex))
+        {
+            return [];
+        }
+    }
+
+    /// <summary>Send a prompt on a kept run: the first turn of an idle one, or a word on a busy one when <paramref name="queuedWords"/>.
+    /// Decided and sent under one lock, so a woken turn or a held request cannot begin between the look and the frame.</summary>
+    /// <param name="text">The prompt's words.</param>
+    /// <param name="queuedWords">Whether the door takes a word on a busy run.</param>
+    /// <param name="sinkFor">Builds what receives the turn's events, called under the lock with the turn.</param>
+    /// <param name="turn">The turn the prompt opened; null when it was refused.</param>
+    public AcpPromptRefusal TryPrompt(string text, bool queuedWords, Func<AcpTurnState, object?> sinkFor, out AcpTurnState? turn)
+    {
+        lock (_gate)
+        {
+            turn = null;
+            if (!_kept || _phase != Phase.Kept) return AcpPromptRefusal.Over;
+            if (_held.Count > 0) return AcpPromptRefusal.RequestHeld;
+            if (_woken is not null) return AcpPromptRefusal.WokenRunning;
+            if (_outstanding.Count > 0 && !queuedWords) return AcpPromptRefusal.Busy;
+
+            // what the readers held from the last turn's updates (a rejected allowance report) is not this turn's failure
+            if (_outstanding.Count == 0) _extensions = new AcpExtensionSet(_readers, _time);
+            string[] blocks = _systemPending ? [_options.SystemPrompt!, text] : [text];
+            _systemPending = false;
+            turn = new AcpTurnState { Id = _nextPrompt++, FrameIndex = Volatile.Read(ref _frames), LastSpoke = _time.GetUtcNow() };
+            turn.Carried.AddRange(_pendingTasks);
+            _pendingTasks.Clear();
+            turn.Sink = sinkFor(turn);
+            _outstanding.Add(turn);
+            Send(AcpFrames.Prompt(turn.Id, _sessionId!, blocks));
+            return AcpPromptRefusal.None;
+        }
+    }
+
+    /// <summary>Cancel the one sent turn that runs. False, sending nothing, where none runs, a stop is already out, or a word is on
+    /// its way: a cancel then loses that word's answer, since the agent keeps what is queued and runs it with its output dropped.</summary>
+    public bool TryCancelRun(out AcpTurnState? turn)
+    {
+        lock (_gate)
+        {
+            turn = _outstanding.Count == 1 ? _outstanding[0] : null;
+            if (!_kept || _phase != Phase.Kept || turn is null || turn.CancelSent || _sessionId is null) return false;
+            turn.CancelSent = true;
+            Send(AcpFrames.Cancel(_sessionId));
+            ReleaseHeld(answerCancelled: true);
+            return true;
+        }
+    }
+
+    /// <summary>Whether a sent turn is running, which is when the process's inactivity window counts.</summary>
+    public bool SentRunning
+    {
+        get
+        {
+            lock (_gate) return _outstanding.Count > 0;
+        }
+    }
+
+    /// <summary>The conversation's id once opened.</summary>
+    public string? SessionId
+    {
+        get
+        {
+            lock (_gate) return _sessionId;
+        }
+    }
+
+    /// <summary>What is left of a woken turn's <paramref name="quiet"/>, or null where none runs or it cannot end by silence yet
+    /// because a call it made is open or a request is held for the host.</summary>
+    public TimeSpan? WokenQuietLeft(TimeSpan quiet)
+    {
+        lock (_gate)
+        {
+            if (_woken is null || _woken.OpenCalls.Count > 0 || _held.Count > 0) return null;
+            var left = _woken.LastSpoke + quiet - _time.GetUtcNow();
+            return left > TimeSpan.Zero ? left : TimeSpan.Zero;
+        }
+    }
+
+    /// <summary>End the woken turn if <paramref name="quiet"/> has passed with nothing said; its terminal says
+    /// <see cref="AgentRunSubtypes.Quiet"/>.</summary>
+    public IReadOnlyList<(AcpTurnState? Turn, AgentStreamEvent Event)> EndWokenIfQuiet(TimeSpan quiet)
+    {
+        lock (_gate)
+        {
+            if (WokenQuietLeft(quiet) is not { } left || left > TimeSpan.Zero) return [];
+            var woken = _woken!;
+            _woken = null;
+            woken.Answered = true;
+            var said = woken.Answer.Length > 0 ? woken.Answer.ToString() : null;
+            return [(woken, new SessionEnded(ProviderVerdict.Ok, false, AgentRunSubtypes.Quiet, _sessionId, said, null))];
         }
     }
 
@@ -160,12 +311,41 @@ internal sealed class AcpAgentReader
             return;
         }
 
-        if (method == "session/update" && _phase == Phase.Prompting &&
+        if (method == "session/update" && (_phase == Phase.Prompting || _phase == Phase.Kept) &&
             WireJson.Object(root, "params") is { } parameters && ForThisSession(parameters) &&
             WireJson.Object(parameters, "update") is { } update)
+        {
+            if (_kept) RouteKept(update);
             ReadUpdate(update, events);
+        }
         else if (method != "session/update")
-            _unread.Note("notification", method, _line);
+            _current.Unread.Note("notification", method, _line);
+    }
+
+    // A kept run's update belongs to the oldest turn a prompt opened that is not answered, since the agent answers a folded
+    // word's earlier prompt at the moment it takes the word and everything after is the later one's. With none running, one of
+    // the agent's own words, thoughts, calls or plans is a woken turn beginning; anything else belongs to no turn.
+    private void RouteKept(JsonElement update)
+    {
+        var kind = WireJson.String(update, "sessionUpdate");
+        var turn = _outstanding.Count > 0 ? _outstanding[0] : _woken;
+        if (turn is null && kind is "agent_message_chunk" or "agent_thought_chunk" or "plan" or "tool_call")
+            turn = BeginWoken();
+        if (turn is null) return;
+        _frameTurn = turn;
+        _current = turn;
+        if (kind is "agent_message_chunk" or "agent_thought_chunk" or "plan" or "tool_call" or "tool_call_update")
+            turn.LastSpoke = _time.GetUtcNow();
+    }
+
+    private AcpTurnState BeginWoken()
+    {
+        var woken = new AcpTurnState { Id = ++_wokenSeq, Woken = true, LastSpoke = _time.GetUtcNow() };
+        woken.Carried.AddRange(_pendingTasks);
+        _pendingTasks.Clear();
+        woken.Sink = _wokenSink?.Invoke(woken);
+        _woken = woken;
+        return woken;
     }
 
     private bool ForThisSession(JsonElement parameters) =>
@@ -177,6 +357,12 @@ internal sealed class AcpAgentReader
     {
         var error = WireJson.Object(root, "error");
         var result = WireJson.Object(root, "result") ?? default;
+        if (_kept && _phase == Phase.Kept)
+        {
+            if (id >= KeptPromptBase) ReadKeptAnswer(id, error, result, events);
+            return;
+        }
+
         switch (id)
         {
             case InitializeId when _phase == Phase.Initializing:
@@ -240,6 +426,21 @@ internal sealed class AcpAgentReader
                 EndPrompt(error, result, events);
                 break;
         }
+    }
+
+    // A kept run's prompt is answered on its own: its turn ends, the process and the others go on. An earlier prompt answered
+    // end_turn with every count 0 while a later word is out is the fold the agent makes when it takes that word (recorded).
+    private void ReadKeptAnswer(int id, JsonElement? error, JsonElement result, List<AgentStreamEvent> events)
+    {
+        var at = _outstanding.FindIndex(turn => turn.Id == id);
+        if (at < 0) return;
+        var answered = _outstanding[at];
+        var later = at < _outstanding.Count - 1;
+        _outstanding.RemoveAt(at);
+        answered.Answered = true;
+        _current = answered;
+        _frameTurn = answered;
+        EndPrompt(error, result, events, later);
     }
 
     // A mode is set through session/set_mode with an id the open's modes answer offers, an effort through the config option
@@ -314,6 +515,12 @@ internal sealed class AcpAgentReader
     private void StartPrompt(List<AgentStreamEvent> events)
     {
         events.Add(new SessionStarted(_sessionId!));
+        if (_kept)
+        {
+            _phase = Phase.Kept;
+            return;
+        }
+
         _phase = Phase.Prompting;
         string[] blocks = string.IsNullOrEmpty(_options.SystemPrompt)
             ? [_options.Prompt]
@@ -406,14 +613,16 @@ internal sealed class AcpAgentReader
     {
         if (method != "session/request_permission")
         {
-            _unread.Note("request", method, _line);
+            _current.Unread.Note("request", method, _line);
             Send(AcpFrames.MethodNotFound(id, method));
             return;
         }
 
+        // with no turn running, a request is the agent's own turn beginning, as its first word would be
+        if (_kept && _phase == Phase.Kept && _outstanding.Count == 0 && _woken is null) BeginWoken();
         var parameters = WireJson.Object(root, "params");
         var offered = parameters is { } p ? OfferedOptions(p) : [];
-        if (_approver is null || _options.ToolPolicy == AgentToolPolicy.ReadOnly || _phase != Phase.Prompting)
+        if (_approver is null || _options.ToolPolicy == AgentToolPolicy.ReadOnly || _phase != (_kept ? Phase.Kept : Phase.Prompting))
         {
             Send(PermissionAnswer(id, _options.ToolPolicy == AgentToolPolicy.ReadOnly ? AcpPermissionAnswer.Deny : AcpPermissionAnswer.Approve, offered));
             return;
@@ -476,9 +685,11 @@ internal sealed class AcpAgentReader
             {
                 if (!_held.Remove(held)) return;
                 Send(PermissionAnswer(held.Id, answer, request.Options));
+                if (_woken is not null) _woken.LastSpoke = _time.GetUtcNow();   // the turn goes on from here, so its quiet counts from here
             }
             held.Pause?.Dispose();
             held.Window.Dispose();
+            _wokenMoved?.Invoke();
         });
     }
 
@@ -512,7 +723,7 @@ internal sealed class AcpAgentReader
         {
             case "agent_message_chunk" when ChunkText(update) is { } text:
                 // a stamped chunk is a child's: it is not the session's answer
-                if (ParentOf(update) is not { } textParent) _answer.Append(text);
+                if (ParentOf(update) is not { } textParent) _current.Answer.Append(text);
                 events.Add(new TextDelta(text) { ParentCallId = ParentOf(update) });
                 break;
 
@@ -536,13 +747,34 @@ internal sealed class AcpAgentReader
                 AddContext(update, events);
                 break;
 
+            // the frames for work the agent backgrounds, which only a kept run asks for (AIR's asyncTasks): its tool call's own
+            // result says nothing of the work's end, and the adapter says stopped and then completed in one breath for a task
+            // that finished by itself, so each differing ending is an event and the last is the ending
+            case "async_task_spawned" when _kept && WireJson.String(update, "asyncTaskId") is { } spawned:
+                if (_tasksStarted.Add(spawned))
+                    events.Add(new AgentTaskStarted(spawned, WireJson.String(update, "taskType"),
+                        WireJson.String(update, "description") ?? WireJson.String(update, "name"), WireJson.String(update, "toolCallId")));
+                break;
+
+            case "async_task_state_update" when _kept && WireJson.String(update, "asyncTaskId") is { } stated:
+                if (WireJson.String(update, "state") is { } state and not ("running" or "paused")
+                    && !(_tasksEnded.TryGetValue(stated, out var before) && before == state))
+                {
+                    _tasksEnded[stated] = state;
+                    events.Add(new AgentTaskEnded(stated, state));
+                }
+                break;
+
             // known updates that carry nothing a turn reports
             case "user_message_chunk" or "available_commands_update" or "current_mode_update" or "config_option_update"
                 or "session_info_update":
                 break;
 
+            case "async_task_progress" when _kept:
+                break;
+
             case { } other:
-                _unread.Note("session/update", other, _line);
+                _current.Unread.Note("session/update", other, _line);
                 break;
         }
 
@@ -583,15 +815,27 @@ internal sealed class AcpAgentReader
     private void ReadToolCall(JsonElement update, List<AgentStreamEvent> events)
     {
         if (WireJson.String(update, "toolCallId") is not { } id) return;
-        if (_startedTools.Add(id)) events.Add(new ToolCall(ToolName(update), update.GetRawText(), id) { ParentCallId = ParentOf(update) });
-        if (IsFinished(update, out var failed)) events.Add(new ToolResult(id, update.GetRawText(), failed) { ParentCallId = ParentOf(update) });
+        if (_current.StartedTools.Add(id)) events.Add(new ToolCall(ToolName(update), update.GetRawText(), id) { ParentCallId = ParentOf(update) });
+        if (IsFinished(update, out var failed))
+        {
+            _current.OpenCalls.Remove(id);
+            events.Add(new ToolResult(id, update.GetRawText(), failed) { ParentCallId = ParentOf(update) });
+        }
+        else
+            _current.OpenCalls.Add(id);
     }
 
     private void ReadToolUpdate(JsonElement update, List<AgentStreamEvent> events)
     {
         if (WireJson.String(update, "toolCallId") is not { } id) return;
-        if (!IsFinished(update, out var failed)) return;
-        if (_startedTools.Add(id)) events.Add(new ToolCall(ToolName(update), update.GetRawText(), id) { ParentCallId = ParentOf(update) });   // never seen start: still visible
+        if (!IsFinished(update, out var failed))
+        {
+            if (WireJson.String(update, "status") is "pending" or "in_progress") _current.OpenCalls.Add(id);
+            return;
+        }
+
+        _current.OpenCalls.Remove(id);
+        if (_current.StartedTools.Add(id)) events.Add(new ToolCall(ToolName(update), update.GetRawText(), id) { ParentCallId = ParentOf(update) });   // never seen start: still visible
         events.Add(new ToolResult(id, update.GetRawText(), failed) { ParentCallId = ParentOf(update) });
     }
 
@@ -607,7 +851,7 @@ internal sealed class AcpAgentReader
 
     // ── the end of the turn ──────────────────────────────────────────────────
 
-    private void EndPrompt(JsonElement? error, JsonElement result, List<AgentStreamEvent> events)
+    private void EndPrompt(JsonElement? error, JsonElement result, List<AgentStreamEvent> events, bool laterOutstanding = false)
     {
         if (error is { } promptError)
         {
@@ -631,7 +875,8 @@ internal sealed class AcpAgentReader
         switch (stopReason)
         {
             case "end_turn":
-                End(events, new SessionEnded(ProviderVerdict.Ok, false, null, _sessionId, _answer.Length > 0 ? _answer.ToString() : null, null));
+                End(events, new SessionEnded(ProviderVerdict.Ok, false, laterOutstanding && UsageIsZero(result) ? AgentRunSubtypes.Folded : null,
+                    _sessionId, _current.Answer.Length > 0 ? _current.Answer.ToString() : null, null));
                 break;
             case "refusal":
                 End(events, new SessionEnded(ProviderVerdict.Refused, true, "refusal", _sessionId, null, "the agent refused the prompt (stopReason refusal)")
@@ -644,6 +889,11 @@ internal sealed class AcpAgentReader
                 break;
         }
     }
+
+    // a fold's answer states no work done: no usage, or every count 0 (recorded: the earlier prompt of a folded word)
+    private static bool UsageIsZero(JsonElement result) =>
+        WireJson.Object(result, "usage") is not { } usage
+        || new[] { "inputTokens", "outputTokens", "cachedReadTokens", "cachedWriteTokens" }.All(name => (WireJson.Int64(usage, name) ?? 0) == 0);
 
     // codex-acp's counts exclude what it read from a cache, claude's do not: the figures are the agent's own,
     // and only a count the agent sent is a number
@@ -675,6 +925,13 @@ internal sealed class AcpAgentReader
     private void End(List<AgentStreamEvent> events, SessionEnded terminal)
     {
         events.Add(terminal);
+        if (_kept && _phase == Phase.Kept)
+        {
+            // a kept run's turn ends alone: the process stays up, and a request nobody is left to answer is released
+            if (_outstanding.Count == 0 && _woken is null) ReleaseHeld(answerCancelled: false);
+            return;
+        }
+
         _phase = Phase.Done;
         ReleaseHeld(answerCancelled: false);
         _outbox.TryComplete();

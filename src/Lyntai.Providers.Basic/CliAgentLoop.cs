@@ -35,7 +35,7 @@ internal static class CliAgentLoop
     // What a failed turn had shown after its prompt was written — the one place delivery is decided, for every door.
     // A tool step that had begun may have acted, so it is uncertain; any other answer to the prompt means the door
     // took it; nothing at all shows no sign it was read. The turn's evidence rides every terminal.
-    private static SessionEnded Stamp(SessionEnded ended, TurnWatch watch)
+    internal static SessionEnded Stamp(SessionEnded ended, TurnWatch watch)
     {
         var withTurn = ended with { Turn = watch.Evidence(), Unread = watch.Unread() };
         if (!ended.IsError) return withTurn;
@@ -47,7 +47,7 @@ internal static class CliAgentLoop
     // The events that show the agent read the prompt. A session start is not one where the door announces it before it
     // writes the prompt (the protocol door), and an event that says nothing of the prompt (an offer, an allowance
     // report) is not one on any door.
-    private sealed class TurnWatch(
+    internal sealed class TurnWatch(
         bool announcesBeforeWrite, Func<bool?> written, Func<bool> answered, Func<IReadOnlyList<AgentUnreadFrame>> unread)
     {
         private readonly List<AgentShownKind> _shown = [];
@@ -89,7 +89,7 @@ internal static class CliAgentLoop
 
     // A process fault is the harness's, not the door's: only its stderr may name an access failure, a stalled
     // window is transient, and anything else is fatal.
-    private static AgentFailure FaultFailure(Exception ex, ProviderVerdict verdict) => ex switch
+    internal static AgentFailure FaultFailure(Exception ex, ProviderVerdict verdict) => ex switch
     {
         ProcessTimeoutException => new AgentFailure(AgentFailureKind.Transient, "process.inactivity-timeout"),
         ProcessRunException when verdict is ProviderVerdict.AuthFailed or ProviderVerdict.NotConfigured =>

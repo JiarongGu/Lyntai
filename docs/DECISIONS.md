@@ -7247,7 +7247,7 @@ unseen shape loses an answer whose windows read fine). A count of skipped rows o
 ## D251 — a run kept across turns is a separate optional type, built first for the one door with a measured record, and a door states `Unknown` where no record shows it (2026-11-07)
 
 **Standing.** As **D248** (A-LQ3's third step); written from `docs/agent-provider-daoris-study.md` §11, which holds the table of doors
-and what it rests on. A working position, nothing built, frozen from release once it is (**D70**). It meets **D233**'s trigger and
+and what it rests on. Built (AG46 to AG48), frozen from release (**D70**). It meets **D233**'s trigger and
 keeps that entry's other half: a hosted agent stays out.
 
 **Decided.**
@@ -7260,7 +7260,8 @@ keeps that entry's other half: a hosted agent stays out.
 - **A word taken mid-turn** folds the earlier turn (subtype `folded`, success, usage 0) and the later owns the rest; the run never
   cancels with a word on its way, and refuses `SendAsync` while a permission request is held or a woken turn runs, since no record
   shows either together with a word.
-- **A woken turn** is surfaced on the run and ended only by a host-set quiet bound, which has no default.
+- **A woken turn** is surfaced on the run and ended only by a host-set quiet bound, which has no default. A task's start or end seen while no
+  turn runs begins the next turn to start, so a host reading turns in order never misses the ending that woke one.
 - **A replayed frame is not an event, and an open is never repeated by the library**: a failed open ends the run and the host opens a
   new one. The two capabilities are stated `Unknown` until a run shows them.
 
@@ -7273,7 +7274,8 @@ unknowns are the ones whose wrong answer loses a word or hangs a turn (a held re
 - **Building every door's kept run from its source** (the Codex protocol door's steering and the native door's mid-turn line were never
   run, and a claim read from source is not a measurement).
 - **No kept run** (it leaves **D233**'s trigger met and unserved, and keeps a host's own transport on the one door with a record).
-- **A default quiet bound for a woken turn** (a deadline the library invents, **D219**).
+- **A default quiet bound for a woken turn** (a deadline the library invents, **D219**), and **ending one on the adapter's autonomous usage frame**
+  (the record only infers that it is the turn's end).
 
 **Re-opens** when a record shows a door's `Unknown` either way, when a stop is shown to keep the conversation, or when the type cannot
 sit beside the one-turn model without changing it (**D248**).

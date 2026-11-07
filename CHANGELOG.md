@@ -96,6 +96,28 @@ every addition.
 
 ### Added
 
+- **The turn a task wakes, and background work read until it ends, on a kept run** (**D251**). `IAgentRun.WokenTurns` yields each
+  turn the agent starts by itself, an `AgentRunTurn` of origin `Woken`, which ends only after the host's `AgentRunOptions.WokenTurnQuiet`
+  of silence (no default, subtype `quiet`; a call it made left open or a request held is not silence), so a run with no bound never
+  ends one itself. `SendAsync` is refused, `run-woken-turn`, while one runs. A run declares AIR's `asyncTasks` at `initialize`, and the
+  frames for backgrounded work are `AgentTaskStarted` and `AgentTaskEnded` events: one that arrives while no turn runs begins the
+  next turn to start, so the ending that woke a turn leads it. `OpenRunAsync` takes the `AgentRunOptions`; `IAgentRun` gains
+  `WokenTurns` and `AgentRunTurn` its `Origin`.
+- **A word taken mid-turn on a kept run** (**D251**). `SendAsync` on a busy run whose door states `queued-words` `Supported` sends a
+  second prompt, which the Claude agent queues and folds in at its next step. The earlier turn then ends `Ok` with subtype `folded`
+  (`AgentRunSubtypes.Folded`, every usage count the agent sent 0) and the later turn owns the rest of the work; an earlier prompt
+  that did its work first is an ordinary turn. `StopAsync` returns false and sends no `session/cancel` while a word is on its way,
+  since the agent would keep the word and drop its answer. `SendAsync` is refused as a turn, `run-request-held` (`AgentRunSubtypes.RequestHeld`),
+  while a permission request is held for the host.
+- **A run kept across turns on the Claude protocol door** (**D251**). A provider that is also an `IAgentRunProvider` (found by type test;
+  `IAgentSession` gains no member) opens an `IAgentRun`: one agent process, one `initialize` and one `session/new`, then a turn per
+  `SendAsync`, each the one-turn stream with exactly one `SessionEnded`. `StopAsync` sends `session/cancel` as the one-turn door does,
+  `DisposeAsync` closes stdin, and a run whose open failed (or was refused before a spawn) is already over, the typed failure in `Ended`:
+  nothing throws and the library never repeats an open. The process's inactivity window counts only while a sent turn runs. Register
+  it with `AddAcpAgentSession(..., keptRun: AcpKeptRun.ClaudeAgentAcp)`, which needs a runner that can pause its window. Six abilities
+  (`kept-run`, `queued-words`, `keeping-stop`, `model-reask`, `replay-told`, `repeatable-open`) are stated on every door: the Claude
+  protocol door states the first two `Supported` and the others `Unknown`, the one-turn CLI doors and HTTP what their records show.
+  **A host's own provider adds six claims** (`AgentAbilities.All` gains six members).
 - **`TextDelta` carries the id of the message that said its words.** `TextDelta.MessageId` is the stream-json `message.id` of the frame
   that carried them: a streamed delta takes the id its `message_start` stated, a whole message (the session's own, or a subagent's)
   its own `message.id`. It is null where the frame states none, and never made up or carried over from an earlier message. Other

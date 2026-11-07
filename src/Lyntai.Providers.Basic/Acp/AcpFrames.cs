@@ -16,7 +16,11 @@ internal static class AcpFrames
 
     // fs and terminal are declined: the agent works in its own tools. The AIR capability is the one way an agent
     // that would otherwise end a failed turn with end_turn says the failure as a field (codex-acp does).
-    public static string Initialize(int id, string clientVersion) => Request(id, "initialize", new JsonObject
+    public const string AirAsyncTasks = "asyncTasks";
+
+    // A kept run also declares asyncTasks, which is the one thing that makes the agent send the frames for the work it
+    // backgrounds; a one-turn door does not, so what it reads is unchanged.
+    public static string Initialize(int id, string clientVersion, bool asyncTasks = false) => Request(id, "initialize", new JsonObject
     {
         ["protocolVersion"] = ProtocolVersion,
         ["clientCapabilities"] = new JsonObject
@@ -30,7 +34,9 @@ internal static class AcpFrames
                     ["air"] = new JsonObject
                     {
                         ["version"] = 1,
-                        ["capabilities"] = new JsonArray(JsonValue.Create(AirSessionFailure)),
+                        ["capabilities"] = asyncTasks
+                            ? new JsonArray(JsonValue.Create(AirSessionFailure), JsonValue.Create(AirAsyncTasks))
+                            : new JsonArray(JsonValue.Create(AirSessionFailure)),
                     },
                 },
             },
