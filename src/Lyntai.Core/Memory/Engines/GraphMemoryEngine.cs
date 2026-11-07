@@ -386,12 +386,11 @@ public sealed class GraphMemoryEngine(
                 throw new ArgumentException(
                     $"Memory engine '{Name}' addresses nodes by numeric id; got '{reference.Id}'.", nameof(write));
             if (ids.Contains(id)) continue;
-            var held = await store.GetAsync(Name, id, ct).ConfigureAwait(false)
-                ?? throw new ArgumentException($"Memory engine '{Name}' has no entry '{reference.Id}' to supersede.", nameof(write));
-            if (!string.Equals(held.TaskKey, write.TaskKey, StringComparison.Ordinal))
+            // another task's entry reads as a missing one (see ReadOwnAsync)
+            var held = await store.GetAsync(Name, id, ct).ConfigureAwait(false);
+            if (held is null || !string.Equals(held.TaskKey, write.TaskKey, StringComparison.Ordinal))
                 throw new ArgumentException(
-                    $"Memory engine '{Name}' cannot supersede across tasks: '{reference.Id}' is in task '{held.TaskKey}' " +
-                    $"and this write is in '{write.TaskKey}'.", nameof(write));
+                    $"Memory engine '{Name}' has no entry '{reference.Id}' in task '{write.TaskKey}' to supersede.", nameof(write));
             if (IsThisWrite(held, write))
                 throw new ArgumentException($"Entry '{reference.Id}' cannot supersede itself.", nameof(write));
             // an entry cannot end before it began: its interval would be empty and no reading would ever see it. Only a
@@ -974,12 +973,11 @@ public sealed class GraphMemoryEngine(
                 "in the engine that wrote it.", nameof(reference));
         if (!long.TryParse(reference.Id, NumberStyles.Integer, CultureInfo.InvariantCulture, out var id))
             throw new ArgumentException($"Memory engine '{Name}' addresses nodes by numeric id; got '{reference.Id}'.", nameof(reference));
-        var node = await store.GetAsync(Name, id, ct).ConfigureAwait(false)
-            ?? throw new ArgumentException($"Memory engine '{Name}' has no entry '{reference.Id}'.", nameof(reference));
-        if (!string.Equals(node.TaskKey, taskKey, StringComparison.Ordinal))
-            throw new ArgumentException(
-                $"Memory engine '{Name}' cannot {verb.TrimEnd('s')} across tasks: '{reference.Id}' is in task '{node.TaskKey}' and this call is " +
-                $"in '{taskKey}'.", nameof(reference));
+        // another task's entry reads exactly as a missing one: the message reaches a model through the write tools, and the other
+        // task's key, or whether an id exists there, is not its to learn
+        var node = await store.GetAsync(Name, id, ct).ConfigureAwait(false);
+        if (node is null || !string.Equals(node.TaskKey, taskKey, StringComparison.Ordinal))
+            throw new ArgumentException($"Memory engine '{Name}' has no entry '{reference.Id}' in task '{taskKey}'.", nameof(reference));
         return node;
     }
 

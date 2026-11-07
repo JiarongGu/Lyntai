@@ -207,4 +207,25 @@ public class MemoryWriteToolsTests
         }
         Assert.Single((await engine.RecallAsync(new MemoryQuery("other-task", "s", "Oslo"))).Items);
     }
+
+    [Fact]
+    public async Task Another_tasks_entry_is_refused_in_the_words_a_missing_one_is_and_names_no_other_task()
+    {
+        using var sp = Build();
+        var engine = sp.GetRequiredService<IMemoryEngineFactory>().Get(Engine);
+        var elsewhere = (await engine.RememberAsync(new MemoryWrite("other-task", "s", "the client lives in Oslo"))).Reference;
+
+        var foreign = await CallAsync(sp, "project_graph_end", $$"""{"ref":"{{MemoryTools.Format(elsewhere)}}","revision":"1","reason":"x"}""");
+        var missing = await CallAsync(sp, "project_graph_end", $$"""{"ref":"{{Engine}}::99999","revision":"1","reason":"x"}""");
+
+        var foreignMessage = foreign.GetProperty("message").GetString()!;
+        Assert.DoesNotContain("other-task", foreignMessage, StringComparison.Ordinal);
+        Assert.Equal(missing.GetProperty("message").GetString()!.Replace("99999", "#", StringComparison.Ordinal),
+            foreignMessage.Replace(elsewhere.Id, "#", StringComparison.Ordinal));
+
+        // the same through a supersession named in a remember
+        var superseded = await CallAsync(sp, "project_graph_remember",
+            $$"""{"content":"the client lives in Rome","reason":"moved","supersedes":[{"ref":"{{MemoryTools.Format(elsewhere)}}","revision":"1"}]}""");
+        Assert.DoesNotContain("other-task", superseded.ToString(), StringComparison.Ordinal);
+    }
 }

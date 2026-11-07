@@ -29,6 +29,9 @@ every addition.
 
 ### Changed
 
+- **A keyed end or confirmation that lost a race on Postgres answers the winner's receipt,** where it answered `Changed` with no receipt;
+  a refused supersession on the relational stores reports a predecessor it did not move at the revision it still has; and the memory
+  tools' refusal for another task's entry reads as a missing one, without naming the other task.
 - **A prune leaves an entry that states an end, and a read of ended history reinforces nothing.** `PruneAsync` removed a
   superseded, `ValidTo`-bounded or ended associative entry past the floor or `olderThan` as it removed any other, taking its
   history with it, and a `History` recall or an expansion by reference reset its age. On every store an entry with a successor, a
