@@ -102,7 +102,13 @@ public sealed class OnnxProvider : IVectorProvider, IScoreProvider, IDisposable
         IOnnxHead head = scores
             ? new OnnxCrossEncoderHead()
             : new OnnxPoolingHead(options.Pooling ?? config.Pooling, options.Normalize ?? config.Normalize);
-        return new OnnxProvider(new InferenceSession(model), windows, head, options.Id);
+        var session = new InferenceSession(model);
+        try { return new OnnxProvider(session, windows, head, options.Id); }
+        catch
+        {
+            session.Dispose(); // a graph the head cannot read must not keep its file mapped
+            throw;
+        }
     }
 
     /// <summary>Whether the declared kind is <see cref="ProviderKinds.Score"/> (else it is
