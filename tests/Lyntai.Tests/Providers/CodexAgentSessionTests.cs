@@ -344,6 +344,7 @@ public class CodexAgentSessionTests
     // a success status:"completed" AND exit_code:0 — both top-level, in agreement (D35)
     [InlineData("""{"id":"i","type":"command_execution","exit_code":2}""", true)]
     [InlineData("""{"id":"i","type":"command_execution","status":"failed"}""", true)]
+    [InlineData("""{"id":"i","type":"command_execution","status":"declined"}""", true)] // approval refused: it did not run
     [InlineData("""{"id":"i","type":"command_execution","exit_code":0}""", false)]
     [InlineData("""{"id":"i","type":"command_execution"}""", false)]
     public async Task A_failed_tool_item_is_reported_as_an_error_result(string item, bool expectedIsError)
