@@ -122,6 +122,39 @@ public class RetryingAgentSessionTests
     }
 
     [Fact]
+    public async Task An_empty_resume_token_is_no_conversation_so_a_taken_failure_is_not_retried()
+    {
+        var inner = new ScriptedAgentSession(
+            Attempt(new TextDelta("half"), Failed(AgentFailureKind.Transient, AgentDelivery.Taken)),
+            Attempt(Succeeded()));
+        var clock = new ManualTimeProvider();
+
+        var events = await RunToEnd(Retry(inner, clock), clock, Turn with { ResumeToken = "" });
+
+        Assert.Single(inner.Received);
+        Assert.Contains("no session to resume", Terminal(events).Diagnostic);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task A_second_terminal_from_an_inner_session_is_dropped(bool firstIsRetried)
+    {
+        // a bring-your-own session that yields two terminals must still show the caller exactly one
+        var inner = new ScriptedAgentSession(
+            firstIsRetried
+                ? Attempt(Failed(AgentFailureKind.Transient, AgentDelivery.NeverSent), Failed(AgentFailureKind.Fatal, AgentDelivery.Taken))
+                : Attempt(Succeeded(), Failed(AgentFailureKind.Fatal, AgentDelivery.Taken)),
+            Attempt(Succeeded()));
+        var clock = new ManualTimeProvider();
+
+        var events = await RunToEnd(Retry(inner, clock), clock);
+
+        Assert.False(Terminal(events).IsError);
+        Assert.Equal(firstIsRetried ? 2 : 1, inner.Received.Count);
+    }
+
+    [Fact]
     public async Task An_uncertain_failure_is_not_retried_and_says_so()
     {
         var inner = new ScriptedAgentSession(

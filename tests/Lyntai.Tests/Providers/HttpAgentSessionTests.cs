@@ -119,6 +119,22 @@ public class HttpAgentSessionTests
     }
 
     [Fact]
+    public async Task The_terminal_states_what_the_turn_showed_on_a_success_and_on_a_failure()
+    {
+        var ok = Ended(await Run(Session(new StubHttpHandler().Enqueue(HttpStatusCode.OK, Completion("hello")))));
+
+        Assert.Null(ok.Turn!.Written);
+        Assert.Equal([AgentShownKind.Text], ok.Turn.Shown);
+
+        var failed = Ended(await Run(Session(new StubHttpHandler().Enqueue(_ => Failure(HttpStatusCode.Unauthorized,
+            """{"error":{"code":"invalid_api_key","message":"Incorrect API key"}}""")))));
+
+        Assert.True(failed.IsError);
+        Assert.Null(failed.Turn!.Written);
+        Assert.Empty(failed.Turn.Shown);
+    }
+
+    [Fact]
     public async Task A_turn_naming_no_model_runs_on_the_registrations_own()
     {
         var handler = new StubHttpHandler().Enqueue(HttpStatusCode.OK, Completion("hi"));

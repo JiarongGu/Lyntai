@@ -82,7 +82,7 @@ internal static class CliAgentLoop
         public IReadOnlyList<AgentUnreadFrame> Unread() => unread();
     }
 
-    private static AgentShownKind? Kind(AgentStreamEvent evt) => evt switch
+    internal static AgentShownKind? Kind(AgentStreamEvent evt) => evt switch
     {
         TextDelta => AgentShownKind.Text,
         Thinking => AgentShownKind.Thinking,

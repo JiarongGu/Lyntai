@@ -17,6 +17,7 @@ internal sealed class StreamJsonAgentReader : ICliAgentLineReader
     private readonly TimeProvider _time;
     private string? _model;
     private string? _sessionId;
+    private bool _announced;   // whether the current id has been announced as the agent's own start
     private string? _lastAssistantText;
     private string? _assistantError;
     private RejectedLimit? _rejectedLimit;
@@ -129,12 +130,18 @@ internal sealed class StreamJsonAgentReader : ICliAgentLineReader
         // so announcing per line announced one session start per tick. Announce an id once, when it is new.
         // Keyed on the id rather than on `subtype == "init"`, which not every emitter sets.
         if (root.TryGetProperty("session_id", out var sidEl) && sidEl.ValueKind == JsonValueKind.String &&
-            sidEl.GetString() is { } sessionId && sessionId != _sessionId)
+            sidEl.GetString() is { } sessionId)
         {
-            // the agent's own start is its init (or a first frame that names no subtype); a later frame carrying a new id only reports one
-            var announced = WireJson.String(root, "subtype") == "init" || (_sessionId is null && WireJson.String(root, "subtype") is null);
-            _sessionId = sessionId;
-            yield return new SessionStarted(sessionId) { Announced = announced };
+            // the agent's own start is its init (or a first frame that names no subtype); a later frame carrying a new id only reports one.
+            // An init whose id an earlier frame (a hook's) already named is still the start, announced once.
+            var subtype = WireJson.String(root, "subtype");
+            var announced = subtype == "init" || (_sessionId is null && subtype is null);
+            if (sessionId != _sessionId || (announced && !_announced))
+            {
+                _sessionId = sessionId;
+                _announced = announced;
+                yield return new SessionStarted(sessionId) { Announced = announced };
+            }
         }
 
         if (WireJson.String(root, "subtype") == "init" && ReadLoaded(root) is { } loaded)

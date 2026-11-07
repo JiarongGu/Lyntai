@@ -7,6 +7,27 @@ to `.agents/knowledge/pitfalls.md`; the release-facing line goes to `CHANGELOG.m
 
 ---
 
+## 2026-11-08 — an out-of-range rate-limit stamp ended a Claude turn with no terminal, and four smaller faults of the Claude door and the agent core
+
+**Symptom.** None reported; found by reading (`docs/task-archive.md` Part 481, closed in Part 482). A `rate_limit_event` whose `resetsAt` was written in epoch milliseconds made
+the Claude reader throw, so `StreamAsync` threw and the consumer saw no `SessionEnded`. A `hook_started` frame carrying the session id ahead of `init` left the stream with only an
+unannounced start. A `total_cost_usd` of `1e999` was reported as infinity. The HTTP door's terminal had no `Turn`. An inner session that yielded two terminals showed the caller both.
+
+**Root cause.** `StreamJsonFailure` passed each stamp to `DateTimeOffset.FromUnixTimeSeconds`, which throws `ArgumentOutOfRangeException` past year 9999, and `WireJson.IsShapeFault`
+catches only `JsonException`, `InvalidOperationException` and `FormatException`. `ReadSystem` announced a start only when the id was new, so an `init` repeating a hook frame's id
+announced nothing. `StreamJsonFields.ReadUsage` took `GetDouble()` of any number, which is infinity for an unrepresentable one. `HttpAgentSession.Stamp` never set `Turn`, which only
+`CliAgentLoop.Stamp` did. `RetryingAgentSession` forwarded a `SessionEnded` that arrived after the first, and started `conversation` as `""` for an empty `ResumeToken`.
+
+**Fix.** `WireJson.UnixSeconds` and `WireJson.Finite` read a stamp and a cost bounded, used at the four stamp sites and the cost; the reader keeps whether the current id was announced and
+announces an `init` once; the HTTP door states `Turn` from the events it forwarded; the retry layer drops a later terminal and reads an empty token as none.
+
+**Verify.** Each failed before the change: `StreamJsonAgentReaderTests` (four stamps, the hook-then-init order), `StreamJsonParserTests` (the cost), `HttpAgentSessionTests` (`Turn`) and
+`RetryingAgentSessionTests` (both). The review's account of the cost, that it lost the terminal, was wrong and is corrected in `docs/task-archive.md` Part 482.
+
+**Introduced by.** Not traced to a commit for each; the allowance reports (AG42, `docs/task-archive.md` Parts 459 and 460) are where the stamps began to be read.
+
+---
+
 ## 2026-11-08 — a keyed retry threw once the world had moved, and the faults beside it in the memory-currency write path
 
 **Symptom.** None reported; the rows of `TASKS.md` Part 479 that `docs/task-archive.md` Part 479 left open. A keyed relation, end or supersession repeated after an endpoint
