@@ -7,6 +7,20 @@ to `.agents/knowledge/pitfalls.md`; the release-facing line goes to `CHANGELOG.m
 
 ---
 
+## 2026-11-08 — SQLite's graph delete failed past its variable limit, a node's subjects were replaced in two autocommits, and a portable file's age could throw or wrap a mark
+
+**Symptom.** None reported; found by reading the graph stores against each other and each reproduced here. A prune of a scope with more than 32,766 doomed entries, under any derivable age policy, threw `too many SQL variables` from `SqliteMemoryGraphStore.DeleteAsync` where Postgres deleted them. Two annotators recording one node at once left both sets (`{left}` and `{right}`) on SQLite and on Postgres, where in-memory and the file store leave one; a fault between the delete and the insert left the node with none. An imported `elapsedAge` of `-1e300` threw `OverflowException` and `-3000000` threw `ArgumentOutOfRangeException` out of the import instead of landing a mark, and an `age` of `-1e19` made a mark that overflows the next time a head is subtracted from it.
+
+**Root cause.** `DeleteAsync` passed the id list as `IN @ids`, which Dapper expands to a parameter per id (`SqliteMemoryStore` and `SqliteVectorStore` already pass a JSON array to `json_each`); `RecordSubjectsAsync` ran `DeleteSubjects` and `InsertSubject` as two autocommitted statements on both SQL stores, and under READ COMMITTED a second delete misses the first's uncommitted insert; `MemoryGraphAnchor.Behind` clamped the early end of the time range and not the late one, and cast a rounded double to `long` with no range.
+
+**Fix.** The SQLite delete takes one JSON parameter; both SQL stores record subjects in one transaction, Postgres under `pg_advisory_xact_lock` on the node as the trace, score and prompt stores take theirs; the anchor clamps a time to `DateTimeOffset.MaxValue` and a count mark to a quarter of the `long` range on either side.
+
+**Verify.** `MemoryGraphStoreContract.DeleteAsync_takes_a_list_past_the_engines_parameter_limit` failed on SQLite and `Racing_recordings_of_one_node_leave_exactly_one_set` failed on SQLite and, with Docker up, on Postgres, before the change (the in-memory and file backends pass both, so they are pins); `MemoryGraphAnchorTests` failed five of eleven cases before. The Postgres delete was not under test as a failure: `= ANY(@ids)` takes the list.
+
+**Introduced by.** Not traced to a commit for each.
+
+---
+
 ## 2026-11-08 — a judge that rejected everything reported no judgement, a failing fetch in a seed source sank the whole recall, and a count of buried entries included history
 
 **Symptom.** None reported; found by reading the memory engine core and each reproduced here. With `VerificationFilters` on and a verifier that endorses nothing, a recall returned no items and `Answered == null`, where `docs/memory.md` says `false` is a judge that looked and found none, so a consumer abstaining on `false` never abstained in exactly that case; through a blend (every DI-registered engine is one) the value was dropped again. A store whose `GetAsync` threw while the semantic or the subject seed source fetched the nodes it had found made the recall return nothing, lexical hits included. `CountAsync(...).Buried` counted an ended entry that `PruneAsync` never removes.

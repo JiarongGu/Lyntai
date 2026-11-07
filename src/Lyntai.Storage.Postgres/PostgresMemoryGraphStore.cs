@@ -632,17 +632,23 @@ public sealed class PostgresMemoryGraphStore(
     {
         ArgumentNullException.ThrowIfNull(subjects);
         ct.ThrowIfCancellationRequested();
-        await using var conn = await factory.OpenAsync(ct).ConfigureAwait(false);
-
-        await conn.ExecuteAsync(new CommandDefinition(MemoryGraphSql.DeleteSubjects,
-            new { engine, nodeId }, cancellationToken: ct)).ConfigureAwait(false);
-
         // MemorySubject.Canonicalize is the ONE normalization, shared with every backend and any BYO store
         var rows = MemorySubject.Canonicalize(subjects);
-        if (rows.Count == 0) return;
+        await using var conn = await factory.OpenAsync(ct).ConfigureAwait(false);
+        // one transaction, so a fault between the delete and the insert leaves the old set; and one writer per
+        // node at a time, since under READ COMMITTED a second delete misses the first's uncommitted insert
+        await using var tx = await conn.BeginTransactionAsync(ct).ConfigureAwait(false);
+        await conn.ExecuteAsync(new CommandDefinition(
+            "SELECT pg_advisory_xact_lock(hashtext('lyntai_subjects:' || @engine || ':' || @nodeId))",
+            new { engine, nodeId = nodeId.ToString(System.Globalization.CultureInfo.InvariantCulture) }, tx,
+            cancellationToken: ct)).ConfigureAwait(false);
 
-        await conn.ExecuteAsync(new CommandDefinition(MemoryGraphSql.InsertSubject,
-            rows.Select(subject => new { engine, nodeId, subject }), cancellationToken: ct)).ConfigureAwait(false);
+        await conn.ExecuteAsync(new CommandDefinition(MemoryGraphSql.DeleteSubjects,
+            new { engine, nodeId }, tx, cancellationToken: ct)).ConfigureAwait(false);
+        if (rows.Count > 0)
+            await conn.ExecuteAsync(new CommandDefinition(MemoryGraphSql.InsertSubject,
+                rows.Select(subject => new { engine, nodeId, subject }), tx, cancellationToken: ct)).ConfigureAwait(false);
+        await tx.CommitAsync(ct).ConfigureAwait(false);
     }
 
     /// <inheritdoc />

@@ -130,9 +130,16 @@ public static class MemoryGraphAnchor
 {
     /// <summary>The mark <paramref name="age"/> behind <paramref name="head"/> on a count scale.</summary>
     /// <param name="head">Where the engine stands.</param>
-    /// <param name="age">How far behind it; a non-finite age reads as zero.</param>
-    public static long Behind(long head, double age) =>
-        double.IsFinite(age) ? head - (long)Math.Round(age, MidpointRounding.AwayFromZero) : head;
+    /// <param name="age">How far behind it; a non-finite age reads as zero, and one past a quarter of the
+    /// <see cref="long"/> range reads as that far, so a stored mark can still be subtracted from a head.</param>
+    public static long Behind(long head, double age)
+    {
+        if (!double.IsFinite(age)) return head;
+        var whole = Math.Round(age, MidpointRounding.AwayFromZero);
+        return Math.Abs(whole) <= MarkRange ? head - (long)whole : whole > 0 ? -MarkRange : MarkRange;
+    }
+
+    private const long MarkRange = long.MaxValue / 4;
 
     /// <summary>The mark <paramref name="age"/> behind <paramref name="head"/> on the position.</summary>
     /// <param name="head">Where the engine stands.</param>
@@ -148,6 +155,8 @@ public static class MemoryGraphAnchor
         var utc = head.ToUniversalTime();
         if (!double.IsFinite(days) || days == 0) return utc;
         var room = (utc - DateTimeOffset.MinValue).TotalDays;
-        return days >= room ? DateTimeOffset.MinValue : utc - TimeSpan.FromDays(days);
+        if (days >= room) return DateTimeOffset.MinValue;
+        var ahead = (DateTimeOffset.MaxValue - utc).TotalDays;   // a negative count of days is a time AFTER the head
+        return days <= -ahead ? DateTimeOffset.MaxValue : utc - TimeSpan.FromDays(days);
     }
 }

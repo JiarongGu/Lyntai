@@ -658,10 +658,15 @@ public sealed class SqliteMemoryGraphStore(
         ct.ThrowIfCancellationRequested();
         if (ids.Count == 0) return 0;
         await using var conn = await factory.OpenAsync(ct).ConfigureAwait(false);
-        // edges go with the nodes through ON DELETE CASCADE, as MemoryGraphSql.Prune says
+        // edges go with the nodes through ON DELETE CASCADE, as MemoryGraphSql.Prune says. The ids travel as ONE
+        // JSON parameter: `IN @ids` expands to one per id, which SQLite refuses past its bound-variable limit.
         return await conn.ExecuteAsync(new CommandDefinition("""
-            DELETE FROM lyntai_memory_node WHERE engine = @engine AND id IN @ids
-            """, new { engine, ids }, cancellationToken: ct)).ConfigureAwait(false);
+            DELETE FROM lyntai_memory_node WHERE engine = @engine AND id IN (SELECT value FROM json_each(@ids))
+            """, new
+            {
+                engine,
+                ids = "[" + string.Join(',', ids.Select(i => i.ToString(System.Globalization.CultureInfo.InvariantCulture))) + "]",
+            }, cancellationToken: ct)).ConfigureAwait(false);
     }
 
     /// <inheritdoc />
@@ -731,17 +736,19 @@ public sealed class SqliteMemoryGraphStore(
     {
         ArgumentNullException.ThrowIfNull(subjects);
         ct.ThrowIfCancellationRequested();
-        await using var conn = await factory.OpenAsync(ct).ConfigureAwait(false);
-
-        await conn.ExecuteAsync(new CommandDefinition(MemoryGraphSql.DeleteSubjects,
-            new { engine, nodeId }, cancellationToken: ct)).ConfigureAwait(false);
-
         // MemorySubject.Canonicalize is the ONE normalization, shared with every backend and any BYO store
         var rows = MemorySubject.Canonicalize(subjects);
-        if (rows.Count == 0) return;
+        await using var conn = await factory.OpenAsync(ct).ConfigureAwait(false);
+        // one transaction: a replace is a delete and an insert, and a fault or a cancel between the two would
+        // leave the node with no subjects at all
+        await using var tx = await conn.BeginTransactionAsync(ct).ConfigureAwait(false);
 
-        await conn.ExecuteAsync(new CommandDefinition(MemoryGraphSql.InsertSubject,
-            rows.Select(subject => new { engine, nodeId, subject }), cancellationToken: ct)).ConfigureAwait(false);
+        await conn.ExecuteAsync(new CommandDefinition(MemoryGraphSql.DeleteSubjects,
+            new { engine, nodeId }, tx, cancellationToken: ct)).ConfigureAwait(false);
+        if (rows.Count > 0)
+            await conn.ExecuteAsync(new CommandDefinition(MemoryGraphSql.InsertSubject,
+                rows.Select(subject => new { engine, nodeId, subject }), tx, cancellationToken: ct)).ConfigureAwait(false);
+        await tx.CommitAsync(ct).ConfigureAwait(false);
     }
 
     /// <inheritdoc />

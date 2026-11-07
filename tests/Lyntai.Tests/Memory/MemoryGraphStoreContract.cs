@@ -134,6 +134,24 @@ public static class MemoryGraphStoreContract
         Assert.Empty(await store.NodesBySubjectAsync("e", key, "s", "second", 10));
     }
 
+    /// <summary>Two recordings of one node racing leave ONE of the two sets, never both: replacing is a delete and
+    /// an insert, and a store that runs them as separate statements lets the second's delete miss the first's insert.</summary>
+    public static async Task Racing_recordings_of_one_node_leave_exactly_one_set(IMemoryGraphStore store, string key)
+    {
+        var id = await store.UpsertAsync(Write("e", key, "a fact two annotators describe at once"));
+
+        for (var round = 0; round < 40; round++)
+        {
+            await Task.WhenAll(
+                Task.Run(() => store.RecordSubjectsAsync("e", id, ["left"])),
+                Task.Run(() => store.RecordSubjectsAsync("e", id, ["right"])));
+
+            var left = (await store.NodesBySubjectAsync("e", key, "s", "left", 10)).Count;
+            var right = (await store.NodesBySubjectAsync("e", key, "s", "right", 10)).Count;
+            Assert.Equal(1, left + right);
+        }
+    }
+
     /// <summary>A handle is matched through <see cref="MemorySubject"/>'s normalization — case-insensitively
     /// AND ignoring surrounding whitespace — so an annotator that varies either between writes still links
     /// them. The mechanism rests entirely on the same entity producing the same handle, and those two are
@@ -1427,6 +1445,22 @@ public static class MemoryGraphStoreContract
         Assert.Equal(2, removed);
         var survivor = Assert.Single(await store.SeedAsync("e", key, "s", null, 10));
         Assert.Equal("beta", survivor.Content);
+    }
+
+    /// <summary>A prune of a large scope hands the store every doomed id at once; a store that sends one bound
+    /// parameter per id fails past the engine's limit (32,766 on SQLite).</summary>
+    public static async Task DeleteAsync_takes_a_list_past_the_engines_parameter_limit(IMemoryGraphStore store, string key)
+    {
+        var a = await store.UpsertAsync(Write("e", key, "alpha"));
+        var b = await store.UpsertAsync(Write("e", key, "beta"));
+        await store.UpsertAsync(Write("e", key, "gamma"));
+        var ids = new List<long> { a, b };
+        ids.AddRange(Enumerable.Range(1, 33_000).Select(i => 1_000_000_000L + i));
+
+        var removed = await store.DeleteAsync("e", ids);
+
+        Assert.Equal(2, removed);
+        Assert.Equal("gamma", Assert.Single(await store.SeedAsync("e", key, "s", null, 10)).Content);
     }
 
     public static async Task DeleteAsync_takes_edges_with_the_nodes(IMemoryGraphStore store, string key)
