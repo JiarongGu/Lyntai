@@ -116,6 +116,46 @@ public class AgentTranscriptRecorderTests
     }
 
     [Fact]
+    public void A_start_that_only_carries_an_id_does_not_wipe_the_words_so_far()
+    {
+        var t = Record(Turn("go"),
+            new SessionStarted("s-1"), new TextDelta("said so far"), new SessionStarted("s-2") { Announced = false }, Ended(sessionId: null))
+            .Turns.Single();
+
+        Assert.Equal("said so far", t.LastMessage);
+        Assert.Equal("s-2", t.SessionId);
+    }
+
+    [Fact]
+    public void A_subagents_words_and_tools_are_not_the_sessions_own()
+    {
+        var t = Record(Turn("go"),
+            new TextDelta("the answer"),
+            new ToolCall("Task", "{}", "spawn"),
+            new TextDelta("child thinking aloud") { ParentCallId = "spawn" },
+            new ToolCall("Read", "{}", "c1") { ParentCallId = "spawn" },
+            new ToolResult("c1", "boom", true) { ParentCallId = "spawn" },
+            new ToolResult("spawn", "done", false),
+            new TextDelta("the session's last words"),
+            Ended()).Turns.Single();
+
+        Assert.Equal("the session's last words", t.LastMessage);
+        Assert.Equal([new ToolUseSummary("Task", 1, 0)], t.Tools);
+    }
+
+    [Fact]
+    public void A_subagents_words_do_not_cut_the_message_the_session_is_saying()
+    {
+        var t = Record(Turn("go"),
+            new TextDelta("part one, "),
+            new ToolCall("Read", "{}", "c1") { ParentCallId = "spawn" },
+            new TextDelta("part two") ,
+            Ended()).Turns.Single();
+
+        Assert.Equal("part one, part two", t.LastMessage);
+    }
+
+    [Fact]
     public void Turns_accumulate_oldest_first_and_beginning_one_closes_the_open_one()
     {
         var recorder = new AgentTranscriptRecorder();

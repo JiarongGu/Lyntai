@@ -8,8 +8,8 @@ namespace Lyntai.Agents;
 /// stream — or wrap the session in a <see cref="RecordingAgentSession"/>, which does both.
 /// <para>One recorder is one conversation, one turn at a time: beginning a turn closes the one before it, with
 /// no terminal if the stream never gave one. The recorder keeps what a brief needs and nothing else: the host's
-/// words verbatim, the agent's last message, a count per tool, the last plan and the session id. Thinking and
-/// diagnostics are not kept. Where the transcript is stored is the host's.</para>
+/// words verbatim, the agent's last message, a count per tool, the last plan and the session id. Thinking,
+/// diagnostics and a subagent's words and tools (an event naming a parent call) are not kept. Where the transcript is stored is the host's.</para>
 /// <para>Safe to call from several threads; the events of a turn must still arrive in the order they were sent.</para></summary>
 public sealed class AgentTranscriptRecorder
 {
@@ -80,21 +80,23 @@ public sealed class AgentTranscriptRecorder
             switch (e)
             {
                 case SessionStarted s:
-                    // A second start in one turn is a retried attempt: its words replace the failed one's.
-                    _streamed.Clear();
+                    // A second announced start in one turn is a retried attempt: its words replace the failed one's. An
+                    // unannounced one only carries an id the reader had not seen, and the words so far stand.
+                    if (s.Announced) _streamed.Clear();
                     _sessionId = s.SessionId;
                     break;
-                case TextDelta t:
+                // a subagent's words and tools (a parent call named) are the subagent's: the transcript is the session's own
+                case TextDelta { ParentCallId: null } t:
                     _streamed.Append(t.Text);
                     break;
-                case ToolCall c:
+                case ToolCall { ParentCallId: null } c:
                     _streamed.Clear();
                     var use = Tool(c.Name);
                     use.Calls++;
                     _lastCall = use;
                     if (c.CallId is not null) _byCallId[c.CallId] = use;
                     break;
-                case ToolResult r:
+                case ToolResult { ParentCallId: null } r:
                     _streamed.Clear();
                     var owner = r.CallId is not null && _byCallId.TryGetValue(r.CallId, out var found) ? found : _lastCall;
                     if (r.IsError && owner is not null) owner.Failed++;
