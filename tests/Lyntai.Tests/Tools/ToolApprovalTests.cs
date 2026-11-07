@@ -230,6 +230,34 @@ public sealed class ToolApprovalTests
     }
 
     [Fact]
+    public async Task A_name_the_registry_folds_to_a_tool_reaches_the_approver_as_the_tools_own_name()
+    {
+        var (tool, runs) = Counted();
+        var approver = new RecordingApprover(r =>
+            r.ToolName == "write_file" ? ToolApprovalResult.Deny("writes are off") : ToolApprovalResult.Approve);
+        var client = new FakeTextClient();
+        client.Replies.Enqueue(new TextResponse("""{"tool":"WRITE_FILE","arguments":{}}""", ProviderVerdict.Ok));
+        client.Replies.Enqueue(new TextResponse("""{"final":"done"}""", ProviderVerdict.Ok));
+
+        var run = await Loop(client, approver, tool).RunAsync(Ask());
+
+        Assert.Equal("write_file", Assert.Single(approver.Seen).ToolName);
+        Assert.Equal(0, runs());                            // a differently-cased spelling is not a way past a name-keyed refusal
+        Assert.Contains("writes are off", Assert.Single(run.Steps).Result);
+    }
+
+    [Fact]
+    public async Task A_tool_that_returns_null_is_an_error_observation_not_a_crash()
+    {
+        var tool = new FunctionTool("silent", (_, _) => Task.FromResult<string>(null!));
+
+        var result = await ToolInvocation.InvokeGatedAsync(tool, "{}", guards: null);
+
+        Assert.True(ToolObservations.IsError(result.Observation));
+        Assert.Contains("no result", result.Observation);
+    }
+
+    [Fact]
     public async Task The_registered_tool_loop_consults_every_registered_approver()
     {
         var (tool, runs) = Counted();

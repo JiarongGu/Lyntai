@@ -82,10 +82,21 @@ public sealed class SubjectSeedSource(
         // RETURN is capped by request.Limit alone, applied once here — the merge above is already
         // de-duplicated and ordered, so this is a plain truncation rather than a re-sort.
         var results = new List<GraphNode>(Math.Min(ids.Count, request.Limit));
-        foreach (var id in ids.Take(request.Limit))
+        try
         {
-            var node = await request.Store.GetAsync(request.Engine, id, ct).ConfigureAwait(false);
-            if (node is not null) results.Add(node);
+            foreach (var id in ids.Take(request.Limit))
+            {
+                var node = await request.Store.GetAsync(request.Engine, id, ct).ConfigureAwait(false);
+                if (node is not null) results.Add(node);
+            }
+        }
+        catch (OperationCanceledException) when (ct.IsCancellationRequested) { throw; }
+        catch (Exception ex)
+        {
+            // the fetch is the source's too: a throw here would sink the other sources' candidates with it
+            _logger.LogWarning(ex, "subject seeding failed for {Engine}; returning no subject candidates",
+                request.Engine);
+            return [];
         }
         return results;
     }

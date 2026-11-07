@@ -473,6 +473,20 @@ public class CompositeMemoryEngineTests
     }
 
     [Fact]
+    public async Task A_blend_whose_judge_left_no_items_still_reports_false()
+    {
+        // an engine whose judge filtered the page to nothing answers `false` with no items; the blend's empty
+        // return must not drop it, or the case the abstention signal exists for reads as "no judge"
+        var judged = new StaticEngine("project/graph", [], MemorySources.Graph, answered: false);
+        var plain = new StaticEngine("project/lexical", []);
+
+        var recall = await Composite(plain, judged).RecallAsync(new MemoryQuery("t", "s", "q"));
+
+        Assert.Empty(recall.Items);
+        Assert.False(recall.Answered);
+    }
+
+    [Fact]
     public async Task A_blend_with_no_judge_anywhere_reports_null()
     {
         // The shipped default registers no verifier, so `false` must never be synthesised — a consumer

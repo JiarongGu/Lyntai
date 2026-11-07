@@ -61,6 +61,8 @@ public static class ToolInvocation
         string consumer, string? callId, ILogger? logger, Func<string>? unknown, CancellationToken ct)
     {
         logger ??= NullLogger.Instance;
+        // the registry matches a name case-insensitively; a guard or approver keyed on the tool's own name must see it
+        name = tool?.Name ?? name;
         if (guards is not null)
         {
             var pre = await guards.InspectToolCallAsync(name, argumentsJson, ct).ConfigureAwait(false);
@@ -143,7 +145,8 @@ public static class ToolInvocation
         try
         {
             logger.LogDebug("invoking tool {Tool} with {Args}", tool.Name, argumentsJson);
-            return await tool.InvokeAsync(argumentsJson, ct).ConfigureAwait(false);
+            return await tool.InvokeAsync(argumentsJson, ct).ConfigureAwait(false)
+                ?? ToolObservations.Error("tool returned no result");
         }
         catch (OperationCanceledException) when (ct.IsCancellationRequested)
         {

@@ -77,6 +77,35 @@ public class TextStructuredExtensionsTests
         Assert.Contains(retry, m => m.Role == "user" && m.Content.Contains("ONLY a single JSON object")); // corrective
     }
 
+    [Fact]
+    public async Task A_retried_call_reports_the_spend_of_both_shots()
+    {
+        var p = new FakeTextProvider("p");
+        p.Replies.Enqueue(new TextResponse("prose", ProviderVerdict.Ok, new TextUsage(10, 4, CostUsd: 0.01)));
+        p.Replies.Enqueue(new TextResponse("""{"ok":1}""", ProviderVerdict.Ok, new TextUsage(5, 2, CostUsd: 0.02)));
+
+        var reply = await Client(p).CompleteJsonAsync(Req);
+
+        Assert.Equal(15, reply.Usage!.InputTokens);
+        Assert.Equal(6, reply.Usage.OutputTokens);
+        Assert.Equal(0.03, reply.Usage.CostUsd!.Value, 6);
+    }
+
+    [Fact]
+    public async Task A_retry_that_fails_still_reports_the_spend_of_both_shots()
+    {
+        var p = new FakeTextProvider("p");
+        p.Replies.Enqueue(new TextResponse("prose", ProviderVerdict.Ok, new TextUsage(10, 4)));
+        p.Replies.Enqueue(new TextResponse("{broken", ProviderVerdict.Ok, new TextUsage(5, 2)));
+
+        var reply = await Client(p).CompleteJsonAsync(Req);
+
+        Assert.Equal(ProviderVerdict.Failed, reply.Verdict);
+        Assert.Equal(15, reply.Usage!.InputTokens);
+        Assert.Equal(6, reply.Usage.OutputTokens);
+        Assert.Null(reply.Usage.CostUsd);                          // neither shot reported a cost
+    }
+
     // ---- repairs CODE can make, so the model is not asked to make them --------------------------------
     // `docs/model-tasks.md` §1 files `repair` as a real second call that is fail-CLOSED where every other
     // seam is fail-open, spends a second usage-budget/rate-limit charge, and never returns a cached hit.

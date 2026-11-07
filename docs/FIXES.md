@@ -7,6 +7,48 @@ to `.agents/knowledge/pitfalls.md`; the release-facing line goes to `CHANGELOG.m
 
 ---
 
+## 2026-11-08 — SQLite's graph delete failed past its variable limit, a node's subjects were replaced in two autocommits, and a portable file's age could throw or wrap a mark
+
+**Symptom.** None reported; found by reading the graph stores against each other and each reproduced here. A prune of a scope with more than 32,766 doomed entries, under any derivable age policy, threw `too many SQL variables` from `SqliteMemoryGraphStore.DeleteAsync` where Postgres deleted them, and so did a neighbour or typed-link read handed that many ids. Two annotators recording one node at once left both sets (`{left}` and `{right}`) on SQLite and on Postgres, where in-memory and the file store leave one; a fault between the delete and the insert left the node with none. An imported `elapsedAge` of `-1e300` threw `OverflowException` and `-3000000` threw `ArgumentOutOfRangeException` out of the import instead of landing a mark, and an `age` of `-1e19` made a mark that overflows the next time a head is subtracted from it.
+
+**Root cause.** `DeleteAsync` passed the id list as `IN @ids`, which Dapper expands to a parameter per id (`SqliteMemoryStore` and `SqliteVectorStore` already pass a JSON array to `json_each`); `RecordSubjectsAsync` ran `DeleteSubjects` and `InsertSubject` as two autocommitted statements on both SQL stores, and under READ COMMITTED a second delete misses the first's uncommitted insert; `MemoryGraphAnchor.Behind` clamped the early end of the time range and not the late one, and cast a rounded double to `long` with no range.
+
+**Fix.** The SQLite delete, neighbour and typed-link reads take one JSON parameter; both SQL stores record subjects in one transaction, Postgres under `pg_advisory_xact_lock` on the node as the trace, score and prompt stores take theirs; the anchor clamps a time to `DateTimeOffset.MaxValue` and a count mark to a quarter of the `long` range on either side.
+
+**Verify.** `MemoryGraphStoreContract.DeleteAsync_takes_a_list_past_the_engines_parameter_limit` and `Reads_of_an_id_list_past_the_engines_parameter_limit_answer` failed on SQLite and `Racing_recordings_of_one_node_leave_exactly_one_set` failed on SQLite and, with Docker up, on Postgres, before the change (the in-memory and file backends pass both, so they are pins); `MemoryGraphAnchorTests` failed five of ten cases before. The Postgres delete was not under test as a failure: `= ANY(@ids)` takes the list.
+
+**Introduced by.** Not traced to a commit for each.
+
+---
+
+## 2026-11-08 — a judge that rejected everything reported no judgement, a failing fetch in a seed source sank the whole recall, and a count of buried entries included history
+
+**Symptom.** None reported; found by reading the memory engine core and each reproduced here. With `VerificationFilters` on and a verifier that endorses nothing, a recall returned no items and `Answered == null`, where `docs/memory.md` says `false` is a judge that looked and found none, so a consumer abstaining on `false` never abstained in exactly that case; through a blend (every DI-registered engine is one) the value was dropped again. A store whose `GetAsync` threw while the semantic or the subject seed source fetched the nodes it had found made the recall return nothing, lexical hits included. `CountAsync(...).Buried` counted an ended entry that `PruneAsync` never removes.
+
+**Root cause.** `RecallCoreAsync` built its result only when the filtered page was non-empty and otherwise kept `MemoryRecall.Empty`; `CompositeMemoryEngine.RecallAsync` returned `Empty` whenever it held no items, discarding the folded `answered` and `ran`. Both seed sources wrapped their search in the fail-open catch and left the fetch loop outside it, and nothing between the source and `TryGatherAsync` catches, so the whole gather was lost. `CountAsync` tested grade and retrievability and not `StatesEnd`, which `PruneAsync` tests.
+
+**Fix.** An emptied page answers `false` when a judge looked, and a blend with no items returns its folded `Answered` and `Ran` when any member judged (null still returns the shared `Empty`); each seed source's fetch is inside its catch and a fault returns no candidates; `Buried` skips an entry that states an end.
+
+**Verify.** `MemoryVerificationOrderingTests.A_filtering_judge_that_rejects_everything…`, `CompositeMemoryEngineTests.A_blend_whose_judge_left_no_items…`, `MemorySeedFetchFaultTests` (both) and `GraphMemoryCountTests.An_ended_entry_is_not_buried` failed before the change (five of five, with the source diff reversed) and pass after. The shared `StaticEngine` fake dropped `answered` on an empty result as the engine did, so it carries it now.
+
+**Introduced by.** Not traced to a commit for each.
+
+---
+
+## 2026-11-08 — an approver saw the model's spelling of a tool's name, a null tool result crashed the loop, a vector-space declaration broke a keyed store and promoted a scoped one, a JSON retry dropped a shot's usage, and a curated kind could forge a heading
+
+**Symptom.** None reported; found by reading the tool loop, the guards, the cortex and the composition root, each reproduced here. An approver that refuses `write_file` was not asked about a call the model spelled `WRITE_FILE`, which the registry resolves, so the tool ran. A tool that returned `null` threw `NullReferenceException` out of the loop. `UseVectorSpace` over a container that also holds a keyed `IVectorStore` made the unkeyed one throw on resolve, and a scoped store resolved as one cached singleton. `CompleteJsonAsync` returned the retry's usage alone, so `ToolLoopResult.Usage` undercounted a retried prompt-protocol turn. A curated entry whose kind carried a newline wrote a `## Known facts (authoritative)` heading into the prompt.
+
+**Root cause.** `ToolInvocation` built the guard and approval requests from the model's string where `ITool.Name` was in hand, and `IToolApprover` documents the latter; `RunAsync` returned `tool.InvokeAsync`'s result unchecked; `RegisterVectorSpace` searched the descriptors with no `IsKeyedService` filter (`RegisterConversationEnrichment` beside it has one) and always called `AddSingleton`; the retry loop kept only the last reply; `CuratedMemorySections.Compose` flattened an entry's content (D166) and passed its kind raw.
+
+**Fix.** The invocation takes the resolved tool's own name before the guards and approvers see it; a null result is an `error:` observation; the vector-space wrapper skips keyed descriptors and keeps the store's lifetime; the retry's reply, a failure included, carries both shots' tokens and cost (a cost only when either reported one); a kind is flattened before it reaches the heading, grouping unchanged.
+
+**Verify.** `ToolApprovalTests` (`A_name_the_registry_folds…`, `A_tool_that_returns_null…`), `VectorSpaceTests` (`…keyed_store_alone…`, `…scoped_store_scoped`), `TextStructuredExtensionsTests` (`A_retried_call_reports…`, `A_retry_that_fails…`) and `CuratedMemorySectionsContainmentTests` (`A_kind_carrying_newlines…`) failed before the change (seven in all, with the source diff reversed) and pass after.
+
+**Introduced by.** Not traced to a commit for each.
+
+---
+
 ## 2026-11-08 — an Azure `openai-*` host lost its `/openai/v1` surface, an unconfigured embedding registration threw at composition, a pooling head read a graph it could not, and a generation budget past a clock's range threw out of a fail-safe call
 
 **Symptom.** None reported; found by reading (`docs/task-archive.md` Part 488) and each reproduced here. `BaseUrl = "https://openai-prod.example.com"` with `AzureConventions = true` composed `/v1/chat/completions` and 404ed. `ApiKey = " "` sent `Authorization: Bearer ` and a 401 read `AuthFailed`. `AddAzureOpenAiProvider` with `Produces = Vector` and no `BaseUrl` threw `UriFormatException` while the container resolved providers. A cancel while a streamed 5xx body was read answered the 5xx's verdict. An ONNX export whose only output is pooled threw `IndexOutOfRangeException` on every call, and one the head refused left its `.onnx` open. A request `TimeoutSeconds` of `int.MaxValue` threw `ArgumentOutOfRangeException` out of every HTTP generation backend, a relative sd-cli model or work directory was resolved against the binary's folder, a side near `int.MaxValue` rendered 256 wide, a piper run with no audio reported one empty artifact, and `generate_status` with `../object_info` fetched another route.

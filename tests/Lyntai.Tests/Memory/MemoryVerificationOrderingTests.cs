@@ -135,4 +135,27 @@ public class MemoryVerificationOrderingTests
 
         Assert.Equal(baseline, judged);
     }
+
+    /// <summary><b>A judge that rejects every candidate says so, even when it left nothing to return.</b> With
+    /// filtering ON the page is emptied, and `Answered` is the only thing that tells that from a recall no judge
+    /// looked at.</summary>
+    [Fact]
+    public async Task A_filtering_judge_that_rejects_everything_answers_false_with_no_items()
+    {
+        using var db = new TempDb();
+        var engine = new GraphMemoryEngine("verify", new SqliteMemoryGraphStore(db.Factory),
+            options: new GraphMemoryOptions { VerificationFilters = true }, seams: new GraphMemorySeams
+            {
+                AgePolicies = [new PerWriteAgePolicy()],
+                Retrievability = new DsrRetrievability(),
+                Ranking = new ReciprocalRankFusionPolicy(),
+                Verification = new VerdictOrderingFixture.Endorses("no entry carries this headline"),
+            });
+        await engine.RememberAsync(new MemoryWrite("t", "s", "deployment note one covers response caching"));
+
+        var recall = await engine.RecallAsync(new MemoryQuery("t", "s", "deployment note", Limit: 10));
+
+        Assert.Empty(recall.Items);
+        Assert.False(recall.Answered);
+    }
 }

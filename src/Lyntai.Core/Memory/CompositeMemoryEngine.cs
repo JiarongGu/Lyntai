@@ -362,7 +362,11 @@ public sealed class CompositeMemoryEngine
         }
 
         if (items.Count == 0)
-            return candidates is null ? MemoryRecall.Empty : MemoryRecall.Empty with { Candidates = candidates };
+        {
+            // a judge that looked and left nothing still reports it; with none, this stays the no-tier empty
+            var none = answered is null ? MemoryRecall.Empty : new MemoryRecall([], ran, answered);
+            return candidates is null ? none : none with { Candidates = candidates };
+        }
         var offered = items;
 
         // THE CUT. Every member was asked for up to `Limit` items, so a blend of N members could return N x
