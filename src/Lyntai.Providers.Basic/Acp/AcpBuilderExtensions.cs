@@ -55,6 +55,11 @@ public static class AcpBuilderExtensions
     /// <param name="permissionWait">How long a request waits for the approver: by default half of the inactivity window, then a
     /// refusal; <see cref="AcpPermissionWait.AsLongAsApproverHolds"/> makes the wait the approver's and tells the process
     /// runner not to read it as a silent agent. Needs <paramref name="permissionApprover"/>.</param>
+    /// <param name="keptRun">Whether the door opens a run kept across turns (<see cref="IAgentRunProvider"/>) and whose measured
+    /// record the claim rests on: <see cref="AcpKeptRun.ClaudeAgentAcp"/> makes the provider an <see cref="IAgentRunProvider"/> and the
+    /// door state <see cref="AgentAbilities.KeptRun"/> and <see cref="AgentAbilities.QueuedWords"/> supported. The default opens none
+    /// and states them unknown, since the protocol alone promises neither. A run needs a process runner that can pause its inactivity
+    /// window (<see cref="IProcessRunner.CanPauseInactivity"/>), else the open is refused.</param>
     /// <exception cref="ArgumentException"><paramref name="agent"/> or <paramref name="accountVariables"/> is given
     /// without <paramref name="accountHomeVariable"/>, a variable name is not one an environment can carry, or
     /// <paramref name="permissionWait"/> asks the approver's wait with no approver.</exception>
@@ -73,7 +78,8 @@ public static class AcpBuilderExtensions
         IEnumerable<string>? accountVariables = null,
         IEnumerable<IAcpExtensionReader>? extensions = null,
         IAcpPermissionApprover? permissionApprover = null,
-        AcpPermissionWait permissionWait = AcpPermissionWait.HalfTheWindow)
+        AcpPermissionWait permissionWait = AcpPermissionWait.HalfTheWindow,
+        AcpKeptRun keptRun = AcpKeptRun.None)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(id);
         if (permissionWait != AcpPermissionWait.HalfTheWindow && permissionApprover is null)
@@ -87,10 +93,8 @@ public static class AcpBuilderExtensions
         var readers = extensions?.ToList();
         if (readers is not null && readers.Contains(null!))
             throw new ArgumentException("A reader is null.", nameof(extensions));
-        var descriptor = AcpAgentDoor.Describe(id, accountHomeVariable, agent, accountVariables, permissionApprover is not null, permissionWait);
-        builder.AddAgentProvider(descriptor, sp => new AgentProvider(descriptor,
-            _ => sp.GetRequiredKeyedService<IAgentSession>(id)));
-        builder.Services.AddKeyedSingleton<IAgentSession>(id, (sp, _) => new AcpAgentSession(
+        var descriptor = AcpAgentDoor.Describe(id, accountHomeVariable, agent, accountVariables, permissionApprover is not null, permissionWait, keptRun);
+        AcpAgentSession Build(IServiceProvider sp) => new(
             sp.GetRequiredService<IProcessRunner>(),
             sp.GetRequiredService<LyntaiOptions>(),
             command,
@@ -101,7 +105,14 @@ public static class AcpBuilderExtensions
             accountVariables: accountVariables,
             extensions: readers,
             permissionApprover: permissionApprover,
-            permissionWait: permissionWait));
+            permissionWait: permissionWait);
+        // a run is not a session the container resolves: it has its own session, since the keyed one may be decorated for retry
+        builder.AddAgentProvider(descriptor, sp =>
+        {
+            var provider = new AgentProvider(descriptor, _ => sp.GetRequiredKeyedService<IAgentSession>(id));
+            return keptRun == AcpKeptRun.None ? (IAgentProvider)provider : new AcpRunAgentProvider(provider, Build(sp));
+        });
+        builder.Services.AddKeyedSingleton<IAgentSession>(id, (sp, _) => Build(sp));
         return builder;
     }
 }

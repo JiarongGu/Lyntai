@@ -7,14 +7,20 @@ static class Lyntai.Agents.AgentAbilities
     DisallowedTools : String const
     Effort : String const
     Environment : String const
+    KeepingStop : String const
+    KeptRun : String const
     LiveUsage : String const
     McpServers : String const
     Model : String const
+    ModelReask : String const
     PermissionMode : String const
     PermissionRequests : String const
     PlanEvents : String const
     Plugins : String const
+    QueuedWords : String const
     ReadOnlyGate : String const
+    RepeatableOpen : String const
+    ReplayTold : String const
     Resume : String const
     Steering : String const
     SystemPrompt : String const
@@ -536,6 +542,14 @@ sealed class Lyntai.Agents.AgentRetryOptions
     InitialDelay : TimeSpan { get; set; }
     MaxDelay : TimeSpan { get; set; }
     MaxRetries : Int32 { get; set; }
+static class Lyntai.Agents.AgentRunSubtypes
+    Busy : String const
+    Disposed : String const
+    Over : String const
+sealed class Lyntai.Agents.AgentRunTurn
+    .ctor(IAsyncEnumerable<AgentStreamEvent> events, Task<SessionEnded> ended)
+    Ended : Task<SessionEnded> { get; }
+    Events : IAsyncEnumerable<AgentStreamEvent> { get; }
 sealed class Lyntai.Agents.AgentSeat
     .ctor(Int32 ChoiceIndex, AgentChoice Choice, AgentAccount Account, Boolean IsProbe)
     Account : AgentAccount { get; init; }
@@ -819,6 +833,13 @@ interface Lyntai.Agents.IAgentAllowanceSource
 interface Lyntai.Agents.IAgentProvider
     Describe() : AgentProviderDescriptor
     Open(String doorId) : IAgentSession
+interface Lyntai.Agents.IAgentRun
+    Ended : Task<SessionEnded> { get; }
+    SendAsync(String prompt, CancellationToken ct = default) : Task<AgentRunTurn>
+    SessionId : String { get; }
+    StopAsync(CancellationToken ct = default) : Task<Boolean>
+interface Lyntai.Agents.IAgentRunProvider
+    OpenRunAsync(String doorId, AgentSessionOptions options, CancellationToken ct = default) : Task<IAgentRun>
 interface Lyntai.Agents.IAgentSession
     StreamAsync(AgentSessionOptions options, CancellationToken ct = default) : IAsyncEnumerable<AgentStreamEvent>
 interface Lyntai.Agents.IAgentUsageSource

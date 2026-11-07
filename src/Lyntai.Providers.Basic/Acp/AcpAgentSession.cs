@@ -130,48 +130,16 @@ public sealed class AcpAgentSession : IAgentSession
         AgentSessionOptions options, [EnumeratorCancellation] CancellationToken ct = default)
     {
         ArgumentNullException.ThrowIfNull(options);
-        if (!AgentMcpServers.TryValidate(options.McpServers, out var mcpRefusal))
+        if (!TryPrepare(options, out var launch, out var refusal))
         {
-            yield return CliAgentLoop.Refused(AgentMcpServers.RefusedSubtype, mcpRefusal);
+            yield return refusal!;
             yield break;
         }
 
-        if (!AgentAccounts.TryCheckTurn(options.Environment, out var environmentRefusal))
-        {
-            yield return CliAgentLoop.Refused(AgentAccounts.EnvironmentRefusedSubtype, environmentRefusal);
-            yield break;
-        }
-
-        IReadOnlyDictionary<string, string> accountEnvironment = new Dictionary<string, string>(0);
-        string? accountRefusal = null;
-        if (options.Account is not null && _accounts is null)
-            accountRefusal = "this agent's configuration-home variable is not known, so an account cannot be handed to it.";
-        else if (options.Account is not null
-            && !AgentAccounts.TryMap(options.Account, _accounts!, out accountEnvironment, out accountRefusal))
-            accountRefusal ??= "the account cannot be handed to the agent.";
-        if (accountRefusal is not null)
-        {
-            yield return CliAgentLoop.Refused(AgentAccounts.RefusedSubtype, accountRefusal);
-            yield break;
-        }
-
-        if (options.ResumeToken is not null && string.IsNullOrWhiteSpace(options.ResumeToken))
-        {
-            yield return CliAgentLoop.Refused(AgentResumeToken.RefusedSubtype,
-                "a blank resume token names no conversation. Pass the SessionId reported by SessionStarted/SessionEnded, or null to start a fresh session.");
-            yield break;
-        }
-
-        var tokens = CliCommand.Tokenize(_command);
-        if (tokens.Count == 0)
-        {
-            yield return CliAgentLoop.Refused("command-invalid", "the agent's launch command is blank.");
-            yield break;
-        }
-
-        var cwd = Path.GetFullPath(options.WorkingDirectory ?? Directory.GetCurrentDirectory());
+        var tokens = launch!.Tokens;
+        var cwd = launch.Cwd;
         var outbox = Channel.CreateUnbounded<string>(new UnboundedChannelOptions { SingleReader = true });
-        var inactivity = _options.ResolveTimeout(options.TimeoutSeconds);
+        var inactivity = launch.Inactivity;
         // a held request is the person's wait: its clock is the approver's, so the runner's window is paused while one is held
         var pause = _permissionWait == AcpPermissionWait.AsLongAsApproverHolds ? new InactivityPause() : null;
         var reader = new AcpAgentReader(options, cwd, ClientVersion, outbox.Writer, _time, _extensions, _permissions, inactivity, _logger, pause);
@@ -191,13 +159,12 @@ public sealed class AcpAgentSession : IAgentSession
         string? unsupported = null;
         try
         {
-            var childEnvironment = AgentAccounts.Merge(AgentAccounts.MergeTurn(_environment, options.Environment), accountEnvironment);
             var stdin = watch.Frames(outbox.Reader.ReadAllAsync(CancellationToken.None));
             lines = pause is null
                 ? _runner.ExchangeLinesAsync(tokens[0], [.. tokens.Skip(1), .. _arguments], stdin, inactivity,
-                    workingDirectory: cwd, environment: childEnvironment, ct: kill.Token)
+                    workingDirectory: cwd, environment: launch.Environment, ct: kill.Token)
                 : _runner.ExchangeLinesAsync(tokens[0], [.. tokens.Skip(1), .. _arguments], stdin, pause, inactivity,
-                    workingDirectory: cwd, environment: childEnvironment, ct: kill.Token);
+                    workingDirectory: cwd, environment: launch.Environment, ct: kill.Token);
         }
         catch (NotSupportedException ex)
         {
@@ -226,6 +193,75 @@ public sealed class AcpAgentSession : IAgentSession
         }
 
         ct.ThrowIfCancellationRequested();
+    }
+
+    /// <summary>What a spawn needs, once its options have passed every check made before a spawn.</summary>
+    internal sealed record AcpLaunch(
+        IReadOnlyList<string> Tokens, string Cwd, TimeSpan Inactivity, IReadOnlyDictionary<string, string?>? Environment);
+
+    // the refusals made before anything is spawned, for a turn and for a run's open alike
+    private bool TryPrepare(AgentSessionOptions options, out AcpLaunch? launch, out SessionEnded? refusal)
+    {
+        launch = null;
+        if (!AgentMcpServers.TryValidate(options.McpServers, out var mcpRefusal))
+        {
+            refusal = CliAgentLoop.Refused(AgentMcpServers.RefusedSubtype, mcpRefusal);
+            return false;
+        }
+
+        if (!AgentAccounts.TryCheckTurn(options.Environment, out var environmentRefusal))
+        {
+            refusal = CliAgentLoop.Refused(AgentAccounts.EnvironmentRefusedSubtype, environmentRefusal);
+            return false;
+        }
+
+        IReadOnlyDictionary<string, string> accountEnvironment = new Dictionary<string, string>(0);
+        string? accountRefusal = null;
+        if (options.Account is not null && _accounts is null)
+            accountRefusal = "this agent's configuration-home variable is not known, so an account cannot be handed to it.";
+        else if (options.Account is not null
+            && !AgentAccounts.TryMap(options.Account, _accounts!, out accountEnvironment, out accountRefusal))
+            accountRefusal ??= "the account cannot be handed to the agent.";
+        if (accountRefusal is not null)
+        {
+            refusal = CliAgentLoop.Refused(AgentAccounts.RefusedSubtype, accountRefusal);
+            return false;
+        }
+
+        if (options.ResumeToken is not null && string.IsNullOrWhiteSpace(options.ResumeToken))
+        {
+            refusal = CliAgentLoop.Refused(AgentResumeToken.RefusedSubtype,
+                "a blank resume token names no conversation. Pass the SessionId reported by SessionStarted/SessionEnded, or null to start a fresh session.");
+            return false;
+        }
+
+        var tokens = CliCommand.Tokenize(_command);
+        if (tokens.Count == 0)
+        {
+            refusal = CliAgentLoop.Refused("command-invalid", "the agent's launch command is blank.");
+            return false;
+        }
+
+        refusal = null;
+        launch = new AcpLaunch(
+            tokens, Path.GetFullPath(options.WorkingDirectory ?? Directory.GetCurrentDirectory()), _options.ResolveTimeout(options.TimeoutSeconds),
+            AgentAccounts.Merge(AgentAccounts.MergeTurn(_environment, options.Environment), accountEnvironment));
+        return true;
+    }
+
+    /// <summary>Open a run kept across turns on this door's agent (<see cref="AcpAgentRun"/>). A refusal made before a spawn, a
+    /// runner that cannot pause its inactivity window, and an open the agent fails are each a run already ended.</summary>
+    internal async Task<IAgentRun> OpenRunAsync(
+        AgentSessionOptions options, bool queuedWords, CancellationToken ct)
+    {
+        ArgumentNullException.ThrowIfNull(options);
+        if (!TryPrepare(options, out var launch, out var refusal)) return AcpAgentRun.AlreadyOver(refusal!);
+        if (!_runner.CanPauseInactivity)
+            return AcpAgentRun.AlreadyOver(CliAgentLoop.Refused("runner-unsupported",
+                "a run is idle between turns and its process's inactivity window must be paused meanwhile, and this IProcessRunner cannot be told to (CanPauseInactivity is false)."));
+
+        var host = new AcpAgentRun.Host(_runner, launch!, _arguments, _cancelGrace, _time, _extensions, _permissions, _permissionWait, _logger, ClientVersion);
+        return await AcpAgentRun.OpenAsync(host, options, queuedWords, ct).ConfigureAwait(false);
     }
 }
 

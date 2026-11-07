@@ -1,5 +1,5 @@
 static class Lyntai.AcpBuilderExtensions
-    static AddAcpAgentSession(LyntaiBuilder builder, String id, String command, IReadOnlyList<String> arguments = null, IReadOnlyDictionary<String,String> environment = null, String accountHomeVariable = null, String agent = null, IEnumerable<String> accountVariables = null, IEnumerable<IAcpExtensionReader> extensions = null, IAcpPermissionApprover permissionApprover = null, AcpPermissionWait permissionWait = AcpPermissionWait.HalfTheWindow) : LyntaiBuilder
+    static AddAcpAgentSession(LyntaiBuilder builder, String id, String command, IReadOnlyList<String> arguments = null, IReadOnlyDictionary<String,String> environment = null, String accountHomeVariable = null, String agent = null, IEnumerable<String> accountVariables = null, IEnumerable<IAcpExtensionReader> extensions = null, IAcpPermissionApprover permissionApprover = null, AcpPermissionWait permissionWait = AcpPermissionWait.HalfTheWindow, AcpKeptRun keptRun = AcpKeptRun.None) : LyntaiBuilder
 static class Lyntai.ClaudeCliBuilderExtensions
     static AddClaudeCliAgentSession(LyntaiBuilder builder, String command = null, IReadOnlyDictionary<String,String> environment = null, String id = "claude-cli", String agent = null) : LyntaiBuilder
     static AddClaudeCliProvider(LyntaiBuilder builder, ClaudeCliBackend backend, String command = null, IReadOnlyDictionary<String,String> environment = null, String id = "claude-cli") : LyntaiBuilder
@@ -33,6 +33,10 @@ static class Lyntai.Providers.Acp.AcpExtensionReaders
     static Claude : IAcpExtensionReader { get; }
     static Codex : IAcpExtensionReader { get; }
     static Default : IReadOnlyList<IAcpExtensionReader> { get; }
+enum Lyntai.Providers.Acp.AcpKeptRun
+    ClaudeAgentAcp : AcpKeptRun const
+    None : AcpKeptRun const
+    value__ : Int32
 sealed class Lyntai.Providers.Acp.AcpPermissionAnswer
     Approves : Boolean { get; }
     Equals(AcpPermissionAnswer other) : Boolean

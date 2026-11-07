@@ -96,6 +96,15 @@ every addition.
 
 ### Added
 
+- **A run kept across turns on the Claude protocol door** (**D251**). A provider that is also an `IAgentRunProvider` (found by type test;
+  `IAgentSession` gains no member) opens an `IAgentRun`: one agent process, one `initialize` and one `session/new`, then a turn per
+  `SendAsync`, each the one-turn stream with exactly one `SessionEnded`. `StopAsync` sends `session/cancel` as the one-turn door does,
+  `DisposeAsync` closes stdin, and a run whose open failed (or was refused before a spawn) is already over, the typed failure in `Ended`:
+  nothing throws and the library never repeats an open. The process's inactivity window counts only while a sent turn runs. Register
+  it with `AddAcpAgentSession(..., keptRun: AcpKeptRun.ClaudeAgentAcp)`, which needs a runner that can pause its window. Six abilities
+  (`kept-run`, `queued-words`, `keeping-stop`, `model-reask`, `replay-told`, `repeatable-open`) are stated on every door: the Claude
+  protocol door states the first two `Supported` and the others `Unknown`, the one-turn CLI doors and HTTP what their records show.
+  **A host's own provider adds six claims** (`AgentAbilities.All` gains six members).
 - **`TextDelta` carries the id of the message that said its words.** `TextDelta.MessageId` is the stream-json `message.id` of the frame
   that carried them: a streamed delta takes the id its `message_start` stated, a whole message (the session's own, or a subagent's)
   its own `message.id`. It is null where the frame states none, and never made up or carried over from an earlier message. Other
