@@ -79,6 +79,19 @@ public class ProcessRunnerTests
         Assert.Null(await run);   // and a locator that answered nothing resolves to null
     }
 
+    [SkippableFact]
+    public void A_command_in_the_current_directory_is_never_the_answer_to_a_PATH_lookup()
+    {
+        // where.exe searches the current directory BEFORE PATH, so a launcher dropped in the host's working
+        // directory would win the lookup, be cached, and be spawned for every later call
+        Skip.IfNot(OperatingSystem.IsWindows(), "where.exe's current-directory search is a Windows concern");
+
+        using var scratch = new ScratchDir("locate-cwd");
+        scratch.File("lyntai-cwd-probe.cmd", "@echo off\r\n");
+
+        Assert.Null(ProcessRunner.Locate("lyntai-cwd-probe", scratch.Path));
+    }
+
     [Fact]
     public async Task Stdin_passes_through_including_utf8_cjk()
     {
