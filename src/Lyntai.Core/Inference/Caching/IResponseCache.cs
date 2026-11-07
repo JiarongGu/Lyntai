@@ -58,7 +58,9 @@ public static class ResponseCacheKey
     {
         using var h = IncrementalHash.CreateHash(HashAlgorithmName.SHA256);
         AddString(h, "lyntai-cache-v1"); // version prefix — bump to invalidate the whole keyspace on a shape change
-        AddString(h, effectiveModel ?? req.Model);
+        // "" and null both mean no model to the router, and the hash frames them differently
+        var model = effectiveModel ?? req.Model;
+        AddString(h, string.IsNullOrEmpty(model) ? null : model);
         AddInt(h, req.MaxTokens ?? -1);
         AddString(h, req.Temperature?.ToString("R", CultureInfo.InvariantCulture));
         AddString(h, req.JsonSchema);

@@ -260,6 +260,8 @@ public sealed class TextRouter(
         }
         catch (Exception ex) when (ex is not OperationCanceledException || !ct.IsCancellationRequested)
         {
+            // a transport torn down by the caller's cancel throws something other than the cancel
+            ct.ThrowIfCancellationRequested();
             return TextChunk.Error(ProviderVerdictClassifier.FromThrown(ex), ex.Message);
         }
     }
@@ -408,6 +410,9 @@ public sealed class TextRouter(
 
     private async Task<TextResponse> TryCompleteAsync(IModelProvider provider, string? effectiveModel, TextRequest req, CancellationToken ct)
     {
+        // a caller already gone takes no permit and calls nobody, whichever candidate this is
+        ct.ThrowIfCancellationRequested();
+
         // the permit is taken BEFORE the span opens, so a queued call's wait never inflates the backend's
         // reported latency. Scoped with `using`, so the verdict return, the rethrown caller cancel and the
         // classified provider throw below all release it — a permit that escapes pins its gate forever.
@@ -427,6 +432,9 @@ public sealed class TextRouter(
         }
         catch (Exception ex)
         {
+            // a provider torn down by the caller's cancel throws whatever its transport throws; that is the
+            // caller leaving, not the host failing, and must neither strike it nor start a fallback
+            ct.ThrowIfCancellationRequested();
             // classify through the shared taxonomy (thrown 429→RateLimited, 401/403→AuthFailed,
             // OCE→Timeout, …) — a provider that THROWS must get the same fallback policy as one that
             // returns a verdict reply; hand-rolling Failed here would hammer a rate-limited host

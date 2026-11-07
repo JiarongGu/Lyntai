@@ -82,6 +82,22 @@ public class UsageReservationBudgetTests
     }
 
     [Fact]
+    public async Task A_hold_that_never_expires_is_granted_not_an_overflow()
+    {
+        // TimeSpan.MaxValue is the natural way to say "never": the expiry is now plus it, which a plain add
+        // cannot represent
+        var tracker = new InMemoryUsageTracker();
+        var inner = new GatedTextClient(costPerCall: 0.2);
+        var options = Options(cap: 1.0, hold: 0.25);
+        options.Budget.ReservationLifetime = TimeSpan.MaxValue;
+        var client = new BudgetedTextClient(inner, tracker, options);
+
+        var replies = await InFlight(client, inner, n: 2, expectEntered: 2);
+
+        Assert.All(replies, r => Assert.Equal(ProviderVerdict.Ok, r.Verdict));
+    }
+
+    [Fact]
     public async Task Without_a_hold_set_a_reserving_tracker_keeps_the_soft_check()
     {
         var tracker = new InMemoryUsageTracker();

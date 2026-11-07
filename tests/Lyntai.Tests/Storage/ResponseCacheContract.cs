@@ -54,7 +54,19 @@ public static class ResponseCacheContract
         Assert.Null(await cache.GetAsync(key));
     }
 
-    /// <summary>The escape hatch for a poisoned reply evicts exactly one entry. A remove that took its
+    /// <summary>A TTL of <c>TimeSpan.MaxValue</c> — the natural way to say "never" — keeps the entry rather
+    /// than overflowing the expiry, which would throw out of a call that was already billed.</summary>
+    public static async Task A_TTL_past_the_end_of_time_never_expires(
+        IResponseCache cache, string key, Action<TimeSpan> advance)
+    {
+        await cache.SetAsync(key, Reply("forever"), TimeSpan.MaxValue);
+
+        advance(TimeSpan.FromDays(365 * 50));
+
+        Assert.NotNull(await cache.GetAsync(key));
+    }
+
+    /// <summary>The escape hatch for a poisoned reply evicts exactly one entry.</summary> A remove that took its
     /// neighbours with it would silently empty the cache on every correction.</summary>
     public static async Task Remove_evicts_ONE_entry_and_leaves_the_others(
         IResponseCache cache, string key, Action<TimeSpan> advance)
