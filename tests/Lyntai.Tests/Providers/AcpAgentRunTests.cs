@@ -145,6 +145,16 @@ public class AcpAgentRunTests
 
     private const string NoUsage = """{"inputTokens":0,"outputTokens":0,"cachedReadTokens":0,"cachedWriteTokens":0}""";
 
+    /// <summary>SOURCE-DERIVED: the frames of a backgrounded command (console-streams note, REAL field names), here with ids made up.</summary>
+    private static string Spawned(string task) => Update($$"""{"sessionUpdate":"async_task_spawned","asyncTaskId":"{{task}}","name":"tick","taskType":"shell","description":"ticks for twenty seconds","showInTranscript":false,"canStop":true}""");
+
+    private static string TaskProgress(string call) => Update($$"""{"sessionUpdate":"async_task_progress","asyncTaskId":"t1","toolCallId":"{{call}}"}""");
+
+    private static string TaskState(string task, string state) => Update($$"""{"sessionUpdate":"async_task_state_update","asyncTaskId":"{{task}}","state":"{{state}}"}""");
+
+    private static string AutonomousUsage() =>
+        Update("""{"sessionUpdate":"usage_update","used":100,"size":1000,"_meta":{"_claude/origin":{"kind":"task-notification"}}}""");
+
     private static string PermissionRequest() =>
         """{"jsonrpc":"2.0","id":"agent-1","method":"session/request_permission","params":{"sessionId":"s1","toolCall":{"toolCallId":"c1","title":"Edit"},"options":[{"optionId":"allow-once","name":"Allow","kind":"allow_once"},{"optionId":"reject-once","name":"Reject","kind":"reject_once"}]}}""";
 
@@ -154,10 +164,10 @@ public class AcpAgentRunTests
         new() { Prompt = "", WorkingDirectory = TestPaths.TestScratchDir, ToolPolicy = policy };
 
     private static async Task<IAgentRun> Open(
-        KeptAgent agent, TimeProvider? time = null, bool queuedWords = true,
+        KeptAgent agent, AgentRunOptions? run = null, TimeProvider? time = null, bool queuedWords = true,
         IAcpPermissionApprover? approver = null, AgentSessionOptions? options = null) =>
         await new AcpAgentSession(agent, new LyntaiOptions(), "agent", time: time, permissionApprover: approver)
-            .OpenRunAsync(options ?? Session(approver is null ? AgentToolPolicy.ReadOnly : AgentToolPolicy.Write), queuedWords, default)
+            .OpenRunAsync(options ?? Session(approver is null ? AgentToolPolicy.ReadOnly : AgentToolPolicy.Write), run, queuedWords, default)
             .WaitAsync(Wait);
 
     private static async Task<List<AgentStreamEvent>> Read(AgentRunTurn turn) => await turn.Events.ToListAsync().AsTask().WaitAsync(Wait);
@@ -201,6 +211,7 @@ public class AcpAgentRunTests
             Assert.Single(events.OfType<SessionEnded>());
             var ended = Ended(events);
             Assert.Equal((ProviderVerdict.Ok, false, "s1"), (ended.Verdict, ended.IsError, ended.SessionId));
+            Assert.Equal(AgentRunTurnOrigin.Sent, first.Origin);
         }
 
         Assert.Equal("first", Ended(firstEvents).FinalText);
@@ -225,6 +236,20 @@ public class AcpAgentRunTests
         var prompts = agent.Written.Where(f => Method(f) == "session/prompt").ToList();
         Assert.Equal(["be brief", "one"], prompts[0]["params"]!["prompt"]!.AsArray().Select(b => b!["text"]!.GetValue<string>()));
         Assert.Equal(["two"], prompts[1]["params"]!["prompt"]!.AsArray().Select(b => b!["text"]!.GetValue<string>()));
+    }
+
+    [Fact] // the protocol's own request: only a run asks for the frames of the work it backgrounds
+    public async Task Only_a_run_declares_asyncTasks_at_initialize()
+    {
+        var run = new KeptAgent();
+        await using var kept = await Open(run);
+        var oneTurn = new KeptAgent();
+        oneTurn.Reply = frame => Method(frame) == "session/prompt" ? [Answer(3)] : Handshake(frame);
+        await new AcpAgentSession(oneTurn, new LyntaiOptions(), "agent").StreamAsync(Session() with { Prompt = "hi" }).ToListAsync();
+
+        string[] Declared(KeptAgent a) => [.. a.Written[0]["params"]!["clientCapabilities"]!["_meta"]!["jetbrains"]!["air"]!["capabilities"]!.AsArray().Select(c => c!.GetValue<string>())];
+        Assert.Equal(["sessionFailure", "asyncTasks"], Declared(run));
+        Assert.Equal(["sessionFailure"], Declared(oneTurn));
     }
 
     [Fact] // SOURCE-DERIVED: a stop is the one-turn door's cancel, and the next turn runs on the same process
@@ -503,4 +528,150 @@ public class AcpAgentRunTests
         }
     }
 
+    // ── AG48: background work, and the turn its end wakes ────────────────────
+
+    [Fact] // SOURCE-DERIVED: console-streams note, a task spawned, the response, the agent speaking again after its end
+    public async Task A_woken_turn_carries_the_endings_that_woke_it_and_a_task_is_read_from_its_start()
+    {
+        var agent = new KeptAgent();
+        await using var run = await Open(agent);
+        var turn = await run.SendAsync("start a ticker and delegate");
+
+        agent.Say(Call("bash-1", "in_progress"), Spawned("t1"), TaskProgress("bash-1"), CallDone("bash-1"), Chunk("DONE"), Answer(100));
+        var events = await Read(turn);
+        agent.Say(TaskState("t1", "stopped"), TaskState("t1", "completed"), TaskState("t1", "completed"), Chunk("The background ticker finished"));
+        await using var woken = run.WokenTurns.GetAsyncEnumerator();
+        Assert.True(await woken.MoveNextAsync().AsTask().WaitAsync(Wait));
+        await using var wokenEvents = woken.Current.Events.GetAsyncEnumerator();
+        var read = new List<AgentStreamEvent>();
+        for (var i = 0; i < 3; i++)
+        {
+            Assert.True(await wokenEvents.MoveNextAsync().AsTask().WaitAsync(Wait));
+            read.Add(wokenEvents.Current);
+        }
+
+        var started = Assert.IsType<AgentTaskStarted>(Assert.Single(events.OfType<AgentTaskStarted>()));
+        Assert.Equal(("t1", "shell", "ticks for twenty seconds", (string?)null), (started.TaskId, started.Kind, started.Description, started.CallId));
+        Assert.Equal(AgentRunTurnOrigin.Woken, woken.Current.Origin);
+        Assert.Equal([new AgentTaskEnded("t1", "stopped"), new AgentTaskEnded("t1", "completed")], read.Take(2));   // a repeat of a state is one ending
+        Assert.Equal("The background ticker finished", Assert.IsType<TextDelta>(read[2]).Text);
+        Assert.Contains(AgentShownKind.Task, Ended(events).Turn!.Shown);
+        Assert.DoesNotContain(events, e => e is AgentTaskEnded);
+    }
+
+    [Fact] // D251: a woken turn ends only by the host's quiet, and the agent's autonomous usage frame is not its end
+    public async Task A_woken_turn_with_no_quiet_bound_never_ends_itself_and_a_prompt_into_it_is_refused()
+    {
+        var agent = new KeptAgent();
+        await using var run = await Open(agent);
+        await using var woken = run.WokenTurns.GetAsyncEnumerator();
+
+        agent.Say(Chunk("I woke"), AutonomousUsage(), AutonomousUsage());
+        Assert.True(await woken.MoveNextAsync().AsTask().WaitAsync(Wait));
+        await Task.Delay(300);
+        var refused = Ended(await Read(await run.SendAsync("go on")));
+
+        Assert.False(woken.Current.Ended.IsCompleted);
+        Assert.Equal((ProviderVerdict.Unsupported, AgentRunSubtypes.WokenRunning, AgentDelivery.NeverSent), (refused.Verdict, refused.Subtype, refused.Failure!.Delivery));
+        Assert.DoesNotContain(agent.Written, f => Method(f) == "session/prompt");
+        await run.DisposeAsync();
+        var cut = await woken.Current.Ended.WaitAsync(Wait);
+        Assert.Equal((ProviderVerdict.Failed, AgentRunSubtypes.Over), (cut.Verdict, cut.Subtype));   // one terminal even then
+    }
+
+    [Fact]
+    public async Task A_woken_turn_ends_after_the_hosts_quiet_with_what_it_said_and_a_word_moves_the_clock()
+    {
+        var time = new ManualTimeProvider();
+        var agent = new KeptAgent();
+        await using var run = await Open(agent, new AgentRunOptions { WokenTurnQuiet = TimeSpan.FromSeconds(5) }, time);
+        await using var woken = run.WokenTurns.GetAsyncEnumerator();
+
+        agent.Say(Chunk("one "));
+        Assert.True(await woken.MoveNextAsync().AsTask().WaitAsync(Wait));
+        await Eventually(() => time.Pending > 0);
+        time.Advance(TimeSpan.FromSeconds(4));
+        agent.Say(Chunk("two"));
+        await Eventually(() => time.NextDue() > TimeSpan.FromSeconds(4));   // rescheduled from the last word
+        time.Advance(TimeSpan.FromSeconds(4));
+        Assert.False(woken.Current.Ended.IsCompleted);
+        time.Advance(TimeSpan.FromSeconds(1));
+
+        var ended = await woken.Current.Ended.WaitAsync(Wait);
+        Assert.Equal((ProviderVerdict.Ok, false, AgentRunSubtypes.Quiet, "one two"), (ended.Verdict, ended.IsError, ended.Subtype, ended.FinalText));
+        Assert.Null(ended.Turn!.Written);
+        Assert.Equal(ProviderVerdict.Ok, Ended(await Read(woken.Current)).Verdict);
+        // the run is idle again, and a prompt is a turn
+        var next = await run.SendAsync("go on");
+        agent.Say(Answer(100));
+        Assert.Equal(ProviderVerdict.Ok, (await next.Ended.WaitAsync(Wait)).Verdict);
+    }
+
+    [Fact] // a turn that has a call open is working, not quiet
+    public async Task A_woken_turn_is_not_quiet_while_a_call_it_made_is_open()
+    {
+        var time = new ManualTimeProvider();
+        var agent = new KeptAgent();
+        await using var run = await Open(agent, new AgentRunOptions { WokenTurnQuiet = TimeSpan.FromSeconds(5) }, time);
+        await using var woken = run.WokenTurns.GetAsyncEnumerator();
+
+        agent.Say(Call("long", "in_progress"));
+        Assert.True(await woken.MoveNextAsync().AsTask().WaitAsync(Wait));
+        await Task.Delay(100);
+        time.Advance(TimeSpan.FromMinutes(10));
+        await Task.Delay(100);
+        Assert.False(woken.Current.Ended.IsCompleted);
+
+        agent.Say(CallDone("long"));
+        await Eventually(() => time.Pending > 0);
+        time.Advance(TimeSpan.FromSeconds(5));
+
+        Assert.Equal(AgentRunSubtypes.Quiet, (await woken.Current.Ended.WaitAsync(Wait)).Subtype);
+    }
+
+    [Fact] // a request with no prompt open is the agent's turn beginning, and the run holds it for the approver
+    public async Task A_request_with_no_turn_running_begins_a_woken_turn()
+    {
+        var release = new TaskCompletionSource<AcpPermissionAnswer>(TaskCreationOptions.RunContinuationsAsynchronously);
+        var asked = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var agent = new KeptAgent();
+        await using var run = await Open(agent, approver: new HoldingApprover(release.Task, asked));
+        await using var woken = run.WokenTurns.GetAsyncEnumerator();
+
+        agent.Say(PermissionRequest());
+
+        Assert.True(await woken.MoveNextAsync().AsTask().WaitAsync(Wait));
+        await asked.Task.WaitAsync(Wait);
+        release.SetResult(AcpPermissionAnswer.Deny);
+        await agent.Wrote(f => IdOf(f) == "agent-1");
+    }
+
+    [Fact] // the one-turn door's background reading is unchanged: it never asked for the frames, and one that arrives is unread
+    public async Task The_one_turn_door_reads_no_task_event_from_task_frames()
+    {
+        var agent = new KeptAgent();
+        agent.Reply = frame => Method(frame) == "session/prompt" ? [Spawned("t1"), TaskState("t1", "completed"), Answer(3)] : Handshake(frame);
+
+        var events = await new AcpAgentSession(agent, new LyntaiOptions(), "agent").StreamAsync(Session() with { Prompt = "hi" }).ToListAsync();
+
+        Assert.DoesNotContain(events, e => e is AgentTaskStarted or AgentTaskEnded);
+        var unread = Ended(events).Unread;
+        Assert.Contains(unread, u => u is { Type: "session/update", Subtype: "async_task_spawned" });
+        Assert.Contains(unread, u => u is { Type: "session/update", Subtype: "async_task_state_update" });
+    }
+
+    [Fact] // a task event seen while no turn runs begins the next turn, so a host reading turns never misses an ending
+    public async Task A_task_ending_between_turns_begins_the_next_turn()
+    {
+        var agent = new KeptAgent();
+        await using var run = await Open(agent);
+
+        agent.Say(TaskState("t1", "completed"));
+        await Task.Delay(100);
+        var turn = await run.SendAsync("next");
+        agent.Say(Answer(100));
+
+        var events = await Read(turn);
+        Assert.Equal(new AgentTaskEnded("t1", "completed"), events.OfType<AgentTaskEnded>().Single());
+    }
 }

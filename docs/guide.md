@@ -1261,6 +1261,14 @@ before a spawn (an option the door cannot honour, a blank resume token, a runner
 `keeping-stop` ability, `Unknown`. `DisposeAsync` closes stdin and ends the process. The process's inactivity window counts only while
 a sent turn runs, so the runner must be able to pause it (`IProcessRunner.CanPauseInactivity`; the shipped one can).
 
+**Background work and the turn it wakes**: a run declares AIR's `asyncTasks` at `initialize`, so the frames for work the agent
+backgrounds are `AgentTaskStarted` and `AgentTaskEnded` events (a task the agent stopped and then saw complete is reported ended
+twice, and the last is its ending). An agent whose background work ended may speak again with no prompt out: that is a woken
+turn, an `AgentRunTurn` on `run.WokenTurns`, whose events lead with the task endings that were seen while nothing ran. It ends
+only when you say so, by `AgentRunOptions.WokenTurnQuiet` passed to `OpenRunAsync` (silence, while it has no call open and no
+request held, ends it with subtype `quiet`); with none set the library never ends one, and `SendAsync` is refused, `run-woken-turn`,
+while one runs, since a prompt sent into it is never answered.
+
 <!-- compile-given: IAgentRunProvider runs; -->
 ```csharp
 await using var run = await runs.OpenRunAsync("acp", new AgentSessionOptions { Prompt = "", WorkingDirectory = "/work" });

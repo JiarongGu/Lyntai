@@ -542,16 +542,30 @@ sealed class Lyntai.Agents.AgentRetryOptions
     InitialDelay : TimeSpan { get; set; }
     MaxDelay : TimeSpan { get; set; }
     MaxRetries : Int32 { get; set; }
+sealed class Lyntai.Agents.AgentRunOptions
+    .ctor()
+    Equals(AgentRunOptions other) : Boolean
+    Equals(Object obj) : Boolean
+    GetHashCode() : Int32
+    ToString() : String
+    WokenTurnQuiet : Nullable<TimeSpan> { get; init; }
 static class Lyntai.Agents.AgentRunSubtypes
     Busy : String const
     Disposed : String const
     Folded : String const
     Over : String const
+    Quiet : String const
     RequestHeld : String const
+    WokenRunning : String const
 sealed class Lyntai.Agents.AgentRunTurn
-    .ctor(IAsyncEnumerable<AgentStreamEvent> events, Task<SessionEnded> ended)
+    .ctor(AgentRunTurnOrigin origin, IAsyncEnumerable<AgentStreamEvent> events, Task<SessionEnded> ended)
     Ended : Task<SessionEnded> { get; }
     Events : IAsyncEnumerable<AgentStreamEvent> { get; }
+    Origin : AgentRunTurnOrigin { get; }
+enum Lyntai.Agents.AgentRunTurnOrigin
+    Sent : AgentRunTurnOrigin const
+    Woken : AgentRunTurnOrigin const
+    value__ : Int32
 sealed class Lyntai.Agents.AgentSeat
     .ctor(Int32 ChoiceIndex, AgentChoice Choice, AgentAccount Account, Boolean IsProbe)
     Account : AgentAccount { get; init; }
@@ -840,8 +854,9 @@ interface Lyntai.Agents.IAgentRun
     SendAsync(String prompt, CancellationToken ct = default) : Task<AgentRunTurn>
     SessionId : String { get; }
     StopAsync(CancellationToken ct = default) : Task<Boolean>
+    WokenTurns : IAsyncEnumerable<AgentRunTurn> { get; }
 interface Lyntai.Agents.IAgentRunProvider
-    OpenRunAsync(String doorId, AgentSessionOptions options, CancellationToken ct = default) : Task<IAgentRun>
+    OpenRunAsync(String doorId, AgentSessionOptions options, AgentRunOptions run = null, CancellationToken ct = default) : Task<IAgentRun>
 interface Lyntai.Agents.IAgentSession
     StreamAsync(AgentSessionOptions options, CancellationToken ct = default) : IAsyncEnumerable<AgentStreamEvent>
 interface Lyntai.Agents.IAgentUsageSource

@@ -12,8 +12,9 @@ namespace Lyntai.Providers.Acp;
 /// <summary>An <see cref="IAgentRun"/> over the Agent Client Protocol: one agent process, one <c>initialize</c> and one
 /// <c>session/new</c>, then a <c>session/prompt</c> per turn. A pump reads the agent's lines and hands each event to the turn it
 /// belongs to (<see cref="AcpAgentReader.ReadRun"/>); a turn is a channel the host reads and a task that completes with its
-/// terminal. The process's inactivity window counts only while a sent turn runs: between turns the run holds it paused, since an
-/// idle agent is the host waiting, never the runner's concern.</summary>
+/// terminal. The process's inactivity window counts only while a sent turn runs: between turns, and during a woken turn, the run
+/// holds it paused, since an idle agent is the host waiting and a woken turn's end is the host's bound
+/// (<see cref="AgentRunOptions.WokenTurnQuiet"/>), never the runner's.</summary>
 internal sealed class AcpAgentRun : IAgentRun
 {
     /// <summary>What a run needs of the door that opens it.</summary>
@@ -33,6 +34,7 @@ internal sealed class AcpAgentRun : IAgentRun
     }
 
     private readonly Host _host;
+    private readonly AgentRunOptions _run;
     private readonly bool _queuedWords;
     private readonly AcpAgentReader _reader;
     private readonly Channel<string> _outbox = Channel.CreateUnbounded<string>(new UnboundedChannelOptions { SingleReader = true });
@@ -42,27 +44,31 @@ internal sealed class AcpAgentRun : IAgentRun
     private readonly object _windowGate = new();
     private readonly object _dispatch = new();
     private readonly object _liveGate = new();
+    private readonly object _timerGate = new();
     private readonly List<TurnSink> _live = [];
+    private readonly Channel<AgentRunTurn> _woken = Channel.CreateUnbounded<AgentRunTurn>(new UnboundedChannelOptions { SingleReader = true });
     private readonly TaskCompletionSource _opened = new(TaskCreationOptions.RunContinuationsAsynchronously);
     private readonly TaskCompletionSource<SessionEnded> _ended = new(TaskCreationOptions.RunContinuationsAsynchronously);
     private List<AgentStreamEvent>? _openEvents = [];
     private SessionEnded? _cause;
     private IDisposable? _idleHold;
+    private ITimer? _quietTimer;
     private Task _pump = Task.CompletedTask;
     private string? _killReason;
     private int _written;
     private int _disposing;
     private bool _openOk;
 
-    private AcpAgentRun(Host host, AgentSessionOptions options, bool queuedWords)
+    private AcpAgentRun(Host host, AgentSessionOptions options, AgentRunOptions run, bool queuedWords)
     {
         _killToken = _kill.Token;
         _host = host;
+        _run = run;
         _queuedWords = queuedWords;
         _reader = new AcpAgentReader(options, host.Launch.Cwd, host.ClientVersion, _outbox.Writer, host.Time, host.Extensions,
             host.Permissions, host.Launch.Inactivity, host.Logger,
             host.PermissionWait == AcpPermissionWait.AsLongAsApproverHolds ? _pause : null,
-            kept: true);
+            kept: true, wokenSink: CreateSink, wokenMoved: ScheduleQuiet);
     }
 
     /// <summary>A run that never started: the refusal that kept it from spawning, as the run's own end.</summary>
@@ -70,9 +76,11 @@ internal sealed class AcpAgentRun : IAgentRun
 
     /// <summary>Spawn the agent, open its session and return the run idle, or already over when the open failed.</summary>
     public static async Task<IAgentRun> OpenAsync(
-        Host host, AgentSessionOptions options, bool queuedWords, CancellationToken ct)
+        Host host, AgentSessionOptions options, AgentRunOptions run, bool queuedWords, CancellationToken ct)
     {
-        var instance = new AcpAgentRun(host, options, queuedWords);
+        if (run.WokenTurnQuiet is { } quiet && quiet <= TimeSpan.Zero)
+            throw new ArgumentException("A woken turn's quiet is a span of silence, so it must be positive.", nameof(run));
+        var instance = new AcpAgentRun(host, options, run, queuedWords);
         instance.Start();
         try
         {
@@ -115,6 +123,9 @@ internal sealed class AcpAgentRun : IAgentRun
     public Task<SessionEnded> Ended => _ended.Task;
 
     /// <inheritdoc />
+    public IAsyncEnumerable<AgentRunTurn> WokenTurns => _woken.Reader.ReadAllAsync();
+
+    /// <inheritdoc />
     public Task<AgentRunTurn> SendAsync(string prompt, CancellationToken ct = default)
     {
         ArgumentNullException.ThrowIfNull(prompt);
@@ -131,6 +142,8 @@ internal sealed class AcpAgentRun : IAgentRun
                 return Task.FromResult(Refused(AgentRunSubtypes.Busy, "a turn is running and this door states no queued-words, so a word has nowhere to go."));
             case AcpPromptRefusal.RequestHeld:
                 return Task.FromResult(Refused(AgentRunSubtypes.RequestHeld, "a permission request is held for the host, and no record shows a word taken beside one."));
+            case AcpPromptRefusal.WokenRunning:
+                return Task.FromResult(Refused(AgentRunSubtypes.WokenRunning, "the agent's own turn is running, and a prompt sent into one is never answered."));
             default:
                 return Task.FromResult(Refused(AgentRunSubtypes.Over, "the run is not open."));
         }
@@ -203,6 +216,7 @@ internal sealed class AcpAgentRun : IAgentRun
                 }
 
                 Window();
+                ScheduleQuiet();
                 if (over) return;
             }
 
@@ -306,7 +320,8 @@ internal sealed class AcpAgentRun : IAgentRun
             () => state.FrameIndex < 0 ? null : Volatile.Read(ref _written) > state.FrameIndex,
             () => state.Answered, () => state.Unread.Snapshot());
         var sink = new TurnSink(state, watch);
-        sink.Turn = new AgentRunTurn(sink.Events.Reader.ReadAllAsync(), sink.Ended.Task);
+        sink.Turn = new AgentRunTurn(state.Woken ? AgentRunTurnOrigin.Woken : AgentRunTurnOrigin.Sent,
+            sink.Events.Reader.ReadAllAsync(), sink.Ended.Task);
 
         SessionEnded? cause;
         List<AgentStreamEvent>? opening;
@@ -314,12 +329,19 @@ internal sealed class AcpAgentRun : IAgentRun
         {
             cause = _cause;
             if (cause is null) _live.Add(sink);
-            opening = _openEvents;
-            _openEvents = null;
+            opening = state.Woken ? null : _openEvents;
+            if (!state.Woken) _openEvents = null;
         }
 
         foreach (var evt in opening ?? []) sink.Events.Writer.TryWrite(evt);
+        foreach (var evt in state.Carried)
+        {
+            sink.Watch.See(evt);
+            sink.Events.Writer.TryWrite(evt);
+        }
+
         if (cause is not null) Terminate(sink, Cut(sink, cause));
+        else if (state.Woken) _woken.Writer.TryWrite(sink.Turn);
         return sink;
     }
 
@@ -340,6 +362,29 @@ internal sealed class AcpAgentRun : IAgentRun
             else if (!running && _idleHold is null)
                 _idleHold = _pause.Hold();
         }
+    }
+
+    private void ScheduleQuiet()
+    {
+        if (_run.WokenTurnQuiet is not { } quiet) return;
+        var left = _reader.WokenQuietLeft(quiet);
+        lock (_timerGate)
+        {
+            if (_ended.Task.IsCompleted) return;
+            _quietTimer ??= _host.Time.CreateTimer(OnQuiet, null, Timeout.InfiniteTimeSpan, Timeout.InfiniteTimeSpan);
+            _quietTimer.Change(left ?? Timeout.InfiniteTimeSpan, Timeout.InfiniteTimeSpan);
+        }
+    }
+
+    private void OnQuiet(object? state)
+    {
+        lock (_dispatch)
+        {
+            if (_ended.Task.IsCompleted) return;
+            Dispatch(_reader.EndWokenIfQuiet(_run.WokenTurnQuiet!.Value));
+        }
+
+        ScheduleQuiet();   // said something since, or a call is open: it counts again from the next word
     }
 
     // A turn the run's end finds open ends with the same cause, failed, whatever the run's own verdict: its work never finished.
@@ -374,7 +419,14 @@ internal sealed class AcpAgentRun : IAgentRun
             _idleHold = null;
         }
 
+        lock (_timerGate)
+        {
+            _quietTimer?.Dispose();
+            _quietTimer = null;
+        }
+
         _outbox.Writer.TryComplete();
+        _woken.Writer.TryComplete();
         _ended.TrySetResult(ended);
         _opened.TrySetResult();
     }
@@ -393,7 +445,7 @@ internal sealed class AcpAgentRun : IAgentRun
         var channel = Channel.CreateBounded<AgentStreamEvent>(1);
         channel.Writer.TryWrite(ended);
         channel.Writer.TryComplete();
-        return new AgentRunTurn(channel.Reader.ReadAllAsync(), Task.FromResult(ended));
+        return new AgentRunTurn(AgentRunTurnOrigin.Sent, channel.Reader.ReadAllAsync(), Task.FromResult(ended));
     }
 
     // a run that never started
@@ -402,6 +454,15 @@ internal sealed class AcpAgentRun : IAgentRun
         public string? SessionId => null;
 
         public Task<SessionEnded> Ended { get; } = Task.FromResult(refusal);
+
+        public IAsyncEnumerable<AgentRunTurn> WokenTurns { get; } = Complete();
+
+        private static IAsyncEnumerable<AgentRunTurn> Complete()
+        {
+            var none = Channel.CreateBounded<AgentRunTurn>(1);
+            none.Writer.TryComplete();
+            return none.Reader.ReadAllAsync();
+        }
 
         public Task<AgentRunTurn> SendAsync(string prompt, CancellationToken ct = default)
         {

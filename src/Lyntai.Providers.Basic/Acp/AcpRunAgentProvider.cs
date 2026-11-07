@@ -14,7 +14,7 @@ internal sealed class AcpRunAgentProvider(AgentProvider inner, AcpAgentSession s
     public IAgentSession Open(string doorId) => inner.Open(doorId);
 
     public Task<IAgentRun> OpenRunAsync(
-        string doorId, AgentSessionOptions options, CancellationToken ct = default)
+        string doorId, AgentSessionOptions options, AgentRunOptions? run = null, CancellationToken ct = default)
     {
         ArgumentNullException.ThrowIfNull(doorId);
         ArgumentNullException.ThrowIfNull(options);
@@ -36,7 +36,7 @@ internal sealed class AcpRunAgentProvider(AgentProvider inner, AcpAgentSession s
             return Task.FromResult(AcpAgentRun.AlreadyOver(Refused(AgentProvider.OptionRefusedSubtype,
                 $"door '{door.Id}' cannot honour: {string.Join(", ", refused)}")));
 
-        return session.OpenRunAsync(options, door.SupportFor(AgentAbilities.QueuedWords) == AgentSupport.Supported, ct);
+        return session.OpenRunAsync(options, run, door.SupportFor(AgentAbilities.QueuedWords) == AgentSupport.Supported, ct);
     }
 
     private static SessionEnded Refused(string subtype, string why) =>

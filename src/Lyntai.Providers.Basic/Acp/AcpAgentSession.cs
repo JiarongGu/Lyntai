@@ -252,7 +252,7 @@ public sealed class AcpAgentSession : IAgentSession
     /// <summary>Open a run kept across turns on this door's agent (<see cref="AcpAgentRun"/>). A refusal made before a spawn, a
     /// runner that cannot pause its inactivity window, and an open the agent fails are each a run already ended.</summary>
     internal async Task<IAgentRun> OpenRunAsync(
-        AgentSessionOptions options, bool queuedWords, CancellationToken ct)
+        AgentSessionOptions options, AgentRunOptions? run, bool queuedWords, CancellationToken ct)
     {
         ArgumentNullException.ThrowIfNull(options);
         if (!TryPrepare(options, out var launch, out var refusal)) return AcpAgentRun.AlreadyOver(refusal!);
@@ -261,7 +261,7 @@ public sealed class AcpAgentSession : IAgentSession
                 "a run is idle between turns and its process's inactivity window must be paused meanwhile, and this IProcessRunner cannot be told to (CanPauseInactivity is false)."));
 
         var host = new AcpAgentRun.Host(_runner, launch!, _arguments, _cancelGrace, _time, _extensions, _permissions, _permissionWait, _logger, ClientVersion);
-        return await AcpAgentRun.OpenAsync(host, options, queuedWords, ct).ConfigureAwait(false);
+        return await AcpAgentRun.OpenAsync(host, options, run ?? new AgentRunOptions(), queuedWords, ct).ConfigureAwait(false);
     }
 }
 

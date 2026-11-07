@@ -96,6 +96,13 @@ every addition.
 
 ### Added
 
+- **The turn a task wakes, and background work read until it ends, on a kept run** (**D251**). `IAgentRun.WokenTurns` yields each
+  turn the agent starts by itself, an `AgentRunTurn` of origin `Woken`, which ends only after the host's `AgentRunOptions.WokenTurnQuiet`
+  of silence (no default, subtype `quiet`; a call it made left open or a request held is not silence), so a run with no bound never
+  ends one itself. `SendAsync` is refused, `run-woken-turn`, while one runs. A run declares AIR's `asyncTasks` at `initialize`, and the
+  frames for backgrounded work are `AgentTaskStarted` and `AgentTaskEnded` events: one that arrives while no turn runs begins the
+  next turn to start, so the ending that woke a turn leads it. `OpenRunAsync` takes the `AgentRunOptions`; `IAgentRun` gains
+  `WokenTurns` and `AgentRunTurn` its `Origin`.
 - **A word taken mid-turn on a kept run** (**D251**). `SendAsync` on a busy run whose door states `queued-words` `Supported` sends a
   second prompt, which the Claude agent queues and folds in at its next step. The earlier turn then ends `Ok` with subtype `folded`
   (`AgentRunSubtypes.Folded`, every usage count the agent sent 0) and the later turn owns the rest of the work; an earlier prompt

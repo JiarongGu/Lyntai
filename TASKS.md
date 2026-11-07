@@ -15,20 +15,19 @@ LLM-ops layer (prompt registry, scoring, traces, memory). `AddLyntai(...)` and g
 
 <!-- open-items:begin — GENERATED. Edit the per-item `item:` markers, never this table. -->
 
-## Open items — 7 across 5 Parts: 1 startable, 3 blocked, 3 watch
+## Open items — 6 across 4 Parts: 3 blocked, 3 watch
 
 _Generated from the per-item `<!-- item: … -->` markers by `node devtools/dev.mjs check-backlog --write`._
 _Edit a marker, never this table — `verify` fails the moment the two disagree._
 
 | line | Part | item | state | waiting on |
 | ---: | ---: | --- | --- | --- |
-| 108 | 33 | GEN-VERIFY-FAL, the last line — the Hugging Face route | blocked · env | an hf_ token for the router route |
-| 149 | 75 | Decide what an aggregator's in-band `code` means | blocked · env+data | two or three real aggregators to measure an in-band code against |
-| 176 | 99 | `verify`'s test step intermittently fails EXACTLY 9 tests, and once aborted… | watch · data | the same nine tests to recur — the fix is unconfirmed as the cure, and a gr… |
-| 235 | 99 | `InputSegmenterTests.Counting_NFKC_is_LINEAR_in_the_length_of_the_text` fai… | watch · data | a recurrence under the full parallel run, with the ratio it read — the mess… |
-| 253 | 99 | `AgentUsageProcessTests.A_server_that_never_answers_is_ended_with_its_child… | watch · data | a recurrence under the full parallel run, with the load it ran under; it fa… |
-| 291 | 417 | MC8 — run the wrong-end instrument on an adjudicated corpus, with a bar wri… | blocked · decision+data | two reviewers' independent labels on a sample of the pairs, and a bar a per… |
-| 317 | 446 | AG48 — the turn a task wakes, and background work read until it ends | startable |  |
+| 107 | 33 | GEN-VERIFY-FAL, the last line — the Hugging Face route | blocked · env | an hf_ token for the router route |
+| 148 | 75 | Decide what an aggregator's in-band `code` means | blocked · env+data | two or three real aggregators to measure an in-band code against |
+| 175 | 99 | `verify`'s test step intermittently fails EXACTLY 9 tests, and once aborted… | watch · data | the same nine tests to recur — the fix is unconfirmed as the cure, and a gr… |
+| 234 | 99 | `InputSegmenterTests.Counting_NFKC_is_LINEAR_in_the_length_of_the_text` fai… | watch · data | a recurrence under the full parallel run, with the ratio it read — the mess… |
+| 252 | 99 | `AgentUsageProcessTests.A_server_that_never_answers_is_ended_with_its_child… | watch · data | a recurrence under the full parallel run, with the load it ran under; it fa… |
+| 290 | 417 | MC8 — run the wrong-end instrument on an adjudicated corpus, with a bar wri… | blocked · decision+data | two reviewers' independent labels on a sample of the pairs, and a bar a per… |
 
 <!-- open-items:end -->
 
@@ -303,23 +302,6 @@ unreleased until a release carries it (**D70**, **D235**). **What a YES does to 
   the first model run, then one run per (model, corpus) pair. **What a YES does:** names that pair in `docs/memory.md` and
   `docs/memory-measurements.md` §5 as one whose proposal a host may confirm by review of a bounded claim pair; **a NO changes nothing** and is
   recorded as a refutation. **Stop rule.** The first actionable rate stops the instrument; no run is spent after it.
-
-## Part 446 — the agent-provider layer, after Daoris's second request A-LQ3 to A-LQ17 (2026-11-06)
-
-_The study is `docs/agent-provider-daoris-study.md` §10 and §11 and the rulings are **D244** to **D249** and **D251**; A-LQ10 is
-declined (**D249**) and files no row. Every row is one sitting, none is built, and every member a row adds is unreleased until a release carries it
-(**D70**, **D235**), so its `ApiSurface` baseline moves from the emitted `.actual` with a `CHANGELOG.md` entry under `## Unreleased`.
-Captures a row's tests use are labelled REAL or SOURCE-DERIVED as `tests/Lyntai.Tests/Providers/AcpAgentSessionTests.cs` labels them;
-a SOURCE-DERIVED one rests on Daoris's recorded captures, which a real one replaces when it arrives. Order: AG43 first (a defect
-in built code), AG37 before AG36 and AG42, AG25 to AG27 before AG28, AG30 before AG31, AG40 before AG41, AG43 before AG44, and AG46 before
-AG47 and AG48 (the kept run, designed by AG39 in **D251**); the rest in any order. No row spends an account or calls a paid service._
-
-- [ ] **AG48 — the turn a task wakes, and background work read until it ends** (lanes `platform` + `inference`, after AG46, **D251**). <!-- item: state=startable -->
-  **Contract.** A turn the agent starts unprompted after a task's end is an `AgentRunTurn` on `IAgentRun.WokenTurns`, ended by silence only <!-- link-ok: the member lands with this row -->
-  after a host-set `WokenTurnQuiet` (no default) with subtype `quiet`; `AgentTaskEnded` events may come after the turn that started
-  the task. **Proof.** Frames scripted from Daoris's console-streams note (a task spawned, the response, unprompted chunks 1.6 and
-  2.4 s later) and its BGWAIT2 entry (a prompt into the woken turn never answered, so refused), a run with no quiet bound never ending a
-  woken turn itself, and the one-turn door's background reading unchanged.
 
 ## Retired — five Parts that outlived their open work (2026-09-16)
 
