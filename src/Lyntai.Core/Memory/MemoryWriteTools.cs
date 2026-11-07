@@ -16,8 +16,13 @@ public sealed class MemoryWriteToolOptions
     public IReadOnlyDictionary<string, string>? Metadata { get; init; }
 
     /// <summary>The longest content one call may write, in characters; a longer one is refused. The model picks the text, so it
-    /// is bounded as a recall's limit is. Default 2000.</summary>
+    /// is bounded as a recall's limit is. The same bound holds for each of <c>headline</c>, <c>reason</c> and <c>evidence</c>, which
+    /// are stored as given (a reason becomes the entry's end reason). Default 2000.</summary>
     public int MaxContentChars { get; init; } = 2000;
+
+    /// <summary>The most refs one call may list in any of <c>supersedes</c>, <c>disputes</c> and <c>amends</c>; a longer list is
+    /// refused, since each ref costs the engine a store read. Default 20.</summary>
+    public int MaxRefs { get; init; } = 20;
 
     /// <summary>Whether a model may name the scope of a write. Off by default: the scope is the host's, as the task is.</summary>
     public bool ModelMayNameScope { get; init; }
@@ -65,6 +70,15 @@ internal static partial class MemoryTools
         return result;
     }
 
+    /// <summary>A refusal naming the first text argument over the bound, or null: every text a model passes is stored verbatim.</summary>
+    private static string? TooLong(JsonElement root, MemoryWriteToolOptions settings, params string[] names)
+    {
+        foreach (var name in names)
+            if (JsonExtract.StringProperty(root, name) is { } text && text.Length > settings.MaxContentChars)
+                return Error($"'{name}' is {text.Length} characters and at most {settings.MaxContentChars} are kept; shorten it");
+        return null;
+    }
+
     /// <summary>The remember tool: stores one associative entry, states the relations the writer names, and shows what it may
     /// update. <c>supersedes</c> goes through the approver; <c>disputes</c> and <c>amends</c> end nothing and apply alone.</summary>
     internal static ITool Remember(IMemoryEngine engine, MemoryChangeGate gate, string prefix, string taskKey, string? scope,
@@ -82,6 +96,11 @@ internal static partial class MemoryTools
                     if (string.IsNullOrWhiteSpace(content)) return Error("'content' is required: the claim to remember");
                     if (content.Length > settings.MaxContentChars)
                         return Error($"'content' is {content.Length} characters and at most {settings.MaxContentChars} are kept; shorten it");
+                    if (TooLong(root, settings, "headline", "reason", "evidence") is { } tooLong) return tooLong;
+                    foreach (var list in new[] { "supersedes", "disputes", "amends" })
+                        if (root.TryGetProperty(list, out var listed) && listed.ValueKind == JsonValueKind.Array
+                            && listed.GetArrayLength() > settings.MaxRefs)
+                            return Error($"'{list}' lists {listed.GetArrayLength()} refs and at most {settings.MaxRefs} are taken; name fewer");
                     var (task, defaultScope) = MemoryToolScope.Resolve(taskKey, scope);
                     var writeScope = (settings.ModelMayNameScope ? JsonExtract.StringProperty(root, "scope") : null)
                         ?? defaultScope ?? scope ?? "default";
@@ -181,7 +200,8 @@ internal static partial class MemoryTools
 
     /// <summary>The end tool: proposes that an entry stops being current. It is applied only if a registered approver approves,
     /// and only to the revision the model read.</summary>
-    internal static ITool End(IMemoryEngine engine, MemoryChangeGate gate, string prefix, string taskKey, string? scope) =>
+    internal static ITool End(IMemoryEngine engine, MemoryChangeGate gate, string prefix, string taskKey, string? scope,
+        MemoryWriteToolOptions? options = null) =>
         new FunctionTool(
             $"{prefix}_end",
             async (argumentsJson, ct) =>
@@ -189,6 +209,7 @@ internal static partial class MemoryTools
                 if (Root(argumentsJson, out var doc) is not { } root) return Error("pass a JSON object with 'ref', 'revision' and 'reason'");
                 using (doc)
                 {
+                    if (TooLong(root, options ?? DefaultWriteOptions, "reason", "evidence") is { } tooLong) return tooLong;
                     if (Parse(JsonExtract.StringProperty(root, "ref")) is not { } target)
                         return Error("pass the 'ref' of an item returned by the matching recall tool");
                     var by = JsonExtract.StringProperty(root, "by");

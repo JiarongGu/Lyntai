@@ -511,6 +511,10 @@ public sealed class GraphMemoryEngine(
     /// <inheritdoc />
     public bool HoldsReceipts => store is IKeyedMemoryGraphStore;
 
+    /// <summary>Whether the store can record a confirmation and answer what is due. Read only by <see cref="CompositeMemoryEngine"/>,
+    /// which asks a member for what is due only where it can answer.</summary>
+    internal bool HoldsConfirmation => store is IConfirmableMemoryGraphStore;
+
     /// <summary>The store that keeps the receipt, and the key stamped with this engine's clock. Refuses a bad key and a store that
     /// cannot hold one — a key dropped silently is a write nobody can settle.</summary>
     private (IKeyedMemoryGraphStore Store, GraphOperationKey Key) Keyed(KeyedCall call, string taskKey)

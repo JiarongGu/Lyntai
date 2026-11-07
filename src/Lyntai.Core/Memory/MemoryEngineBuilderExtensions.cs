@@ -203,7 +203,7 @@ public static class MemoryEngineBuilderExtensions
             resolved, taskKey, scope, options));
         builder.Services.AddSingleton<Lyntai.Agents.ITool>(sp => MemoryTools.End(
             sp.GetRequiredService<IMemoryEngineFactory>().Get(name), sp.GetRequiredService<MemoryChangeGate>(),
-            resolved, taskKey, scope));
+            resolved, taskKey, scope, options));
         return builder;
     }
 

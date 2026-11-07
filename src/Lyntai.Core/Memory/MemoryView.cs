@@ -12,7 +12,8 @@ public interface IViewableMemory
 
     /// <summary>A view of <paramref name="taskKey"/>. It reads what the owner wrote and moves nothing of the owner's.</summary>
     /// <param name="taskKey">The one task the view reads.</param>
-    /// <param name="check">Asked once per expansion, before anything is read; null permits every reference of the task.</param>
+    /// <param name="check">Asked once per expansion and once per revision read, before anything is read; null permits every reference of
+    /// the task.</param>
     /// <exception cref="NotSupportedException">The engine holds no view.</exception>
     IMemoryView ViewOf(string taskKey, IMemoryViewCheck? check = null);
 }
@@ -50,7 +51,8 @@ public interface IMemoryView
         MemoryDetail detail = MemoryDetail.Headline, MemoryValidityReading validity = default, CancellationToken ct = default);
 
     /// <summary>The entry's revision (<see cref="MemoryItem.Revision"/>), read by id alone. Moves nothing and walks nothing. Null where
-    /// the reference is missing, outside the task, another engine's, or its store holds no revision; compare it for equality only.</summary>
+    /// the reference is missing, outside the task, another engine's, refused by the view's check, or its store holds no revision;
+    /// compare it for equality only.</summary>
     /// <param name="reference">The entry.</param>
     /// <param name="ct">Cancellation, which is never swallowed.</param>
     Task<string?> RevisionOfAsync(MemoryRef reference, CancellationToken ct = default);
