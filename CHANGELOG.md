@@ -56,6 +56,10 @@ every addition.
   handle to two callers (dotnet/efcore#39008, fixed in 10.0.13). The SQLite factory still serializes the rent, for a consumer
   who pins an older patch; with the lock removed, 8 runs of the 200-round handoff test on 10.0.14 passed, and the lock's cost is
   not measurable. The SQLitePCLRaw bundle stays at its pin.
+- **Every outdated dependency is current** (**D172**): `LLamaSharp` 0.30.0, `ModelContextProtocol.Core` 2.4.0, the ONNX Runtime
+  managed half 1.31.1, and 10.0.14 for the `Microsoft.Extensions.*` band and `System.Security.Cryptography.ProtectedData`.
+  A consumer that pins a lower patch of one of these meets NU1605 until it raises its own `PackageReference`, and an application
+  that adds an `LLamaSharp.Backend.*` or an ONNX Runtime backend takes the matching version. No Lyntai member changed.
 - **fal's documented behaviour is confirmed by a run on a funded account, with no API change.** `FalProvider` read
   `request_id`, `status`, `url` and `content_type`, `IN_QUEUE` and `COMPLETED`, and owner-and-app addressing for a sub-path
   model correctly; fal reports no cost on its own queue. A request whose input cannot be downloaded is accepted, polls
