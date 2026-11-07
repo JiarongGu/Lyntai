@@ -248,7 +248,7 @@ public class GraphMemoryWiringTests
         // MemoryEngineBuilderExtensions's own TryAddSingleton default — mirrors
         // A_consumer_registered_retrievability_policy_wins_whether_it_is_registered_before_or_after_AddLyntai,
         // which covers both directions for exactly this reason (a design different from the DeadHostTracker trap
-        // in .claude/knowledge/pitfalls.md, where a TryAddSingleton reached DURING configure(builder) beats a
+        // in .agents/knowledge/pitfalls.md, where a TryAddSingleton reached DURING configure(builder) beats a
         // registration AddLyntai itself makes later — nothing here is resolved that early).
         var services = new ServiceCollection();
         services.AddSingleton<IMemoryStore>(new FakeMemoryStore());
@@ -521,7 +521,7 @@ public class GraphMemoryWiringTests
     [Fact]
     public async Task A_consumer_registered_retrievability_policy_wins_whether_it_is_registered_before_or_after_AddLyntai()
     {
-        // The DeadHostTracker trap (.claude/knowledge/pitfalls.md, DI/config) is that a TryAddSingleton
+        // The DeadHostTracker trap (.agents/knowledge/pitfalls.md, DI/config) is that a TryAddSingleton
         // reached DURING configure(builder) beats AddLyntai's own later registration — so registration
         // order can matter. It does NOT matter here: AddMemoryEngine's callback DOES TryAdd a default
         // IMemoryRetrievabilityPolicy (DsrRetrievability) alongside the existing IMemorySaliencePolicy/

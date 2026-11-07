@@ -121,7 +121,8 @@ public static class MemoryGraphSql
     }
 
     /// <summary>Record reinforcement: stamp each node to where the engine already stands, advancing nothing —
-    /// <see cref="IMemoryGraphStore.TouchAsync"/>.</summary>
+    /// <see cref="IMemoryGraphStore.TouchAsync"/>. <b>An entry that states an end is not touched</b>: a read of history
+    /// does not keep it alive (the predicate is the one <see cref="Prune"/> spares).</summary>
     public const string Touch = """
         UPDATE lyntai_memory_node
         SET last_recalled_position = @position, stability = @Stability, difficulty = @Difficulty,
@@ -129,6 +130,7 @@ public static class MemoryGraphSql
             recall_count = recall_count + 1,
             encoding_ordinal = @ordinal, encoding_chars = @chars, encoding_at = @encodedAt
         WHERE id = @Id AND engine = @engine
+          AND superseded_at IS NULL AND valid_to IS NULL AND ended_reason IS NULL
         """;
 
     /// <summary>End one node by a successor — <see cref="ITemporalMemoryGraphStore.SupersedeAsync"/>. Touches the
@@ -229,7 +231,9 @@ public static class MemoryGraphSql
 
     /// <summary>Remove nodes past a retrievability cutoff or older than a real-time bound, with the
     /// <see cref="MemoryGrade.Authoritative"/> carve-out applied as a predicate — an authoritative entry
-    /// deletable on one backend and not the other would be a contract difference, not a dialect one. Edges
+    /// deletable on one backend and not the other would be a contract difference, not a dialect one. <b>An entry that
+    /// states an end</b> (a successor, a <c>ValidTo</c>, an end with a reason) <b>is history and is never removed here</b>,
+    /// whether or not its instant has come: only <c>ForgetAsync</c> removes it. Edges
     /// go with the nodes through <c>ON DELETE CASCADE</c>, which on SQLite only fires because the connection
     /// factory sets <c>foreign_keys=ON</c> per connection.</summary>
     /// <param name="ageOverStability">The backend's own guarded <c>age / stability</c> expression, written
@@ -241,6 +245,7 @@ public static class MemoryGraphSql
             WHERE n.engine = @engine AND n.task_key = @taskKey
               AND (@scope IS NULL OR n.scope = @scope)
               AND n.grade <> @authoritative
+              AND n.superseded_at IS NULL AND n.valid_to IS NULL AND n.ended_reason IS NULL
               AND ( (@cut IS NOT NULL AND {ageOverStability} > @cut)
                     OR (@createdBefore IS NOT NULL AND n.created_at < @createdBefore) ))
         """;

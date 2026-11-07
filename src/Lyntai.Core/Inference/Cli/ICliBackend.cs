@@ -11,7 +11,7 @@ namespace Lyntai.Inference.Cli;
 /// This is the extension point for "add a CLI provider": one backend class, a thin provider composing the
 /// engine, and a builder extension, rather
 /// than a second copy of the spawn/verdict/streaming rules — which is precisely how they drifted apart
-/// before (see `.claude/knowledge/pitfalls.md`). Prefer deriving from
+/// before (see `.agents/knowledge/pitfalls.md`). Prefer deriving from
 /// <see cref="CliBackendBase"/>, which supplies sane defaults for everything optional.
 ///
 /// An <see cref="ICliBackend"/> is a stateless description; the engine holds the resources (runner,

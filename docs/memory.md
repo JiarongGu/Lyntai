@@ -648,9 +648,10 @@ Each of these cost a real measurement to find.
   reading.** Burial is a rank (§4), and an outranked entry can still surface under another query; an ended one
   leaves every `Current` and `AsOf` reading it does not cover and returns only under `Validity = History` or by
   reference. For an entry nothing timed this changes nothing, so the surprise is reachable only by a write that
-  stated valid time. **It is also not a deletion**: `CountAsync` still counts it. `PruneAsync` does not read valid
-  time, so it removes an ended associative entry exactly as it removes any other one below the floor or past
-  `olderThan`.
+  stated valid time. **It is also not a deletion**: `CountAsync` still counts it, and `PruneAsync` leaves it. An entry
+  that states an end (a successor, a `ValidTo`, an end with a reason) is history whether or not the instant has come, on
+  every store, and a recall of it under `History` or an expansion by reference does not reinforce it. Only
+  `ForgetAsync` removes it.
 - **A model-extracted PROFILE beside the raw exchange is REFUTED, on valid time as well** — so the recommendation
   stays: write the raw exchange, and where the application KNOWS which entry a new one replaces, say so with
   `Supersedes`. A write supersedes only an entry it names, and a model asked to file each fact under an attribute
@@ -905,8 +906,8 @@ asking for it by reference is how history is read.
 takes the successor's start as its end and records who ended it. A write that supersedes and states no
 `ValidFrom` starts when it is written, and repeating that write moves nothing. The ended entry keeps its text,
 metadata, decay state and links: the end itself buries nothing (its retrievability is whatever it was), reinforces
-nothing and deletes nothing. `ForgetAsync` removes it as it removes anything, and `PruneAsync` as it removes any
-associative entry below its floor, since a prune does not read valid time. **An entry has one successor**: naming
+nothing and deletes nothing, and neither does a later read of it: a `PruneAsync` leaves it and a `History` recall or an
+expansion by reference does not reinforce it. `ForgetAsync` removes it as it removes anything. **An entry has one successor**: naming
 one another entry already ended throws `InvalidOperationException` before anything is written — supersede the
 newer entry instead, or bound the older with `ValidTo`. A successor that was later forgotten does not reopen what it
 ended, and a new write may then take over. **An entry cannot be superseded before it began**: a stated start earlier

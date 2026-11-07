@@ -30,7 +30,7 @@ namespace Lyntai.Tests.Memory;
 /// <para><b>The model is a PARAMETER, and the ladder is the finding.</b> Recall quality tracks judge
 /// capability, so one model's score is a point on a curve rather than "the" number — and one sample of a
 /// stochastic judge is not a measurement. Which model runs is a deployment choice
-/// (<c>.claude/knowledge/model-decoupling.md</c>); the ladder itself is <c>docs/memory-measurements.md</c> §5, which is
+/// (<c>.agents/knowledge/model-decoupling.md</c>); the ladder itself is <c>docs/memory-measurements.md</c> §5, which is
 /// the authority and is not duplicated here.</para>
 ///
 /// <para>Runs only when <c>LYNTAI_LIVE_MODEL</c> (or the legacy <c>LYNTAI_LIVE_OLLAMA</c>) is set AND a model
@@ -79,7 +79,7 @@ public class LlmVerificationLiveTests(Xunit.Abstractions.ITestOutputHelper outpu
     /// multilingual promise makes the seam look worse than it is, and it is the value anyone runs
     /// first.</para>
     /// <para>Which model runs is a deployment choice
-    /// (<c>.claude/knowledge/model-decoupling.md</c>); this default only decides what an unconfigured run
+    /// (<c>.agents/knowledge/model-decoupling.md</c>); this default only decides what an unconfigured run
     /// measures.</para></summary>
     private static string Model =>
         Environment.GetEnvironmentVariable("LYNTAI_OLLAMA_VERIFY_MODEL") ?? "gemma3:4b";

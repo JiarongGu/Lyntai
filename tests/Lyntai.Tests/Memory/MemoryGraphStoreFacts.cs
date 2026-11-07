@@ -14,7 +14,7 @@ namespace Lyntai.Tests.Memory;
 /// catches a fact wired nowhere, and one wired everywhere except one backend, but it cannot catch a fact
 /// wired to one backend ALONE: the author bumps the literal, it passes, and the other backends silently
 /// never run it. The invariant at stake is <i>"a cross-backend invariant enforced on ONE backend's test
-/// class is not enforced"</i> (<c>.claude/knowledge/pitfalls.md</c>).</para>
+/// class is not enforced"</i> (<c>.agents/knowledge/pitfalls.md</c>).</para>
 ///
 /// <para>Driving every backend from <see cref="Names"/> closes that direction by CONSTRUCTION rather than by
 /// counting: a method added to the contract is a new theory case on every backend the moment it

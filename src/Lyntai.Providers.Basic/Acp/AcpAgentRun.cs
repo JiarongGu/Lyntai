@@ -33,6 +33,9 @@ internal sealed class AcpAgentRun : IAgentRun
         public int Terminated;
     }
 
+    // a timer's due time is a uint of milliseconds (about 49.7 days)
+    private static readonly TimeSpan MaxWokenTurnQuiet = TimeSpan.FromDays(49);
+
     private readonly Host _host;
     private readonly AgentRunOptions _run;
     private readonly bool _queuedWords;
@@ -80,6 +83,8 @@ internal sealed class AcpAgentRun : IAgentRun
     {
         if (run.WokenTurnQuiet is { } quiet && quiet <= TimeSpan.Zero)
             throw new ArgumentException("A woken turn's quiet is a span of silence, so it must be positive.", nameof(run));
+        if (run.WokenTurnQuiet > MaxWokenTurnQuiet)
+            throw new ArgumentException("A woken turn's quiet is counted by a timer, which holds at most 49 days.", nameof(run));
         var instance = new AcpAgentRun(host, options, run, queuedWords);
         instance.Start();
         try
@@ -336,7 +341,9 @@ internal sealed class AcpAgentRun : IAgentRun
         foreach (var evt in opening ?? []) sink.Events.Writer.TryWrite(evt);
         foreach (var evt in state.Carried)
         {
-            sink.Watch.See(evt);
+            // a woken turn has no prompt to be read; a sent turn's carried events came before its prompt
+            if (state.Woken) sink.Watch.See(evt);
+            else sink.Watch.Carry(evt);
             sink.Events.Writer.TryWrite(evt);
         }
 
@@ -425,6 +432,7 @@ internal sealed class AcpAgentRun : IAgentRun
             _quietTimer = null;
         }
 
+        _reader.Close();   // a request held for an approver has nobody to answer now
         _outbox.Writer.TryComplete();
         _woken.Writer.TryComplete();
         _ended.TrySetResult(ended);

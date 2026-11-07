@@ -11,7 +11,7 @@ namespace Lyntai.Tests.Memory;
 /// than being assumed: (1) the fused output genuinely differs from EITHER member alone — a composite that
 /// quietly reproduces one member is not a composite; (2) which member is PRIMARY is not cosmetic — swapping
 /// the two, weights held fixed but unequal, changes the result; (3) a fully tied input (this project's own
-/// shipped trap, `.claude/knowledge/pitfalls.md`) must not let either member's tiebreak-broken OUTPUT LIST
+/// shipped trap, `.agents/knowledge/pitfalls.md`) must not let either member's tiebreak-broken OUTPUT LIST
 /// leak in as if it were a real, distinguishing rank.</summary>
 public class CompositeRankingPolicyTests : MemoryRankingPolicyContractFacts
 {
@@ -125,7 +125,7 @@ public class CompositeRankingPolicyTests : MemoryRankingPolicyContractFacts
         // Every candidate identical on every real signal (relevance, retrievability, hop, no salience
         // signals) — the exact shape in which a position-based rank (rather than competition rank) hands a
         // fully-uninformative signal FULL weight as a covert proxy for node id
-        // (`.claude/knowledge/pitfalls.md`). Both real members already use competition ranking internally
+        // (`.agents/knowledge/pitfalls.md`). Both real members already use competition ranking internally
         // and so tie EVERY candidate at rank 1 on their own output; the composite must preserve that rather
         // than reading a member's tiebreak-broken LIST POSITION as if it were a genuine distinction.
         var candidates = new[] { Candidate(1), Candidate(2), Candidate(3), Candidate(4) };

@@ -495,6 +495,8 @@ public interface IMemoryGraphStore
     /// <para><b>A touch does NOT advance the engine</b>, on any scale. It stamps the touched node to where
     /// the engine already stands; only a write moves it (<see cref="UpsertAsync"/>). A store that advanced
     /// here would make every recall age every OTHER entry, which is the opposite of reinforcement.</para>
+    /// <para><b>A node that states an end is not touched</b> (see <see cref="PruneAsync"/>): a read of history does not
+    /// reinforce it.</para>
     /// <para>Best-effort by contract: the caller treats a failure here as "no learning", never as "no
     /// memory".</para></summary>
     /// <param name="engine">The owning engine's name.</param>
@@ -584,7 +586,10 @@ public interface IMemoryGraphStore
     }
 
     /// <summary>Remove nodes, returning how many were removed. AUTHORITATIVE nodes are never eligible for
-    /// <paramref name="maxAgeOverStability"/> — their retrievability is fixed at 1.</summary>
+    /// <paramref name="maxAgeOverStability"/> — their retrievability is fixed at 1. <b>A node that states an end</b> (a
+    /// <see cref="GraphNode.SupersededAt"/>, a <see cref="GraphNode.ValidTo"/> or an <see cref="GraphNode.EndedReason"/>)
+    /// <b>is never eligible either</b>: an end is history, and only <see cref="ForgetAsync"/> or
+    /// <see cref="DeleteAsync"/> removes it.</summary>
     /// <param name="engine">The owning engine's name.</param>
     /// <param name="taskKey">Consumer/purpose scope.</param>
     /// <param name="scope">Variant scope, or null for every scope of the task.</param>

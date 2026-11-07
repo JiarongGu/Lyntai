@@ -28,7 +28,8 @@ public sealed record AgentRunOptions
 {
     /// <summary>How long a woken turn may say nothing before the run ends it with <see cref="AgentRunSubtypes.Quiet"/>. <b>Null, the
     /// default, never ends one</b>: the library invents no deadline for the agent's own turn, so a woken turn then ends only with the
-    /// run. Silence is counted while the turn has no call open and no permission request held, from the agent's last word.</summary>
+    /// run. Silence is counted while the turn has no call open and no permission request held, from the agent's last word.
+    /// Positive, and at most 49 days, which a timer can count.</summary>
     public TimeSpan? WokenTurnQuiet { get; init; }
 }
 

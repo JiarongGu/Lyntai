@@ -29,6 +29,19 @@ every addition.
 
 ### Changed
 
+- **A prune leaves an entry that states an end, and a read of ended history reinforces nothing.** `PruneAsync` removed a
+  superseded, `ValidTo`-bounded or ended associative entry past the floor or `olderThan` as it removed any other, taking its
+  history with it, and a `History` recall or an expansion by reference reset its age. On every store an entry with a successor, a
+  `ValidTo` or an end with a reason is now spared by a prune and left untouched by a reinforcement; only `ForgetAsync` removes it.
+- **A kept ACP run places what it cannot read on the turn that runs, releases a request held for an approver when the run ends,
+  and reads a deep line.** An unknown request or notification mid-turn is unread on that turn, one between turns waits for the next;
+  a dispose, a kill or a crash cancels each approver's token; a line nested past 64 levels is answered; a task event seen before a
+  prompt no longer makes a failed turn read `Taken`; an unread kind is cut to 128 characters; and the auth code is spelled the same
+  in every culture. `AgentRunOptions.WokenTurnQuiet` is refused above 49 days, which a timer cannot count.
+- **The agent account pool reads a hold a newer build wrote as still holding,** where an unknown `cause`, `subject` or `recovery`
+  word dropped the hold and freed its seat. It also stores a restriction's `Window` and `Scope`, skips a blank or repeated id
+  instead of failing every load, and refuses an `AttemptLease` or `UnknownProbeAfter` above 3650 days, which threw from every pick.
+- **`AgentTranscriptRecorder` leaves a subagent's words and tools out** and keeps the words so far when a start only carries an id.
 - **The agent account pool repeats a store write that failed, and a pick is not lost to a cancelled report.** A write or delete
   that threw left the store behind the process for good; the next commit now writes every hold and removes every key no hold
   names. `ReportAsync` and `AbandonAsync` settle their pick only once they hold the pool, a pick whose commit failed leaves no

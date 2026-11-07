@@ -4,7 +4,7 @@
 // IL2026/IL3050 is a FALSE trim promise shipped to a consumer's trimmer — four of them shipped into
 // Lyntai.Providers.Basic before this gate existed. And it has lied once already, in the other direction:
 // a `-v normal` log outgrew Node's 1 MiB spawnSync default, spawnSync threw ENOBUFS, and the gate reported
-// "build FAILED" for a build that SUCCEEDED (.claude/knowledge/pitfalls.md). A gate that lies is worse than
+// "build FAILED" for a build that SUCCEEDED (.agents/knowledge/pitfalls.md). A gate that lies is worse than
 // one that misses, so both directions are pinned below.
 //
 // The build is a SEAM here, never actually run: this suite is `verify`'s first step and must cost

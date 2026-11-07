@@ -2,9 +2,9 @@ using Lyntai.Inference;
 
 namespace Lyntai.Generation.Providers;
 
-/// <summary>The refusal every local backend makes BEFORE it spends anything: a request naming a
+/// <summary>The refusal every generation backend makes BEFORE it spends anything: a request naming a
 /// <see cref="MediaParameters"/> the backend does not declare, or naming one with a value no engine could read.
-/// One copy, so the three backends refuse by the same rule and in the same words.</summary>
+/// One copy, so the six backends (the hosted ones included) refuse by the same rule and in the same words.</summary>
 internal static class ParameterRefusal
 {
     /// <summary>The sentence saying why <paramref name="request"/> cannot be handed to a backend declaring

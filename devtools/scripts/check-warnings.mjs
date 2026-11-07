@@ -15,7 +15,7 @@
 //   · `maxBuffer` — Node's spawnSync default is 1 MiB and a full-solution `-v normal` log has come within
 //     6,846 bytes of it (99.35% full). Past that, spawnSync throws ENOBUFS, `status` comes back null, and
 //     the status check below reports "build FAILED" for a build that SUCCEEDED, pointing nowhere near the
-//     real cause. See .claude/knowledge/pitfalls.md; `check-warnings.test.mjs` pins all three.
+//     real cause. See .agents/knowledge/pitfalls.md; `check-warnings.test.mjs` pins all three.
 // `-warnaserror` is deliberately NOT used: it stops at the first project, hiding the rest.
 import { spawnSync } from 'node:child_process';
 import { dirname, join, resolve } from 'node:path';

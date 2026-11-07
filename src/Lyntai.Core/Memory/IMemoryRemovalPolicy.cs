@@ -19,7 +19,7 @@ public enum MemoryRemovalKind
 /// engine.</b> Whether a curated section holds material a user may withdraw is not something this library
 /// can know: one application's glossary is operator-authored boilerplate, another's holds preferences the
 /// user typed. Baking the answer into the engine class would state a fact about the HOST inside a type the
-/// host did not write — the shape <c>.claude/knowledge/model-decoupling.md</c> exists to prevent.</para>
+/// host did not write — the shape <c>.agents/knowledge/model-decoupling.md</c> exists to prevent.</para>
 ///
 /// <para><b>It is NOT the same question as the capability interfaces</b> (<see cref="IForgettableMemory"/>,
 /// <see cref="IPrunableMemory"/>), and they are deliberately not merged. Those answer "can this store delete

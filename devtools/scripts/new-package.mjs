@@ -158,11 +158,9 @@ export function newPackage({ repo = repoDefault, id, description = null, log = c
       const before = fs.readFileSync(p, 'utf8');
       if (before.includes(added.trim())) { edits.push(`${label} — already present, left alone`); return; }
       if (!before.includes(anchor)) throw new Bail(`could not find the insertion point in ${file} — add this by hand:\n  ${added}`);
-      // Join with the line ending the FILE already uses. A bare `\n` spliced a lone LF into every registry,
-      // all of which are CRLF in a Windows working copy under `core.autocrlf=true` — leaving a mixed file
-      // that is committed clean here only because autocrlf normalises on the way in, and committed MIXED by
-      // anyone whose config does not. No gate can see it: mixed endings are not mojibake, so check-encoding
-      // is blind to them by design.
+      // Join with the line ending the FILE already uses. The registries are LF (`.gitattributes`, D95), but a
+      // tool can still leave CRLF in the working tree, and a bare `\n` spliced into such a file leaves it
+      // mixed. No gate can see that: mixed endings are not mojibake, so check-encoding is blind to them.
       const eol = before.includes('\r\n') ? '\r\n' : '\n';
       const line = added.replace(/\r?\n/g, eol);
       fs.writeFileSync(p, before.replace(anchor, where === 'after' ? `${anchor}${eol}${line}` : `${line}${eol}${anchor}`));

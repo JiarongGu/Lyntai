@@ -128,7 +128,7 @@ public class DsrPathologyTests
 
         var node = await store.GetAsync(EngineName, long.Parse(reference.Id, CultureInfo.InvariantCulture));
         Assert.NotNull(node);
-        // a guard that cannot observe the thing it guards is worse than none (.claude/knowledge/pitfalls.md):
+        // a guard that cannot observe the thing it guards is worse than none (.agents/knowledge/pitfalls.md):
         // if the recall above never actually reinforced this entry (e.g. outranked by fresher filler, the
         // same corpus/ranking interaction item 5 below measures), stability would sit frozen at
         // InitialStability and the collapse/explosion assertions below would pass VACUOUSLY on a session
@@ -219,7 +219,7 @@ public class DsrPathologyTests
         Assert.NotNull(connectedNode);
         Assert.NotNull(isolatedNode);
 
-        // a guard that cannot observe the thing it guards is worse than none (.claude/knowledge/pitfalls.md)
+        // a guard that cannot observe the thing it guards is worse than none (.agents/knowledge/pitfalls.md)
         Assert.True(connectedNode!.Strength > 0,
             $"[{label}] the connectivity setup did not register (Strength={connectedNode.Strength}) — this " +
             "test would pass vacuously without this check.");
@@ -446,7 +446,7 @@ public class DsrPathologyTests
     /// <summary><b>A non-finite <see cref="MemoryDecayState.Age"/> must not reach
     /// <see cref="MemoryDecayState.Difficulty"/>.</b> <c>Age</c> arrives per-call in the caller's own state, so
     /// it cannot be validated at construction the way <see cref="DsrOptions"/> validates its constants, and
-    /// <c>Math.Clamp</c> propagates <c>NaN</c> (<c>.claude/knowledge/pitfalls.md</c>) — so an unguarded
+    /// <c>Math.Clamp</c> propagates <c>NaN</c> (<c>.agents/knowledge/pitfalls.md</c>) — so an unguarded
     /// <c>NaN</c> age becomes a <c>NaN</c> grade, difficulty and review-log row. The guard reports NO judgement:
     /// <c>null</c>, the meaning the Δt=0 bypass already carries.
     /// <para><b>The three non-finite ages are not one case.</b> <c>NaN</c> survives <c>state.Age &lt;= 0</c>

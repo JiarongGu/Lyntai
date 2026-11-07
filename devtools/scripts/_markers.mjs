@@ -9,7 +9,7 @@
 //   1. `parseAttributes` returns the RESIDUE as well as the matches. `matchAll` reports what it recognised
 //      and says nothing about what it skipped, so `needs=a real key` — quotes omitted — parsed as
 //      `needs="a"`, satisfied every rule its caller checked, and published a one-word blocker that read
-//      like a complete one. A caller fails on a non-blank residue. See `.claude/knowledge/pitfalls.md`
+//      like a complete one. A caller fails on a non-blank residue. See `.agents/knowledge/pitfalls.md`
 //      §Environment / tooling, "A parser that SCRAPES".
 //   2. `fixedPoint` iterates. A generated row can carry the LINE NUMBER of something below the block, so
 //      writing the block moves what it just published. Row COUNT does not depend on line numbers, so the

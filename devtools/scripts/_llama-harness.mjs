@@ -3,7 +3,7 @@
 // `withOwnedServers`, which owns the finally/SIGINT/exit-code rules one run needs. The leading underscore
 // keeps it out of the command roster. Every trap it encodes — a busy port fails UPWARD, a PID kill that
 // "succeeded" can leave a listener, killing by image name takes a neighbour down — is in
-// `.claude/knowledge/pitfalls.md` §Environment / tooling.
+// `.agents/knowledge/pitfalls.md` §Environment / tooling.
 import fs from 'node:fs';
 import path from 'node:path';
 import { execFile, spawn } from 'node:child_process';

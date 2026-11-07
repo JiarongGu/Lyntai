@@ -17,7 +17,7 @@ namespace Lyntai.Memory;
 /// it reports <c>1</c> for a match and <c>0</c> for a grade-admitted non-match directly. (A flat <c>1</c>
 /// only for a query-less enumeration.)</para>
 ///
-/// <para><b>The known limit</b> (<c>.claude/knowledge/pitfalls.md</c> §Storage): normalized by rank
+/// <para><b>The known limit</b> (<c>.agents/knowledge/pitfalls.md</c> §Storage): normalized by rank
 /// POSITION, not score MARGIN, so the gap between consecutive positions is CANDIDATE-COUNT DEPENDENT — with
 /// two candidates exactly 1.0 and 0.5, a fixed 2× spread however close the real scores are; with ten, 10%.
 /// A test for any rank-lifting signal needs a result set large enough that the gap it fights is smaller

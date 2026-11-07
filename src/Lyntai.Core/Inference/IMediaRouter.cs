@@ -44,7 +44,7 @@ public interface IMediaRouter
     /// media as it is produced.</summary>
     /// <remarks><b>Fallback stops at the first byte, and that is the whole contract.</b> This path inherits
     /// the two invariants `TextRouter` measured rather than inventing its own
-    /// (<c>.claude/knowledge/llm-and-router.md</c> § Streaming):
+    /// (<c>.agents/knowledge/llm-and-router.md</c> § Streaming):
     /// <list type="number">
     /// <item><description><b>No fallback after commit.</b> Once a chunk carrying real data has been yielded,
     /// the caller holds bytes this router cannot take back — trying a second backend would splice two

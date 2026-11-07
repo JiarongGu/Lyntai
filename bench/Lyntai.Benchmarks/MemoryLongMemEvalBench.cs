@@ -190,7 +190,7 @@ internal static partial class MemoryLongMemEvalBench
 
         /// <summary>The budget is stated as a NUMBER and paired with a rule for choosing which facts to
         /// keep — "be selective" is not a budget, and a model will not invent one
-        /// (<c>.claude/knowledge/pitfalls.md</c>, the unbounded-task entry).</summary>
+        /// (<c>.agents/knowledge/pitfalls.md</c>, the unbounded-task entry).</summary>
         private readonly string _instruction = budget > 0
             ? $"{Instruction}\n- Reply with AT MOST {budget} fact{(budget == 1 ? "" : "s")}. If the message "
                 + $"states more, keep only the {budget} that will still matter months later."
@@ -1751,7 +1751,7 @@ internal static partial class MemoryLongMemEvalBench
 
     /// <summary>Reports whether the cap did anything, because a table produced by a cap that never bound is
     /// the UNCAPPED table under a different heading — the degenerate-arm trap
-    /// (<c>.claude/knowledge/pitfalls.md</c>, "an arm that is SUPPOSED to move needs a control proving it
+    /// (<c>.agents/knowledge/pitfalls.md</c>, "an arm that is SUPPOSED to move needs a control proving it
     /// CAN"). The <c>chars/q</c> column above is the second half of the check: an arm may exceed the cap
     /// only where <see cref="ContextBudget.Overran"/> accounts for it, and an arm well under it was bounded
     /// by its own <c>k</c> rather than by the budget.</summary>

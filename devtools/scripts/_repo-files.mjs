@@ -10,7 +10,7 @@ import { join } from 'node:path';
  * The ONE file list every full-tree gate scans: tracked files PLUS new files that are not ignored.
  *
  * `git ls-files` alone lists the INDEX, so `verify` would scan everything EXCEPT the work being verified —
- * a new file passes every gate until it is committed (`.claude/knowledge/pitfalls.md` §Environment /
+ * a new file passes every gate until it is committed (`.agents/knowledge/pitfalls.md` §Environment /
  * tooling). `--others --exclude-standard` adds the new SOURCE and none of the scratch: `local/`,
  * `devtools/_*`, `bin` and `obj` are ignored and stay out on their own.
  *

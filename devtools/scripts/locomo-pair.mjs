@@ -1,7 +1,7 @@
 // locomo-pair — run `memory-locomo` against a CHOSEN embedder and a CHOSEN reader, owning both servers.
 //
 // `memory-locomo` is the one study here with no orchestrator of its own, so a run takes whatever happens
-// to be LISTENING — the port-fails-upward hazard `.claude/knowledge/pitfalls.md` records, where the
+// to be LISTENING — the port-fails-upward hazard `.agents/knowledge/pitfalls.md` records, where the
 // incumbent answers and every figure is silently taken on the wrong model. This closes that, and it is
 // what makes "which embedder / which reader" an ARGUMENT rather than an ambient property of the machine.
 //

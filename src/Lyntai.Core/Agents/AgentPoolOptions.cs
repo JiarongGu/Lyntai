@@ -19,13 +19,17 @@ public sealed class AgentPoolOptions
 
     /// <summary>How long one attempt under a released restriction holds the seat against others before the pool
     /// assumes the attempt was lost (a crash, a host that never reported) and admits another. Default 30 minutes;
-    /// it should outlast your longest turn, since a turn that runs past it no longer bars the next attempt.</summary>
+    /// it should outlast your longest turn, since a turn that runs past it no longer bars the next attempt. At most
+    /// 3650 days.</summary>
     public TimeSpan AttemptLease { get; set; } = TimeSpan.FromMinutes(30);
+
+    // a moment is the clock plus a bound, and a bound past this passes the end of time for the clock's year
+    internal static readonly TimeSpan MaxBound = TimeSpan.FromDays(3650);
 
     /// <summary>How long after a failure that states NO recovery the pool admits one probing attempt on its own.
     /// Null (the default) never does: an unknown recovery holds until the host clears it. Lyntai never invents a
     /// deadline, so a cool-off for an unstated reset is yours to choose (a 429 with no <c>retry-after</c> reads as
-    /// unknown, and without this it holds its seat until you act). An owner action never expires.</summary>
+    /// unknown, and without this it holds its seat until you act). An owner action never expires. At most 3650 days.</summary>
     public TimeSpan? UnknownProbeAfter { get; set; }
 
     /// <param name="accountKeys">Each registered provider's account key; a provider not listed files its accounts
@@ -36,8 +40,12 @@ public sealed class AgentPoolOptions
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(Name, nameof(Name));
         ArgumentOutOfRangeException.ThrowIfLessThanOrEqual(AttemptLease, TimeSpan.Zero, nameof(AttemptLease));
+        ArgumentOutOfRangeException.ThrowIfGreaterThan(AttemptLease, MaxBound, nameof(AttemptLease));
         if (UnknownProbeAfter is { } after)
+        {
             ArgumentOutOfRangeException.ThrowIfLessThan(after, TimeSpan.Zero, nameof(UnknownProbeAfter));
+            ArgumentOutOfRangeException.ThrowIfGreaterThan(after, MaxBound, nameof(UnknownProbeAfter));
+        }
         if (Choices.Count == 0)
             throw new ArgumentException("An agent account pool needs at least one choice.", nameof(Choices));
 

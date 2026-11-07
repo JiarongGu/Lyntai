@@ -250,7 +250,7 @@ internal sealed class ForgettableEngine(string name, int pruneCount = 0)
 /// the caller's source, the CALLER cancelling mid-call, marked with <see cref="CallerMarker"/>.
 /// <para>The marker is what lets a caller-cancel test fail: a PRE-cancelled token is rejected by every
 /// engine's entry check before any fail-open catch runs, so a bare <c>ThrowsAnyAsync</c> on one passes
-/// whatever those catches do (<c>.claude/knowledge/pitfalls.md</c>).</para></summary>
+/// whatever those catches do (<c>.agents/knowledge/pitfalls.md</c>).</para></summary>
 internal static class StoreFault
 {
     public const string CallerMarker = "the store saw the caller's cancellation mid-call";

@@ -158,7 +158,7 @@ internal sealed class CrossEncoderReranker(HttpClient http, string baseUrl, stri
     /// HuggingFace cache is a symlink into <c>blobs/</c>, so the naive read prints <c>0 B</c> for a file
     /// that is plainly there. This repository's standing rule is to state EXACT BYTES whenever a size
     /// decides anything, and a zero in that column is how the rule gets quietly broken
-    /// (<c>.claude/knowledge/pitfalls.md</c>).</para></summary>
+    /// (<c>.agents/knowledge/pitfalls.md</c>).</para></summary>
     private static long Bytes(string path)
     {
         if (!File.Exists(path)) return 0;

@@ -388,7 +388,7 @@ internal static class MemorySalienceSweep
     /// The paired difference for one treatment, on BOTH metrics.
     ///
     /// <para><b>It printed Δ miss alone until 2026-08-30, which is the defect
-    /// <c>.claude/knowledge/pitfalls.md</c> records this file's sibling committing and paying for.</b> There,
+    /// <c>.agents/knowledge/pitfalls.md</c> records this file's sibling committing and paying for.</b> There,
     /// a roll-up counting miss-better shapes read as unanimous and a shipped ranking default was changed on
     /// it; the pollution column, once looked at, showed the trade design §5.7.0 explicitly refuses, and the
     /// default was reverted. The table above this always carried both columns — a per-arm report and its

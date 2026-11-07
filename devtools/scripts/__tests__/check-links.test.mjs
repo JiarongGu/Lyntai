@@ -58,6 +58,23 @@ describe('check-links — regression: the archived-document defect this gate exi
   });
 });
 
+describe('check-links — a path under .agents/', () => {
+  it('fails a dead path to the knowledge or the skills, and accepts one that resolves', () => {
+    const dead = run({
+      'README.md': 'Read `.agents/knowledge/gone.md` and `.agents/skills/gone/SKILL.md`.\n',
+    });
+    assert.equal(dead.code, 1);
+    assert.match(dead.out, /README\.md:1\s+->\s+\.agents\/knowledge\/gone\.md/);
+    assert.match(dead.out, /README\.md:1\s+->\s+\.agents\/skills\/gone\/SKILL\.md/);
+
+    const live = run({
+      'README.md': 'Read `.agents/knowledge/here.md`.\n',
+      '.agents/knowledge/here.md': '# here\n',
+    });
+    assert.equal(live.code, 0);
+  });
+});
+
 describe('check-links — what it does NOT flag', () => {
   it('a reference that resolves', () => {
     const { code } = run({

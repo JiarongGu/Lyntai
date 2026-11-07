@@ -297,7 +297,7 @@ public static class LyntaiServiceCollectionExtensions
 
         // THE FRONT DOOR: one fold for the default client and every named one, and only the ROUTER varies.
         // Everything outside it is the governance promise, so it must never be written twice
-        // (`.claude/knowledge/pitfalls.md` §DI / config, on two construction sites drifting).
+        // (`.agents/knowledge/pitfalls.md` §DI / config, on two construction sites drifting).
         ITextClient Compose(IServiceProvider sp, ITextRouter router,
             IReadOnlyList<ProviderCandidate>? candidates = null, Func<IReadOnlyList<ProviderCandidate>?>? defaults = null)
         {

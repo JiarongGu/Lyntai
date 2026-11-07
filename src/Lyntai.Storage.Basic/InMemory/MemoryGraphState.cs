@@ -175,7 +175,7 @@ internal sealed class MemoryGraphState(Func<DateTimeOffset> clock)
         {
             var at = planned.TryGetValue(touch.Id, out var i) ? i : -1;
             var node = at >= 0 ? change.Nodes[at].After : _nodes.GetValueOrDefault(touch.Id);
-            if (node is null || node.Record.Engine != engine) continue;
+            if (node is null || node.Record.Engine != engine || StatesEnd(node)) continue;   // a read of history keeps nothing alive
             var next = node with
             {
                 State = node.State with
@@ -593,6 +593,7 @@ internal sealed class MemoryGraphState(Func<DateTimeOffset> clock)
         return [.. InScope(engine, taskKey, scope)
             // never eligible: an authoritative node's retrievability is fixed at 1
             .Where(n => n.Record.Grade != MemoryGrade.Authoritative)
+            .Where(n => !StatesEnd(n))   // history: only a forget removes it
             .Where(n =>
                 (maxAgeOverStability is double c &&
                  (position - n.State.LastRecalledPosition) /
@@ -600,6 +601,10 @@ internal sealed class MemoryGraphState(Func<DateTimeOffset> clock)
                 (createdBefore is DateTimeOffset before && n.Record.CreatedAt < before))
             .Select(n => n.Id)];
     }
+
+    // an entry that carries a successor, a ValidTo or an end with a reason, whether or not its instant has come
+    private static bool StatesEnd(GraphRow n) =>
+        n.Record.SupersededAt is not null || n.Record.ValidTo is not null || n.Record.EndedReason is not null;
 
     // scoped to the named engine: an id read from a DIFFERENT engine must not be removable through this one
     public IReadOnlyList<long> DeleteIds(string engine, IReadOnlyCollection<long> ids) =>

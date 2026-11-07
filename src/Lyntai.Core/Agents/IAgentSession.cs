@@ -20,7 +20,7 @@ namespace Lyntai.Agents;
 /// </item>
 /// <item><description><b>Tools</b> ARE gated. Custom tools reach the agent over MCP, and that door applies
 /// <see cref="Lyntai.Guards.IGuardRail"/> to every call and observation — the second-door case
-/// <c>.claude/knowledge/pitfalls.md</c> records as closed.</description></item>
+/// <c>.agents/knowledge/pitfalls.md</c> records as closed.</description></item>
 /// <item><description><b>Guards on the agent's own prose</b> are not applied: a guard is typed on
 /// <see cref="TextRequest"/>/<see cref="TextResponse"/> and a session emits
 /// <see cref="AgentStreamEvent"/>s. Gate the outcome yourself if that matters.</description></item>

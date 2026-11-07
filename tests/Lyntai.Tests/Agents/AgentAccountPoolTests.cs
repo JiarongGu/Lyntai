@@ -744,6 +744,64 @@ public class AgentAccountPoolTests
         Assert.Equal("a", Name(await Take(pool)));
     }
 
+    private static async Task<(InMemoryKeyValueStore Store, ManualTimeProvider Clock, string Key, string Raw)> StoredOwnerHold()
+    {
+        var clock = new ManualTimeProvider();
+        var store = new InMemoryKeyValueStore();
+        var before = Pool(clock, store, Options(null, Choice(null, "claude-cli", "a")));
+        await before.ReportAsync(await Take(before), Limit(RestrictionRecovery.OwnerActionFor(OwnerActionReason.Refill), RestrictionCause.Credit));
+        var key = Assert.Single(await store.ListKeysAsync("lyntai:agent-pool:default:hold:"));
+        return (store, clock, key, (await store.GetAsync(key))!);
+    }
+
+    [Theory] // a word a newer build wrote reads as Unknown, and the hold still holds its seat
+    [InlineData("recovery", "OwnerAction")]
+    [InlineData("cause", "Credit")]
+    [InlineData("subject", "Account")]
+    public async Task A_hold_with_a_word_this_build_lacks_still_holds_its_seat(string field, string word)
+    {
+        var (store, clock, key, raw) = await StoredOwnerHold();
+        Assert.Contains($"\"{field}\":\"{word}\"", raw);
+        await store.SetAsync(key, raw.Replace($"\"{field}\":\"{word}\"", $"\"{field}\":\"FromANewerBuild\""));
+
+        var pool = Pool(clock, store, Options(null, Choice(null, "claude-cli", "a")));
+
+        var hold = Assert.Single(await pool.HoldsAsync());
+        Assert.Equal(AgentHoldState.Blocked, hold.State);
+        Assert.Null((await pool.PickAsync()).Pick);
+    }
+
+    [Fact] // a restriction's window and the scope the door named are stored with it
+    public async Task A_restart_reads_back_the_window_and_the_scope_a_restriction_named()
+    {
+        var clock = new ManualTimeProvider();
+        var store = new InMemoryKeyValueStore();
+        var before = Pool(clock, store, Options(null, Choice(null, "claude-cli", "a")));
+        await before.ReportAsync(await Take(before), Failed(AgentFailureKind.Limit,
+            new AgentRestriction(RestrictionCause.Quota, RestrictionSubject.Account, RestrictionRecovery.ResetAt(clock.GetUtcNow() + TimeSpan.FromHours(1)))
+                { Window = "five_hour", Scope = "work-plan" }));
+
+        var read = Assert.Single(await Pool(clock, store, Options(null, Choice(null, "claude-cli", "a"))).HoldsAsync());
+
+        Assert.Equal(("five_hour", "work-plan"), (read.Restriction.Window, read.Restriction.Scope));
+    }
+
+    [Fact] // a record with a blank id would throw in the snapshot on every load: it is skipped like one that does not read
+    public async Task A_stored_hold_with_a_blank_id_or_a_repeated_id_is_skipped_and_the_pool_loads()
+    {
+        var (store, clock, key, raw) = await StoredOwnerHold();
+        var id = System.Text.Json.Nodes.JsonNode.Parse(raw)!["id"]!.GetValue<string>();
+        await store.SetAsync("lyntai:agent-pool:default:hold:blank", raw.Replace($"\"id\":\"{id}\"", "\"id\":\"\""));
+        await store.SetAsync("lyntai:agent-pool:default:hold:twin", raw);
+        var log = new CapturingLogger();
+
+        var pool = new AgentAccountPool(Options(null, Choice(null, "claude-cli", "a")), store, clock, null, null, log.For<AgentAccountPool>());
+
+        Assert.Single(await pool.HoldsAsync());
+        Assert.Equal(2, log.Warnings.Count);
+        Assert.Null((await pool.PickAsync()).Pick);
+    }
+
     // ── a store that fails ───────────────────────────────────────────────────────────────────────
 
     /// <summary>A store whose next <see cref="Failures"/> writes or deletes throw, then behaves.</summary>
@@ -906,6 +964,32 @@ public class AgentAccountPoolTests
             Pool(clock, null, Options(o => o.AttemptLease = TimeSpan.Zero, Choice(null, "claude-cli", "a"))));
         Assert.Throws<ArgumentOutOfRangeException>(() =>
             Pool(clock, null, Options(o => o.UnknownProbeAfter = TimeSpan.FromSeconds(-1), Choice(null, "claude-cli", "a"))));
+    }
+
+    [Fact] // now + a bound throws from every pick once the bound passes the end of time
+    public void A_bound_has_an_upper_limit()
+    {
+        var clock = new ManualTimeProvider();
+
+        Assert.Throws<ArgumentOutOfRangeException>(() =>
+            Pool(clock, null, Options(o => o.AttemptLease = TimeSpan.MaxValue, Choice(null, "claude-cli", "a"))));
+        Assert.Throws<ArgumentOutOfRangeException>(() =>
+            Pool(clock, null, Options(o => o.UnknownProbeAfter = TimeSpan.MaxValue, Choice(null, "claude-cli", "a"))));
+    }
+
+    [Fact] // the longest bound still adds to the clock
+    public async Task The_longest_bounds_the_pool_takes_work_in_a_pick()
+    {
+        var clock = new ManualTimeProvider();
+        var pool = Pool(clock, new InMemoryKeyValueStore(), Options(o =>
+        {
+            o.AttemptLease = TimeSpan.FromDays(3650);
+            o.UnknownProbeAfter = TimeSpan.FromDays(3650);
+        }, Choice(null, "claude-cli", "a")));
+        await pool.ReportAsync(await Take(pool), Limit(RestrictionRecovery.Unknown));
+
+        Assert.Null((await pool.PickAsync()).Pick);
+        Assert.Single(await pool.HoldsAsync());
     }
 
     [Fact]

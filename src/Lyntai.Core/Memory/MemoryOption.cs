@@ -36,7 +36,7 @@ internal static class MemoryOption
     /// the name of the property it was copied FROM compiles and reads perfectly.</param>
     /// <exception cref="ArgumentOutOfRangeException">The value is outside the range, which includes every
     /// non-finite value: <c>NaN</c> compares false against every bound, so a bare comparison would let it
-    /// through silently (<c>.claude/knowledge/pitfalls.md</c> §Storage — a clamp is not a finiteness
+    /// through silently (<c>.agents/knowledge/pitfalls.md</c> §Storage — a clamp is not a finiteness
     /// guard).</exception>
     public static double Require(double value, MemoryOptionRange range, string owner, string why,
         [CallerMemberName] string member = "")

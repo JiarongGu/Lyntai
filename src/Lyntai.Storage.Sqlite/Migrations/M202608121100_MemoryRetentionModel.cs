@@ -13,7 +13,7 @@ namespace Lyntai.Storage.Sqlite.Migrations;
 ///
 /// <para><b>What is deliberately NOT folded in.</b> <c>M202608081215_MemoryGraph</c> shipped in 2.5.0, so the
 /// tables below are RELEASED and every change here stays an <c>ALTER</c>. Folding these columns into that
-/// <c>CREATE TABLE</c> would be the migration-number trap in <c>.claude/knowledge/storage.md</c>: FluentMigrator
+/// <c>CREATE TABLE</c> would be the migration-number trap in <c>.agents/knowledge/storage.md</c>: FluentMigrator
 /// records an applied migration by NUMBER, so a 2.5.0 database — which already recorded 202608081215 — would
 /// silently skip the edited version and never receive a single one of these columns.</para>
 ///

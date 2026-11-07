@@ -234,7 +234,7 @@ public sealed record GraphMemoryOptions
     ///
     /// <para>A NaN is not theoretical: <c>EffectiveEdgeWeight</c>'s <c>halfLife &lt;= 0</c> guard is false for
     /// it, so every edge weight becomes NaN and traversal stops discriminating, silently
-    /// (<c>.claude/knowledge/pitfalls.md</c>, "a clamp is not a finiteness guard").</para>
+    /// (<c>.agents/knowledge/pitfalls.md</c>, "a clamp is not a finiteness guard").</para>
     ///
     /// <para><b>Deliberately finiteness only, not a domain.</b> An out-of-range FINITE value merely
     /// exaggerates its knob and stays diagnosable; bounds the measurements have not justified would be

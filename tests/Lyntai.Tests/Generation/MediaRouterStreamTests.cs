@@ -9,7 +9,7 @@ namespace Lyntai.Tests.Generation;
 /// driven directly.
 ///
 /// <para>The invariants under test are NOT invented here — they are the two the LLM router measured
-/// (<c>.claude/knowledge/llm-and-router.md</c> § Streaming), because falling back mid-stream duplicates
+/// (<c>.agents/knowledge/llm-and-router.md</c> § Streaming), because falling back mid-stream duplicates
 /// output in exactly the same way whether the bytes are tokens or audio. The third, the terminal-chunk
 /// guarantee, is this door's own: a consumer's <c>await foreach</c> must never have to ask whether the loop
 /// ended because the media finished or because the backend died.</para></summary>
