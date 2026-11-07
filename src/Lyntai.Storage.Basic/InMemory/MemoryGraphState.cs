@@ -439,6 +439,8 @@ internal sealed class MemoryGraphState(Func<DateTimeOffset> clock)
         DateTimeOffset at, GraphOperationKey? key, out GraphSupersedeResult result)
     {
         var engine = successor.Engine;
+        if (predecessors.Count == 0 || predecessors.Select(p => p.Id).Distinct().Count() != predecessors.Count)
+            throw new ArgumentException("A supersession names at least one predecessor, and each only once.", nameof(predecessors));
         if (key is not null && Replay(engine, key) is { } held)
         {
             result = new GraphSupersedeResult(true, held.NodeId, held.Revision,
@@ -463,8 +465,9 @@ internal sealed class MemoryGraphState(Func<DateTimeOffset> clock)
             }
             var held2 = row.Record;
             var standing =
-                p.ExpectedRevision != held2.Revision || held2.EndedReason is not null ? GraphPredecessorStanding.Changed
-                : p.Id == after.Id || (held2.SupersededBy is { } existing && existing != after.Id && _nodes.ContainsKey(existing))
+                p.Id == after.Id ? GraphPredecessorStanding.Refused   // an entry is never its own successor, whatever revision it holds
+                : p.ExpectedRevision != held2.Revision || held2.EndedReason is not null ? GraphPredecessorStanding.Changed
+                : (held2.SupersededBy is { } existing && existing != after.Id && _nodes.ContainsKey(existing))
                     || (held2.ValidFrom is { } began && start < began) ? GraphPredecessorStanding.Refused
                 : GraphPredecessorStanding.Ended;
             results.Add(new GraphPredecessorResult(p.Id, standing, held2.Revision));

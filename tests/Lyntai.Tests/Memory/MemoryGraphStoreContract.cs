@@ -2873,9 +2873,46 @@ public static class MemoryGraphStoreContract
         var romeId = first.SuccessorId!.Value;
         var itself = await atomic.SupersedeWithAsync(self, [new GraphPredecessor(romeId, await Revision(store, engine, romeId))], "x", Mar, null);
         Assert.False(itself.Applied);
-        // refused where a refresh moves no revision, changed where it does (a SQL refresh advances it): never ended
-        Assert.NotEqual(GraphPredecessorStanding.Ended, itself.Predecessors.Single().Standing);
+        // refused whatever revision the refresh left it at (a SQL refresh advances it), and never ended
+        Assert.Equal(GraphPredecessorStanding.Refused, itself.Predecessors.Single().Standing);
         Assert.Null((await store.GetAsync(engine, romeId))!.EndedReason);
+    }
+
+    /// <summary><b>A supersession names at least one predecessor and each only once</b>: an empty list would store a successor that
+    /// ends nothing and leave a receipt for it, and a repeated id would be judged against its own end and fail the call as changed.</summary>
+    public static async Task A_supersession_with_no_predecessor_or_a_repeated_one_is_refused_and_stores_nothing(
+        IMemoryGraphStore store, string key)
+    {
+        var atomic = Assert.IsAssignableFrom<ISupersedingMemoryGraphStore>(store);
+        const string engine = "tv-atomic-names";
+        var paris = await store.UpsertAsync(Write(engine, key, "lives in Paris") with { ValidFrom = Jan });
+        var reviewed = await Revision(store, engine, paris);
+        var op = Op("atomic-names", key, MemoryOperationKind.Supersede, "fp-s", Jun);
+        var successor = Write(engine, key, "lives in Rome") with { ValidFrom = Mar };
+
+        await Assert.ThrowsAsync<ArgumentException>(() => atomic.SupersedeWithAsync(successor, [], "moved", Mar, op));
+        await Assert.ThrowsAsync<ArgumentException>(() => atomic.SupersedeWithAsync(successor,
+            [new GraphPredecessor(paris, reviewed), new GraphPredecessor(paris, reviewed)], "moved", Mar, op));
+
+        Assert.Single(await store.SeedAsync(engine, key, "s", null, 10));
+        Assert.Null(await atomic.ReceiptAsync(engine, key, "atomic-names", Jun));
+    }
+
+    /// <summary><b>A receipt that never expires is held</b>: an expiry at the end of the clock's range is stored, answers a repeat,
+    /// and is never purged.</summary>
+    public static async Task A_receipt_expiring_at_the_end_of_time_is_stored_and_answers(IMemoryGraphStore store, string key)
+    {
+        var keyed = Assert.IsAssignableFrom<IKeyedMemoryGraphStore>(store);
+        const string engine = "tv-keyed-forever";
+        var op = Op("forever", key, MemoryOperationKind.Remember, "fp-a", Jun) with { ExpiresAt = DateTimeOffset.MaxValue };
+
+        var first = await keyed.UpsertKeyedAsync(Write(engine, key, "lives in Paris"), op);
+        var again = await keyed.UpsertKeyedAsync(Write(engine, key, "lives in Paris"), op with { At = Jun.AddYears(50) });
+
+        Assert.False(first.Replayed);
+        Assert.True(again.Replayed);
+        Assert.Equal(first.Value, again.Value);
+        Assert.NotNull(await keyed.ReceiptAsync(engine, key, "forever", Jun.AddYears(1000)));
     }
 
     /// <summary><b>Racing keyed supersessions land once</b>: one applies, the rest answer its receipt.</summary>

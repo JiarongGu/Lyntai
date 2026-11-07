@@ -521,7 +521,9 @@ public sealed class GraphMemoryEngine(
                 $"Memory engine '{Name}' cannot hold a receipt: its store ({store.GetType().Name}) does not implement " +
                 $"{nameof(IKeyedMemoryGraphStore)}, so a keyed call could not be settled after a lost answer. Send it without a key.");
         var at = _clock();
-        return (keyed, new GraphOperationKey(call.Key, taskKey, call.Kind, call.Fingerprint, at, at + _options.ReceiptRetention));
+        // a retention longer than the clock can express never expires, rather than overflowing every keyed call
+        var expires = _options.ReceiptRetention >= DateTimeOffset.MaxValue - at ? DateTimeOffset.MaxValue : at + _options.ReceiptRetention;
+        return (keyed, new GraphOperationKey(call.Key, taskKey, call.Kind, call.Fingerprint, at, expires));
     }
 
     /// <summary>The key's live receipt for a keyed call, read BEFORE the checks that read the world: a later change (an entry ended or
@@ -862,7 +864,11 @@ public sealed class GraphMemoryEngine(
         ArgumentNullException.ThrowIfNull(taskKey);
         ct.ThrowIfCancellationRequested();
         RequireTypedLinks();
-        if (call is { } repeated && await HeldReceiptAsync(repeated, taskKey, ct).ConfigureAwait(false) is { } answered)
+        // a store ties a relation's receipt to its source alone, so removing the target drops the edge and leaves a receipt that would
+        // replay a relation nothing holds: the repeat is answered only while the target is held, else it is a call the checks below refuse
+        if (call is { } repeated && await HeldReceiptAsync(repeated, taskKey, ct).ConfigureAwait(false) is { } answered
+            && Owns(to) && long.TryParse(to.Id, NumberStyles.Integer, CultureInfo.InvariantCulture, out var targetId)
+            && await store.GetAsync(Name, targetId, ct).ConfigureAwait(false) is not null)
             return ToReceipt(answered, true);
         var source = await ReadOwnAsync(from, taskKey, ct, "relates").ConfigureAwait(false);
         var target = await ReadOwnAsync(to, taskKey, ct, "relates").ConfigureAwait(false);

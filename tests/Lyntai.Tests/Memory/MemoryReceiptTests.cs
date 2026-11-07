@@ -160,6 +160,34 @@ public class MemoryReceiptTests
     }
 
     [Fact]
+    public async Task A_keyed_relation_repeated_after_its_target_was_removed_is_refused_not_replayed()
+    {
+        var store = new InMemoryMemoryGraphStore();
+        var engine = Build(store);
+        var claim = (await engine.RememberAsync(new MemoryWrite("t", "s", "the deploy key is in the vault"))).Reference;
+        var doubt = (await engine.RememberAsync(new MemoryWrite("t", "s", "the deploy key was rotated"))).Reference;
+        await engine.RelateKeyedAsync("t", doubt, claim, MemoryRelation.Disputes, "relate-1");
+        await store.DeleteAsync(Name, [IdOf(claim)]);   // the edge goes with it; the receipt is tied to the source
+
+        await Assert.ThrowsAsync<ArgumentException>(() =>
+            engine.RelateKeyedAsync("t", doubt, claim, MemoryRelation.Disputes, "relate-1"));
+    }
+
+    [Fact]
+    public async Task A_retention_longer_than_the_clock_can_express_never_expires_instead_of_overflowing()
+    {
+        var clock = new Clock();
+        var engine = Build(clock: clock, options: new GraphMemoryOptions { ReceiptRetention = TimeSpan.MaxValue });
+
+        var first = await engine.RememberAsync(Fact("lives in Paris", "k1"));
+        clock.Now = Jan.AddYears(200);
+        var again = await engine.RememberAsync(Fact("lives in Paris", "k1"));
+
+        Assert.True(again.Receipt!.Replayed);
+        Assert.Equal(first.Reference, again.Reference);
+    }
+
+    [Fact]
     public async Task A_keyed_end_repeated_after_its_successor_was_removed_answers_AlreadyEnded()
     {
         var store = new InMemoryMemoryGraphStore();
