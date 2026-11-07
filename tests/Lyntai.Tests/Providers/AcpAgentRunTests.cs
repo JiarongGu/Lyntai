@@ -695,4 +695,102 @@ public class AcpAgentRunTests
         var events = await Read(turn);
         Assert.Equal(new AgentTaskEnded("t1", "completed"), events.OfType<AgentTaskEnded>().Single());
     }
+
+    [Fact] // the carried ending was seen before the prompt, so it shows nothing of the prompt being read
+    public async Task A_task_event_seen_before_the_prompt_leaves_a_failed_turn_never_sent()
+    {
+        var agent = new KeptAgent();
+        await using var run = await Open(agent);
+
+        agent.Say(TaskState("t1", "completed"));
+        await Task.Delay(100);
+        var turn = await run.SendAsync("next");
+        agent.EndOutput();
+
+        var ended = Ended(await Read(turn));
+        Assert.Equal(AgentDelivery.NeverSent, ended.Failure!.Delivery);
+        Assert.Contains(AgentShownKind.Task, ended.Turn!.Shown);
+    }
+
+    // ── what a kept run cannot place ─────────────────────────────────────────
+
+    private static string UnknownRequest() => """{"jsonrpc":"2.0","id":"u1","method":"fs/read_text_file","params":{"path":"a"}}""";
+
+    private static string UnknownNotification() => """{"jsonrpc":"2.0","method":"telemetry/ping","params":{}}""";
+
+    [Fact] // the turn that runs owns what the agent says that no case takes
+    public async Task A_request_and_a_notification_no_case_takes_are_unread_on_the_turn_that_runs()
+    {
+        var agent = new KeptAgent();
+        await using var run = await Open(agent);
+        var turn = await run.SendAsync("work");
+
+        agent.Say(UnknownRequest(), UnknownNotification(), Answer(100));
+
+        var unread = Ended(await Read(turn)).Unread;
+        Assert.Contains(unread, u => u is { Type: "request", Subtype: "fs/read_text_file" });
+        Assert.Contains(unread, u => u is { Type: "notification", Subtype: "telemetry/ping" });
+        await agent.Wrote(f => IdOf(f) == "u1");   // and the request is still answered
+    }
+
+    [Fact] // between turns nothing runs, so what is unread waits for the next turn to begin
+    public async Task An_update_no_case_takes_between_turns_is_unread_on_the_next_turn()
+    {
+        var agent = new KeptAgent();
+        await using var run = await Open(agent);
+
+        agent.Say(Update("""{"sessionUpdate":"telemetry_update"}"""), CallDone("late"));
+        await Task.Delay(100);
+        var turn = await run.SendAsync("next");
+        agent.Say(Answer(100));
+
+        var events = await Read(turn);
+        Assert.Contains(Ended(events).Unread, u => u is { Type: "session/update", Subtype: "telemetry_update" });
+        Assert.DoesNotContain(events, e => e is ToolResult);
+    }
+
+    [Fact] // a line nested deeper than the parser's default is still read, so a request on it is answered
+    public async Task A_request_on_a_deeply_nested_line_is_answered()
+    {
+        var agent = new KeptAgent();
+        await using var run = await Open(agent);
+        var nest = new string('[', 100) + new string(']', 100);
+
+        agent.Say($$$"""{"jsonrpc":"2.0","id":"agent-1","method":"session/request_permission","params":{"sessionId":"s1","toolCall":{"toolCallId":"c1","rawInput":{{{nest}}}},"options":[{"optionId":"reject-once","name":"Reject","kind":"reject_once"}]}}""");
+
+        await agent.Wrote(f => IdOf(f) == "agent-1");
+    }
+
+    // ── a run's end releases a held request ──────────────────────────────────
+
+    private sealed class TokenApprover : IAcpPermissionApprover
+    {
+        public TaskCompletionSource<CancellationToken> Asked { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        public Task<AcpPermissionAnswer> ApproveAsync(AcpPermissionRequest request, CancellationToken ct = default)
+        {
+            Asked.TrySetResult(ct);
+            return new TaskCompletionSource<AcpPermissionAnswer>().Task;   // the host's dialog stays open until the token says otherwise
+        }
+    }
+
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task A_run_that_ends_cancels_the_token_of_a_request_held_for_the_approver(bool disposed)
+    {
+        var approver = new TokenApprover();
+        var agent = new KeptAgent();
+        await using var run = await Open(agent, approver: approver);
+        await run.SendAsync("edit it");
+        agent.Say(PermissionRequest());
+        var token = await approver.Asked.Task.WaitAsync(Wait);
+        Assert.False(token.IsCancellationRequested);
+
+        if (disposed) await run.DisposeAsync();
+        else agent.EndOutput();
+
+        await run.Ended.WaitAsync(Wait);
+        await Eventually(() => token.IsCancellationRequested);
+    }
 }

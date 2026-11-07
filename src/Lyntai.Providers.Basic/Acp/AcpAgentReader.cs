@@ -35,6 +35,9 @@ internal sealed class AcpAgentReader
     private const int SetEffortId = 6;
     private const int MaxOfferedNamed = 25;
 
+    // the parser's own default (64) refuses a deep rawInput, and a request on that line then goes unanswered
+    private static readonly JsonDocumentOptions LineOptions = new() { MaxDepth = 512 };
+
     // a kept run's prompts count from here, so no id of the handshake's own can be read as one
     private const int KeptPromptBase = 100;
 
@@ -160,7 +163,7 @@ internal sealed class AcpAgentReader
         _line = line;
         try
         {
-            using var doc = JsonDocument.Parse(line);
+            using var doc = JsonDocument.Parse(line, LineOptions);
             var events = new List<AgentStreamEvent>();
             lock (_gate) ReadFrame(doc.RootElement, events);
             return events;
@@ -180,14 +183,23 @@ internal sealed class AcpAgentReader
         _line = line;
         try
         {
-            using var doc = JsonDocument.Parse(line);
+            using var doc = JsonDocument.Parse(line, LineOptions);
             var events = new List<AgentStreamEvent>();
             lock (_gate)
             {
                 var open = _phase == Phase.Kept;
                 _frameTurn = null;
-                _current = _idle;
+                // a request or a notification no case takes is noted on the turn that runs; an update picks its own in RouteKept
+                _current = (_outstanding.Count > 0 ? _outstanding[0] : _woken) ?? _idle;
                 ReadFrame(doc.RootElement, events);
+                if (_frameTurn is null)
+                {
+                    // what no turn owns is not kept: the idle state is only where such a frame is read
+                    _idle.StartedTools.Clear();
+                    _idle.OpenCalls.Clear();
+                    _idle.Answer.Clear();
+                }
+
                 if (_frameTurn is null && open)
                 {
                     _pendingTasks.AddRange(events.Where(e => e is AgentTaskStarted or AgentTaskEnded or AgentTaskOutputFile));
@@ -227,6 +239,7 @@ internal sealed class AcpAgentReader
             turn = new AcpTurnState { Id = _nextPrompt++, FrameIndex = Volatile.Read(ref _frames), LastSpoke = _time.GetUtcNow() };
             turn.Carried.AddRange(_pendingTasks);
             _pendingTasks.Clear();
+            _idle.Unread.MoveTo(turn.Unread);
             turn.Sink = sinkFor(turn);
             _outstanding.Add(turn);
             Send(AcpFrames.Prompt(turn.Id, _sessionId!, blocks));
@@ -294,6 +307,17 @@ internal sealed class AcpAgentReader
         }
     }
 
+    /// <summary>The run is over, by a dispose, a kill or a crash: no request is left to answer, so every held one is released and
+    /// its approver's token cancelled, and a frame read after it is ignored.</summary>
+    public void Close()
+    {
+        lock (_gate)
+        {
+            _phase = Phase.Done;
+            ReleaseHeld(answerCancelled: false);
+        }
+    }
+
     private void ReadFrame(JsonElement root, List<AgentStreamEvent> events)
     {
         if (_phase == Phase.Done || root.ValueKind != JsonValueKind.Object) return;
@@ -345,6 +369,7 @@ internal sealed class AcpAgentReader
         var woken = new AcpTurnState { Id = ++_wokenSeq, Woken = true, LastSpoke = _time.GetUtcNow() };
         woken.Carried.AddRange(_pendingTasks);
         _pendingTasks.Clear();
+        _idle.Unread.MoveTo(woken.Unread);
         woken.Sink = _wokenSink?.Invoke(woken);
         _woken = woken;
         return woken;

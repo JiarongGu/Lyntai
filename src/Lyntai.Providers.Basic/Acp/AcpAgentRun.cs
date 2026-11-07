@@ -336,7 +336,9 @@ internal sealed class AcpAgentRun : IAgentRun
         foreach (var evt in opening ?? []) sink.Events.Writer.TryWrite(evt);
         foreach (var evt in state.Carried)
         {
-            sink.Watch.See(evt);
+            // a woken turn has no prompt to be read; a sent turn's carried events came before its prompt
+            if (state.Woken) sink.Watch.See(evt);
+            else sink.Watch.Carry(evt);
             sink.Events.Writer.TryWrite(evt);
         }
 
@@ -425,6 +427,7 @@ internal sealed class AcpAgentRun : IAgentRun
             _quietTimer = null;
         }
 
+        _reader.Close();   // a request held for an approver has nobody to answer now
         _outbox.Writer.TryComplete();
         _woken.Writer.TryComplete();
         _ended.TrySetResult(ended);

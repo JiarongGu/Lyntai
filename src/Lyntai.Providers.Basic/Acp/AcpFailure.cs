@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Text.Json;
 using Lyntai.Agents;
 using Lyntai.Inference;
@@ -31,8 +32,9 @@ internal static class AcpFailure
         var readings = new List<AgentFailure?>(extensions.Held);
         readings.AddRange(extensions.ReadError(error));
         // the code ACP defines for an agent that wants a sign-in first states exactly that
-        readings.Add(code == AuthRequiredCode ? StreamJsonFailure.Access($"acp.error.code={code}", AccessReason.SignInAgain) : null);
-        return StreamJsonFailure.Merge(readings, ProviderVerdictClassifier.ReadAgentFailure(words, time), $"acp.error.code={code}");
+        var by = string.Create(CultureInfo.InvariantCulture, $"acp.error.code={code}");   // the culture would print -32000 with U+2212
+        readings.Add(code == AuthRequiredCode ? StreamJsonFailure.Access(by, AccessReason.SignInAgain) : null);
+        return StreamJsonFailure.Merge(readings, ProviderVerdictClassifier.ReadAgentFailure(words, time), by);
     }
 
     /// <summary>A turn the agent ended normally that says, as a field, that it failed.</summary>

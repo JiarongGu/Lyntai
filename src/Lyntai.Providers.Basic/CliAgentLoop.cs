@@ -70,6 +70,13 @@ internal static class CliAgentLoop
             if (!_shown.Contains(kind)) _shown.Add(kind);
         }
 
+        /// <summary>An event the turn's stream begins with that was seen before its prompt: it is shown, but it is no sign the
+        /// prompt was read, so a failed turn still reads NeverSent.</summary>
+        public void Carry(AgentStreamEvent evt)
+        {
+            if (Kind(evt) is { } kind && !_shown.Contains(kind)) _shown.Add(kind);
+        }
+
         public AgentTurnEvidence Evidence() => new(written(), [.. _shown]);
 
         public IReadOnlyList<AgentUnreadFrame> Unread() => unread();
