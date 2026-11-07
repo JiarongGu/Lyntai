@@ -66,15 +66,17 @@ internal sealed class HttpAgentSession(
 
         var sawEvent = false;
         var sawTool = false;
+        List<AgentShownKind> shown = [];
         await foreach (var evt in loop.StreamAsync(request, ct: ct).WithCancellation(ct).ConfigureAwait(false))
         {
             if (evt is SessionEnded ended)
             {
-                yield return Stamp(ended, exchanges, sawEvent, sawTool);
+                yield return Stamp(ended, exchanges, sawEvent, sawTool) with { Turn = new AgentTurnEvidence(null, shown) };
                 yield break;
             }
             sawTool |= evt is ToolCall or ToolResult;
             sawEvent = true;
+            if (CliAgentLoop.Kind(evt) is { } kind && !shown.Contains(kind)) shown.Add(kind);
             yield return evt;
         }
     }

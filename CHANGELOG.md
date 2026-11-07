@@ -29,6 +29,11 @@ every addition.
 
 ### Changed
 
+- **A rate-limit stamp the Claude door cannot read as a date is no time, where it ended the turn with no terminal.** A `resetsAt` written in
+  epoch milliseconds threw out of the reader (the protocol door's rejection shares the read); a cost too large for a double reads as no
+  cost; an `init` that repeats the id of an earlier `system` frame is the announced start. The HTTP agent door's terminal states its `Turn`,
+  and `RetryingAgentSession` shows the caller one terminal even from an inner session that yields two, and reads an empty `ResumeToken` as no
+  conversation to resume.
 - **A keyed end or confirmation that lost a race on Postgres answers the winner's receipt,** where it answered `Changed` with no receipt;
   a refused supersession on the relational stores reports a predecessor it did not move at the revision it still has; and the memory
   tools' refusal for another task's entry reads as a missing one, without naming the other task.

@@ -68,7 +68,7 @@ public sealed class RetryingAgentSession : IAgentSession
     {
         ArgumentNullException.ThrowIfNull(options);
         var attempt = options;
-        var conversation = options.ResumeToken;
+        var conversation = string.IsNullOrEmpty(options.ResumeToken) ? null : options.ResumeToken;
 
         for (var retries = 0; ; retries++)
         {
@@ -79,7 +79,9 @@ public sealed class RetryingAgentSession : IAgentSession
             await foreach (var e in _inner.StreamAsync(attempt, ct).WithCancellation(ct).ConfigureAwait(false))
             {
                 if (e is SessionStarted started) conversation = started.SessionId;
-                if (e is SessionEnded ended && !terminalSeen)
+                // a terminal after the first is a session breaking its own contract, and the caller sees one
+                if (e is SessionEnded && terminalSeen) continue;
+                if (e is SessionEnded ended)
                 {
                     terminalSeen = true;
                     conversation = ended.SessionId ?? conversation;

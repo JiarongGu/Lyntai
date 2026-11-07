@@ -26,6 +26,19 @@ internal static class WireJson
     internal static long? Int64(JsonElement parent, string name) =>
         Property(parent, name, JsonValueKind.Number) is { } el && el.TryGetInt64(out var value) ? value : null;
 
+    /// <summary>A Unix-seconds stamp as a moment, or null when it is null or past the range of a date (an epoch in
+    /// MILLISECONDS written where seconds belong is), where <see cref="DateTimeOffset.FromUnixTimeSeconds"/> throws.</summary>
+    /// <param name="seconds">The stamp as the wire gave it.</param>
+    internal static DateTimeOffset? UnixSeconds(long? seconds) =>
+        seconds is { } s && s is >= -62135596800L and <= 253402300799L ? DateTimeOffset.FromUnixTimeSeconds(s) : null;
+
+    /// <summary>A numeric property as a finite <c>double</c>, or null when absent, non-numeric or not representable
+    /// (<c>1e999</c> reads as infinity, which no cost or count is).</summary>
+    /// <param name="parent">The object to read from.</param>
+    /// <param name="name">The property name.</param>
+    internal static double? Finite(JsonElement parent, string name) =>
+        Property(parent, name, JsonValueKind.Number) is { } el && el.TryGetDouble(out var value) && double.IsFinite(value) ? value : null;
+
     /// <summary>A percent from 0 to 100 as the server wrote it, with the least difference its digits show (1 for
     /// <c>23</c>, 0.1 for <c>23.5</c>; null for exponent form). Absent or null is a stated absence and reads true with
     /// both null; false is a value present that is not a number in range.</summary>

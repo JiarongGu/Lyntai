@@ -204,6 +204,76 @@ public class StreamJsonAgentReaderTests
         Assert.Empty(new StreamJsonAgentReader().Read("""{"type":"rate_limit_event"}"""));
     }
 
+    // epoch MILLISECONDS read as seconds is past year 9999, where FromUnixTimeSeconds throws
+    [Theory]
+    [InlineData("""{"status":"rejected","rateLimitType":"five_hour","resetsAt":1760950801000}""")]
+    [InlineData("""{"status":"rejected","rateLimitType":"overage","overageResetsAt":1760950801000}""")]
+    [InlineData("""{"status":"allowed","rateLimitType":"five_hour","overageResetsAt":1760950801000}""")]
+    [InlineData("""{"status":"allowed","rateLimitType":"five_hour","unifiedWindows":{"five_hour":{"utilization":0.5,"resetsAt":1760950801000}}}""")]
+    public void A_timestamp_past_the_range_of_a_date_reads_as_no_time_and_the_turn_still_ends(string info)
+    {
+        var reader = new StreamJsonAgentReader();
+
+        var events = new[]
+            {
+                $$"""{"type":"rate_limit_event","rate_limit_info":{{info}}}""",
+                """{"type":"result","subtype":"success","is_error":true,"result":"limit reached","session_id":"s"}""",
+            }
+            .SelectMany(reader.Read).ToList();
+
+        var report = Assert.Single(events.OfType<AgentAllowanceReport>());
+        Assert.Null(report.Window?.ResetsAt);
+        Assert.Null(report.OverageResetsAt);
+        Assert.Single(events.OfType<SessionEnded>());
+    }
+
+    [Fact]
+    public void A_hook_frame_that_names_the_session_before_init_leaves_init_the_announced_start()
+    {
+        var reader = new StreamJsonAgentReader();
+
+        var events = new[]
+            {
+                """{"type":"system","subtype":"hook_started","session_id":"s"}""",
+                """{"type":"system","subtype":"init","session_id":"s","tools":["Read"]}""",
+            }
+            .SelectMany(reader.Read).ToList();
+
+        var announced = Assert.Single(events.OfType<SessionStarted>(), s => s.Announced);
+        Assert.Equal("s", announced.SessionId);
+        Assert.True(events.IndexOf(announced) < events.FindIndex(e => e is AgentLoaded));
+    }
+
+    [Fact]
+    public void A_second_init_of_the_same_session_is_not_announced_again()
+    {
+        var reader = new StreamJsonAgentReader();
+
+        var started = new[]
+            {
+                """{"type":"system","subtype":"init","session_id":"s"}""",
+                """{"type":"system","subtype":"init","session_id":"s"}""",
+            }
+            .SelectMany(reader.Read).OfType<SessionStarted>().ToList();
+
+        Assert.Single(started);
+    }
+
+    [Theory]
+    [InlineData("1e999")]
+    [InlineData("-1e999")]
+    public void A_cost_that_does_not_fit_a_double_reads_as_no_cost_and_the_turn_ends_ok(string cost)
+    {
+        var reader = new StreamJsonAgentReader();
+
+        var events = reader.Read($$"""{"type":"result","subtype":"success","is_error":false,"result":"ok","session_id":"s","usage":{"input_tokens":3,"output_tokens":4},"total_cost_usd":{{cost}}}""");
+
+        var ended = Assert.Single(events.OfType<SessionEnded>());
+        Assert.False(ended.IsError);
+        Assert.Equal("ok", ended.FinalText);
+        Assert.Null(reader.ReadEnd(0));
+    }
+
     // ── a turn's own report: denials and usage by model (AG33) ───────────────
 
     // SOURCE-DERIVED: the shape of a host's record of a result frame (values invented, field names theirs)

@@ -39,6 +39,16 @@ public class StreamJsonParserTests
         Assert.Equal(0.012, evt.Usage.CostUsd);
     }
 
+    [Fact]
+    public void A_cost_that_does_not_fit_a_double_is_no_cost_and_the_result_is_kept()
+    {
+        var evt = StreamJsonParser.Parse("""{"type":"result","result":"ok","usage":{"input_tokens":1,"output_tokens":2},"total_cost_usd":1e999}""");
+
+        Assert.Equal(StreamJsonEventKind.Result, evt.Kind);
+        Assert.Equal("ok", evt.Text);
+        Assert.Null(evt.Usage!.CostUsd);
+    }
+
     [Theory]
     [InlineData("")]
     [InlineData("   ")]

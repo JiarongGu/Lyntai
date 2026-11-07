@@ -20,9 +20,7 @@ internal static class StreamJsonFields
     public static WireUsage? ReadUsage(JsonElement root)
     {
         if (WireJson.Object(root, "usage") is not { } u) return null;
-        double? cost = root.TryGetProperty("total_cost_usd", out var c) && c.ValueKind == JsonValueKind.Number
-            ? c.GetDouble()
-            : null;
+        var cost = WireJson.Finite(root, "total_cost_usd");
         return new WireUsage(
             WireJson.Long(u, "input_tokens"),
             WireJson.Long(u, "output_tokens"),

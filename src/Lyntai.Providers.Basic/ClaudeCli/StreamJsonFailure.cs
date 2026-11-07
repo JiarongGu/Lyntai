@@ -30,8 +30,7 @@ internal static class StreamJsonFailure
         var type = WireJson.String(info, "rateLimitType");
         var seconds = WireJson.Int64(info, type == "overage" ? "overageResetsAt" : "resetsAt")
             ?? WireJson.Int64(info, "resetsAt");
-        return new RejectedLimit(type, seconds is { } s ? DateTimeOffset.FromUnixTimeSeconds(s) : null,
-            WireJson.String(info, "limitScope"));
+        return new RejectedLimit(type, WireJson.UnixSeconds(seconds), WireJson.String(info, "limitScope"));
     }
 
     /// <summary>The report a <c>rate_limit_info</c> object states, allowed or rejected; the window is read as
@@ -39,13 +38,12 @@ internal static class StreamJsonFailure
     public static AgentAllowanceReport ReadReport(JsonElement info)
     {
         var type = WireJson.String(info, "rateLimitType");
-        var overageResets = WireJson.Int64(info, "overageResetsAt") is { } o ? DateTimeOffset.FromUnixTimeSeconds(o) : (DateTimeOffset?)null;
-        var seconds = WireJson.Int64(info, type == "overage" ? "overageResetsAt" : "resetsAt");
-        var resets = seconds is { } s ? DateTimeOffset.FromUnixTimeSeconds(s) : (DateTimeOffset?)null;
+        var overageResets = WireJson.UnixSeconds(WireJson.Int64(info, "overageResetsAt"));
+        var resets = WireJson.UnixSeconds(WireJson.Int64(info, type == "overage" ? "overageResetsAt" : "resetsAt"));
         // the window's own entry among the report's windows states its use, and its reset when the report's own states none
         var entry = type is { Length: > 0 } && WireJson.Object(info, "unifiedWindows") is { } windows ? WireJson.Object(windows, type) : null;
-        if (resets is null && entry is { } own && WireJson.Int64(own, "resetsAt") is { } entryReset)
-            resets = DateTimeOffset.FromUnixTimeSeconds(entryReset);
+        if (resets is null && entry is { } own)
+            resets = WireJson.UnixSeconds(WireJson.Int64(own, "resetsAt"));
         var use = (entry is { } e ? WireJson.Fraction(e, "utilization") : null) ?? WireJson.Fraction(info, "utilization");
         AgentAllowanceWindow? window = type switch
         {
