@@ -79,14 +79,39 @@ public sealed record ToolResult(string? CallId, string Content, bool IsError) : 
 /// <param name="Description">The agent's description of the work; null when the door states none.</param>
 /// <param name="CallId">The <see cref="ToolCall.CallId"/> of the call that started it, which is also the
 /// <see cref="ToolCall.ParentCallId"/> of a subagent's calls; null when the door states none.</param>
-public sealed record AgentTaskStarted(string TaskId, string? Kind, string? Description, string? CallId) : AgentStreamEvent;
+public sealed record AgentTaskStarted(string TaskId, string? Kind, string? Description, string? CallId) : AgentStreamEvent
+{
+    /// <summary>The <see cref="TaskId"/> of the task that started this one, as the frame states it (a subagent's own child);
+    /// null for work the session started and when the door states none.</summary>
+    public string? ParentTaskId { get; init; }
+
+    /// <summary>How deep this work sits below the session (the Claude door's <c>spawn_depth</c>, 1 for the session's own
+    /// subagent); null when the door states none.</summary>
+    public int? Depth { get; init; }
+
+    /// <summary>The agent's own word for the subagent's type (Claude's <c>subagent_type</c>), uninterpreted; null for
+    /// work that is no subagent and when the door states none.</summary>
+    public string? SubagentType { get; init; }
+}
 
 /// <summary>Background work ended, in the agent's word for how. It can arrive after the turn's
 /// <see cref="SessionEnded"/>, which is never a second terminal.</summary>
 /// <param name="TaskId">The <see cref="AgentTaskStarted.TaskId"/> it ends.</param>
 /// <param name="Status">The agent's own word for how it ended (for example <c>completed</c> or <c>stopped</c>),
 /// uninterpreted; null when the door states none.</param>
-public sealed record AgentTaskEnded(string TaskId, string? Status) : AgentStreamEvent;
+public sealed record AgentTaskEnded(string TaskId, string? Status) : AgentStreamEvent
+{
+    /// <summary>The <see cref="AgentTaskStarted.CallId"/> of the call that started the work, so an end is keyed by the same
+    /// call as its start: the frame's own, else the one its start stated; null when neither did.</summary>
+    public string? CallId { get; init; }
+}
+
+/// <summary>The file a task's output is written to, as a frame names it: a path on the agent's machine, never the output
+/// itself. The library reads no file, so a host that wants the stream reads it from here. Yielded once per task and path,
+/// at the frame that first names it, which may be the task's end.</summary>
+/// <param name="TaskId">The <see cref="AgentTaskStarted.TaskId"/> the file belongs to.</param>
+/// <param name="Path">The path as the frame spells it.</param>
+public sealed record AgentTaskOutputFile(string TaskId, string Path) : AgentStreamEvent;
 
 /// <summary>Per-turn usage tick (RAW token counts — the app prices from its own table).</summary>
 public sealed record UsageLive(long InputTokens, long OutputTokens, long CacheReadTokens) : AgentStreamEvent;

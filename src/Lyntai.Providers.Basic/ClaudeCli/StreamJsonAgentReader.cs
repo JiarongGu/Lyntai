@@ -29,6 +29,8 @@ internal sealed class StreamJsonAgentReader : ICliAgentLineReader
     private bool _readAssistant;
     private bool _readResult;
     private readonly HashSet<string> _pendingCalls = new(StringComparer.Ordinal);
+    private readonly Dictionary<string, string> _taskCalls = new(StringComparer.Ordinal);
+    private readonly HashSet<(string Task, string Path)> _taskOutputs = [];
 
     /// <summary>The <see cref="SessionEnded.Subtype"/> of a turn the process ended cleanly with no <c>result</c> frame.</summary>
     internal const string NoResultSubtype = "no-result-frame";
@@ -176,20 +178,38 @@ internal sealed class StreamJsonAgentReader : ICliAgentLineReader
     // A `task_*` line is routed here before ReadSystem, so it can never announce a session or move anything the
     // session owns. `task_notification` is the end: every capture carries one per task, while `task_updated` is a
     // patch that precedes it with a status of its own, so reading both would end a task twice. `task_progress` and
-    // `background_tasks_changed` say nothing these two do not.
-    private static IEnumerable<AgentStreamEvent> ReadTask(JsonElement root, string subtype)
+    // `background_tasks_changed` say nothing these two do not. A task's output file is named by whichever of the two
+    // carries `output_file` first (the capture's notification does), and an end is keyed by the call its start named
+    // when its own line names none.
+    private IEnumerable<AgentStreamEvent> ReadTask(JsonElement root, string subtype)
     {
         if (WireJson.String(root, "task_id") is not { Length: > 0 } id)
             return [];
 
-        return subtype switch
+        var callId = WireJson.String(root, "tool_use_id");
+        switch (subtype)
         {
-            "task_started" => [new AgentTaskStarted(id, WireJson.String(root, "task_type"),
-                WireJson.String(root, "description"), WireJson.String(root, "tool_use_id"))],
-            "task_notification" => [new AgentTaskEnded(id, WireJson.String(root, "status"))],
-            _ => [],
-        };
+            case "task_started":
+                if (callId is not null) _taskCalls[id] = callId;
+                return [new AgentTaskStarted(id, WireJson.String(root, "task_type"), WireJson.String(root, "description"), callId)
+                    {
+                        ParentTaskId = WireJson.String(root, "parent_task_id"),
+                        Depth = WireJson.Int32(root, "spawn_depth"),
+                        SubagentType = WireJson.String(root, "subagent_type"),
+                    },
+                    .. OutputFile(root, id)];
+            case "task_notification":
+                return [.. OutputFile(root, id),
+                    new AgentTaskEnded(id, WireJson.String(root, "status")) { CallId = callId ?? _taskCalls.GetValueOrDefault(id) }];
+            default:
+                return [];
+        }
     }
+
+    private IEnumerable<AgentStreamEvent> OutputFile(JsonElement root, string id) =>
+        WireJson.String(root, "output_file") is { Length: > 0 } path && _taskOutputs.Add((id, path))
+            ? [new AgentTaskOutputFile(id, path)]
+            : [];
 
     // ── stream_event (partial content deltas) ────────────────────────────────
 

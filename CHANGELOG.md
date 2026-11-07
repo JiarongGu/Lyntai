@@ -96,6 +96,13 @@ every addition.
 
 ### Added
 
+- **A subagent's start and end carry the lineage the agent stated, and a task names its output file** (**D253**). No `ChildStarted`
+  or `ChildEnded` event is added (**D245**): a subagent is the `AgentTaskStarted` of Kind `local_agent` and the `AgentTaskEnded` of
+  its task. `AgentTaskStarted` gains `ParentTaskId`, `Depth` and `SubagentType` (the Claude door's `parent_task_id`, `spawn_depth` and
+  `subagent_type`, null where a frame states none), and `AgentTaskEnded` gains `CallId`, the call its start named, so an end is
+  keyed by the call its start and the child's own `ParentCallId` events are. The new `AgentTaskOutputFile` event names the file a
+  task's output goes to, once per task and path, where a frame states it: the Claude door's `output_file` (on the start, else
+  before the end) and a kept run's `outputFilePath` on a spawn, progress or state frame. The library reads no file.
 - **The turn a task wakes, and background work read until it ends, on a kept run** (**D251**). `IAgentRun.WokenTurns` yields each
   turn the agent starts by itself, an `AgentRunTurn` of origin `Woken`, which ends only after the host's `AgentRunOptions.WokenTurnQuiet`
   of silence (no default, subtype `quiet`; a call it made left open or a request held is not silence), so a run with no bound never

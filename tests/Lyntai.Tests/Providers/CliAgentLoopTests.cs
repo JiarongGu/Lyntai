@@ -69,7 +69,7 @@ public class CliAgentLoopTests
         Assert.Equal(
             ["SessionStarted", "AgentTaskStarted", "SessionEnded", "AgentTaskEnded"],
             events.Select(e => e.GetType().Name));
-        Assert.Equal(new AgentTaskEnded("b1", "stopped"), events[^1]);
+        Assert.Equal(new AgentTaskEnded("b1", "stopped") { CallId = "toolu_1" }, events[^1]);
     }
 
     [Theory]

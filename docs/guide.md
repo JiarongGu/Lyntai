@@ -1074,9 +1074,16 @@ emit neither. What to show of a task is yours.
 
 **A subagent's words and life** (D245). A subagent's complete message yields one `TextDelta` or `Thinking` per block, each with
 the `ParentCallId` of the call that spawned it (null on the session's own, which arrive as stream deltas, or whole from their message when no delta preceded it), and never a plan, a
-usage tick or the session's fallback text. No `ChildStarted` or `ChildEnded` event exists, by design: a child **starts** at its
-first event with a parent, and **ends** at the `AgentTaskEnded` of the task opened for that call (`AgentTaskStarted.CallId`), else at the
-`ToolResult` of the call itself (a synchronous child opens no task).
+usage tick or the session's fallback text. No `ChildStarted` or `ChildEnded` event exists, by design (**D245**, **D253**): a child
+**starts** at the `AgentTaskStarted` whose `Kind` is the agent's word `local_agent` (else at its first event with a parent), and
+**ends** at the `AgentTaskEnded` of that task, else at the `ToolResult` of the call itself (a synchronous child opens no task). The
+start states the lineage the frame did: `CallId` (the `ParentCallId` of the child's own events), `ParentTaskId`, `Depth`,
+`SubagentType` and `Description`, each null where the frame states none; the end states `Status` and the same `CallId`.
+
+**A task's output file** (`AgentTaskOutputFile`). Where a frame names the file a task's output goes to, the door yields its path once
+per task, as a field of the frame: the Claude door's `output_file` (on the start if it carries one, else just before the task's end)
+and a kept run's `outputFilePath` (on a spawn, progress or state frame). The library reads no file and never parses a result's words
+for a path: a host tails the file, and one that wants it from the start reads the harness's own words in the `ToolResult`.
 
 **Which message said the words** (`TextDelta.MessageId`). Through the Claude door each `TextDelta` carries the `message.id` of the frame that
 said it, so words can be grouped by message: a streamed delta has the id of the `message_start` before it, a whole message (a subagent's
@@ -1263,7 +1270,7 @@ a sent turn runs, so the runner must be able to pause it (`IProcessRunner.CanPau
 
 **Background work and the turn it wakes**: a run declares AIR's `asyncTasks` at `initialize`, so the frames for work the agent
 backgrounds are `AgentTaskStarted` and `AgentTaskEnded` events (a task the agent stopped and then saw complete is reported ended
-twice, and the last is its ending). An agent whose background work ended may speak again with no prompt out: that is a woken
+twice, and the last is its ending; an `AgentTaskOutputFile` names the file its output goes to). An agent whose background work ended may speak again with no prompt out: that is a woken
 turn, an `AgentRunTurn` on `run.WokenTurns`, whose events lead with the task endings that were seen while nothing ran. It ends
 only when you say so, by `AgentRunOptions.WokenTurnQuiet` passed to `OpenRunAsync` (silence, while it has no call open and no
 request held, ends it with subtype `quiet`); with none set the library never ends one, and `SendAsync` is refused, `run-woken-turn`,
