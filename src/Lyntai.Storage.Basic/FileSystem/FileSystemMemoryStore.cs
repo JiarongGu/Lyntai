@@ -15,11 +15,12 @@ internal sealed class FileSystemMemoryStore(FileSystemRoot root, LyntaiOptions o
     private readonly Func<DateTimeOffset> _clock = clock ?? (() => DateTimeOffset.UtcNow);
     private MemoryEntryLog? _log;
     private readonly Dictionary<long, string> _files = []; // the file each entry was LOADED from
+    private readonly Dictionary<long, string[]> _copies = []; // the other files holding the same id: hand-made copies
 
     private MemoryEntryLog Log()
     {
         if (_log is not null) return _log;
-        var loaded = new List<MemoryLogEntry>();
+        var found = new List<(string File, MemoryLogEntry Entry)>();
         if (Directory.Exists(_directory))
             foreach (var scopeDir in Directory.EnumerateDirectories(_directory).SelectMany(Directory.EnumerateDirectories))
                 foreach (var (file, entry) in root.Load(scopeDir, (file, h, body) =>
@@ -29,10 +30,15 @@ internal sealed class FileSystemMemoryStore(FileSystemRoot root, LyntaiOptions o
                                  h.RequiredString("task"), h.RequiredString("scope"), body, created,
                                  h.Time("accessed") ?? created, h.Time("expires"), body.EnumerateRunes().Count()));
                          }))
-                {
-                    _files[entry.Id] = file;
-                    loaded.Add(entry);
-                }
+                    found.Add((file, entry));
+        // an id held by two files (a hand-made copy) is ONE entry, the later file by name, as in the key-value store
+        var loaded = new List<MemoryLogEntry>();
+        foreach (var held in found.OrderBy(r => r.File, StringComparer.Ordinal).GroupBy(r => r.Entry.Id))
+        {
+            _files[held.Key] = held.Last().File;
+            if (held.Count() > 1) _copies[held.Key] = [.. held.SkipLast(1).Select(r => r.File)];
+            loaded.Add(held.Last().Entry);
+        }
         var log = new MemoryEntryLog(options);
         // past every numbered FILE too — one that did not parse still holds its number
         log.Load(loaded, FileSystemRoot.MaxId(_directory, SearchOption.AllDirectories));
@@ -57,9 +63,11 @@ internal sealed class FileSystemMemoryStore(FileSystemRoot root, LyntaiOptions o
         foreach (var id in ids)
         {
             if (log.Get(id) is not { } e) continue;
+            foreach (var copy in _copies.GetValueOrDefault(id) ?? []) FileSystemRoot.Delete(copy);
             FileSystemRoot.Delete(FileOf(e));
             log.Remove(id);
             _files.Remove(id);
+            _copies.Remove(id);
         }
     }
 

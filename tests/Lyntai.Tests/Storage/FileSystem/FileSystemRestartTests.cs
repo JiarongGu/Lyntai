@@ -265,4 +265,34 @@ public class FileSystemRestartTests : IDisposable
         var directory = Path.Combine(_temp.Directory, "conversations", RecordName.For("t1"));
         Assert.Empty(Directory.GetFiles(directory, "*.tmp"));
     }
+
+    [Fact]
+    public async Task A_hand_made_copy_of_a_curated_entry_is_one_entry_and_a_removal_takes_the_copy_too()
+    {
+        var id = await new FileSystemCuratedMemoryStore(_temp.Root).AddAsync("style", "use British spelling");
+        var file = Only("curated");
+        _temp.Root.Dispose();
+        File.Copy(file, Path.Combine(Path.GetDirectoryName(file)!, "zz-copy.md"));
+
+        var after = new FileSystemCuratedMemoryStore(_temp.Reopen());
+        Assert.Equal([id], (await after.ListAsync()).Select(e => e.Id));
+
+        Assert.True(await after.RemoveAsync(id));
+        Assert.Null(await new FileSystemCuratedMemoryStore(_temp.Reopen()).GetAsync(id)); // the copy did not bring it back
+    }
+
+    [Fact]
+    public async Task A_hand_made_copy_of_a_memory_is_one_memory_and_a_forget_takes_the_copy_too()
+    {
+        await new FileSystemMemoryStore(_temp.Root, new LyntaiOptions()).RememberAsync("task", "scope", "the deploy key rotates monthly");
+        var file = Only("memory");
+        _temp.Root.Dispose();
+        File.Copy(file, Path.Combine(Path.GetDirectoryName(file)!, "zz-copy.md"));
+
+        var after = new FileSystemMemoryStore(_temp.Reopen(), new LyntaiOptions());
+        Assert.Single(await after.RecallAsync("task"));
+
+        await after.ForgetAsync("task");
+        Assert.Empty(await new FileSystemMemoryStore(_temp.Reopen(), new LyntaiOptions()).RecallAsync("task"));
+    }
 }
