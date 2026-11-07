@@ -953,7 +953,82 @@ public class StreamJsonAgentReaderTests
 
         var ended = BackgroundTurn.SelectMany(reader.Read).OfType<AgentTaskEnded>().ToList();
 
-        Assert.Equal([new AgentTaskEnded("b0fetch", "completed"), new AgentTaskEnded("b1gates", "stopped")], ended);
+        Assert.Equal(
+            [new AgentTaskEnded("b0fetch", "completed") { CallId = "toolu_fetch" },
+             new AgentTaskEnded("b1gates", "stopped") { CallId = "toolu_gates" }],
+            ended);
+    }
+
+    [Fact]
+    public void An_ends_call_is_the_one_its_start_named_when_its_own_line_names_none()
+    {
+        var reader = new StreamJsonAgentReader();
+        reader.Read("""{"type":"system","subtype":"task_started","task_id":"a9b1","task_type":"local_agent","tool_use_id":"task-1"}""");
+
+        var ended = Assert.IsType<AgentTaskEnded>(Assert.Single(reader.Read(
+            """{"type":"system","subtype":"task_notification","task_id":"a9b1","status":"completed"}""")));
+        var unknown = Assert.IsType<AgentTaskEnded>(Assert.Single(reader.Read(
+            """{"type":"system","subtype":"task_notification","task_id":"never-started","status":"completed"}""")));
+
+        Assert.Equal("task-1", ended.CallId);
+        Assert.Null(unknown.CallId);
+    }
+
+    [Fact]
+    public void A_subagents_start_carries_its_parent_task_depth_type_and_description()
+    {
+        var reader = new StreamJsonAgentReader();
+
+        var started = Assert.IsType<AgentTaskStarted>(Assert.Single(reader.Read(
+            """{"type":"system","subtype":"task_started","task_id":"a9b2","task_type":"local_agent","spawn_depth":2,"parent_task_id":"a9b1","tool_use_id":"task-2","subagent_type":"Explore","description":"survey the tests"}""")));
+
+        Assert.Equal(
+            new AgentTaskStarted("a9b2", "local_agent", "survey the tests", "task-2") { ParentTaskId = "a9b1", Depth = 2, SubagentType = "Explore" },
+            started);
+    }
+
+    [Fact]
+    public void A_background_command_states_no_parent_depth_or_subagent_type()
+    {
+        var started = BackgroundTurn.SelectMany(new StreamJsonAgentReader().Read).OfType<AgentTaskStarted>().ToList();
+
+        Assert.All(started, s =>
+        {
+            Assert.Null(s.ParentTaskId);
+            Assert.Null(s.Depth);
+            Assert.Null(s.SubagentType);
+        });
+    }
+
+    [Fact]
+    public void A_notification_names_the_tasks_output_file_once_before_its_end()
+    {
+        var reader = new StreamJsonAgentReader();
+
+        var events = BackgroundTurn.SelectMany(reader.Read).ToList();
+
+        Assert.Equal(
+            [new AgentTaskOutputFile("b0fetch", "/tasks/b0fetch.output"), new AgentTaskOutputFile("b1gates", "/tasks/b1gates.output")],
+            events.OfType<AgentTaskOutputFile>());
+        Assert.True(events.FindIndex(e => e is AgentTaskOutputFile { TaskId: "b0fetch" }) < events.FindIndex(e => e is AgentTaskEnded { TaskId: "b0fetch" }));
+        Assert.IsType<AgentTaskEnded>(events[^1]);
+    }
+
+    [Fact]
+    public void An_output_file_a_start_already_named_is_not_named_again_by_the_end()
+    {
+        var reader = new StreamJsonAgentReader();
+
+        var events = new[]
+        {
+            """{"type":"system","subtype":"task_started","task_id":"t1","output_file":"/tasks/t1.output"}""",
+            """{"type":"system","subtype":"task_notification","task_id":"t1","status":"completed","output_file":"/tasks/t1.output"}""",
+        }.SelectMany(reader.Read).ToList();
+
+        Assert.Single(events.OfType<AgentTaskOutputFile>());
+        Assert.IsType<AgentTaskStarted>(events[0]);
+        Assert.IsType<AgentTaskOutputFile>(events[1]);
+        Assert.IsType<AgentTaskEnded>(events[2]);
     }
 
     [Fact]
@@ -969,7 +1044,7 @@ public class StreamJsonAgentReaderTests
         Assert.Equal("running in the background", ended.FinalText);
         Assert.Single(events.OfType<AgentTaskStarted>(), s => s.TaskId == "b1gates");
         Assert.DoesNotContain(events.Take(terminal), e => e is AgentTaskEnded { TaskId: "b1gates" });
-        Assert.Equal(new AgentTaskEnded("b1gates", "stopped"), Assert.IsType<AgentTaskEnded>(events[^1]));
+        Assert.Equal(new AgentTaskEnded("b1gates", "stopped") { CallId = "toolu_gates" }, Assert.IsType<AgentTaskEnded>(events[^1]));
     }
 
     [Fact]

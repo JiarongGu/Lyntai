@@ -670,6 +670,7 @@ enum Lyntai.Agents.AgentSupport
     value__ : Int32
 sealed class Lyntai.Agents.AgentTaskEnded
     .ctor(String TaskId, String Status)
+    CallId : String { get; init; }
     Deconstruct(String& TaskId, String& Status) : Void
     EqualityContract : Type { protected get; }
     Equals(AgentStreamEvent other) : Boolean
@@ -680,10 +681,23 @@ sealed class Lyntai.Agents.AgentTaskEnded
     Status : String { get; init; }
     TaskId : String { get; init; }
     ToString() : String
+sealed class Lyntai.Agents.AgentTaskOutputFile
+    .ctor(String TaskId, String Path)
+    Deconstruct(String& TaskId, String& Path) : Void
+    EqualityContract : Type { protected get; }
+    Equals(AgentStreamEvent other) : Boolean
+    Equals(AgentTaskOutputFile other) : Boolean
+    Equals(Object obj) : Boolean
+    GetHashCode() : Int32
+    Path : String { get; init; }
+    PrintMembers(StringBuilder builder) : Boolean
+    TaskId : String { get; init; }
+    ToString() : String
 sealed class Lyntai.Agents.AgentTaskStarted
     .ctor(String TaskId, String Kind, String Description, String CallId)
     CallId : String { get; init; }
     Deconstruct(String& TaskId, String& Kind, String& Description, String& CallId) : Void
+    Depth : Nullable<Int32> { get; init; }
     Description : String { get; init; }
     EqualityContract : Type { protected get; }
     Equals(AgentStreamEvent other) : Boolean
@@ -691,7 +705,9 @@ sealed class Lyntai.Agents.AgentTaskStarted
     Equals(Object obj) : Boolean
     GetHashCode() : Int32
     Kind : String { get; init; }
+    ParentTaskId : String { get; init; }
     PrintMembers(StringBuilder builder) : Boolean
+    SubagentType : String { get; init; }
     TaskId : String { get; init; }
     ToString() : String
 sealed class Lyntai.Agents.AgentToolDenied

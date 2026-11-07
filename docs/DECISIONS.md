@@ -322,8 +322,9 @@ new decision overturns an old one, rewrite the old entry as a stub pointing here
 | [D250](#d250--a-limit-row-the-reader-cannot-read-is-skipped-and-a-window-it-cannot-read-still-makes-the-reading-unknown-2026-11-07) | 2026-11-07 | a limit row the reader cannot read is skipped, and a window it cannot read still makes the readin… |
 | [D251](#d251--a-run-kept-across-turns-is-a-separate-optional-type-built-first-for-the-one-door-with-a-measured-record-and-a-door-states-unknown-where-no-record-shows-it-2026-11-07) | 2026-11-07 | a run kept across turns is a separate optional type, built first for the one door with a measured… |
 | [D252](#d252--the-claude-door-reads-its-init-as-an-event-reads-an-answer-that-arrived-whole-ends-a-clean-exit-with-no-result-frame-and-carries-default-2026-11-07) | 2026-11-07 | the Claude door reads its init as an event, reads an answer that arrived whole, ends a clean exit… |
+| [D253](#d253--a-childs-start-and-end-carry-the-lineage-on-the-task-events-and-a-tasks-output-file-is-an-event-no-child-event-2026-11-07) | 2026-11-07 | a child's start and end carry the lineage on the task events, and a task's output file is an even… |
 
-**247 live decisions.** The rest are stubs — `D<n>` is a permanent identifier, so a number is never reused or renumbered (5): [D36](#d36--a-translation-between-two-verdict-taxonomies-gets-one-arm-per-member-gated-by-a-test-2026-08-05) → D136 · [D80](#d80--merged-into-d77-2026-08-16-folded-2026-08-17) → D77 · [D131](#d131--a-backends-produces-is-derived-from-its-configuration-so-a-modality-is-a-field-2026-09-14) → D133 · [D134](#d134--a-registration-names-the-backend-the-provider-suffix-is-gone-from-all-seventeen-2026-09-14) → D137 · [D145](#d145--the-microsoftextensionsai-module-is-a-bridge-not-a-provider-2026-09-15) → D146
+**248 live decisions.** The rest are stubs — `D<n>` is a permanent identifier, so a number is never reused or renumbered (5): [D36](#d36--a-translation-between-two-verdict-taxonomies-gets-one-arm-per-member-gated-by-a-test-2026-08-05) → D136 · [D80](#d80--merged-into-d77-2026-08-16-folded-2026-08-17) → D77 · [D131](#d131--a-backends-produces-is-derived-from-its-configuration-so-a-modality-is-a-field-2026-09-14) → D133 · [D134](#d134--a-registration-names-the-backend-the-provider-suffix-is-gone-from-all-seventeen-2026-09-14) → D137 · [D145](#d145--the-microsoftextensionsai-module-is-a-bridge-not-a-provider-2026-09-15) → D146
 
 <!-- index:end -->
 
@@ -7306,3 +7307,30 @@ fold then reports a finished answer as `no-terminal-event`). Ending it `Ok` what
 ending). Reading `default` as an alias the library maps to `manual` (it is the agent's word, **D244**).
 
 **Re-opens** when a version of `claude` stops accepting `default`, or when a record shows a clean exit mid-turn that is a failure.
+
+## D253 — a child's start and end carry the lineage on the task events, and a task's output file is an event; no child event (2026-11-07)
+
+**Standing.** Refines **D245**'s rule for a child's life; written from Daoris's request for a child's start and end keyed by the call,
+and for a task's output stream. Built, frozen from release (**D70**).
+
+**Decided.**
+- **A child is still its task's events**: the `AgentTaskStarted` of Kind `local_agent` and the `AgentTaskEnded` of that task, else the
+  call's `ToolResult`. `AgentTaskStarted` gains the lineage the frame states (`ParentTaskId`, `Depth`, `SubagentType`), and
+  `AgentTaskEnded` the call (`CallId`: its own frame's, else the one its start named), so a host keys an end the way it keys a start.
+- **A task's output file is `AgentTaskOutputFile(TaskId, Path)`**, once per task and path at the first frame that names it, from a
+  field only: the Claude door's `output_file` and a kept run's `outputFilePath`. The library reads no file and parses no tool result's
+  words for a path; a host tails the file, or reads the harness's own words in the `ToolResult`.
+- **The protocol door's declared subagent** (`subagent_spawned`, a session of its own) is not read: the one-turn door never declares
+  the capability and a kept run declares only `asyncTasks`, so the frames do not arrive.
+
+**Why.** Daoris splits a child from a command by the same `task_type` the event already carries, so one event per frame states what
+the frame states and cannot disagree with the task events beside it. The fields cost no door a member; a new pair of events would be
+a second reading of the same frame (**D245**'s reason).
+
+**Rejected.** `ChildStarted` and `ChildEnded` (a third source for one frame, **D245**). Reading a task's output into events (file I/O
+and a tail policy are the host's, and the path is the wire's fact). Reading the path from the result's words (words the harness can
+change, which a host can read from `ToolResult.Content` itself). Taking a call from a progress frame's `toolCallId` for an end
+(nothing records that it is the spawning call).
+
+**Re-opens** when a host shows the lineage fields cannot key a measured child (a synchronous one with no task, seen not measured), or
+when a door states a task's output as lines.

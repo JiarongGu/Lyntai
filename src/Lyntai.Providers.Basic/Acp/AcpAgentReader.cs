@@ -55,6 +55,8 @@ internal sealed class AcpAgentReader
     private readonly List<AgentStreamEvent> _pendingTasks = [];
     private readonly HashSet<string> _tasksStarted = new(StringComparer.Ordinal);
     private readonly Dictionary<string, string> _tasksEnded = new(StringComparer.Ordinal);
+    private readonly Dictionary<string, string> _taskCalls = new(StringComparer.Ordinal);
+    private readonly HashSet<(string Task, string Path)> _taskOutputs = [];
     private AcpTurnState _current;
     private AcpTurnState? _frameTurn;
     private AcpTurnState? _woken;
@@ -188,7 +190,7 @@ internal sealed class AcpAgentReader
                 ReadFrame(doc.RootElement, events);
                 if (_frameTurn is null && open)
                 {
-                    _pendingTasks.AddRange(events.Where(e => e is AgentTaskStarted or AgentTaskEnded));
+                    _pendingTasks.AddRange(events.Where(e => e is AgentTaskStarted or AgentTaskEnded or AgentTaskOutputFile));
                     return [];
                 }
 
@@ -752,16 +754,22 @@ internal sealed class AcpAgentReader
             // that finished by itself, so each differing ending is an event and the last is the ending
             case "async_task_spawned" when _kept && WireJson.String(update, "asyncTaskId") is { } spawned:
                 if (_tasksStarted.Add(spawned))
+                {
+                    var spawnCall = WireJson.String(update, "toolCallId");
+                    if (spawnCall is not null) _taskCalls[spawned] = spawnCall;
                     events.Add(new AgentTaskStarted(spawned, WireJson.String(update, "taskType"),
-                        WireJson.String(update, "description") ?? WireJson.String(update, "name"), WireJson.String(update, "toolCallId")));
+                        WireJson.String(update, "description") ?? WireJson.String(update, "name"), spawnCall));
+                }
+                AddOutputFile(update, spawned, events);
                 break;
 
             case "async_task_state_update" when _kept && WireJson.String(update, "asyncTaskId") is { } stated:
+                AddOutputFile(update, stated, events);
                 if (WireJson.String(update, "state") is { } state and not ("running" or "paused")
                     && !(_tasksEnded.TryGetValue(stated, out var before) && before == state))
                 {
                     _tasksEnded[stated] = state;
-                    events.Add(new AgentTaskEnded(stated, state));
+                    events.Add(new AgentTaskEnded(stated, state) { CallId = _taskCalls.GetValueOrDefault(stated) });
                 }
                 break;
 
@@ -770,7 +778,9 @@ internal sealed class AcpAgentReader
                 or "session_info_update":
                 break;
 
+            // a progress frame names the file the task's output goes to, and nothing else a turn reports
             case "async_task_progress" when _kept:
+                if (WireJson.String(update, "asyncTaskId") is { } progressed) AddOutputFile(update, progressed, events);
                 break;
 
             case { } other:
@@ -779,6 +789,12 @@ internal sealed class AcpAgentReader
         }
 
         _extensions.ReadUpdate(update, events);
+    }
+
+    private void AddOutputFile(JsonElement update, string taskId, List<AgentStreamEvent> events)
+    {
+        if (WireJson.String(update, "outputFilePath") is { Length: > 0 } path && _taskOutputs.Add((taskId, path)))
+            events.Add(new AgentTaskOutputFile(taskId, path));
     }
 
     private void AddContext(JsonElement update, List<AgentStreamEvent> events)

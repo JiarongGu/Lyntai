@@ -559,6 +559,27 @@ public class AcpAgentRunTests
         Assert.DoesNotContain(events, e => e is AgentTaskEnded);
     }
 
+    [Fact] // the file a task's output goes to is named by a progress frame (the console-streams note), once, and the end keys by the spawn's call
+    public async Task A_task_names_its_output_file_once_and_its_end_carries_the_call_that_spawned_it()
+    {
+        var agent = new KeptAgent();
+        await using var run = await Open(agent);
+        var turn = await run.SendAsync("start a ticker");
+
+        agent.Say(
+            Update("""{"sessionUpdate":"async_task_spawned","asyncTaskId":"t1","name":"tick","toolCallId":"bash-1"}"""),
+            Update("""{"sessionUpdate":"async_task_progress","asyncTaskId":"t1","outputFilePath":"/tasks/t1.output"}"""),
+            Update("""{"sessionUpdate":"async_task_progress","asyncTaskId":"t1","outputFilePath":"/tasks/t1.output"}"""),
+            Update("""{"sessionUpdate":"async_task_state_update","asyncTaskId":"t1","state":"completed","outputFilePath":"/tasks/t1.output"}"""),
+            Answer(100));
+        var events = await Read(turn);
+
+        Assert.Equal(new AgentTaskOutputFile("t1", "/tasks/t1.output"), events.OfType<AgentTaskOutputFile>().Single());
+        Assert.Equal(new AgentTaskEnded("t1", "completed") { CallId = "bash-1" }, events.OfType<AgentTaskEnded>().Single());
+        Assert.True(events.FindIndex(e => e is AgentTaskStarted) < events.FindIndex(e => e is AgentTaskOutputFile));
+        Assert.True(events.FindIndex(e => e is AgentTaskOutputFile) < events.FindIndex(e => e is AgentTaskEnded));
+    }
+
     [Fact] // D251: a woken turn ends only by the host's quiet, and the agent's autonomous usage frame is not its end
     public async Task A_woken_turn_with_no_quiet_bound_never_ends_itself_and_a_prompt_into_it_is_refused()
     {
