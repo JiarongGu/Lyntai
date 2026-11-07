@@ -6839,3 +6839,9 @@ lines the doors' own tests pin. Landed in `08b41270`; the row stayed open in `TA
 
 - a keyed retry meets a changed world; a refused supersession and the age policy; the file store's receipt order and a lost append
 - the relational and in-process supersession edges; the retention overflow; the view check and the due sweep; the tool bounds
+
+## Part 481 — a design review of the Claude stream-json door and the agent core, and what it filed (2026-11-08)
+
+✅ done 2026-11-08 — **Outcome:** the four `TASKS.md` blockers were re-checked first and none had cleared (no `hf_` token or `FAL_KEY` in the environment, no aggregator, no labels, the nine tests unrecurred, no ruling), and the roadmap's open lines are each behind a ruling, so the piece taken was a design review of the agent code the two earlier reviews (Parts 474 and 479's neighbours) did not read: two read-only reviews of the Claude stream-json door and of the shared core with the Codex and HTTP doors, each finding read against the code before it was filed. The result is `TASKS.md` Part 481: five startable rows (an out-of-range rate-limit timestamp throws out of the reader, a `system` frame before `init` loses the announced start, an unrepresentable cost loses the terminal, the HTTP terminal carries no `Turn`, the retry layer's second terminal and empty token) and five that need a ruling (the HTTP engine's hidden resend, a rejected limit never cleared, a wrapped session never disposed, a resume repeating the system prompt, Codex's joined `FinalText`). No code in this Part. Lanes `inference` and `platform`.
+
+- the two reviews; the ten rows

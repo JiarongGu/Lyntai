@@ -15,25 +15,35 @@ LLM-ops layer (prompt registry, scoring, traces, memory). `AddLyntai(...)` and g
 
 <!-- open-items:begin — GENERATED. Edit the per-item `item:` markers, never this table. -->
 
-## Open items — 12 across 6 Parts: 3 blocked, 1 watch, 8 decision-only
+## Open items — 22 across 7 Parts: 5 startable, 3 blocked, 1 watch, 13 decision-only
 
 _Generated from the per-item `<!-- item: … -->` markers by `node devtools/dev.mjs check-backlog --write`._
 _Edit a marker, never this table — `verify` fails the moment the two disagree._
 
 | line | Part | item | state | waiting on |
 | ---: | ---: | --- | --- | --- |
-| 113 | 33 | GEN-VERIFY-FAL, the last line — the Hugging Face route | blocked · env | an hf_ token for the router route |
-| 154 | 75 | Decide what an aggregator's in-band `code` means | blocked · env+data | two or three real aggregators to measure an in-band code against |
-| 181 | 99 | `verify`'s test step intermittently fails EXACTLY 9 tests, and once aborted… | watch · data | the same nine tests to recur — the fix is unconfirmed as the cure, and a gr… |
-| 253 | 417 | MC8 — run the wrong-end instrument on an adjudicated corpus, with a bar wri… | blocked · decision+data | two reviewers' independent labels on a sample of the pairs, and a bar a per… |
-| 275 | 475 | Kept-run edges that need a ruling before a change | decision-only | a ruling for each: refuse a word after a stop or document the order, `Dispo… |
-| 287 | 479 | The write tools let a model end, revive or demote an entry the approver nev… | decision-only | a ruling: whether the tool may state validity and a grade at all, or the re… |
-| 293 | 479 | A supersession whose successor is an entry that already ended leaves nothin… | decision-only | a ruling: may a restated claim revive an ended entry, or does the supersess… |
-| 297 | 479 | What the approver is shown is not all that is applied | decision-only | a ruling: which of by, at, validity and scope the request must carry, or a … |
-| 300 | 479 | A keyed end or confirmation's file is written before its receipt, so a cras… | decision-only | a ruling: accept and document the window (a guarded repeat then reads Chang… |
-| 304 | 479 | A host's `IMemoryViewCheck` is asked about an expansion's root only, not th… | decision-only | a ruling: whether the check also filters each neighbour an expansion return… |
-| 307 | 479 | A future `at` on an end or a confirmation sets `EndedReason` while recall s… | decision-only | a ruling: may an end or a failed check state an instant after now, or does … |
-| 309 | 479 | A receipt expires by the caller's clock and the purge runs on it | decision-only | a ruling: whether a receipt expires by the store's clock or the caller's (D… |
+| 123 | 33 | GEN-VERIFY-FAL, the last line — the Hugging Face route | blocked · env | an hf_ token for the router route |
+| 164 | 75 | Decide what an aggregator's in-band `code` means | blocked · env+data | two or three real aggregators to measure an in-band code against |
+| 191 | 99 | `verify`'s test step intermittently fails EXACTLY 9 tests, and once aborted… | watch · data | the same nine tests to recur — the fix is unconfirmed as the cure, and a gr… |
+| 263 | 417 | MC8 — run the wrong-end instrument on an adjudicated corpus, with a bar wri… | blocked · decision+data | two reviewers' independent labels on a sample of the pairs, and a bar a per… |
+| 285 | 475 | Kept-run edges that need a ruling before a change | decision-only | a ruling for each: refuse a word after a stop or document the order, `Dispo… |
+| 297 | 479 | The write tools let a model end, revive or demote an entry the approver nev… | decision-only | a ruling: whether the tool may state validity and a grade at all, or the re… |
+| 303 | 479 | A supersession whose successor is an entry that already ended leaves nothin… | decision-only | a ruling: may a restated claim revive an ended entry, or does the supersess… |
+| 307 | 479 | What the approver is shown is not all that is applied | decision-only | a ruling: which of by, at, validity and scope the request must carry, or a … |
+| 310 | 479 | A keyed end or confirmation's file is written before its receipt, so a cras… | decision-only | a ruling: accept and document the window (a guarded repeat then reads Chang… |
+| 314 | 479 | A host's `IMemoryViewCheck` is asked about an expansion's root only, not th… | decision-only | a ruling: whether the check also filters each neighbour an expansion return… |
+| 317 | 479 | A future `at` on an end or a confirmation sets `EndedReason` while recall s… | decision-only | a ruling: may an end or a failed check state an instant after now, or does … |
+| 319 | 479 | A receipt expires by the caller's clock and the purge runs on it | decision-only | a ruling: whether a receipt expires by the store's clock or the caller's (D… |
+| 330 | 481 | A rate-limit timestamp outside the range of a date throws out of the Claude… | startable |  |
+| 336 | 481 | A `system` frame that names the session before `init` loses the announced s… | startable |  |
+| 340 | 481 | A `total_cost_usd` that does not fit a double loses the terminal | startable |  |
+| 344 | 481 | The HTTP door's terminal carries no `Turn` | startable |  |
+| 348 | 481 | `RetryingAgentSession` forwards a second terminal and resumes with an empty… | startable |  |
+| 353 | 481 | An HTTP agent turn can spend a second billed request the retry budget never… | decision-only | a ruling: whether the agent door turns the engine's resend off (the budget … |
+| 356 | 481 | A rejected limit is never cleared inside a turn | decision-only | a ruling: whether an allowed report clears an earlier rejection, which need… |
+| 359 | 481 | A wrapped agent session registration is never disposed | decision-only | a ruling: whether RetryingAgentSession becomes IAsyncDisposable and forward… |
+| 362 | 481 | A `Taken` resume repeats the system prompt | decision-only | a ruling: whether a resume drops SystemPrompt, which needs a measurement of… |
+| 365 | 481 | Codex's `FinalText` joins every agent message with no separator, and the re… | decision-only | a ruling: whether FinalText is the last message or all of them, since a tes… |
 
 <!-- open-items:end -->
 
@@ -309,6 +319,51 @@ choice, or is a crash window to close with a store test of its own. Lanes `memor
 - [ ] **A receipt expires by the caller's clock and the purge runs on it.** A host whose clock runs ahead purges receipts another <!-- item: state=decision-only needs="a ruling: whether a receipt expires by the store's clock or the caller's (D242), which shortens or lengthens retention by the skew" -->
   host's clock still counts live, and the file store's `Restore` judges expiry by its own clock where every live check uses the
   caller's. Retention is shortened or lengthened by the skew in either case.
+
+## Part 481 — what the 2026-11-08 review of the Claude door and the agent core found and did not fix yet
+
+_Opened by `docs/task-archive.md` **Part 481**: two read-only reviews of what the earlier agent-layer review did not read — the Claude
+stream-json door (`StreamJsonAgentReader`, `StreamJsonFailure`, `StreamJsonFields`) and the shared core with the Codex and HTTP
+doors (`RetryingAgentSession`, the HTTP door and its chat engine, the transcript recorder) — each finding read against the code
+before it was filed. Lanes `inference` and `platform`._
+
+- [ ] **A rate-limit timestamp outside the range of a date throws out of the Claude reader.** `StreamJsonFailure.ReadRejectionInfo` and <!-- item: state=startable -->
+  `ReadReport` pass `resetsAt`, `overageResetsAt` and `unifiedWindows.<type>.resetsAt` to `DateTimeOffset.FromUnixTimeSeconds`, which throws
+  `ArgumentOutOfRangeException` past year 9999; `WireJson.IsShapeFault` does not catch it, so `Read` ("never throws") throws inside
+  `CliAgentLoop`'s loop body and the turn ends with no `SessionEnded`. The Codex usage dialect already catches the same class
+  (`CodexUsageDialect.cs`); `AcpExtensionReaders` shares `ReadRejectionInfo`. **Done when** each of the four fields with `1760950801000` reads
+  as an absent time and the turn still ends with its terminal.
+- [ ] **A `system` frame that names the session before `init` loses the announced start.** `StreamJsonAgentReader.ReadSystem` yields a <!-- item: state=startable -->
+  `SessionStarted` only when the id is new and computes `Announced` only there, so a `hook_started` frame (subtype not `init`) carrying the id
+  yields `Announced = false`, and the `init` that follows (same id) yields none; the stream has no announced start, which **D245** keeps and
+  **D252** places `AgentLoaded` after. **Done when** that order yields one announced start before `AgentLoaded`.
+- [ ] **A `total_cost_usd` that does not fit a double loses the terminal.** `StreamJsonFields.ReadUsage` calls `GetDouble()` on any number; <!-- item: state=startable -->
+  `1e999` throws `FormatException`, `ReadResult` has already set `_readResult`, so `Read` returns nothing and `ReadEnd` ends a turn the CLI
+  ended well as `Failed`, `no-terminal-event`; `StreamJsonParser` reads the result as `Other`. `WireJson`'s own doc promises a number that does
+  not fit reads as absent. **Done when** such a result ends `Ok` with no cost.
+- [ ] **The HTTP door's terminal carries no `Turn`.** `AgentStreamEvent.cs` says every door's loop sets `SessionEnded.Turn`, failed or not, and <!-- item: state=startable -->
+  only `CliAgentLoop.Stamp` does; `HttpAgentSession.Stamp` returns the loop's terminal as it is, so a host reading `Turn.Shown` gets null
+  from the one door whose events it could read. **Done when** the terminal states `Written` null and the kinds the turn showed, on a
+  success and on a failure.
+- [ ] **`RetryingAgentSession` forwards a second terminal and resumes with an empty token.** The `&& !terminalSeen` condition falls through to <!-- item: state=startable -->
+  `yield return e`, so a bring-your-own inner that yields two terminals shows the caller a withheld attempt's terminal and then the next one,
+  against "exactly one `SessionEnded`"; and `conversation` starts as `""` for an empty `ResumeToken`, so a `Taken` failure on a door that
+  announced no session resumes a fresh process with the continue word where the layer says it does not retry with none to resume.
+  **Done when** a later terminal is dropped and an empty token reads as no conversation.
+- [ ] **An HTTP agent turn can spend a second billed request the retry budget never sees.** `HttpChatEngine.CompleteAsync` resends once on an <!-- item: state=decision-only needs="a ruling: whether the agent door turns the engine's resend off (the budget is RetryingAgentSession's, D233), or states it as inside the door" -->
+  empty or malformed 200 body, for every caller, and `HttpAgentSession` documents that nothing falls over so the budget stays the retry
+  layer's. The resend is harmless to side effects (no tool re-runs) and is a second paid call.
+- [ ] **A rejected limit is never cleared inside a turn.** `StreamJsonAgentReader.NoteRateLimit` keeps `_rejectedLimit` once seen, so a later <!-- item: state=decision-only needs="a ruling: whether an allowed report clears an earlier rejection, which needs a capture of the CLI sending one after the other" -->
+  `allowed` frame does not clear it and an unrelated `is_error` result is classified `Limit`. Whether the CLI sends `allowed` after `rejected`
+  in one turn is not shown by any capture here.
+- [ ] **A wrapped agent session registration is never disposed.** `AgentRetryRegistration` builds the inner by hand and `RetryingAgentSession` <!-- item: state=decision-only needs="a ruling: whether RetryingAgentSession becomes IAsyncDisposable and forwards, given that a registered instance is the host's to dispose" -->
+  is not disposable, so a factory- or type-registered inner that holds a process or socket is no longer disposed with the provider; an
+  instance registration was never the container's to dispose, so forwarding would dispose what the host owns.
+- [ ] **A `Taken` resume repeats the system prompt.** `RetryingAgentSession` resumes with `attempt with { Prompt, ResumeToken }`, keeping <!-- item: state=decision-only needs="a ruling: whether a resume drops SystemPrompt, which needs a measurement of whether each door applies it once per thread or per turn" -->
+  `SystemPrompt`, and the Codex door prepends it to the prompt block, so the resumed thread carries the standing instruction twice. Whether the
+  Claude door applies it per turn harmlessly is not measured.
+- [ ] **Codex's `FinalText` joins every agent message with no separator, and the recorder takes it as the last message.** <!-- item: state=decision-only needs="a ruling: whether FinalText is the last message or all of them, since a test pins the concatenation and the recorder's doc says last" -->
+  `AgentTranscriptRecorder` prefers `FinalText`, so interim narration reaches a brief on Codex that Claude's last message does not carry.
 
 ## Retired — five Parts that outlived their open work (2026-09-16)
 
