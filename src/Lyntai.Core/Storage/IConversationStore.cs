@@ -94,10 +94,12 @@ public static class ChatThreads
 /// <summary>Contributes app-specific ADDITIONAL INFO to a conversation WITHOUT owning the store — Lyntai
 /// manages the LLM storage; the app attaches its own info. Register with <c>AddConversationEnricher</c>
 /// (a DI collection — add a class + one registration, never a fork); the store invokes every registered
-/// enricher AFTER the core row is persisted, so the passed record carries its store-assigned Id/Seq.
-/// Persist your info in your OWN store (keyed by the record's Id / thread id). An enricher that throws
-/// surfaces to the caller — the core row is already stored — so catch inside for best-effort. Implement
-/// only the hook(s) you need (both default to no-op).</summary>
+/// enricher AFTER a thread is created or a message appended (not after a delete or a metadata change), so
+/// the passed record carries its store-assigned Id/Seq. Persist your info in your OWN store (keyed by the
+/// record's Id / thread id). Every enricher runs even when one throws; the fault (an
+/// <see cref="AggregateException"/> when several threw) then surfaces to the caller — the core row is
+/// already stored — so catch inside for best-effort. Implement only the hook(s) you need (both default to
+/// no-op).</summary>
 public interface IConversationEnricher
 {
     /// <summary>Invoked after a thread is created (with its persisted <see cref="ChatThread"/>).</summary>

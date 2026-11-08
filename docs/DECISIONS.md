@@ -344,8 +344,9 @@ new decision overturns an old one, rewrite the old entry as a stub pointing here
 | [D272](#d272--a-throwing-iscorerapplies-stays-surfaced-2026-11-09) | 2026-11-09 | a throwing `IScorer.Applies` stays surfaced |
 | [D273](#d273--judgeagreementcompare-keeps-10-for-two-empty-series-and-refuses-a-non-finite-score-2026-11-09) | 2026-11-09 | `JudgeAgreement.Compare` keeps 1.0 for two empty series and refuses a non-finite score |
 | [D274](#d274--a-prompt-override-that-fails-renders-the-default-never-the-next-layer-2026-11-09) | 2026-11-09 | a prompt override that fails renders the default, never the next layer |
+| [D275](#d275--every-conversation-enricher-runs-then-the-fault-is-rethrown-2026-11-09) | 2026-11-09 | every conversation enricher runs, then the fault is rethrown |
 
-**269 live decisions.** The rest are stubs — `D<n>` is a permanent identifier, so a number is never reused or renumbered (5): [D36](#d36--a-translation-between-two-verdict-taxonomies-gets-one-arm-per-member-gated-by-a-test-2026-08-05) → D136 · [D80](#d80--merged-into-d77-2026-08-16-folded-2026-08-17) → D77 · [D131](#d131--a-backends-produces-is-derived-from-its-configuration-so-a-modality-is-a-field-2026-09-14) → D133 · [D134](#d134--a-registration-names-the-backend-the-provider-suffix-is-gone-from-all-seventeen-2026-09-14) → D137 · [D145](#d145--the-microsoftextensionsai-module-is-a-bridge-not-a-provider-2026-09-15) → D146
+**270 live decisions.** The rest are stubs — `D<n>` is a permanent identifier, so a number is never reused or renumbered (5): [D36](#d36--a-translation-between-two-verdict-taxonomies-gets-one-arm-per-member-gated-by-a-test-2026-08-05) → D136 · [D80](#d80--merged-into-d77-2026-08-16-folded-2026-08-17) → D77 · [D131](#d131--a-backends-produces-is-derived-from-its-configuration-so-a-modality-is-a-field-2026-09-14) → D133 · [D134](#d134--a-registration-names-the-backend-the-provider-suffix-is-gone-from-all-seventeen-2026-09-14) → D137 · [D145](#d145--the-microsoftextensionsai-module-is-a-bridge-not-a-provider-2026-09-15) → D146
 
 <!-- index:end -->
 
@@ -7692,3 +7693,15 @@ recall and its write-back is already a silent skip).
 **Rejected.** Trying each layer on its own (a stale key-value text could silently replace a rolled-forward version).
 
 **Re-opens** when an application wants a versioned override to fall back to its key-value one, which is a per-registry option.
+
+## D275 — every conversation enricher runs, then the fault is rethrown (2026-11-09)
+
+**Standing.** A ruling on `TASKS.md` Part 499's fifth row, **the steward's under the owner's delegation, which the owner may reverse** — not the owner's words. Built, and frozen from release (**D70**).
+
+**Decided.** `EnrichingConversationStore` runs every enricher after a create and after an append, then rethrows the one fault, or an `AggregateException` of several. A caller's own cancel ends the pass at once. The docs say "after a create and an append", since a delete and a metadata change reach no enricher.
+
+**Why.** The row is stored before the first enricher runs, so a throwing first enricher skipped the rest and a caller's retry appended a duplicate.
+
+**Rejected.** Swallowing a fault (the seam promises it surfaces). Stopping at the first fault (the skipped enrichers never see a stored row). Default interface members for delete and a metadata hook: new members of a public interface stay the owner's.
+
+**Re-opens** when an application needs to enrich a delete or a metadata change.
