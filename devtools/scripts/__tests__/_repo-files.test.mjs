@@ -6,10 +6,57 @@
 // into a nested or bulleted block acquired extra spaces mid-phrase and a pattern anchored on single-space
 // adjacency never matched it. check-counts printed a clean run over a stale claim shaped exactly that way.
 import assert from 'node:assert/strict';
+import { rmSync } from 'node:fs';
+import { join } from 'node:path';
 import { describe, it } from 'node:test';
 
-import { readRepoText, twoLineWindows, windowHits } from '../_repo-files.mjs';
-import { makeTree, removeTree } from './_fixtures.mjs';
+import { checkLanes } from '../check-lanes.mjs';
+import { checkLinks } from '../check-links.mjs';
+import { readRepoText, repoFiles, twoLineWindows, windowHits } from '../_repo-files.mjs';
+import { git, makeRepo, makeTree, recorder, removeTree, writeInto } from './_fixtures.mjs';
+
+describe('repoFiles — a tracked file deleted from disk is not a file', () => {
+  const seed = () => {
+    const dir = makeRepo({
+      'docs/old.md': '# old\n',
+      'docs/keep.md': 'see `docs/old.md`\n',
+      'daoris.lanes.json': JSON.stringify({
+        lanes: [{ id: 'a', title: 'A', summary: 'the a lane', paths: ['docs/old.md'] }],
+        laneless: [{ what: 'the rest', paths: ['daoris.lanes.json', 'docs/keep.md'] }],
+      }),
+    });
+    git(dir, ['add', '-A']);
+    git(dir, ['commit', '-qm', 'seed']);
+    rmSync(join(dir, 'docs', 'old.md'));   // a plain `mv`/`rm`: the deletion is not staged
+    return dir;
+  };
+
+  it('drops it from the listing, and keeps a file that is new and untracked', (t) => {
+    const dir = seed();
+    t.after(() => removeTree(dir));
+    writeInto(dir, 'docs/new.md', 'new\n');
+    const files = repoFiles(dir);
+    assert.ok(!files.includes('docs/old.md'), JSON.stringify(files));
+    assert.ok(files.includes('docs/keep.md') && files.includes('docs/new.md'), JSON.stringify(files));
+    assert.ok(!repoFiles(dir, ['docs']).includes('docs/old.md'), 'a narrowed listing drops it too');
+  });
+
+  it('check-links reports a citation of the file that is gone', (t) => {
+    const dir = seed();
+    t.after(() => removeTree(dir));
+    const log = recorder();
+    assert.equal(checkLinks(dir, {}, log), 1, log.text());
+    assert.match(log.text(), /docs\/old\.md/);
+  });
+
+  it('check-lanes reports the glob that matched only the file that is gone', (t) => {
+    const dir = seed();
+    t.after(() => removeTree(dir));
+    const log = recorder();
+    assert.equal(checkLanes(dir, log), 1, log.text());
+    assert.match(log.text(), /"docs\/old\.md" matches no file/);
+  });
+});
 
 describe('readRepoText — the one read rule every scanning gate shares', () => {
   it('returns the text, or null for a listed file gone from the working tree (a pending deletion)', (t) => {

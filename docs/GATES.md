@@ -222,8 +222,10 @@ The rules that bite when editing any document here, each a gate's view of prose:
   counter is worse than none.
 - **Fail closed on an empty scan.** A gate that scanned nothing must never print a tick.
 - **`_repo-files.mjs` is the ONE file list every full-tree gate scans** — tracked files PLUS new files that
-  are not ignored. Five gates carried their own copy of that rule and the blind spot was five-fold, because
-  a scope rule diverges silently: every copy prints the same green line whatever it scanned.
+  are not ignored, MINUS a tracked file deleted from disk and not yet staged (a plain `mv` would otherwise
+  keep its old path citable and its old glob matching). Five gates carried their own copy of that rule and
+  the blind spot was five-fold, because a scope rule diverges silently: every copy prints the same green
+  line whatever it scanned.
 
 ## The gates inside `verify`
 

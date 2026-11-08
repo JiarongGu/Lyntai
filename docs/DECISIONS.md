@@ -372,6 +372,9 @@ new decision overturns an old one, rewrite the old entry as a stub pointing here
 | [D300](#d300--sqliteconnectionfactorydbpath-is-documented-as-no-backup-and-no-checkpoint-method-is-offered-2026-11-09) | 2026-11-09 | `SqliteConnectionFactory.DbPath` is documented as no backup, and no checkpoint method is offered |
 
 **295 live decisions.** The rest are stubs — `D<n>` is a permanent identifier, so a number is never reused or renumbered (5): [D36](#d36--a-translation-between-two-verdict-taxonomies-gets-one-arm-per-member-gated-by-a-test-2026-08-05) → D136 · [D80](#d80--merged-into-d77-2026-08-16-folded-2026-08-17) → D77 · [D131](#d131--a-backends-produces-is-derived-from-its-configuration-so-a-modality-is-a-field-2026-09-14) → D133 · [D134](#d134--a-registration-names-the-backend-the-provider-suffix-is-gone-from-all-seventeen-2026-09-14) → D137 · [D145](#d145--the-microsoftextensionsai-module-is-a-bridge-not-a-provider-2026-09-15) → D146
+| [D293](#d293--a-tracked-file-deleted-from-disk-is-not-in-the-gates-file-list-2026-11-09) | 2026-11-09 | a tracked file deleted from disk is not in the gates' file list |
+
+**288 live decisions.** The rest are stubs — `D<n>` is a permanent identifier, so a number is never reused or renumbered (5): [D36](#d36--a-translation-between-two-verdict-taxonomies-gets-one-arm-per-member-gated-by-a-test-2026-08-05) → D136 · [D80](#d80--merged-into-d77-2026-08-16-folded-2026-08-17) → D77 · [D131](#d131--a-backends-produces-is-derived-from-its-configuration-so-a-modality-is-a-field-2026-09-14) → D133 · [D134](#d134--a-registration-names-the-backend-the-provider-suffix-is-gone-from-all-seventeen-2026-09-14) → D137 · [D145](#d145--the-microsoftextensionsai-module-is-a-bridge-not-a-provider-2026-09-15) → D146
 
 <!-- index:end -->
 
@@ -8030,3 +8033,14 @@ recall and its write-back is already a silent skip).
 **Rejected.** A checkpoint-on-demand member on the factory (a new frozen public member, the owner's).
 
 **Re-opens** when a consumer asks for a supported backup call, which would be that member.
+## D293 — a tracked file deleted from disk is not in the gates' file list (2026-11-09)
+
+**Standing.** A ruling on `TASKS.md` Part 497's first row, filed as `docs/task-archive.md` Part 514, **the steward's under the owner's delegation, which the owner may reverse** — not the owner's words. Built.
+
+**Decided.** `repoFiles` subtracts `git ls-files -z --deleted`, so a file removed with a plain `mv` or `rm` and not yet staged drops out of every full-tree gate: a citation of it dangles in `check-links` and a glob matching only it is stale in `check-lanes`. `check-sensitive`'s `ENOENT` branch stays for a file that goes between the listing and the read, and its tree test now pins the listing instead of the report.
+
+**Why.** The listing is the index, so a file absent from disk counted as present and let the moved file's old path stay citable until the move was staged.
+
+**Rejected.** Keeping the listing and having each gate test existence (a per-gate copy of a scope rule, the divergence `_repo-files.mjs` was extracted to end).
+
+**Re-opens** when a gate needs the index's view of a file the working tree lacks.
