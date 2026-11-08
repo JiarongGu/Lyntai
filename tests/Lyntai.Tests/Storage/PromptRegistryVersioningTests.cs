@@ -57,4 +57,19 @@ public class PromptRegistryVersioningTests : IDisposable
 
         Assert.Equal("Summarize x in en.", rendered);
     }
+
+    [Fact]
+    public async Task A_rejected_version_is_named_as_a_version_not_as_a_key_value_key()
+    {
+        var versions = new SqlitePromptVersionStore(_db.Factory);
+        var log = new CapturingLogger<PromptRegistry>();
+        var registry = new PromptRegistry(kv: null, versions, log);
+        await versions.SaveAsync("summary", "TL;DR of {input}");
+
+        await registry.RenderAsync("summary", "Summarize {input} in {lang}.");
+
+        var warning = Assert.Single(log.Messages, m => m.Contains("rejected", StringComparison.Ordinal));
+        Assert.Contains("version 1", warning, StringComparison.Ordinal);
+        Assert.DoesNotContain(PromptRegistry.DefaultKeyPrefix, warning, StringComparison.Ordinal);
+    }
 }

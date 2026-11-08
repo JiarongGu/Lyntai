@@ -69,8 +69,9 @@ public static class MemoryWalk
     /// an <c>await foreach</c> with no break terminates on its own.</para>
     /// <para><b>Fails open</b>, like every recall-shaped read here. The first step is ALWAYS yielded, empty
     /// and reporting <see cref="MemorySources.None"/> when the recall faults. A later step that faults is
-    /// not yielded and the walk ends with the last good one. Only the CALLER's cancellation propagates — a
-    /// BYO engine's own deadline is a fault, and the walk ends rather than throwing.</para>
+    /// not yielded and the walk ends with the last good one. Only the CALLER's cancellation propagates, and a
+    /// caller's mistake (an <see cref="ArgumentException"/> or <see cref="KeyNotFoundException"/>) at any step —
+    /// a BYO engine's own deadline is a fault, and the walk ends rather than throwing.</para>
     /// <para><b>A walk MUTATES, once per step</b> — recall reinforces what it returns and expansion
     /// reinforces what it walks, so <see cref="IMemoryEngine.RecallAsync"/>'s warning to anyone MEASURING
     /// applies per step rather than per call.</para>
@@ -139,7 +140,7 @@ public static class MemoryWalk
                         .ConfigureAwait(false);
                 }
                 catch (OperationCanceledException) when (ct.IsCancellationRequested) { throw; }
-                catch
+                catch (Exception ex) when (!MemoryCallerMistake.Is(ex))
                 {
                     faulted = true;
                     break;

@@ -284,6 +284,61 @@ public class MemoryViewTests
         Assert.DoesNotContain(Owner, sp.GetRequiredService<IMemoryEngineFactory>().Names);   // a view is not a registered engine
     }
 
+    [Fact]
+    public async Task A_member_view_that_throws_in_a_recall_loses_only_its_own_share_of_the_blend()
+    {
+        var store = new InMemoryMemoryGraphStore();
+        var good = Build(store, "b/graph");
+        var paris = (await good.RememberAsync(Fact("lives in Paris"))).Reference;
+        var blend = new CompositeMemoryEngine("b", [new BrokenViewEngine(new InvalidOperationException("down")), good]);
+
+        var recall = await blend.ViewOf("owned").RecallAsync(Ask());
+
+        Assert.Single(recall.Items);
+        Assert.Equal(paris.Id, recall.Items[0].Item.Reference.Id);
+    }
+
+    [Fact]
+    public async Task A_caller_mistake_in_a_member_view_recall_still_propagates()
+    {
+        var blend = new CompositeMemoryEngine("b",
+            [new BrokenViewEngine(new ArgumentException("a bad query")), Build(new InMemoryMemoryGraphStore(), "b/graph")]);
+
+        await Assert.ThrowsAsync<ArgumentException>(async () => await blend.ViewOf("owned").RecallAsync(Ask()));
+    }
+
+    private sealed class BrokenViewEngine(Exception fault) : IMemoryEngine, IViewableMemory
+    {
+        public string Name => "broken/graph";
+
+        public MemoryGrades Supported => MemoryGrades.Associative;
+
+        public bool HoldsView => true;
+
+        public IMemoryView ViewOf(string taskKey, IMemoryViewCheck? check = null) => new BrokenView(taskKey, fault);
+
+        public Task<MemoryWriteResult> RememberAsync(MemoryWrite write, CancellationToken ct = default) =>
+            throw new NotSupportedException();
+
+        public Task<MemoryRecall> RecallAsync(MemoryQuery query, CancellationToken ct = default) =>
+            Task.FromResult(MemoryRecall.Empty);
+    }
+
+    private sealed class BrokenView(string taskKey, Exception fault) : IMemoryView
+    {
+        public string TaskKey => taskKey;
+
+        public IReadOnlyList<string> Engines => ["broken/graph"];
+
+        public Task<MemoryViewRecall> RecallAsync(MemoryViewQuery query, CancellationToken ct = default) => throw fault;
+
+        public Task<MemoryViewRecall> ExpandAsync(MemoryRef reference, int hops = 1, int? charBudget = null,
+            MemoryDetail detail = MemoryDetail.Headline, MemoryValidityReading validity = default, CancellationToken ct = default) =>
+            throw fault;
+
+        public Task<string?> RevisionOfAsync(MemoryRef reference, CancellationToken ct = default) => throw fault;
+    }
+
     private sealed class Check(Func<MemoryRef, bool> permits) : IMemoryViewCheck
     {
         public Task<bool> PermitsAsync(MemoryRef reference, CancellationToken ct = default) => Task.FromResult(permits(reference));

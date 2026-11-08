@@ -119,6 +119,108 @@ public class ChatOrchestratorTests
         Assert.DoesNotContain("old learned fact", record.Content);  // …and never the recalled/composed facts
     }
 
+    private sealed class RedactingGuard(string secret) : IGuard
+    {
+        public string Name => "redact";
+
+        public Task<GuardOutcome> InspectRequestAsync(TextRequest req, CancellationToken ct = default)
+        {
+            var text = req.Messages[^1].Content;
+            return Task.FromResult(text.Contains(secret, StringComparison.Ordinal)
+                ? GuardOutcome.Replace(text.Replace(secret, "[redacted]", StringComparison.Ordinal))
+                : GuardOutcome.Allow);
+        }
+
+        public Task<GuardOutcome> InspectResponseAsync(TextResponse reply, CancellationToken ct = default) =>
+            Task.FromResult(reply.Text.Contains(secret, StringComparison.Ordinal)
+                ? GuardOutcome.Replace(reply.Text.Replace(secret, "[redacted]", StringComparison.Ordinal))
+                : GuardOutcome.Allow);
+    }
+
+    [Fact] // gate 1b: a Replace on the COMPOSED prompt redacts what the model sees, and nothing recalled is re-persisted
+    public async Task A_recalled_fact_the_composed_gate_redacts_is_redacted_for_the_model_and_never_re_stored()
+    {
+        var provider = new FakeTextProvider("p");
+        provider.Replies.Enqueue(new TextResponse("done", ProviderVerdict.Ok));
+        using var sp = Build(provider, b => b.AddGuard(_ => new RedactingGuard("hunter2")));
+        var memory = sp.GetRequiredService<Lyntai.Storage.IMemoryStore>();
+        await memory.RememberAsync("t1", "chat", "how to build with hunter2");
+
+        // the raw message is clean, so gate 1a allows it; only the composed prompt carries the secret
+        await sp.GetRequiredService<IChatOrchestrator>()
+            .ChatAsync(new ChatTurn { Message = "build", TaskKey = "t1", UseTools = false });
+
+        var seen = provider.Calls.Single().Messages[^1].Content;
+        Assert.Contains("[redacted]", seen);
+        Assert.DoesNotContain("hunter2", seen);
+        var record = Assert.Single(await memory.RecallAsync("t1", scope: "chat"), m => m.Content.StartsWith("Q:"));
+        Assert.Equal("Q: build\nA: done", record.Content);
+    }
+
+    [Fact] // gate 2: a Replace on the answer is what the caller gets AND what is remembered
+    public async Task An_answer_the_output_gate_redacts_is_returned_and_remembered_redacted()
+    {
+        var provider = new FakeTextProvider("p");
+        provider.Replies.Enqueue(new TextResponse("the code is hunter2", ProviderVerdict.Ok));
+        using var sp = Build(provider, b => b.AddGuard(_ => new RedactingGuard("hunter2")));
+
+        var result = await sp.GetRequiredService<IChatOrchestrator>()
+            .ChatAsync(new ChatTurn { Message = "what is the code?", TaskKey = "t1", UseTools = false });
+
+        Assert.True(result.Ok);
+        Assert.Equal("the code is [redacted]", result.Answer);
+        var record = Assert.Single(
+            await sp.GetRequiredService<Lyntai.Storage.IMemoryStore>().RecallAsync("t1", scope: "chat"));
+        Assert.Equal("Q: what is the code?\nA: the code is [redacted]", record.Content);
+    }
+
+    [Fact]
+    public async Task Remember_false_answers_and_writes_nothing()
+    {
+        var provider = new FakeTextProvider("p");
+        provider.Replies.Enqueue(new TextResponse("the answer", ProviderVerdict.Ok));
+        using var sp = Build(provider);
+
+        var result = await sp.GetRequiredService<IChatOrchestrator>()
+            .ChatAsync(new ChatTurn { Message = "a question", TaskKey = "t1", UseTools = false, Remember = false });
+
+        Assert.Equal("the answer", result.Answer);
+        Assert.Empty(await sp.GetRequiredService<Lyntai.Storage.IMemoryStore>().RecallAsync("t1", scope: "chat"));
+    }
+
+    [Fact] // no TaskKey = stateless: nothing recalled into the prompt, nothing written, even with Remember on
+    public async Task A_turn_with_no_task_key_neither_recalls_nor_remembers()
+    {
+        var provider = new FakeTextProvider("p");
+        provider.Replies.Enqueue(new TextResponse("the answer", ProviderVerdict.Ok));
+        using var sp = Build(provider);
+        var memory = sp.GetRequiredService<Lyntai.Storage.IMemoryStore>();
+        await memory.RememberAsync("t1", "chat", "a fact about build");
+
+        await sp.GetRequiredService<IChatOrchestrator>()
+            .ChatAsync(new ChatTurn { Message = "build", UseTools = false });
+
+        Assert.Equal("build", provider.Calls.Single().Messages[^1].Content);
+        var held = Assert.Single(await memory.RecallAsync("t1", scope: "chat"));
+        Assert.Equal("a fact about build", held.Content);
+    }
+
+    [Fact] // a turn whose provider did not answer is not an exchange worth remembering
+    public async Task A_non_Ok_verdict_returns_it_with_no_answer_and_remembers_nothing()
+    {
+        var provider = new FakeTextProvider("p");
+        provider.Replies.Enqueue(new TextResponse("", ProviderVerdict.Failed, Detail: "down"));
+        using var sp = Build(provider);
+
+        var result = await sp.GetRequiredService<IChatOrchestrator>()
+            .ChatAsync(new ChatTurn { Message = "a question", TaskKey = "t1", UseTools = false });
+
+        Assert.False(result.Ok);
+        Assert.NotEqual(ProviderVerdict.Ok, result.Verdict);
+        Assert.Equal("", result.Answer);
+        Assert.Empty(await sp.GetRequiredService<Lyntai.Storage.IMemoryStore>().RecallAsync("t1", scope: "chat"));
+    }
+
     [Fact]
     public async Task Remembers_the_exchange_to_both_memory_stores_when_embeddings_are_wired()
     {

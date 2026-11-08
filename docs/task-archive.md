@@ -6995,3 +6995,11 @@ lines the doors' own tests pin. Landed in `08b41270`; the row stayed open in `TA
 - the three reviews; the seventeen rows
 - the seven code fixes and their reverted-source proof
 - the documents corrected
+
+## Part 507 — `TASKS.md` Part 499's six startable rows: a walk's later fault, a blend's view recall, a graph import's wrong-typed field, an import's line numbers, a trace offset and the chat orchestrator's untested branches (2026-11-09)
+
+✅ done 2026-11-09 — **Outcome:** the blockers were re-checked first and none had cleared (no `hf_` token, no aggregator, no labels, the nine tests unrecurred; every other open row waits on a ruling), so the piece taken was the six startable rows `docs/task-archive.md` Part 506 filed. **Code** (`docs/FIXES.md` 2026-11-09, each test failed first): `MemoryWalk` rethrows a caller mistake at every step; `CompositeMemoryView.RecallAsync` fails open per view; `MemoryPortableFormat.OptionalString` refuses a wrong-typed `kind`, `endedReason` or `recheck`; a blend's import pads each member's lines to their own numbers; `TraceService` floors `OffsetMs` at 0 (a `Stopwatch` was refused, because the injectable clock is the test seam); `PromptRegistry` names the version it rejected. **Tests and one refactor:** five `ChatOrchestrator` branches (gate-1b and output-gate `Replace`, `Remember=false`, no task key, a non-Ok verdict) and the pairwise comparer's observe-both claim gained tests, each judged by reversing its production line; the in-memory conversation store keeps messages per thread instead of scanning all of them. **Docker was down**, so the Postgres leg did not run. No decision; no public member. Lanes `memory`, `platform`, `storage`.
+
+- the six code fixes and their reverted-source proof
+- the orchestrator and pairwise tests
+- the per-thread message lists

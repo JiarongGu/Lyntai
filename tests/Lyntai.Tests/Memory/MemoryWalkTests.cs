@@ -372,3 +372,47 @@ public class MemoryWalkExpansionTests
         Assert.Equal([1], consulted);
     }
 }
+
+/// <summary>A fault in a later step: a store fault ends the walk quietly, a caller's mistake does not.</summary>
+public class MemoryWalkLaterStepFaultTests
+{
+    [Fact]
+    public async Task A_store_fault_in_an_expansion_ends_the_walk_with_the_last_good_step()
+    {
+        var steps = await new ExpandingEngine(new InvalidOperationException("the store is down"))
+            .WalkAsync(new MemoryQuery("t", "s", "anything")).ToListAsync();
+
+        var only = Assert.Single(steps);
+        Assert.Single(only.Items);
+    }
+
+    [Theory]
+    [InlineData(typeof(ArgumentException))]
+    [InlineData(typeof(KeyNotFoundException))]
+    public async Task A_caller_mistake_in_an_expansion_propagates_as_it_does_on_step_one(Type mistake)
+    {
+        var engine = new ExpandingEngine((Exception)Activator.CreateInstance(mistake, "a bad reference")!);
+
+        await Assert.ThrowsAsync(mistake, async () =>
+            await engine.WalkAsync(new MemoryQuery("t", "s", "anything")).ToListAsync());
+    }
+
+    private sealed class ExpandingEngine(Exception fault) : IMemoryEngine, IExpandableMemory
+    {
+        public string Name => "expands";
+
+        public MemoryGrades Supported => MemoryGrades.Associative;
+
+        public Task<MemoryWriteResult> RememberAsync(MemoryWrite write, CancellationToken ct = default) =>
+            throw new NotSupportedException();
+
+        public Task<MemoryRecall> RecallAsync(MemoryQuery query, CancellationToken ct = default) =>
+            Task.FromResult(new MemoryRecall(
+                [new MemoryItem(new MemoryRef(Name, "1"), "a fact", null, MemoryGrade.Associative, 1, 1, 0)],
+                MemorySources.Graph));
+
+        public Task<MemoryRecall> ExpandAsync(MemoryRef reference, int hops = 1, int? charBudget = null,
+            MemoryDetail detail = MemoryDetail.Headline, CancellationToken ct = default) =>
+            throw fault;
+    }
+}

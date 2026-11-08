@@ -214,6 +214,40 @@ public class PairwiseComparerTests
         Assert.False(result.Judged);
     }
 
+    /// <summary>If one pass throws, the OTHER is still observed: the comparer waits for it, so it is not left
+    /// running, spending judge tokens, with nothing to reap it.</summary>
+    [Fact]
+    public async Task A_pass_that_throws_does_not_abandon_the_other_pass_unobserved()
+    {
+        var other = new OnePassThrows();
+        var comparer = new LlmPairwiseComparer(other);
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() => comparer.CompareAsync("q", "answer A", "answer B"));
+
+        Assert.True(other.SecondFinished, "the comparer returned before the second pass had finished");
+    }
+
+    private sealed class OnePassThrows : ITextClient
+    {
+        private int _calls;
+
+        public bool SecondFinished { get; private set; }
+
+        public async Task<TextResponse> CompleteAsync(TextRequest req, CancellationToken ct = default)
+        {
+            if (Interlocked.Increment(ref _calls) == 1) throw new InvalidOperationException("transport down");
+            await Task.Delay(150, ct);
+            SecondFinished = true;
+            return Json("a");
+        }
+
+        public IAsyncEnumerable<TextChunk> StreamAsync(TextRequest req, CancellationToken ct = default) =>
+            throw new NotSupportedException();
+
+        public ValueTask<ProviderCapabilities?> GetCapabilitiesAsync(TextRequest req, CancellationToken ct = default) =>
+            ValueTask.FromResult<ProviderCapabilities?>(null);
+    }
+
     /// <summary>A BYO <see cref="IPairwiseComparer"/> that constructs the record positionally means "I judged"
     /// — which is why the property defaults to true and is not a positional parameter (that would change the
     /// ctor and Deconstruct, breaking D70).</summary>
