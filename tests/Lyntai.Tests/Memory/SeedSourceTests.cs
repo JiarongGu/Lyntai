@@ -159,6 +159,29 @@ public sealed class SeedSourceTests : IDisposable
         Assert.Equal(2, seeded.Count);
     }
 
+    [Theory]
+    [InlineData("9999")]       // a vector whose entry is gone
+    [InlineData("not-an-id")]  // an id no node can have
+    public async Task A_stale_or_unparsable_top_match_does_not_cost_a_live_seed_the_limit_would_allow(string stale)
+    {
+        var store = new SqliteMemoryGraphStore(_db.Factory);
+        var engine = new GraphMemoryEngine("seedtest", store);
+        var one = (await engine.RememberAsync(new MemoryWrite("task", "scope", "entry one"))).Reference;
+        var two = (await engine.RememberAsync(new MemoryWrite("task", "scope", "entry two"))).Reference;
+        var vectors = new UnsortedVectorStore([
+            new VectorMatch(stale, "gone", 0.99),
+            new VectorMatch(one.Id, "entry one", 0.5),
+            new VectorMatch(two.Id, "entry two", 0.4),
+        ]);
+        var source = new SemanticSeedSource([new FixedVectorProvider([1f, 0f])], vectors);
+        var request = new MemorySeedRequest("seedtest", store,
+            new MemoryQuery(TaskKey: "task", Scope: "scope", Query: "anything"), Limit: 1);
+
+        var seeded = await source.SeedAsync(request, CancellationToken.None);
+
+        Assert.Equal([one.Id], seeded.Select(n => n.Id.ToString(CultureInfo.InvariantCulture)));
+    }
+
     [Fact]
     public async Task The_semantic_source_returns_empty_rather_than_throwing_when_the_vector_backend_faults()
     {

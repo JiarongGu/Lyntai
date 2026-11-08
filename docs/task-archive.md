@@ -7037,3 +7037,11 @@ lines the doors' own tests pin. Landed in `08b41270`; the row stayed open in `TA
 
 - the three code commits and their tests
 - D271 to D280, the changelog and fix-log entries
+
+## Part 513 — the steward's rulings on `TASKS.md` Part 499's twelve decision rows: scoring, prompts, enrichers, traces, tokenizers, the portable format, the blend, verification and seeding (2026-11-09)
+
+✅ done 2026-11-09 — **Outcome:** twelve rows waited on a ruling and the steward ruled each under the owner's delegation while the owner is away (the owner may reverse them); `docs/DECISIONS.md` **D281** to **D292** record each with the side it rejected. **Built, test failing first:** a score outside 0 to 1 skipped (D281); `JudgeAgreement` refusing a non-finite score (D283); every enricher running before the fault is rethrown (D285); a corrupt `tokenizer_config.json` keeping the defaults and a corrupt `tokenizer.json` as `InvalidDataException` (D287); a graph export refusing a non-finite number before it writes, an import taking an empty scope or headline (D288); `EndorseCount` of 0 or less as no opinion with a warning (D291); a semantic seed filtering before it takes (D292). **Kept and pinned or reworded:** a throwing `Applies` stays surfaced (D282); an override layer's failure renders the default (D284); the per-step ordinal fallback (D286); `MemoryContentKey` over UTF-8 (D289); a blend's `Limit` over the authoritative tier (D290). **A premise that did not hold:** the lone-surrogate half of the export row (the JSON writer already writes U+FFFD, so only a test was added). Lane `memory`, with `records` and `platform`.
+<br>**What stays:** a nullable `ExactAgreementRate`, new interface members for a delete or a metadata change, and a stricter `EndorseCount` range are the owner's. A caller's own cancel still ends the enricher pass at once, since it is not a fault.
+
+- the code commits and their tests, one per ruling
+- D281 to D292, the changelog and fix-log entries

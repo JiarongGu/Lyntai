@@ -119,6 +119,43 @@ public class ScoringVerificationPolicyTests : MemoryVerificationPolicyContractFa
         Assert.Equal(["the whole stored entry", "headline only"], Assert.Single(backend.Sent));
     }
 
+    [Theory]
+    [InlineData(0)]
+    [InlineData(-1)]
+    public async Task An_EndorseCount_of_zero_or_less_gives_no_opinion_and_never_calls_the_backend(int endorse)
+    {
+        var backend = new FakeScorer(_ => [0.9, 0.1]);
+
+        var verdict = await Policy(backend, endorse).VerifyAsync(Request("a", "b"));
+
+        Assert.False(verdict.Judged);   // no opinion, not a judged empty verdict that endorses nothing
+        Assert.Empty(backend.Sent);
+    }
+
+    [Theory]
+    [InlineData(0)]
+    [InlineData(-1)]
+    public void An_EndorseCount_of_zero_or_less_warns_when_the_policy_is_composed(int endorse)
+    {
+        var log = new CapturingLogger<ScoringVerificationPolicy>();
+
+        _ = new ScoringVerificationPolicy([new FakeScorer(_ => [])],
+            new ScoringVerificationOptions { EndorseCount = endorse }, log);
+
+        var warning = Assert.Single(log.Warnings);
+        Assert.Contains("EndorseCount", warning, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void A_positive_EndorseCount_composes_without_a_warning()
+    {
+        var log = new CapturingLogger<ScoringVerificationPolicy>();
+
+        _ = new ScoringVerificationPolicy([new FakeScorer(_ => [])], new ScoringVerificationOptions(), log);
+
+        Assert.Empty(log.Warnings);
+    }
+
     [Fact]
     public async Task Every_scored_candidate_keeps_its_score_not_only_the_endorsed_ones()
     {

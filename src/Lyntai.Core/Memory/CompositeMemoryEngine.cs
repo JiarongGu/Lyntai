@@ -310,6 +310,8 @@ public sealed class CompositeMemoryEngine
     }
 
     /// <inheritdoc />
+    /// <remarks>An explicit <see cref="MemoryQuery.Limit"/> is a hard bound: the cut keeps authoritative items
+    /// before associative ones, but with more authoritative items than the limit the weakest of them are cut too.</remarks>
     public async Task<MemoryRecall> RecallAsync(MemoryQuery query, CancellationToken ct = default)
     {
         ArgumentNullException.ThrowIfNull(query);

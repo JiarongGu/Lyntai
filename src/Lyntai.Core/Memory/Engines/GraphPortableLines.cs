@@ -10,6 +10,7 @@ internal static class GraphPortableLines
     public static async Task WriteAsync(TextWriter destination, string engine, MemoryGraphExport export,
         CancellationToken ct)
     {
+        RefuseNonFinite(export);
         foreach (var node in export.Nodes)
         {
             ct.ThrowIfCancellationRequested();
@@ -74,6 +75,27 @@ internal static class GraphPortableLines
         }
     }
 
+    // a non-finite number has no JSON spelling and throws from the writer mid-file, leaving a partial export; the
+    // whole export is checked first so nothing is written for it (a signal is the exception: it travels as absent)
+    private static void RefuseNonFinite(MemoryGraphExport export)
+    {
+        foreach (var n in export.Nodes)
+            if (!AllFinite(n.Stability, n.Difficulty, n.Age, n.OrdinalAge, n.VolumeAge, n.ElapsedAge))
+                throw new InvalidDataException(
+                    $"Memory export refused: entry {n.Id} carries a non-finite number. Nothing was written.");
+        foreach (var l in export.Links)
+            if (!AllFinite(l.Weight, l.Age, l.OrdinalAge, l.VolumeAge, l.ElapsedAge))
+                throw new InvalidDataException(
+                    $"Memory export refused: the link from {l.From} to {l.To} carries a non-finite number. Nothing was written.");
+    }
+
+    private static bool AllFinite(params ReadOnlySpan<double> values)
+    {
+        foreach (var value in values)
+            if (!double.IsFinite(value)) return false;
+        return true;
+    }
+
     private static void Ages(Utf8JsonWriter w, double age, double ordinal, double volume, double elapsed)
     {
         w.WriteNumber("age", age);
@@ -115,7 +137,7 @@ internal static class GraphPortableLines
             };
             var recallCount = MemoryPortableFormat.Whole(line, "recallCount", nonNegative: true);
             nodes.Add(new CarriedNode(id, new GraphNodeImport(
-                scope ?? Required(line, "scope"), Required(line, "headline"), Required(line, "content"), grade,
+                scope ?? Present(line, "scope"), Present(line, "headline"), Required(line, "content"), grade,
                 (line.Body.TryGetProperty("createdAt", out var created) && created.ValueKind == JsonValueKind.String
                     && created.TryGetDateTimeOffset(out var at)
                     ? at : throw MemoryPortableFormat.Refuse(line.Number, "carries no \"createdAt\" time")).ToUniversalTime(),
@@ -166,6 +188,11 @@ internal static class GraphPortableLines
         MemoryPortableFormat.String(line.Body, name) is { Length: > 0 } value
             ? value
             : throw MemoryPortableFormat.Refuse(line.Number, $"carries no \"{name}\"");
+
+    // a string that must be there but may be empty: a write with no scope or headline exports exactly that line
+    private static string Present(MemoryPortableLine line, string name) =>
+        MemoryPortableFormat.String(line.Body, name)
+            ?? throw MemoryPortableFormat.Refuse(line.Number, $"carries no \"{name}\"");
 
     // a provenance field is zero for anything predating it, so an absent one reads as zero
     private static long Optional(MemoryPortableLine line, string name) =>

@@ -480,6 +480,21 @@ public class WordPieceTokenizerFromModelDirectoryTests : IDisposable
         Assert.Equal([5], tokenizer.EncodeToIds("ALPHA"));
     }
 
+    [Theory]
+    [InlineData("{ not json")]
+    [InlineData("[1, 2]")]
+    [InlineData("null")]
+    [InlineData("\"text\"")]
+    public void A_config_that_is_unparsable_or_not_an_object_keeps_the_reference_defaults(string config)
+    {
+        WriteVocabulary("alpha");
+        File.WriteAllText(Path.Combine(Dir, "tokenizer_config.json"), config);
+
+        var tokenizer = WordPieceTokenizer.FromModelDirectory(Dir);
+
+        Assert.Equal([5], tokenizer.EncodeToIds("ALPHA"));
+    }
+
     [Fact]
     public void A_missing_vocabulary_names_the_file_rather_than_null_referencing()
     {

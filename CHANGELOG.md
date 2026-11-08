@@ -50,6 +50,14 @@ every addition.
   `ChatThreads.Page` order by UTF-8 bytes in process, so a character past U+FFFF sorts after U+E000 to U+FFFF as in SQLite. Every vector store's
   `UpsertAsync` throws `ArgumentException` for a NaN or infinite component and stores nothing; `IVectorStore` now says an implementation must.
   A response cache with `CacheOptions.MaxEntries` of 0 or less stores nothing on every backend, where the SQL caches kept one entry.
+- **Eight places in scoring, memory and tokenizing now refuse or isolate what they used to take wrongly** (**D281**, **D283**, **D285**, **D287**, **D288**, **D291**, **D292**).
+  `ScoringService` skips, with a warning, a score below 0 or above 1; `JudgeAgreement.Compare` throws `ArgumentException` for a NaN or infinite score, and two empty series keep an
+  exact agreement of 1.0 with a `Count` of 0. `EnrichingConversationStore` runs every `IConversationEnricher` and then rethrows the fault (an `AggregateException` when several threw),
+  where a throwing first enricher skipped the rest. A graph export throws `InvalidDataException` before its first line for a non-finite number, an import accepts an empty scope or headline,
+  `ScoringVerificationPolicy` with an `EndorseCount` of 0 or less reports no opinion without calling the backend and warns once, and `SemanticSeedSource` returns the live seeds a limit
+  allows past a stale top match. A `tokenizer_config.json` whose root is not an object keeps the defaults, and a corrupt `tokenizer.json` (an invalid regex, a null piece or replacement) throws `InvalidDataException`.
+- **Five behaviours are now stated and pinned** (**D282**, **D284**, **D286**, **D289**, **D290**): a throwing `IScorer.Applies` surfaces, a failing prompt override renders the default and not the next layer,
+  `TraceOrdinals.Stored` decides per step, `MemoryContentKey` hashes UTF-8 with a lone surrogate as U+FFFD, and a blend's explicit `Limit` wins over the authoritative tier.
 - **A stdio MCP server's variables no longer travel in Codex's argv, the agent doors wait 15 minutes of silence, and a rate limit on stderr holds the account** (**D267**, **D268**).
   `env` is passed to codex by name (`env_vars`) with the values in its environment, and the bearer variable is now `LYNTAI_MCP_TOKEN_<NAME>`. `LyntaiOptions.AgentTimeout`
   (15 minutes) is the inactivity window of the Codex, Claude and ACP doors when a turn names none; text calls keep two. A stderr `429` is a `Limit` failure, not `Fatal`.

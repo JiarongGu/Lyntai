@@ -17,13 +17,18 @@ public static class JudgeAgreement
     /// <summary>Compare two aligned score series (index i is the same item). Scores are assumed to be
     /// comparable (e.g. both 0..1). <paramref name="buckets"/> discretizes for the exact-agreement rate
     /// (default 2 → agree iff both land on the same side of 0.5); below 1 throws, since a single bin would
-    /// report every pair as agreeing.</summary>
+    /// report every pair as agreeing. Two empty series report an exact agreement of 1.0 (vacuously) with a
+    /// <see cref="AgreementReport.Count"/> of 0: read the count before the rate. A NaN or infinite score
+    /// throws <see cref="ArgumentException"/>, since it has no bucket and no distance.</summary>
     public static AgreementReport Compare(IReadOnlyList<double> a, IReadOnlyList<double> b, int buckets = 2)
     {
         if (a.Count != b.Count)
             throw new ArgumentException($"score series must be the same length ({a.Count} vs {b.Count})");
         ArgumentOutOfRangeException.ThrowIfLessThan(buckets, 1);
         var n = a.Count;
+        for (var i = 0; i < n; i++)
+            if (!double.IsFinite(a[i]) || !double.IsFinite(b[i]))
+                throw new ArgumentException($"score {i} is not a finite number");
         if (n == 0) return new AgreementReport(0, 1.0, 0.0, null);
 
         var agree = 0;

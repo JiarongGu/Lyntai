@@ -190,7 +190,7 @@ public class TextCallTracingTests
         var services = new ServiceCollection();
         services.AddLyntai(b => b
             .AddProvider(_ => provider).UseDefaultCandidates("p").UseInMemoryStorage()
-            .AddScorer(_ => new FakeScorer("len", score: c => new ScoreResult(c.Output!.Length)))
+            .AddScorer(_ => new FakeScorer("len", score: c => new ScoreResult(c.Output!.Length / 100.0)))
             .AddTextCallTracing());
         using var sp = services.BuildServiceProvider();
         var client = sp.GetRequiredService<ITextClient>();
@@ -204,8 +204,8 @@ public class TextCallTracingTests
         await recorder.CompleteAsync();
 
         var scores = sp.GetRequiredService<IScoreStore>();
-        Assert.Equal(5, Assert.Single(await scores.GetAsync("run-1#0")).Score);
-        Assert.Equal(19, Assert.Single(await scores.GetAsync("run-1#1")).Score);
+        Assert.Equal(0.05, Assert.Single(await scores.GetAsync("run-1#0")).Score);
+        Assert.Equal(0.19, Assert.Single(await scores.GetAsync("run-1#1")).Score);
         Assert.Empty(await scores.GetAsync("run-1"));                                  // the run's own id is the app's
         var steps = (await sp.GetRequiredService<ITraceService>().GetAsync("run-1"))!.Steps;
         Assert.Equal(["run-1#0", "run-1#1"], steps.Select(s => s.Detail!.Split("scores=")[1]));

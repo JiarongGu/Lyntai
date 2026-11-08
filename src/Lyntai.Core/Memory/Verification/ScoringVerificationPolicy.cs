@@ -30,6 +30,19 @@ public sealed class ScoringVerificationPolicy(
     /// between calls and a name cannot.</summary>
     private readonly IReadOnlyList<IModelProvider> _backends = Selectable(providers, config);
 
+    // an option set to 0 or less would judge every recall and endorse nothing, which is the signal a fault
+    // must never produce; it reads as "no opinion" instead, and is said once here rather than per recall
+    private readonly bool _endorses = Endorses(config, logger);
+
+    private static bool Endorses(ScoringVerificationOptions config, ILogger<ScoringVerificationPolicy>? logger)
+    {
+        if (config.EndorseCount > 0) return true;
+        (logger ?? NullLogger<ScoringVerificationPolicy>.Instance).LogWarning(
+            "{Option} is {Value}, so scoring verification endorses nothing and reports no opinion on every recall",
+            nameof(ScoringVerificationOptions.EndorseCount), config.EndorseCount);
+        return false;
+    }
+
     private static IReadOnlyList<IModelProvider> Selectable(
         IEnumerable<IModelProvider> providers, ScoringVerificationOptions config)
     {
@@ -65,7 +78,7 @@ public sealed class ScoringVerificationPolicy(
     public async Task<MemoryVerification> VerifyAsync(
         MemoryVerificationRequest request, CancellationToken ct = default)
     {
-        if (request.Candidates.Count == 0) return MemoryVerification.NoOpinion;
+        if (request.Candidates.Count == 0 || !_endorses) return MemoryVerification.NoOpinion;
 
         // ROUTED since D153, where this used to take FirstOrDefault and stop. A second registered reranker
         // is now a failover rather than decoration, and a rate-limited one is benched instead of being asked
@@ -131,7 +144,7 @@ public sealed class ScoringVerificationPolicy(
             .ToList();
 
         var ids = ranked
-            .Take(Math.Max(0, config.EndorseCount))
+            .Take(config.EndorseCount)
             .Select(s => request.Candidates[s.Index].Id)
             .ToList();
 

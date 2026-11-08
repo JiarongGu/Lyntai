@@ -278,6 +278,28 @@ public class SentencePieceTokenizerTests
         Assert.Contains(named, error.Message, StringComparison.Ordinal);
     }
 
+    [Theory]
+    [InlineData("normalizer", """{"type":"Replace","pattern":{"Regex":"("},"content":""}""")]
+    [InlineData("pre_tokenizer", """{"type":"Metaspace","replacement":null}""")]
+    [InlineData("model", """{"type":"Unigram","unk_id":0,"vocab":[[null,0.0]]}""")]
+    public void A_corrupt_component_is_refused_as_invalid_data_not_as_the_exception_it_raised(string section, string node)
+    {
+        var json = Synthetic();
+        json[section] = JsonNode.Parse(node);
+
+        Assert.Throws<InvalidDataException>(() => LoadJson(json));
+    }
+
+    [Theory]
+    [InlineData("[]")]
+    [InlineData("null")]
+    [InlineData("\"text\"")]
+    public void A_root_that_is_not_an_object_is_refused_as_invalid_data(string root)
+    {
+        Assert.Throws<InvalidDataException>(() =>
+            SentencePieceTokenizer.FromTokenizerJson(new MemoryStream(Encoding.UTF8.GetBytes(root))));
+    }
+
     [Fact]
     public void A_NON_special_added_token_is_refused_because_the_reference_splits_it_out_of_the_text()
     {

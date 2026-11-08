@@ -12,6 +12,7 @@ namespace Lyntai.Prompts;
 /// - A <c>{placeholder}</c> with no matching var is left literal (callers may fill it downstream).
 /// - Override precedence: the active <see cref="IPromptVersionStore"/> revision (if any) wins over
 ///   the plain <see cref="IKeyValueStore"/> key; neither configured (or a store outage) → the default.
+///   The layers are not tried in turn: a rejected or failing winner renders the default, never the next layer.
 /// - The two grammars DIFFER on purpose: <see cref="ValidateOverride"/> sees identifier-shaped
 ///   placeholders only (<c>[A-Za-z_][A-Za-z0-9_]*</c>), while rendering substitutes ANY var key. A
 ///   non-identifier <c>{placeholder}</c> therefore renders but is NOT protected by the drop check above.

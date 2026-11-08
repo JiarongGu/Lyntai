@@ -5,7 +5,7 @@ using Microsoft.Extensions.Logging.Abstractions;
 namespace Lyntai.Cortex;
 
 /// <summary>Iterates the DI collection of scorers (never an if/else over kinds), skips null/faulted
-/// results, and persists the aggregate when a score store is wired.</summary>
+/// results and any score that is non-finite or outside 0..1, and persists the aggregate when a score store is wired.</summary>
 public sealed class ScoringService(
     IEnumerable<IScorer> scorers,
     IScoreStore? store = null,
@@ -33,6 +33,12 @@ public sealed class ScoringService(
                 {
                     // NaN is NULL to SQLite (the whole session's batch fails its NOT NULL) and poisons Postgres's AVG
                     _logger.LogWarning("scorer {Scorer} returned a non-finite score; skipped (fail-open)", scorer.Id);
+                    continue;
+                }
+                if (r.Score is < 0 or > 1)
+                {
+                    // a dashboard aggregate means "mean of a 0 to 1 score"; clamping would invent a score
+                    _logger.LogWarning("scorer {Scorer} returned {Score}, outside 0 to 1; skipped (fail-open)", scorer.Id, r.Score);
                     continue;
                 }
                 results.Add(new ScoredResult(scorer.Id, scorer.Name, scorer.Group, scorer.IsLlm, r.Score, r.Reason));
