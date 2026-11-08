@@ -139,6 +139,8 @@ public interface IPrunableMemory
     /// the graph engine applies its configured <c>GraphMemoryOptions.MinRetrievability</c>.</param>
     /// <param name="olderThan">Remove entries older than this; null ignores it.</param>
     /// <param name="ct">Cancellation, which is never swallowed.</param>
+    /// <exception cref="ArgumentOutOfRangeException">The graph engine: a floor outside 0 to 1, or a negative
+    /// <paramref name="olderThan"/>. A span past any entry's age removes nothing by age.</exception>
     /// <remarks><b>A criterion an engine cannot EXPRESS must remove nothing rather than be ignored.</b>
     /// Ignoring <paramref name="scope"/> or <paramref name="minRetrievability"/> and removing on what is left
     /// deletes MORE than was asked for — the one direction a deletion must never err in.</remarks>

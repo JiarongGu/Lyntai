@@ -139,8 +139,10 @@ public sealed class ToolLoop(
 
         // The single terminal: a UsageFinal (when any usage was reported) then the SessionEnded. A local
         // iterator so every exit site emits it identically (re-yielded via `foreach … yield return`).
+        var finished = false;
         IEnumerable<AgentStreamEvent> Finish(string mode, ProviderVerdict verdict, string? finalText, string? detail)
         {
+            finished = true;
             if (usage.Value is { } u)
                 yield return new UsageFinal(u.InputTokens, u.OutputTokens, u.CacheReadTokens, 0, null);
             LyntaiDiagnostics.EndToolLoop(activity, mode, steps.Count, verdict);
@@ -179,8 +181,20 @@ public sealed class ToolLoop(
         // A turn loop that reached a terminal has already emitted the run's one SessionEnded; running out
         // instead is how it reports that the budget was exhausted.
         var terminated = false;
-        await foreach (var ev in turns.ConfigureAwait(false))
+        // enumerated by hand, because a yield may not sit in a try with a catch: a turn that throws still closes the span
+        await using var turnEvents = turns.GetAsyncEnumerator(ct);
+        while (true)
         {
+            try
+            {
+                if (!await turnEvents.MoveNextAsync().ConfigureAwait(false)) break;
+            }
+            catch (Exception ex) when (!finished && ex is not OperationCanceledException)
+            {
+                LyntaiDiagnostics.EndToolLoop(activity, mode, steps.Count, ProviderVerdict.Failed);
+                throw;
+            }
+            var ev = turnEvents.Current;
             terminated |= ev is SessionEnded;
             yield return ev;
         }

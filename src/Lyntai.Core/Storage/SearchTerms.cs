@@ -63,7 +63,7 @@ public static class SearchTerms
         {
             foreach (var (run, profile) in ScriptRuns(token))
                 if (profile.ExpandsIntoGrams) AddGrams(run, gramLength(profile), terms, seen);
-                else if (keepWholeRuns && run.Length >= MinimumTermLength && seen.Add(run)) terms.Add(run);
+                else if (keepWholeRuns && CodePoints(run) >= MinimumTermLength && seen.Add(run)) terms.Add(run);
             if (terms.Count >= MaxTerms) break;
         }
         return terms.Count > MaxTerms ? terms.GetRange(0, MaxTerms) : terms;
@@ -120,6 +120,14 @@ public static class SearchTerms
             if (matches(c))
                 return profile;
         return char.IsLetter(c) ? ScriptProfile.Spaced : null;
+    }
+
+    /// <summary>Code points, not UTF-16 units: a trigram index counts what a reader sees, so two emoji are two.</summary>
+    private static int CodePoints(string run)
+    {
+        var count = 0;
+        foreach (var _ in run.EnumerateRunes()) count++;
+        return count;
     }
 
     /// <summary>Sliding n-grams of one script RUN, de-duplicated and capped. A run is one script by

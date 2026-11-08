@@ -95,9 +95,9 @@ internal static class GraphPortableLines
             if (line.Record == MemoryPortableFormat.Link)
             {
                 links.Add(new GraphLink(MemoryPortableFormat.Whole(line, "from"), MemoryPortableFormat.Whole(line, "to"),
-                    MemoryPortableFormat.String(line.Body, "kind") ?? "", MemoryPortableFormat.Number(line, "weight"),
-                    MemoryPortableFormat.Number(line, "age"), MemoryPortableFormat.Number(line, "ordinalAge"),
-                    MemoryPortableFormat.Number(line, "volumeAge"), MemoryPortableFormat.Number(line, "elapsedAge")));
+                    MemoryPortableFormat.String(line.Body, "kind") ?? "", MemoryPortableFormat.Number(line, "weight", nonNegative: true),
+                    MemoryPortableFormat.Number(line, "age", nonNegative: true), MemoryPortableFormat.Number(line, "ordinalAge", nonNegative: true),
+                    MemoryPortableFormat.Number(line, "volumeAge", nonNegative: true), MemoryPortableFormat.Number(line, "elapsedAge")));
                 continue;
             }
             if (line.Record != MemoryPortableFormat.Graph)
@@ -122,8 +122,8 @@ internal static class GraphPortableLines
                 MemoryPortableFormat.Number(line, "stability", nonNegative: true), MemoryPortableFormat.Number(line, "difficulty"),
                 Signals(line), Optional(line, "provenanceRetrievability"), Optional(line, "provenanceSalience"),
                 MemoryPortableFormat.Map(line, "metadata"), Subjects(line),
-                MemoryPortableFormat.Number(line, "age"), MemoryPortableFormat.Number(line, "ordinalAge"),
-                MemoryPortableFormat.Number(line, "volumeAge"), MemoryPortableFormat.Number(line, "elapsedAge"))
+                MemoryPortableFormat.Number(line, "age", nonNegative: true), MemoryPortableFormat.Number(line, "ordinalAge", nonNegative: true),
+                MemoryPortableFormat.Number(line, "volumeAge", nonNegative: true), MemoryPortableFormat.Number(line, "elapsedAge"))
             {
                 ValidFrom = Instant(line, "validFrom"), ValidTo = Instant(line, "validTo"),
                 SupersededAt = Instant(line, "supersededAt"),

@@ -56,6 +56,41 @@ public class AgentDiagnosticsTests
         Assert.Equal(loopSpan.SpanId, toolSpan.ParentSpanId);
     }
 
+    private sealed class ThrowingClient : ITextClient
+    {
+        public ValueTask<ProviderCapabilities?> GetCapabilitiesAsync(TextRequest req, CancellationToken ct = default) =>
+            ValueTask.FromResult<ProviderCapabilities?>(null);
+
+        public Task<TextResponse> CompleteAsync(TextRequest req, CancellationToken ct = default) =>
+            throw new InvalidOperationException("the provider fell over");
+
+        public async IAsyncEnumerable<TextChunk> StreamAsync(TextRequest req,
+            [System.Runtime.CompilerServices.EnumeratorCancellation] CancellationToken ct = default)
+        {
+            await Task.CompletedTask;
+            throw new InvalidOperationException("the provider fell over");
+#pragma warning disable CS0162
+            yield break;
+#pragma warning restore CS0162
+        }
+    }
+
+    [Fact]
+    public async Task A_turn_that_throws_still_closes_the_loop_span_with_an_error_status()
+    {
+        var spans = new List<Activity>();
+        using var listener = SpanListener(spans);
+        ActivitySource.AddActivityListener(listener);
+        var tool = new FunctionTool("echo-th", (a, _) => Task.FromResult("x"), "echoes");
+        var loop = new ToolLoop(new ThrowingClient(), new ToolRegistry([tool]), new LyntaiOptions());
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            loop.RunAsync(new TextRequest { Consumer = "th-consumer", Messages = [TextMessage.User("go")] }));
+
+        var loopSpan = Assert.Single(SpansWith(spans, "lyntai.consumer", "th-consumer"));
+        Assert.Equal(ActivityStatusCode.Error, loopSpan.Status);
+    }
+
     [Fact]
     public async Task Tool_invocation_counter_tags_the_error_flag()
     {

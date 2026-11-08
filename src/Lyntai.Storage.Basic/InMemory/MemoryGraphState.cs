@@ -131,6 +131,7 @@ internal sealed class MemoryGraphState(Func<DateTimeOffset> clock)
     private static GraphRow Refresh(GraphRow existing, GraphNodeWrite write, GraphTotals totals)
     {
         var (record, state) = (existing.Record, existing.State);
+        var opinion = MemorySignalsJson.Serialize(write.Signals) is not null;
         var refreshed = record with
             {
                 // only a CALLER-NAMED grade overwrites, or a re-remember silently demotes an authoritative fact
@@ -152,9 +153,9 @@ internal sealed class MemoryGraphState(Func<DateTimeOffset> clock)
             state with
             {
                 LastRecalledPosition = totals.Position,
-                // an EMPTY incoming bag keeps what is stored (GraphNodeWrite.Signals), and its attribution with it
-                Signals = write.Signals.Count == 0 ? state.Signals : write.Signals,
-                ProvenanceSalience = write.Signals.Count == 0 ? state.ProvenanceSalience : write.ProvenanceSalience,
+                // a bag with no FINITE value is no opinion either — SQL stores it as NULL — so it keeps what is stored, and its attribution with it
+                Signals = opinion ? write.Signals : state.Signals,
+                ProvenanceSalience = opinion ? write.ProvenanceSalience : state.ProvenanceSalience,
                 // difficulty has a second writer (TouchAsync): only a bag that NAMES it overwrites
                 Difficulty = write.Signals.Values.ContainsKey(MemorySignals.WellKnown.Difficulty)
                     ? MemorySignals.Difficulty(write.Signals)

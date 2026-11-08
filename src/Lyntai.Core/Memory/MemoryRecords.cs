@@ -92,7 +92,7 @@ public enum MemoryDetail
 /// <param name="Query">Optional relevance query; null or whitespace recalls the most recent.</param>
 /// <param name="Limit">Maximum items; null takes the engine's default.</param>
 /// <param name="CharBudget">Maximum characters the caller intends to spend; null takes the engine's
-/// configured budget.</param>
+/// configured budget. Zero or less keeps only what a budget always keeps: the first item and any authoritative one.</param>
 /// <param name="RankingPolicyName">Selects a ranking policy BY NAME for this one call, overriding whatever
 /// the engine was configured with — null takes the engine's own default.
 /// <para><b>A name, never a policy instance.</b> A live <c>IMemoryRankingPolicy</c> is a service, and this

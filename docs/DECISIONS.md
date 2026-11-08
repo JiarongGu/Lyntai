@@ -324,8 +324,9 @@ new decision overturns an old one, rewrite the old entry as a stub pointing here
 | [D252](#d252--the-claude-door-reads-its-init-as-an-event-reads-an-answer-that-arrived-whole-ends-a-clean-exit-with-no-result-frame-and-carries-default-2026-11-07) | 2026-11-07 | the Claude door reads its init as an event, reads an answer that arrived whole, ends a clean exit… |
 | [D253](#d253--a-childs-start-and-end-carry-the-lineage-on-the-task-events-and-a-tasks-output-file-is-an-event-no-child-event-2026-11-07) | 2026-11-07 | a child's start and end carry the lineage on the task events, and a task's output file is an even… |
 | [D254](#d254--a-tasks-patched-status-is-its-own-event-and-a-backgrounded-commands-output-file-is-read-from-its-results-one-sentence-2026-11-07) | 2026-11-07 | a task's patched status is its own event, and a backgrounded command's output file is read from i… |
+| [D255](#d255--a-blend-lets-a-callers-mistake-through-a-prune-refuses-a-floor-or-span-it-cannot-honour-and-a-budget-of-zero-keeps-the-first-item-2026-11-08) | 2026-11-08 | a blend lets a caller's mistake through, a prune refuses a floor or span it cannot honour, and a… |
 
-**249 live decisions.** The rest are stubs — `D<n>` is a permanent identifier, so a number is never reused or renumbered (5): [D36](#d36--a-translation-between-two-verdict-taxonomies-gets-one-arm-per-member-gated-by-a-test-2026-08-05) → D136 · [D80](#d80--merged-into-d77-2026-08-16-folded-2026-08-17) → D77 · [D131](#d131--a-backends-produces-is-derived-from-its-configuration-so-a-modality-is-a-field-2026-09-14) → D133 · [D134](#d134--a-registration-names-the-backend-the-provider-suffix-is-gone-from-all-seventeen-2026-09-14) → D137 · [D145](#d145--the-microsoftextensionsai-module-is-a-bridge-not-a-provider-2026-09-15) → D146
+**250 live decisions.** The rest are stubs — `D<n>` is a permanent identifier, so a number is never reused or renumbered (5): [D36](#d36--a-translation-between-two-verdict-taxonomies-gets-one-arm-per-member-gated-by-a-test-2026-08-05) → D136 · [D80](#d80--merged-into-d77-2026-08-16-folded-2026-08-17) → D77 · [D131](#d131--a-backends-produces-is-derived-from-its-configuration-so-a-modality-is-a-field-2026-09-14) → D133 · [D134](#d134--a-registration-names-the-backend-the-provider-suffix-is-gone-from-all-seventeen-2026-09-14) → D137 · [D145](#d145--the-microsoftextensionsai-module-is-a-bridge-not-a-provider-2026-09-15) → D146
 
 <!-- index:end -->
 
@@ -7363,3 +7364,37 @@ in the words then fails in each of them; here it fails once, in a test).
 
 **Re-opens** when the harness states the path as a field on the result or the start (the sentence then stops being the source), or when a
 version of `claude` rewords the sentence, which the reader's test over the captured line would show.
+
+## D255 — a blend lets a caller's mistake through, a prune refuses a floor or span it cannot honour, and a budget of zero keeps the first item (2026-11-08)
+
+**Standing.** Rules on nine rows of the memory-core review (`docs/task-archive.md` Part 489) and four of the tool loop and wiring
+review. Built, and frozen from release (**D70**).
+
+**Decided.**
+- **A blend and `MemoryWalk` rethrow a member's `KeyNotFoundException` or `ArgumentException` from a recall** — the exceptions an
+  engine throws when the CALLER is wrong, an unknown ranking name or an incoherent validity. Any other member failure is logged and the
+  blend goes on. A name is therefore registered on every graph member asked for it.
+- **`PruneAsync` refuses a floor outside 0 to 1 and a negative `olderThan`**; a span past any entry's age (a hundred thousand days)
+  removes nothing by age. **`CoActivationCap` is at most 100**, which is 4,950 edges a recall, and an entry that states an end takes no
+  co-activation edge and does not count toward the cap.
+- **A character budget of zero or less keeps what a budget always keeps** — the first item and authoritative ones — on a recall, a blend
+  and an expansion. **A recall reinforces and logs what it returned**: an entry the budget cut is neither, and a judge's rejection stays
+  logged.
+- **`RememberAsync` on the graph engine refuses a null or blank content** (it returns a reference, so there is no skip). **A portable import
+  refuses a negative `age`, `ordinalAge`, `volumeAge` and link `weight`**; `elapsedAge` stays free, since clock skew makes it negative.
+- **A spaced search term's floor counts code points**, as a trigram index does. **A signal bag with no finite value is no opinion** on the
+  in-memory store too, as on SQL.
+- **`AddVectorToolSelector` is refused by `AddLyntai` with no embedding backend**, as `AddSemanticMemory` is, unless the consumer's own selector
+  won the registration. **`ChatResult.Blocked` stays the input and output gates**; a guard's refusal inside the loop is `Refused` with its
+  reason in `Detail`, and a streamed text is gated on its request only, both said in `docs/guide.md`. **A turn that throws closes the loop's
+  span with an error status.**
+
+**Why.** Each refusal turns a silent wrong answer (an empty recall, an everything-removing prune, a never-decaying entry) into a call
+that fails where it was made, which is how the unknown ranking name already behaved on a bare engine.
+
+**Rejected.** A flag on `ToolLoopResult` for a guard's block (a public member for what `Detail` says). Clamping a floor or a span (it
+hides the mistake). Letting zero mean unbounded (`null` already does). Keeping a blend's swallow with a per-name carve-out (a name one
+member knows would then work and another's would not, silently).
+
+**Re-opens** when a blend's members legitimately hold different names for one call, or when a host needs a guard block distinguishable from
+a provider's refusal.

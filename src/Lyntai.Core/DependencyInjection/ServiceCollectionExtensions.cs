@@ -70,6 +70,13 @@ public static class LyntaiServiceCollectionExtensions
                 + EmbeddingRouting.NothingEmbeds
                 + " Or drop the AddSemanticMemory call.");
 
+        if (builder.VectorToolSelectorRequested && !VectorBackendIsWired(services, builder))
+            throw new InvalidOperationException(
+                "AddVectorToolSelector was called, but no registered backend produces vectors, so the selector "
+                + "could never narrow the tool roster and would show the model every tool. "
+                + EmbeddingRouting.NothingEmbeds
+                + " Or drop the AddVectorToolSelector call.");
+
         // same contradiction for refusal screening: it wraps Lyntai's OWN client inside the factory below,
         // so with a pre-registered ITextClient every AddRefusalMatcher registration would silently do nothing
         if (hadPreexistingClient && services.Any(d => d.ServiceType == typeof(IRefusalMatcher)))

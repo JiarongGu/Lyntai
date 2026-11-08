@@ -255,6 +255,8 @@ public sealed class GraphMemoryEngine(
     public async Task<MemoryWriteResult> RememberAsync(MemoryWrite write, CancellationToken ct = default)
     {
         ArgumentNullException.ThrowIfNull(write);
+        // a write returns the reference it stored, so a blank claim has no honest skip: it is refused, as the write tool refuses it
+        ArgumentException.ThrowIfNullOrWhiteSpace(write.Content);
 
         // Valid time is checked FIRST, before any embed or annotation call: a refused write has cost nothing.
         var predecessors = await ResolvePredecessorsAsync(write, ct).ConfigureAwait(false);
@@ -1352,7 +1354,7 @@ public sealed class GraphMemoryEngine(
 
         if (scored.Count > 0)
         {
-            if (learn) await LogAndReinforceAsync(scored, verdict, ct).ConfigureAwait(false);
+            var judged = scored;
 
             // A judgement never removes an answer unless a consumer asked for that separately: a mistaken
             // verdict should cost a little learning, not a lost result. Authoritative material is exempt
@@ -1367,11 +1369,23 @@ public sealed class GraphMemoryEngine(
             // among itself. Null when nothing judged, so the shipped default (no verifier) never reports
             // `false` and a consumer abstaining on `false` does not abstain on everything.
             // a filter that emptied the page still says a judge looked: `false`, never the null of "no judge"
+            var items = scored.Count > 0 ? ToItems(scored, query) : [];
             recall = scored.Count > 0
                 ? new MemoryRecall(
-                    await WithRelationsAsync(query.TaskKey, ToItems(scored, query), ct).ConfigureAwait(false),
+                    await WithRelationsAsync(query.TaskKey, items, ct).ConfigureAwait(false),
                     RecallSources, verdict.Judged ? verdict.RelevantIds.Count > 0 : null)
                 : new MemoryRecall([], RecallSources, verdict.Judged ? false : null);
+
+            // Learning follows what the recall RETURNED, so an entry the character budget cut is neither reinforced nor
+            // logged. A judge's rejection stays logged: that row is the observation a fit needs, whatever the filter did.
+            if (learn)
+            {
+                var kept = items.Select(i => i.Reference).ToHashSet();
+                var budgetCut = scored.Where(x => !kept.Contains(new MemoryRef(Name, x.Candidate.Node.Id.ToString(CultureInfo.InvariantCulture))))
+                    .Select(x => x.Candidate.Node.Id).ToHashSet();
+                await LogAndReinforceAsync(budgetCut.Count == 0 ? judged : [.. judged.Where(x => !budgetCut.Contains(x.Candidate.Node.Id))],
+                    verdict, ct).ConfigureAwait(false);
+            }
         }
 
         return query.Explain
@@ -1539,7 +1553,7 @@ public sealed class GraphMemoryEngine(
             .ToList();
 
         // applied AFTER ranking, so the budget cuts the weakest tail rather than changing what wins
-        return query.CharBudget is { } budget && budget > 0 ? MemoryBudget.Cut(items, budget) : items;
+        return query.CharBudget is { } budget ? MemoryBudget.Cut(items, budget) : items;
     }
 
     /// <summary>What of a node's content a read returns: associative content is withheld until expansion —
@@ -1740,6 +1754,19 @@ public sealed class GraphMemoryEngine(
         // method alone. A floor of 0 is the opt-out: retrievability is never below zero.
         var floorValue = minRetrievability ?? _options.MinRetrievability;
 
+        // Retrievability lies in [0, 1], so a floor outside it is a mistake that would remove everything on one path
+        // and nothing on the other: refused, never clamped.
+        if (!(floorValue >= 0 && floorValue <= 1))
+            throw new ArgumentOutOfRangeException(nameof(minRetrievability), floorValue,
+                "A retrievability floor lies between 0 (never prune on retrievability) and 1.");
+        if (olderThan is { } span)
+        {
+            if (span < TimeSpan.Zero)
+                throw new ArgumentOutOfRangeException(nameof(olderThan), span, "An age to prune past cannot be negative.");
+            // no entry is older than this, and a larger span would overflow the cutoff arithmetic
+            olderThan = span > MaxPruneAge ? MaxPruneAge : span;
+        }
+
         if (!_age.AnyDerivable)
             return await PruneInStoreAsync(taskKey, scope, floorValue, olderThan, ct).ConfigureAwait(false);
 
@@ -1764,6 +1791,8 @@ public sealed class GraphMemoryEngine(
         await _vectors.RemoveAsync(doomed, ct).ConfigureAwait(false);
         return count;
     }
+
+    private static readonly TimeSpan MaxPruneAge = TimeSpan.FromDays(100_000);
 
     // a successor, a ValidTo or an end with a reason, whether or not its instant has come
     private static bool StatesEnd(GraphNode n) => n.SupersededAt is not null || n.ValidTo is not null || n.EndedReason is not null;
@@ -2408,7 +2437,8 @@ public sealed class GraphMemoryEngine(
 
             // The co-activation set: every pair among the top CoActivationCap hits, C(5,2) = ten edges at
             // the shipped cap.
-            var top = nodes.Take(_options.CoActivationCap).Select(n => n.Id).ToList();
+            // an entry that states an end is history: it is read, not linked to what else was read
+            var top = nodes.Where(n => !StatesEnd(n)).Take(_options.CoActivationCap).Select(n => n.Id).ToList();
             var edges = new List<GraphEdgeWrite>(top.Count * (top.Count - 1) / 2);
             for (var i = 0; i < top.Count; i++)
                 for (var j = i + 1; j < top.Count; j++)

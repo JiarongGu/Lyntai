@@ -336,7 +336,7 @@ public sealed class CompositeMemoryEngine
                 if (query.Explain && recall.Candidates is { } explained) (candidates ??= []).AddRange(explained);
             }
             catch (OperationCanceledException) when (ct.IsCancellationRequested) { throw; }
-            catch (Exception ex)
+            catch (Exception ex) when (!MemoryCallerMistake.Is(ex))
             {
                 // one broken member must not sink the blend — the others' material is still good
                 _logger.LogWarning(ex, "member {Member} of {Engine} failed during recall; continuing",
@@ -355,7 +355,7 @@ public sealed class CompositeMemoryEngine
                 ran |= recall.Ran;
             }
             catch (OperationCanceledException) when (ct.IsCancellationRequested) { throw; }
-            catch (Exception ex)
+            catch (Exception ex) when (!MemoryCallerMistake.Is(ex))
             {
                 _logger.LogWarning(ex, "view of task {Task} in {Engine} failed during recall; continuing", view.TaskKey, Name);
             }
@@ -400,8 +400,8 @@ public sealed class CompositeMemoryEngine
         // THE SECOND CUT: each member spent up to the whole `CharBudget`, so a blend reconciles it too — AFTER
         // the limit, so the budget cuts the weakest tail rather than changing what wins, by the rule a bare
         // engine applies (MemoryBudget.Cut).
-        if (query.CharBudget is { } budget && budget > 0)
-            items = MemoryBudget.Cut(items, budget);
+        if (query.CharBudget is { } budget)
+            items =MemoryBudget.Cut(items, budget);
 
         var result = new MemoryRecall(items, ran, answered);
         return candidates is null ? result : result with { Candidates = Recut(candidates, offered, limited, items) };

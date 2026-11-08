@@ -100,7 +100,7 @@ public static class MemoryWalk
             recall = await engine.RecallAsync(query, ct).ConfigureAwait(false);
         }
         catch (OperationCanceledException) when (ct.IsCancellationRequested) { throw; }
-        catch
+        catch (Exception ex) when (!MemoryCallerMistake.Is(ex))
         {
             recall = MemoryRecall.Empty;
         }
