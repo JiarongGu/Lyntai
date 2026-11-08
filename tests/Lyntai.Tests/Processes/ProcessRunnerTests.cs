@@ -532,6 +532,77 @@ public class ProcessRunnerTests
         Assert.Contains("cmd-sibling-ran:ok", result.StdOut);
     }
 
+    [SkippableTheory]
+    [InlineData("a&b")]
+    [InlineData("a|b")]
+    [InlineData("a<b")]
+    [InlineData("a>b")]
+    [InlineData("a^b")]
+    [InlineData("%PATH%")]
+    [InlineData("a\nb")]
+    [InlineData("a\rb")]
+    public async Task A_cmd_launcher_is_refused_an_argument_cmd_exe_would_re_parse(string argument)
+    {
+        // cmd.exe re-parses the command line a .cmd/.bat is handed, so a metacharacter in one argument
+        // runs a second command or truncates the value
+        Skip.IfNot(OperatingSystem.IsWindows(), "a .cmd launcher is a Windows concern");
+
+        using var scratch = new ScratchDir("cmd-metachar");
+        var cmd = scratch.File("echoer.cmd", "@echo off\r\necho args:%*\r\n");
+
+        var ex = await Assert.ThrowsAsync<ArgumentException>(() => _runner.RunAsync(cmd, ["ok", argument]));
+
+        Assert.Contains("cmd.exe", ex.Message);
+    }
+
+    [SkippableFact]
+    public async Task A_second_command_smuggled_through_a_cmd_argument_never_runs()
+    {
+        Skip.IfNot(OperatingSystem.IsWindows(), "a .cmd launcher is a Windows concern");
+
+        using var scratch = new ScratchDir("cmd-smuggle");
+        var marker = Path.Combine(scratch.Path, "ran.txt");
+        var cmd = scratch.File("echoer.cmd", "@echo off\r\necho args:%*\r\n");
+
+        await Assert.ThrowsAsync<ArgumentException>(() => _runner.RunAsync(cmd, ["ok&echo x>\"" + marker + "\""]));
+
+        Assert.False(File.Exists(marker), "the second command ran");
+    }
+
+    [SkippableFact]
+    public async Task A_bat_launcher_is_guarded_like_a_cmd_one()
+    {
+        Skip.IfNot(OperatingSystem.IsWindows(), "a .bat launcher is a Windows concern");
+
+        using var scratch = new ScratchDir("bat-metachar");
+        var bat = scratch.File("echoer.bat", "@echo off\r\necho args:%*\r\n");
+
+        await Assert.ThrowsAsync<ArgumentException>(() => _runner.RunAsync(bat, ["a|b"]));
+    }
+
+    [SkippableFact]
+    public async Task A_cmd_launcher_still_takes_an_argument_with_a_double_quote_and_a_space()
+    {
+        Skip.IfNot(OperatingSystem.IsWindows(), "a .cmd launcher is a Windows concern");
+
+        using var scratch = new ScratchDir("cmd-quote");
+        var cmd = scratch.File("echoer.cmd", "@echo off\r\necho args:%*\r\n");
+
+        var result = await _runner.RunAsync(cmd, ["--flag", "two words", "q\"x"]);
+
+        Assert.Equal(0, result.ExitCode);
+        Assert.Contains("args:--flag \"two words\" ", result.StdOut);
+    }
+
+    [Fact]
+    public async Task An_exe_launcher_is_never_refused_for_a_metacharacter()
+    {
+        var result = await _runner.RunAsync("node", ["-e", "console.log(process.argv[1])", "a&b|c<d>e^f%g"]);
+
+        Assert.Equal(0, result.ExitCode);
+        Assert.Contains("a&b|c<d>e^f%g", result.StdOut);
+    }
+
     [SkippableFact]
     public async Task Runs_an_extensionless_shim_through_its_ps1_sibling_when_there_is_no_cmd()
     {
@@ -706,6 +777,87 @@ public class ProcessRunnerTests
         });
 
         Assert.True(sw.Elapsed < TimeSpan.FromSeconds(30), $"took {sw.Elapsed} — kill didn't work");
+    }
+
+    // ---- A grandchild holding the pipes, and a stdin producer that throws -------------------------------
+
+    // The parent prints its detached grandchild's pid and exits at once; the grandchild inherits stdout and stderr
+    // and outlives it by 40s, so the pipes stay open after the parent has gone. It ends by itself, so a regression
+    // fails the bound below instead of orphaning a process.
+    private const string ParentWithDetachedGrandchild =
+        "const {spawn}=require('child_process');" +
+        "const c=spawn(process.execPath,['-e','setTimeout(()=>{},40000)'],{detached:true,stdio:['ignore','inherit','inherit']});" +
+        "console.log('pid:'+c.pid);console.log('parent-done');c.unref();";
+
+    private static async Task AssertGrandchildGone(string line)
+    {
+        var pid = int.Parse(line["pid:".Length..]);
+        try
+        {
+            var deadline = DateTime.UtcNow.AddSeconds(10);
+            while (DateTime.UtcNow < deadline && IsAlive(pid)) await Task.Delay(100);
+            Assert.False(IsAlive(pid), "the grandchild holding the pipe was left running");
+        }
+        finally
+        {
+            try { Process.GetProcessById(pid).Kill(); } catch { /* already gone */ }
+        }
+
+        static bool IsAlive(int pid)
+        {
+            try { return !Process.GetProcessById(pid).HasExited; }
+            catch (ArgumentException) { return false; }
+        }
+    }
+
+    [Fact]
+    public async Task A_buffered_run_returns_when_a_grandchild_keeps_the_pipes_open_after_the_child_exited()
+    {
+        var sw = Stopwatch.StartNew();
+
+        var result = await _runner.RunAsync("node", ["-e", ParentWithDetachedGrandchild]).WaitAsync(TimeSpan.FromSeconds(30));
+
+        Assert.True(sw.Elapsed < TimeSpan.FromSeconds(20), $"took {sw.Elapsed} — the drain is unbounded");
+        Assert.Equal(0, result.ExitCode);
+        Assert.False(result.TimedOut);
+        Assert.Contains("parent-done", result.StdOut);
+        await AssertGrandchildGone(result.StdOut.Split('\n').First(l => l.StartsWith("pid:")).Trim());
+    }
+
+    [Fact]
+    public async Task A_streamed_run_ends_when_a_grandchild_keeps_the_pipes_open_after_the_child_exited()
+    {
+        var sw = Stopwatch.StartNew();
+
+        var lines = await _runner.StreamLinesAsync("node", ["-e", ParentWithDetachedGrandchild])
+            .ToListAsync().AsTask().WaitAsync(TimeSpan.FromSeconds(30));
+
+        Assert.True(sw.Elapsed < TimeSpan.FromSeconds(20), $"took {sw.Elapsed} — the drain is unbounded");
+        Assert.Contains("parent-done", lines);
+        await AssertGrandchildGone(lines.First(l => l.StartsWith("pid:")).Trim());
+    }
+
+    private static async IAsyncEnumerable<string> OneLineThenThrow()
+    {
+        yield return "one";
+        await Task.Yield();
+        throw new InvalidOperationException("the producer broke");
+    }
+
+    [Fact]
+    public async Task A_stdin_producer_that_throws_ends_the_exchange_with_its_own_fault_and_kills_the_child()
+    {
+        // pre-fix the child's stdin stayed open, so this read as the child's own inactivity timeout
+        var sw = Stopwatch.StartNew();
+
+        var thrown = await Assert.ThrowsAsync<InvalidOperationException>(async () =>
+        {
+            await foreach (var _ in _runner.ExchangeLinesAsync("node", ["-e", UppercaseEcho], OneLineThenThrow(),
+                               inactivityTimeout: TimeSpan.FromSeconds(8))) { }
+        });
+
+        Assert.Equal("the producer broke", thrown.Message);
+        Assert.True(sw.Elapsed < TimeSpan.FromSeconds(7), $"took {sw.Elapsed} — the child was left to its timeout");
     }
 
     // ---- InactivityPause — the caller is waiting, so the child's silence is not inactivity ----------------
