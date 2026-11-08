@@ -30,11 +30,13 @@ internal sealed class SafetensorsTable
     /// <summary>Add row <paramref name="row"/> into <paramref name="into"/>. Out-of-range rows are IGNORED
     /// rather than throwing: a tokenizer and a table can legitimately disagree at the edges (an added
     /// special token), and losing one token is the right cost — refusing the whole embedding is not.</summary>
-    internal void AccumulateInto(int row, Span<float> into)
+    /// <returns>Whether a row was read, so a caller averaging the rows counts only those.</returns>
+    internal bool AccumulateInto(int row, Span<float> into)
     {
-        if (row < 0 || row >= Rows) return;
+        if (row < 0 || row >= Rows) return false;
         var start = row * Dimensions;
         for (var i = 0; i < Dimensions; i++) into[i] += _data[start + i];
+        return true;
     }
 
     /// <summary>Read the single embedding tensor from <paramref name="path"/>.</summary>

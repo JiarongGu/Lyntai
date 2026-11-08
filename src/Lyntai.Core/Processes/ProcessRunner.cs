@@ -1,6 +1,7 @@
 using System.Collections.Concurrent;
 using System.Diagnostics;
 using System.Runtime.CompilerServices;
+using System.Runtime.ExceptionServices;
 using System.Text;
 
 namespace Lyntai.Processes;
@@ -95,7 +96,9 @@ public sealed class ProcessRunner : IProcessRunner
         using var process = Start(command, args, workingDirectory, environment);
 
         // stderr is diagnostic — drain it concurrently to the end (it completes when the child exits)
-        var stderrTask = process.StandardError.ReadToEndAsync(CancellationToken.None);
+        var stderr = new PipeCapture();
+        _ = stderr.Start(process.StandardError);
+        var exited = process.WaitForExitAsync(CancellationToken.None);
 
         using var killCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
         // killing the child breaks the pipes, so a stalled read/write unblocks with EOF/IOException
@@ -120,7 +123,7 @@ public sealed class ProcessRunner : IProcessRunner
         });
         if (maxDuration is not null) maxCts.CancelAfter(maxDuration.Value);
 
-        var stdout = new StringBuilder();
+        var stdout = new PipeCapture();
 
         // Arm the inactivity clock for the first read, then write stdin CONCURRENTLY with the read loop:
         // a large prompt can fill the stdin pipe before the child drains it, and awaiting the full write
@@ -133,28 +136,14 @@ public sealed class ProcessRunner : IProcessRunner
 
         try
         {
-            var buffer = new char[8192];
-            while (true)
-            {
-                if (inactivityTimeout is not null) idleCts.CancelAfter(inactivityTimeout.Value); // re-arm for THIS read
-                int n;
-                try
-                {
-                    // read with an uncancellable token — the kill (registered on killCts) is what unblocks a stall
-                    n = await process.StandardOutput.ReadAsync(buffer.AsMemory(), CancellationToken.None).ConfigureAwait(false);
-                }
-                catch (Exception) when (killCts.IsCancellationRequested)
-                {
-                    break; // killed (inactivity / caller) — reason resolved after the removal
-                }
-                catch (IOException)
-                {
-                    break; // broken pipe after the child exited/crashed — treat as EOF; exit code tells the story
-                }
-                if (n == 0) break; // EOF — child closed stdout
-                stdout.Append(buffer, 0, n);
-            }
-            var stderr = await ObserveStdinAndReapAsync(process, stdinTask, stderrTask,
+            // read with an uncancellable token — the kill (registered on killCts) is what unblocks a stall; a
+            // killed read is reason-resolved after the removal, and a broken pipe is EOF (the exit code tells the story)
+            var stdoutPump = stdout.Start(process.StandardOutput,
+                onRead: () => { if (inactivityTimeout is not null) idleCts.CancelAfter(inactivityTimeout.Value); }, // re-arm for THIS read
+                killed: () => killCts.IsCancellationRequested);
+            if (await DrainedAsync(stdoutPump, exited, stdout).ConfigureAwait(false)) await stdoutPump.ConfigureAwait(false);
+            else KillTree(process); // the child is gone and a grandchild still holds the pipe: what was read stands
+            var stderrText = await ObserveStdinAndReapAsync(process, stdinTask, stderr, exited,
                 reArm: () => { if (inactivityTimeout is not null) idleCts.CancelAfter(inactivityTimeout.Value); },
                 killed: () => killCts.IsCancellationRequested).ConfigureAwait(false);
 
@@ -169,10 +158,10 @@ public sealed class ProcessRunner : IProcessRunner
                 {
                     // killCts fired without a tagged reason ⇒ the caller's own token (handled above) or a race; default to inactivity
                     var kind = stopReason == (int)ProcessTimeoutKind.None ? ProcessTimeoutKind.Inactivity : (ProcessTimeoutKind)stopReason;
-                    return new ProcessResult(-1, stdout.ToString(), stderr, kind);
+                    return new ProcessResult(-1, stdout.ToString(), stderrText, kind);
                 }
             }
-            return new ProcessResult(process.ExitCode, stdout.ToString(), stderr);
+            return new ProcessResult(process.ExitCode, stdout.ToString(), stderrText);
         }
         finally
         {
@@ -297,7 +286,11 @@ public sealed class ProcessRunner : IProcessRunner
         // only the 500-char TAIL is ever reported (ProcessRunException) — drain stderr bounded, so a
         // child spewing MBs of diagnostics while streaming can't grow the parent's memory with it.
         // (RunAsync's full-stderr buffer is contract — its ProcessResult returns the whole stream.)
-        var stderrTask = ReadTailAsync(process.StandardError);
+        var stderr = new PipeCapture(StdErrTailChars);
+        _ = stderr.Start(process.StandardError);
+        var exited = process.WaitForExitAsync(CancellationToken.None);
+        // a stdin producer's own fault is the exchange's: it ends the child and is rethrown once the lines read are yielded
+        Exception? producerFault = null;
 
         using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
         // killing the tree unblocks a pending read/write with EOF/IOException — no cancellable read needed
@@ -349,7 +342,8 @@ public sealed class ProcessRunner : IProcessRunner
             Action onStdinProgress = () => { if (inactivityTimeout is not null && Volatile.Read(ref observeStdin)) timeoutCts.CancelAfter(inactivityTimeout.Value); };
             var stdinTask = stdinLines is null
                 ? WriteStdinAsync(process, stdin, onStdinProgress, timeoutCts.Token)
-                : WriteStdinLinesAsync(process, stdinLines, onStdinProgress, writerCts.Token);
+                : WriteStdinLinesAsync(process, stdinLines, onStdinProgress, writerCts.Token,
+                    onFault: fault => { producerFault ??= fault; KillTree(process); });
 
             while (!timedOut && !timeoutCts.IsCancellationRequested)
             {
@@ -358,7 +352,7 @@ public sealed class ProcessRunner : IProcessRunner
                 {
                     Volatile.Write(ref reading, true);
                     Rearm();                                                                                // arm for this read
-                    item = await readOne(process).ConfigureAwait(false);
+                    item = await ReadBoundedAsync(readOne(process), exited, process).ConfigureAwait(false);
                     Volatile.Write(ref reading, false);
                     if (inactivityTimeout is not null) timeoutCts.CancelAfter(Timeout.InfiniteTimeSpan); // stop the clock while the consumer works
                 }
@@ -380,11 +374,12 @@ public sealed class ProcessRunner : IProcessRunner
             // then run the shared observe-stdin/remove tail below.
             Volatile.Write(ref observeStdin, true);
             if (stdinLines is not null) writerCts.Cancel();
-            var stderr = await ObserveStdinAndReapAsync(process, stdinTask, stderrTask,
+            var stderrText = await ObserveStdinAndReapAsync(process, stdinTask, stderr, exited,
                 reArm: () => { if (inactivityTimeout is not null) timeoutCts.CancelAfter(inactivityTimeout.Value); },
                 killed: () => timeoutCts.IsCancellationRequested).ConfigureAwait(false);
 
             ct.ThrowIfCancellationRequested();
+            if (producerFault is not null) ExceptionDispatchInfo.Capture(producerFault).Throw();
             // a kill that fired during the stdin observe / remove is a TIMEOUT, not a child failure — classify
             // it as one (unless the child actually finished cleanly first: the kill can race a clean exit)
             if (TimedOut(timeoutCts.IsCancellationRequested, process.ExitCode)) timedOut = true;
@@ -395,7 +390,7 @@ public sealed class ProcessRunner : IProcessRunner
                 throw new ProcessTimeoutException(command, fired ?? maxDuration ?? TimeSpan.Zero);
             }
             if (process.ExitCode != 0)
-                throw new ProcessRunException(command, process.ExitCode, Tail(stderr));
+                throw new ProcessRunException(command, process.ExitCode, Tail(stderrText));
         }
         finally
         {
@@ -515,7 +510,7 @@ public sealed class ProcessRunner : IProcessRunner
         string command, IReadOnlyList<string> args, string? workingDirectory,
         IReadOnlyDictionary<string, string?>? environment)
     {
-        var (exe, prefixArgs) = ResolveLauncher(command);
+        var (exe, prefixArgs) = ResolveLauncher(command, args);
         var psi = new ProcessStartInfo(exe)
         {
             UseShellExecute = false,
@@ -568,8 +563,11 @@ public sealed class ProcessRunner : IProcessRunner
     /// forwards to a <c>-File</c> script, so an argument with embedded double quotes or a trailing backslash
     /// can arrive mangled. Prompts already travel via stdin (never argv); keep <c>.ps1</c>-shim argv to simple
     /// flags, or supply a BYO <see cref="IProcessRunner"/> for a CLI that needs exotic args through a .ps1 shim.
-    /// Stream encoding is forced to BOM-less UTF-8 by <see cref="Start"/> regardless.</summary>
-    private static (string Exe, IReadOnlyList<string> PrefixArgs) ResolveLauncher(string command)
+    /// A resolved <c>.cmd</c>/<c>.bat</c> is the other exception: <c>cmd.exe</c> re-parses its command line, so an
+    /// argument holding <c>&amp; | &lt; &gt; ^ %</c> or a line break is REFUSED (<see cref="ArgumentException"/>)
+    /// rather than run as a second command; <c>"</c> is not on the list, since the argument quoting already
+    /// carries it. Stream encoding is forced to BOM-less UTF-8 by <see cref="Start"/> regardless.</summary>
+    private static (string Exe, IReadOnlyList<string> PrefixArgs) ResolveLauncher(string command, IReadOnlyList<string> args)
     {
         var resolved = ResolveCommandPath(command);
         if (!OperatingSystem.IsWindows()) return (resolved, []);
@@ -577,8 +575,16 @@ public sealed class ProcessRunner : IProcessRunner
         if (!IsSpawnable(resolved)) resolved = SpawnableSibling(resolved) ?? resolved;
         if (resolved.EndsWith(".ps1", StringComparison.OrdinalIgnoreCase))
             return ("powershell.exe", ["-NoProfile", "-ExecutionPolicy", "Bypass", "-File", resolved]);
+        if (resolved.EndsWith(".cmd", StringComparison.OrdinalIgnoreCase) || resolved.EndsWith(".bat", StringComparison.OrdinalIgnoreCase))
+            foreach (var arg in args)
+                if (arg.AsSpan().IndexOfAny(CmdMetacharacters) >= 0)
+                    throw new ArgumentException(
+                        $"an argument for {Path.GetFileName(resolved)} holds a character cmd.exe would re-parse (& | < > ^ % or a line break); " +
+                        "a .cmd or .bat launcher is refused it rather than run a second command", nameof(args));
         return (resolved, []);
     }
+
+    private static readonly System.Buffers.SearchValues<char> CmdMetacharacters = System.Buffers.SearchValues.Create("&|<>^%\r\n");
 
     private static bool IsSpawnable(string path) =>
         SpawnableExtensions.Contains(Path.GetExtension(path), StringComparer.OrdinalIgnoreCase);
@@ -632,7 +638,7 @@ public sealed class ProcessRunner : IProcessRunner
     }
 
     private static async Task WriteStdinLinesAsync(System.Diagnostics.Process process, IAsyncEnumerable<string> lines,
-        Action? onProgress, CancellationToken ct)
+        Action? onProgress, CancellationToken ct, Action<Exception> onFault)
     {
         try
         {
@@ -647,8 +653,94 @@ public sealed class ProcessRunner : IProcessRunner
             // a broken pipe is a child that exited, and a cancellation is the clock, the caller or the child's
             // own end: each is reported by the exit code or the timeout, never by the writer
         }
+        catch (Exception ex)
+        {
+            onFault(ex); // the producer's own fault: the caller ends the child and reports THIS
+        }
+        finally
+        {
+            try { process.StandardInput.Close(); } catch (IOException) { }
+        }
+    }
 
-        try { process.StandardInput.Close(); } catch (IOException) { }
+    /// <summary>How long a pipe may stay silent once the child that owned it has exited before a grandchild
+    /// still holding it open is given up on.</summary>
+    private static readonly TimeSpan DrainBound = TimeSpan.FromSeconds(2);
+
+    /// <summary>Wait for a pipe's reader to finish. True when it reached EOF; false when the child had exited and
+    /// the pipe then stayed silent for <see cref="DrainBound"/> — a grandchild is holding it, and only a kill
+    /// ends that read. A pipe still producing after the exit is drained for as long as it does.</summary>
+    private static async Task<bool> DrainedAsync(Task pump, Task exited, PipeCapture capture)
+    {
+        await Task.WhenAny(pump, exited).ConfigureAwait(false);
+        while (!pump.IsCompleted)
+        {
+            var seen = capture.Received;
+            await Task.WhenAny(pump, Task.Delay(DrainBound)).ConfigureAwait(false);
+            if (!pump.IsCompleted && capture.Received == seen) return false;
+        }
+        return true;
+    }
+
+    /// <summary>One read of the streamed core, bounded the same way: a read still pending
+    /// <see cref="DrainBound"/> after the child exited ends the tree and reads as EOF.</summary>
+    private static async Task<T?> ReadBoundedAsync<T>(ValueTask<T?> started, Task exited,
+        System.Diagnostics.Process process) where T : class
+    {
+        var read = started.AsTask();
+        if (!read.IsCompleted)
+        {
+            await Task.WhenAny(read, exited).ConfigureAwait(false);
+            if (!read.IsCompleted && await Task.WhenAny(read, Task.Delay(DrainBound)).ConfigureAwait(false) != read)
+            {
+                _ = read.ContinueWith(static t => _ = t.Exception, TaskContinuationOptions.OnlyOnFaulted);
+                KillTree(process);
+                return null;
+            }
+        }
+        return await read.ConfigureAwait(false);
+    }
+
+    /// <summary>A pipe's text, read by a pump that outlives a caller giving up on it. Optionally keeps only the
+    /// last <c>tailMax</c> characters — a rolling window, so the capture is bounded however much the child writes.</summary>
+    private sealed class PipeCapture(int? tailMax = null)
+    {
+        private readonly StringBuilder _text = new();
+        private long _received;
+
+        public long Received => Interlocked.Read(ref _received);
+
+        public Task Completion { get; private set; } = Task.CompletedTask;
+
+        /// <summary>Read <paramref name="reader"/> to EOF. A broken pipe is EOF, and so is any fault once
+        /// <paramref name="killed"/> says the child was killed; <paramref name="onRead"/> runs before each read.</summary>
+        public Task Start(StreamReader reader, Action? onRead = null, Func<bool>? killed = null) =>
+            Completion = PumpAsync(reader, onRead, killed);
+
+        private async Task PumpAsync(StreamReader reader, Action? onRead, Func<bool>? killed)
+        {
+            var buffer = new char[8192];
+            while (true)
+            {
+                onRead?.Invoke();
+                int n;
+                try { n = await reader.ReadAsync(buffer.AsMemory(), CancellationToken.None).ConfigureAwait(false); }
+                catch (IOException) { break; }
+                catch (Exception) when (killed?.Invoke() == true) { break; }
+                if (n == 0) break;
+                lock (_text)
+                {
+                    _text.Append(buffer, 0, n);
+                    if (tailMax is { } max && _text.Length > max) _text.Remove(0, _text.Length - max);
+                }
+                Interlocked.Add(ref _received, n);
+            }
+        }
+
+        public override string ToString()
+        {
+            lock (_text) return _text.ToString();
+        }
     }
 
     /// <summary>The shared post-read-loop tail of BOTH run shapes (the I2 fresh-window discipline, kept in
@@ -663,14 +755,15 @@ public sealed class ProcessRunner : IProcessRunner
     /// topologies (buffered dual-clock with tagged reasons vs streamed single-clock) — and
     /// <paramref name="killed"/> reports the caller's kill state so a fired clock is never re-armed.</summary>
     private static async Task<string> ObserveStdinAndReapAsync(System.Diagnostics.Process process,
-        Task stdinTask, Task<string> stderrTask, Action reArm, Func<bool> killed)
+        Task stdinTask, PipeCapture stderr, Task exited, Action reArm, Func<bool> killed)
     {
         if (!killed()) reArm();
         try { await stdinTask.ConfigureAwait(false); } catch { /* reflected in exit code / timeout */ }
 
         if (!killed()) reArm();
-        await process.WaitForExitAsync(CancellationToken.None).ConfigureAwait(false);
-        return await stderrTask.ConfigureAwait(false);
+        await exited.ConfigureAwait(false);
+        if (!await DrainedAsync(stderr.Completion, exited, stderr).ConfigureAwait(false)) KillTree(process);
+        return stderr.ToString();
     }
 
     private static void KillTree(System.Diagnostics.Process process)
@@ -681,23 +774,6 @@ public sealed class ProcessRunner : IProcessRunner
 
     private const int StdErrTailChars = 500;
 
-    // its one caller passes ReadTailAsync's output, already bounded to StdErrTailChars
+    // its one caller passes the capture bounded to StdErrTailChars
     private static string Tail(string text) => text.Trim();
-
-    /// <summary>Drain a diagnostic stream to EOF keeping only the last <paramref name="max"/> chars — a
-    /// rolling window, so the capture is bounded no matter how much the child writes. Completes when the
-    /// child exits (its side of the pipe closes), like <c>ReadToEndAsync</c> did.</summary>
-    private static async Task<string> ReadTailAsync(StreamReader reader, int max = StdErrTailChars)
-    {
-        var buffer = new char[4096];
-        var tail = new StringBuilder(max + buffer.Length);
-        while (true)
-        {
-            var n = await reader.ReadAsync(buffer.AsMemory(), CancellationToken.None).ConfigureAwait(false);
-            if (n == 0) break; // EOF — child closed stderr
-            tail.Append(buffer, 0, n);
-            if (tail.Length > max) tail.Remove(0, tail.Length - max); // keep the END of the stream
-        }
-        return tail.ToString();
-    }
 }

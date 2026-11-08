@@ -335,8 +335,13 @@ new decision overturns an old one, rewrite the old entry as a stub pointing here
 | [D263](#d263--a-keys-order-is-its-utf-8-bytes-in-process-as-in-sqlite-and-postgres-2026-11-09) | 2026-11-09 | a key's order is its UTF-8 bytes, in process as in SQLite and Postgres |
 | [D264](#d264--a-vector-with-a-non-finite-component-is-refused-at-every-upsert-2026-11-09) | 2026-11-09 | a vector with a non-finite component is refused at every upsert |
 | [D265](#d265--a-response-cache-maxentries-of-0-or-less-stores-nothing-2026-11-09) | 2026-11-09 | a response cache `MaxEntries` of 0 or less stores nothing |
+| [D266](#d266--the-process-runner-refuses-a-cmd-argument-cmdexe-would-re-parse-bounds-a-drain-after-the-child-exits-and-ends-an-exchange-with-its-producers-fault-2026-11-09) | 2026-11-09 | the process runner refuses a `.cmd` argument cmd.exe would re-parse, bounds a drain after the chi… |
+| [D267](#d267--a-stdio-mcp-servers-variables-reach-codex-by-name-the-bearer-variable-carries-token-and-a-stderr-limit-is-a-limit-failure-2026-11-09) | 2026-11-09 | a stdio MCP server's variables reach Codex by name, the bearer variable carries TOKEN, and a stde… |
+| [D268](#d268--the-agent-doors-arm-a-15-minute-inactivity-window-where-a-text-call-keeps-two-2026-11-09) | 2026-11-09 | the agent doors arm a 15 minute inactivity window where a text call keeps two |
+| [D269](#d269--the-onnx-reader-refuses-an-export-it-cannot-run-reads-a-roberta-exports-padding-offset-and-caps-a-pass-at-128-rows-2026-11-09) | 2026-11-09 | the Onnx reader refuses an export it cannot run, reads a RoBERTa export's padding offset, and cap… |
+| [D270](#d270--model2vec-divides-by-the-rows-it-read-and-a-contextsize-the-machine-cannot-hold-is-the-hosts-to-bound-2026-11-09) | 2026-11-09 | Model2Vec divides by the rows it read, and a `ContextSize` the machine cannot hold is the host's… |
 
-**260 live decisions.** The rest are stubs — `D<n>` is a permanent identifier, so a number is never reused or renumbered (5): [D36](#d36--a-translation-between-two-verdict-taxonomies-gets-one-arm-per-member-gated-by-a-test-2026-08-05) → D136 · [D80](#d80--merged-into-d77-2026-08-16-folded-2026-08-17) → D77 · [D131](#d131--a-backends-produces-is-derived-from-its-configuration-so-a-modality-is-a-field-2026-09-14) → D133 · [D134](#d134--a-registration-names-the-backend-the-provider-suffix-is-gone-from-all-seventeen-2026-09-14) → D137 · [D145](#d145--the-microsoftextensionsai-module-is-a-bridge-not-a-provider-2026-09-15) → D146
+**265 live decisions.** The rest are stubs — `D<n>` is a permanent identifier, so a number is never reused or renumbered (5): [D36](#d36--a-translation-between-two-verdict-taxonomies-gets-one-arm-per-member-gated-by-a-test-2026-08-05) → D136 · [D80](#d80--merged-into-d77-2026-08-16-folded-2026-08-17) → D77 · [D131](#d131--a-backends-produces-is-derived-from-its-configuration-so-a-modality-is-a-field-2026-09-14) → D133 · [D134](#d134--a-registration-names-the-backend-the-provider-suffix-is-gone-from-all-seventeen-2026-09-14) → D137 · [D145](#d145--the-microsoftextensionsai-module-is-a-bridge-not-a-provider-2026-09-15) → D146
 
 <!-- index:end -->
 
@@ -7566,3 +7571,72 @@ recall and its write-back is already a silent skip).
 **Rejected.** Refusing the value (a property setter that throws is a new failure at a configuration seam, and `Ttl` already means this). One entry (a cap of 0 asking for a cache of one is surprising, and it is what the SQL stores did by accident).
 
 **Re-opens** when the environment override should accept 0: `LYNTAI_CACHE_MAX_ENTRIES` still ignores a non-positive value, where `LYNTAI_CACHE_TTL_SECONDS` accepts zero.
+## D266 — the process runner refuses a `.cmd` argument cmd.exe would re-parse, bounds a drain after the child exits, and ends an exchange with its producer's fault (2026-11-09)
+
+**Standing.** Three rulings on `TASKS.md` Part 485's rows, **the steward's under the owner's delegation to develop while away, which the owner may reverse** — not the owner's words. Built, and frozen from release (**D70**).
+
+**Decided.**
+- **A `.cmd` or `.bat` launcher** resolved by `ProcessRunner.ResolveLauncher` is refused (`ArgumentException`, before a spawn) any argument holding `& | < > ^ %`, CR or LF. `"` is not refused: the argument quoting carries it.
+- **A pipe a grandchild holds** after the child exited is waited on for 2 s of silence (a pipe still producing is drained for as long as it does), then the tree is killed and what was read stands. The buffered and streamed runs share it.
+- **A stdin producer that throws** closes the child's stdin in a `finally`, kills the tree, and its own fault is rethrown after the lines already read are yielded.
+
+**Why.** `cmd.exe` re-parses a `.cmd`'s command line, and `where.exe` prefers `codex.cmd`, so a `&` in an MCP URL or a resume token ran a second command. The read loops ended only at EOF, which a detached grandchild withholds. A producer's fault was discarded and its child waited on a stdin that never closed, so the exchange read as a timeout.
+
+**Rejected.** Escaping for cmd.exe (no escape was measured to hold across `%` expansion and delayed expansion). Resolving the npm shim to its node target (a launch policy of one package manager). Treating a producer's fault as only a stdin close (the exchange would end as the child's timeout, which hides the cause).
+
+**Re-opens** when a host must pass one of those characters to a `.cmd`, which then needs a BYO `IProcessRunner`.
+
+## D267 — a stdio MCP server's variables reach Codex by name, the bearer variable carries TOKEN, and a stderr limit is a `Limit` failure (2026-11-09)
+
+**Standing.** Three rulings on `TASKS.md` Part 485's rows, **the steward's under the owner's delegation, which the owner may reverse** — not the owner's words. Built, and frozen from release (**D70**).
+
+**Decided.**
+- **`env` leaves argv.** `CodexMcpConfig` renders `mcp_servers.<name>.env_vars=[names]` and puts the values in the child's environment, carrying out **D38**. `codex mcp get` reads `env_vars` back (codex-cli 0.167.0) and spends no turn. The turn is refused (`mcp-server-invalid`) for a name the door sets itself (`LYNTAI_MCP_TOKEN_*`, `CODEX_HOME`, an account's keys), one an environment cannot hold, or one two servers give different values.
+- **The bearer variable** is `LYNTAI_MCP_TOKEN_<NAME>`, so codex's default shell-environment policy filters it from a shell tool.
+- **A stderr rate limit** is `AgentFailureKind.Limit` where `CliAgentLoop.FaultFailure` reads the verdict `RateLimited`; nothing else moves. The pool keys on the kind, so it now holds the seat.
+
+**Why.** Values in argv are readable by every process on the machine. A bearer named without `KEY`, `SECRET` or `TOKEN` was believed readable to a model running `env`. A `429` on stderr was a `Fatal` failure the pool never benched.
+
+**Rejected.** Keeping `env` as a TOML table (D38 forbids a credential in argv). An owner-only file as the Claude door writes (codex has no file form for a server's variables). Keeping the old bearer name and documenting it.
+
+**Re-opens** when a stdio server's value must stay out of codex's own environment, which no door form carries; a forwarded value is visible to codex's shell tools unless its name holds a filtered word.
+
+## D268 — the agent doors arm a 15 minute inactivity window where a text call keeps two (2026-11-09)
+
+**Standing.** A ruling on `TASKS.md` Part 485's last row, **the steward's under the owner's delegation, which the owner may reverse** — not the owner's words. Built, and frozen from release (**D70**).
+
+**Decided.** `LyntaiOptions.AgentTimeout` (default 15 minutes, not clamped by `MaxProviderTimeout`) is the window the Codex, Claude and ACP doors arm when a turn's `TimeoutSeconds` is null, through `ResolveAgentTimeout`; a turn's own seconds still win, clamped as before. Text calls keep `ProviderTimeout`.
+
+**Why.** `codex exec --json` prints nothing between `item.started` and `item.completed`, so a `dotnet test` past two minutes was a `Timeout`, `Transient`, `Delivery Uncertain` and its step was lost.
+
+**Rejected.** Raising `ProviderTimeout` for everyone (a stalled HTTP call would wait 15 minutes). A documented warning only (the loss is silent). Reading `TimeoutByConsumer` for the agent doors (an agent turn carries no consumer).
+
+**Re-opens** when a real Codex turn through a known long step is timed (`TASKS.md` Part 485's remaining row, an account turn that is the owner's).
+
+## D269 — the Onnx reader refuses an export it cannot run, reads a RoBERTa export's padding offset, and caps a pass at 128 rows (2026-11-09)
+
+**Standing.** Four rulings on `TASKS.md` Part 490's rows, **the steward's under the owner's delegation, which the owner may reverse** — not the owner's words. Built, and frozen from release (**D70**).
+
+**Decided.**
+- **An explicit unsupported declaration** (`pooling_mode_lasttoken`, `_max_tokens`, `_weightedmean_tokens`, a `pooling_mode` outside cls, mean and mean_sqrt_len_tokens, or a `modules.json` entry other than Transformer, Pooling and Normalize, such as `Dense`) throws `InvalidDataException` from `OnnxProvider.FromDirectory`. An absent or unreadable file keeps its default, and an explicit `OnnxProviderOptions.Pooling` (or a cross-encoder) skips the check.
+- **A `roberta`, `xlm-roberta`, `camembert` or `mpnet` export** gives up `pad_token_id + 1` positions (1 if undeclared) from `max_position_embeddings`: 514 reads 512.
+- **A forward pass** holds at most `WindowedBatch.MaxPassRows` (128) rows, through the existing chunker, segmented or not.
+- **A segmented text's vector** is documented as direction-only (always unit length), with a test pinning it when `Normalize` is false.
+
+**Why.** Each produced finite vectors that rank wrongly or an index past the position table, with no error. An unsegmented 6,000-row call was one 9.4 GB output.
+
+**Rejected.** Implementing last-token and Dense (a model per layer, none measured). Logging and carrying on (the failure is silent). Returning the raw weighted mean when `Normalize` is false (a different vector from the one stored today).
+
+**Re-opens** when an export needs one of the refused poolings, or a memory budget rather than a row count bounds a pass.
+
+## D270 — Model2Vec divides by the rows it read, and a `ContextSize` the machine cannot hold is the host's to bound (2026-11-09)
+
+**Standing.** Two rulings on `TASKS.md` Part 490's rows, **the steward's under the owner's delegation, which the owner may reverse** — not the owner's words. Built, and frozen from release (**D70**).
+
+**Decided.** `SafetensorsTable.AccumulateInto` returns whether it read a row and `Model2VecProvider` counts only those, so a vocabulary longer than the table dilutes nothing. `LlamaSharpOptions.ContextSize` states in its doc that the host bounds it, because a value past memory aborts the host process natively.
+
+**Why.** A vocabulary id past the table added no row but was still a divisor. The abort cannot be caught, so a verdict cannot answer it.
+
+**Rejected.** Refusing a vocabulary longer than the table at load (a tokenizer and a table legitimately disagree at the edges, as `AccumulateInto` already says). Refusing a `ContextSize` past the trained context: it narrows a published option and stays the owner's (`TASKS.md` Part 490).
+
+**Re-opens** when the owner rules on the `ContextSize` refusal, or on `[UNK]` averaging (`TASKS.md` Part 490), which moves stored vectors.

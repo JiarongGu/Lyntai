@@ -29,6 +29,13 @@ public sealed class LyntaiOptions
     /// <see cref="TimeoutByConsumer"/>.</summary>
     public TimeSpan ProviderTimeout { get; set; } = TimeSpan.FromMinutes(2);
 
+    /// <summary>The inactivity window an agent door (Codex, Claude, ACP) arms when a turn names no
+    /// <see cref="Lyntai.Agents.AgentSessionOptions.TimeoutSeconds"/> — 15 minutes. An agent goes quiet for as
+    /// long as a tool step runs (a test run, a build), where a text call has no such step, so it takes a longer
+    /// default than <see cref="ProviderTimeout"/>, which text calls keep. App-configured, so not clamped to
+    /// <see cref="MaxProviderTimeout"/>.</summary>
+    public TimeSpan AgentTimeout { get; set; } = TimeSpan.FromMinutes(15);
+
     /// <summary>Ceiling that clamps a caller-supplied per-request timeout (<see cref="TextRequest.TimeoutSeconds"/>)
     /// — so a stray/large value can't hang a call indefinitely. App-configured timeouts (the global +
     /// <see cref="TimeoutByConsumer"/>) are trusted and NOT clamped.</summary>
@@ -153,6 +160,17 @@ public sealed class LyntaiOptions
         }
         if (consumer is not null && TimeoutByConsumer.TryGetValue(consumer, out var t)) return t;
         return TimeoutByConsumer.TryGetValue(ProviderConsumers.Default, out var d) ? d : ProviderTimeout;
+    }
+
+    /// <summary>Resolve the inactivity window of an agent turn: the turn's own <paramref name="seconds"/> win
+    /// (clamped to <see cref="MaxProviderTimeout"/>), else <see cref="AgentTimeout"/>.</summary>
+    /// <param name="seconds">The turn's <see cref="Lyntai.Agents.AgentSessionOptions.TimeoutSeconds"/>; null or
+    /// below one takes the default.</param>
+    public TimeSpan ResolveAgentTimeout(int? seconds)
+    {
+        if (seconds is not { } s || s <= 0) return AgentTimeout;
+        var requested = TimeSpan.FromSeconds(s);
+        return requested > MaxProviderTimeout ? MaxProviderTimeout : requested;
     }
 
     /// <summary>Resolve a provider timeout for a caller with no consumer to name — exactly

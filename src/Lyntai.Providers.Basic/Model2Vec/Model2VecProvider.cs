@@ -132,8 +132,7 @@ public sealed class Model2VecProvider : IVectorProvider
         var counted = 0;
         foreach (var id in _tokenizer.EncodeToIds(text))
         {
-            _table.AccumulateInto(id, span);
-            counted++;
+            if (_table.AccumulateInto(id, span)) counted++;   // an id past the table adds no row, so it is no divisor
         }
 
         if (counted == 0) return vector;

@@ -112,18 +112,19 @@ public class AgentDeliveryTests
         Assert.Equal(AgentDelivery.Taken, ended.Failure.Delivery);
     }
 
-    [Theory] // stderr may name an access failure and nothing else
+    [Theory] // stderr may name an access failure or a limit and nothing else
     [InlineData("claude", "Invalid API key · Please run /login", AgentFailureKind.Access, ProviderVerdict.AuthFailed)]
     [InlineData("codex", "unexpected status 401 Unauthorized", AgentFailureKind.Access, ProviderVerdict.AuthFailed)]
-    [InlineData("claude", "429 Too Many Requests", AgentFailureKind.Fatal, ProviderVerdict.RateLimited)]
+    [InlineData("claude", "429 Too Many Requests", AgentFailureKind.Limit, ProviderVerdict.RateLimited)]
+    [InlineData("codex", "429 Too Many Requests", AgentFailureKind.Limit, ProviderVerdict.RateLimited)]
     [InlineData("codex", "overloaded_error", AgentFailureKind.Fatal, ProviderVerdict.Failed)]
-    public async Task Stderr_names_an_access_failure_and_nothing_else(string backend, string stderr, AgentFailureKind kind, ProviderVerdict verdict)
+    public async Task Stderr_names_an_access_failure_or_a_limit_and_nothing_else(string backend, string stderr, AgentFailureKind kind, ProviderVerdict verdict)
     {
         var ended = await Run(backend, new FakeProcessRunner([], new ProcessRunException(backend, 1, stderr)));
 
         Assert.Equal(kind, ended.Failure!.Kind);
-        // the verdict of a process fault is still its stderr's read, as before this layer: the kind is the
-        // narrower fact, so a stderr that says 429 is a Fatal failure that benches the host
+        // the verdict of a process fault is its stderr's read, and the kind follows it where the pool keys on the
+        // kind: a stderr that says 429 is a Limit failure, which holds the seat
         Assert.Equal(verdict, ended.Verdict);
     }
 

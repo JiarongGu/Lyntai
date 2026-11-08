@@ -7,6 +7,20 @@ to `.agents/knowledge/pitfalls.md`; the release-facing line goes to `CHANGELOG.m
 
 ---
 
+## 2026-11-09 — a run hung on a grandchild holding the pipes, a throwing stdin producer left the child waiting, a stderr rate limit read Fatal, and Model2Vec divided by tokens it never read
+
+**Symptom.** None reported; the rows were filed by the 2026-11-08 reviews (`TASKS.md` Part 485 and Part 490, since closed). A node parent that exited while a detached child inherited its stdout made `RunAsync` and `StreamLinesAsync` wait for the child's end (reproduced: a 30 s guard expired). A stdin producer that threw left the child's stdin open, so the exchange read as the child's inactivity timeout. A stderr `429` ended an agent turn with `AgentFailureKind.Fatal`, which the account pool does not hold. A `vocab.txt` longer than the table made every `Model2VecProvider` mean divide by tokens that added no row.
+
+**Root cause.** The read loops read with `CancellationToken.None` and ended only at EOF, which a grandchild holding the handle withholds, and the kill was guarded by `!HasExited`. `WriteStdinLinesAsync` closed stdin on `IOException` and cancellation only, and `ObserveStdinAndReapAsync` discards the writer's fault. `CliAgentLoop.FaultFailure` had arms for auth and nothing for a limit. `Embed` counted every token while `AccumulateInto` ignored an id past `Rows`.
+
+**Fix.** `ProcessRunner` reads both pipes through a pump that outlives the caller, waits for EOF or for the child's exit plus a 2 s silence, and then kills the tree and returns what was read (`KillTree` reaches the grandchild of an exited parent, measured). A stdin producer's fault closes stdin in a `finally`, kills the tree and is rethrown once the lines read are yielded. `FaultFailure` maps `RateLimited` to `Limit`. `AccumulateInto` returns whether it read, and only those rows divide (**D266**, **D267**, **D269**, **D270**).
+
+**Verify.** Each test failed before its change: `A_buffered_run_returns_when_a_grandchild_keeps_the_pipes_open_after_the_child_exited` and its streamed twin (30 s guard, then the grandchild's pid checked gone), `A_stdin_producer_that_throws_ends_the_exchange_with_its_own_fault_and_kills_the_child`, `A_rate_limit_named_only_on_stderr_is_a_Limit_failure_and_holds_the_seat`, `A_token_past_the_table_adds_no_row_and_is_not_counted`.
+
+**Introduced by.** Not traced to a commit for each.
+
+---
+
 ## 2026-11-09 — a credential temp file survived a failed write
 
 **Symptom.** None reported; filed by the 2026-11-09 pools review (`docs/task-archive.md` Part 508) as `TASKS.md` Part 500's one startable row. `OwnerOnlyTempFile.Write` created the owner-only file, then a write failing past that point (a full disk) threw with the half-written credential file on disk.

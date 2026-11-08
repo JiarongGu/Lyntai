@@ -23,7 +23,8 @@ public class Model2VecProviderTests : IDisposable
     public void Dispose() => _scratch.Dispose();
 
     /// <summary>Writes a model whose row <c>i</c> is all-<c>i</c>, so a mean over known ids is exact.</summary>
-    private string WriteModel(IReadOnlyList<string> vocabulary, int dimensions = 4, bool? normalize = false)
+    private string WriteModel(IReadOnlyList<string> vocabulary, int dimensions = 4, bool? normalize = false,
+        IReadOnlyList<string>? wordsPastTheTable = null)
     {
         var rows = vocabulary.Count;
         var data = new float[rows * dimensions];
@@ -45,7 +46,7 @@ public class Model2VecProviderTests : IDisposable
             file.Write(payload);
         }
 
-        File.WriteAllLines(Path.Combine(Dir, "vocab.txt"), vocabulary);
+        File.WriteAllLines(Path.Combine(Dir, "vocab.txt"), [.. vocabulary, .. wordsPastTheTable ?? []]);
         if (normalize is { } n)
             File.WriteAllText(Path.Combine(Dir, "config.json"),
                 JsonSerializer.Serialize(new Dictionary<string, object> { ["normalize"] = n }));
@@ -118,6 +119,31 @@ public class Model2VecProviderTests : IDisposable
 
         Assert.Equal(vectorProvider.Dimensions, vector.Length);
         Assert.All(vector, v => Assert.Equal(5f, v, 3));
+    }
+
+    [Fact]
+    public async Task A_token_past_the_table_adds_no_row_and_is_not_counted()
+    {
+        // vocab.txt is longer than the table: "gamma" is id 7 and the table holds rows 0..6. The mean is over
+        // the rows READ — (5 + 6) / 2 — not over three tokens, which would dilute every vector by what the
+        // table cannot supply. normalize:false, so the dilution shows in the magnitude.
+        var vectorProvider = Model2VecProvider.FromDirectory(
+            WriteModel(Vocabulary("alpha", "beta"), normalize: false, wordsPastTheTable: ["gamma"]));
+
+        var vector = (await vectorProvider.EmbedAsync(["alpha beta gamma"]))[0];
+
+        Assert.All(vector, v => Assert.Equal(5.5f, v, 3));
+    }
+
+    [Fact]
+    public async Task A_text_of_only_tokens_past_the_table_is_the_zero_vector()
+    {
+        var vectorProvider = Model2VecProvider.FromDirectory(
+            WriteModel(Vocabulary("alpha", "beta"), normalize: false, wordsPastTheTable: ["gamma"]));
+
+        var vector = (await vectorProvider.EmbedAsync(["gamma"]))[0];
+
+        Assert.All(vector, component => Assert.Equal(0f, component));
     }
 
     [Fact]

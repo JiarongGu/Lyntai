@@ -161,6 +161,87 @@ public class SentenceTransformerConfigTests : IDisposable
         Assert.Equal(expected, SentenceTransformerConfig.FromDirectory(Dir).MaxTokens);
     }
 
+    [Theory]
+    [InlineData("xlm-roberta", 514, "{\"pad_token_id\": 1}", 512)]     // a config-only XLM-R directory
+    [InlineData("roberta", 514, "", 512)]                              // the pad index defaults to 1
+    [InlineData("camembert", 514, "{\"pad_token_id\": 1}", 512)]
+    [InlineData("mpnet", 514, "{\"pad_token_id\": 1}", 512)]
+    [InlineData("xlm-roberta", 8194, "{\"pad_token_id\": 1}", 8192)]
+    [InlineData("xlm-roberta", 258, "{\"pad_token_id\": 3}", 254)]      // the offset is the model's own pad index
+    [InlineData("bert", 512, "{\"pad_token_id\": 0}", 512)]            // a BERT table starts at position 0
+    public void A_RoBERTa_family_export_gives_up_the_positions_before_its_first_token(
+        string modelType, int positions, string pad, int expected)
+    {
+        var padMember = pad.Length > 0 ? ", " + pad.Trim('{', '}') : "";
+        Write("config.json", $$"""{"model_type": "{{modelType}}", "max_position_embeddings": {{positions}}{{padMember}}}""");
+
+        Assert.Equal(expected, SentenceTransformerConfig.FromDirectory(Dir).MaxTokens);
+    }
+
+    [Theory]
+    [InlineData("""{"pooling_mode_lasttoken": true}""", "pooling_mode_lasttoken")]
+    [InlineData("""{"pooling_mode_cls_token": false, "pooling_mode_mean_tokens": false, "pooling_mode_max_tokens": true}""", "pooling_mode_max_tokens")]
+    [InlineData("""{"pooling_mode_mean_tokens": true, "pooling_mode_weightedmean_tokens": true}""", "pooling_mode_weightedmean_tokens")]
+    [InlineData("""{"pooling_mode": "lasttoken"}""", "lasttoken")]
+    public void A_pooling_mode_this_reader_does_not_run_is_refused_not_mean_pooled(string pooling, string named)
+    {
+        Write("1_Pooling/config.json", pooling);
+
+        var error = Assert.Throws<InvalidDataException>(() => SentenceTransformerConfig.FromDirectory(Dir));
+
+        Assert.Contains(named, error.Message, StringComparison.Ordinal);
+        Assert.Contains(nameof(OnnxProviderOptions.Pooling), error.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void A_module_after_the_pooling_that_changes_the_vector_is_refused()
+    {
+        Write("modules.json",
+            "[{\"type\": \"sentence_transformers.models.Transformer\"},{\"type\": \"sentence_transformers.models.Pooling\"},"
+            + "{\"type\": \"sentence_transformers.models.Dense\"},{\"type\": \"sentence_transformers.models.Normalize\"}]");
+
+        var error = Assert.Throws<InvalidDataException>(() => SentenceTransformerConfig.FromDirectory(Dir));
+
+        Assert.Contains("Dense", error.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void The_check_is_bypassed_by_a_caller_who_says_how_to_pool_or_who_runs_no_pooling_head()
+    {
+        Write("1_Pooling/config.json", """{"pooling_mode_lasttoken": true}""");
+        Write("modules.json", "[{\"type\": \"sentence_transformers.models.Dense\"}]");
+
+        var unchecked_ = SentenceTransformerConfig.FromDirectory(Dir, refuseUnsupported: false);
+
+        Assert.Equal(OnnxPooling.Mean, unchecked_.Pooling);
+    }
+
+    [Theory]
+    [InlineData("1_Pooling/config.json", "{ not json")]
+    [InlineData("1_Pooling/config.json", "[]")]
+    [InlineData("modules.json", "{ not json")]
+    [InlineData("modules.json", "{}")]
+    public void A_file_that_is_absent_or_unreadable_keeps_the_defaults(string file, string content)
+    {
+        Write(file, content);
+
+        var config = SentenceTransformerConfig.FromDirectory(Dir);
+
+        Assert.Equal(OnnxPooling.Mean, config.Pooling);
+        Assert.False(config.Normalize);
+    }
+
+    [Fact]
+    public void The_modules_a_plain_export_lists_are_not_refused()
+    {
+        Write("modules.json",
+            "[{\"type\": \"sentence_transformers.models.Transformer\"},{\"type\": \"sentence_transformers.models.Pooling\"},"
+            + "{\"type\": \"sentence_transformers.models.Normalize\"}]");
+        Write("1_Pooling/config.json", """{"pooling_mode_mean_tokens": true, "pooling_mode_mean_sqrt_len_tokens": false}""");
+
+        Assert.True(SentenceTransformerConfig.FromDirectory(Dir).Normalize);
+    }
+
     [Fact]
     public void An_EMPTY_directory_reads_as_the_sentence_transformers_defaults()
     {
