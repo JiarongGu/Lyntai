@@ -17,10 +17,8 @@ namespace Lyntai.Inference;
 /// <c>TextRouter.CompleteAsync</c> holds the same two slots, so change one and check the other.</para>
 ///
 /// <para><b>Submission has one rule of its own:</b> a failed submission marked
-/// <see cref="QueuedOperation.Inconclusive"/> SURFACES rather than advancing, because a backend that
-/// never answered may already hold a billable render and the next candidate would buy it twice. A throw that
-/// provably never left the process committed nothing: it advances like a rejection, and is rethrown only when
-/// no candidate accepted, so a durable job's retry still runs.</para>
+/// <see cref="QueuedOperation.Inconclusive"/> SURFACES rather than advancing, since advancing may buy one billable
+/// render twice. A throw that never left the process advances, rethrown only when none accepted (D271).</para>
 ///
 /// <para><b>The policy governs submission too, at one remove.</b> A submission carries a
 /// <see cref="QueuedOperationStatus"/>, so a rejection takes the backend's own
