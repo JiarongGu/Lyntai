@@ -347,8 +347,9 @@ new decision overturns an old one, rewrite the old entry as a stub pointing here
 | [D275](#d275--every-conversation-enricher-runs-then-the-fault-is-rethrown-2026-11-09) | 2026-11-09 | every conversation enricher runs, then the fault is rethrown |
 | [D276](#d276--a-traces-ordinal-fallback-stays-per-step-and-the-doc-says-two-steps-can-share-one-2026-11-09) | 2026-11-09 | a trace's ordinal fallback stays per step, and the doc says two steps can share one |
 | [D277](#d277--a-corrupt-tokenizer_configjson-keeps-the-defaults-and-a-corrupt-tokenizerjson-is-invaliddataexception-2026-11-09) | 2026-11-09 | a corrupt `tokenizer_config.json` keeps the defaults, and a corrupt `tokenizer.json` is `InvalidD… |
+| [D278](#d278--a-graph-export-refuses-a-non-finite-number-before-it-writes-and-an-import-accepts-an-empty-scope-or-headline-2026-11-09) | 2026-11-09 | a graph export refuses a non-finite number before it writes, and an import accepts an empty scope… |
 
-**272 live decisions.** The rest are stubs — `D<n>` is a permanent identifier, so a number is never reused or renumbered (5): [D36](#d36--a-translation-between-two-verdict-taxonomies-gets-one-arm-per-member-gated-by-a-test-2026-08-05) → D136 · [D80](#d80--merged-into-d77-2026-08-16-folded-2026-08-17) → D77 · [D131](#d131--a-backends-produces-is-derived-from-its-configuration-so-a-modality-is-a-field-2026-09-14) → D133 · [D134](#d134--a-registration-names-the-backend-the-provider-suffix-is-gone-from-all-seventeen-2026-09-14) → D137 · [D145](#d145--the-microsoftextensionsai-module-is-a-bridge-not-a-provider-2026-09-15) → D146
+**273 live decisions.** The rest are stubs — `D<n>` is a permanent identifier, so a number is never reused or renumbered (5): [D36](#d36--a-translation-between-two-verdict-taxonomies-gets-one-arm-per-member-gated-by-a-test-2026-08-05) → D136 · [D80](#d80--merged-into-d77-2026-08-16-folded-2026-08-17) → D77 · [D131](#d131--a-backends-produces-is-derived-from-its-configuration-so-a-modality-is-a-field-2026-09-14) → D133 · [D134](#d134--a-registration-names-the-backend-the-provider-suffix-is-gone-from-all-seventeen-2026-09-14) → D137 · [D145](#d145--the-microsoftextensionsai-module-is-a-bridge-not-a-provider-2026-09-15) → D146
 
 <!-- index:end -->
 
@@ -7731,3 +7732,15 @@ recall and its write-back is already a silent skip).
 **Rejected.** Refusing a corrupt `tokenizer_config.json` (it would refuse a model that loads today, on a file the loader treats as optional). Catching `NullReferenceException` (a null guard names the fault).
 
 **Re-opens** when a corrupt config is shown to produce wrong vectors on a model that needs a non-default rule.
+
+## D278 — a graph export refuses a non-finite number before it writes, and an import accepts an empty scope or headline (2026-11-09)
+
+**Standing.** A ruling on `TASKS.md` Part 499's eighth row, **the steward's under the owner's delegation, which the owner may reverse** — not the owner's words. Built, and frozen from release (**D70**).
+
+**Decided.** `GraphPortableLines.WriteAsync` checks every number of every entry and link first and throws `InvalidDataException` ("Nothing was written") for a non-finite one; a non-finite signal still travels as absent. A lone surrogate is written as U+FFFD, as **D262** stores it, in every text field and key: the JSON writer already did, and a test now pins it. An import takes a `scope` or `headline` that is present and empty, and still refuses one that is absent; `content` stays required non-empty.
+
+**Why.** A number with no JSON spelling threw from the writer after earlier lines were out, leaving a file that read as complete. A write with an empty scope or headline exported a line its own import refused, so a memory could not be carried back.
+
+**Rejected.** Filtering a non-finite number to absent (an age or a stability read as zero changes what the entry is, where a signal's absence is already neutral). Refusing an empty scope or headline at write (the stores hold them today).
+
+**Re-opens** when a store is found that yields a non-finite age on export, which would be a defect in that store rather than a reason to export it.

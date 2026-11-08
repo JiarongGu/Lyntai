@@ -1997,8 +1997,10 @@ public sealed class GraphMemoryEngine(
 
     /// <inheritdoc />
     /// <remarks>One <c>graph</c> line per entry in id order — decay state, ages relative to this engine's head, subjects
-    /// — then one <c>link</c> line per link to an entry of the same task (<b>D213</b>). Reads only.</remarks>
+    /// — then one <c>link</c> line per link to an entry of the same task (<b>D213</b>). A lone surrogate travels as
+    /// U+FFFD, and an empty scope or headline as an empty string, which an import accepts. Reads only.</remarks>
     /// <exception cref="NotSupportedException">The store does not implement <see cref="IPortableMemoryGraphStore"/>.</exception>
+    /// <exception cref="InvalidDataException">An entry or a link carries a non-finite number; nothing was written.</exception>
     public async Task<MemoryExportResult> ExportAsync(string taskKey, string? scope, TextWriter destination,
         CancellationToken ct = default)
     {
