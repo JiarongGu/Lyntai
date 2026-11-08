@@ -67,7 +67,7 @@ internal static class AgentMcpServers
 
                 case McpTransport.Http when !IsAbsoluteUrl(server.Url):
                     refusal = $"MCP server '{server.Name}' is Http but its Url ('{server.Url}') is not an " +
-                        "absolute URL. Use AgentMcpServer.Http(name, \"https://host/path\", …).";
+                        "absolute http or https URL. Use AgentMcpServer.Http(name, \"https://host/path\", …).";
                     return false;
 
                 default:
@@ -99,6 +99,9 @@ internal static class AgentMcpServers
         return true;
     }
 
+    // http and https only: a Windows path or a rooted Unix path parses as an absolute file URI, which the
+    // backends register as nothing at all
     private static bool IsAbsoluteUrl(string? url) =>
-        url is { Length: > 0 } && Uri.TryCreate(url, UriKind.Absolute, out _);
+        url is { Length: > 0 } && Uri.TryCreate(url, UriKind.Absolute, out var uri)
+            && (uri.Scheme == Uri.UriSchemeHttp || uri.Scheme == Uri.UriSchemeHttps);
 }

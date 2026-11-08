@@ -748,6 +748,24 @@ public class CodexAgentSessionTests
         Assert.Empty(runner.Calls);
     }
 
+    [Theory]
+    [InlineData(@"C:\srv\mcp")]   // parses as an absolute file URI, and codex then registers nothing
+    [InlineData("/etc/mcp")]
+    [InlineData("file:///srv/mcp")]
+    [InlineData("ftp://host/mcp")]
+    public async Task An_http_server_whose_url_is_not_http_or_https_refuses_the_turn(string url)
+    {
+        var runner = new FakeProcessRunner(MeasuredSuccess);
+
+        var events = await Session(runner).StreamAsync(
+            Ask() with { McpServers = [AgentMcpServer.Http("app", url)] }).ToListAsync();
+
+        var ended = Assert.IsType<SessionEnded>(Assert.Single(events));
+        Assert.Equal("mcp-server-invalid", ended.Subtype);
+        Assert.Contains("http or https", ended.Diagnostic, StringComparison.Ordinal);
+        Assert.Empty(runner.Calls);
+    }
+
     [Fact]
     public async Task Two_servers_under_one_name_refuse_rather_than_silently_collapsing()
     {

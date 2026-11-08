@@ -326,8 +326,9 @@ new decision overturns an old one, rewrite the old entry as a stub pointing here
 | [D254](#d254--a-tasks-patched-status-is-its-own-event-and-a-backgrounded-commands-output-file-is-read-from-its-results-one-sentence-2026-11-07) | 2026-11-07 | a task's patched status is its own event, and a backgrounded command's output file is read from i… |
 | [D255](#d255--a-blend-lets-a-callers-mistake-through-a-prune-refuses-a-floor-or-span-it-cannot-honour-and-a-budget-of-zero-keeps-the-first-item-2026-11-08) | 2026-11-08 | a blend lets a caller's mistake through, a prune refuses a floor or span it cannot honour, and a… |
 | [D256](#d256--a-native-tool-loop-turn-executes-at-most-toolloopmaxcallsperturn-calls-and-answers-the-rest-with-an-error-2026-11-08) | 2026-11-08 | a native tool-loop turn executes at most `ToolLoopMaxCallsPerTurn` calls and answers the rest wit… |
+| [D257](#d257--a-stream-does-not-deliver-a-clis-own-error-line-as-content-a-failure-with-no-message-is-still-a-failure-and-an-mcp-servers-url-is-http-or-https-2026-11-08) | 2026-11-08 | a stream does not deliver a CLI's own error line as content, a failure with no message is still a… |
 
-**251 live decisions.** The rest are stubs — `D<n>` is a permanent identifier, so a number is never reused or renumbered (5): [D36](#d36--a-translation-between-two-verdict-taxonomies-gets-one-arm-per-member-gated-by-a-test-2026-08-05) → D136 · [D80](#d80--merged-into-d77-2026-08-16-folded-2026-08-17) → D77 · [D131](#d131--a-backends-produces-is-derived-from-its-configuration-so-a-modality-is-a-field-2026-09-14) → D133 · [D134](#d134--a-registration-names-the-backend-the-provider-suffix-is-gone-from-all-seventeen-2026-09-14) → D137 · [D145](#d145--the-microsoftextensionsai-module-is-a-bridge-not-a-provider-2026-09-15) → D146
+**252 live decisions.** The rest are stubs — `D<n>` is a permanent identifier, so a number is never reused or renumbered (5): [D36](#d36--a-translation-between-two-verdict-taxonomies-gets-one-arm-per-member-gated-by-a-test-2026-08-05) → D136 · [D80](#d80--merged-into-d77-2026-08-16-folded-2026-08-17) → D77 · [D131](#d131--a-backends-produces-is-derived-from-its-configuration-so-a-modality-is-a-field-2026-09-14) → D133 · [D134](#d134--a-registration-names-the-backend-the-provider-suffix-is-gone-from-all-seventeen-2026-09-14) → D137 · [D145](#d145--the-microsoftextensionsai-module-is-a-bridge-not-a-provider-2026-09-15) → D146
 
 <!-- index:end -->
 
@@ -7420,3 +7421,27 @@ coming). A default of no cap (the row exists because that is the unbounded case)
 
 **Re-opens** when a host runs a model that legitimately batches past 32 calls, which its own cap or the environment variable already
 answers, or when a refused turn needs to be a terminal a host can tell.
+
+## D257 — a stream does not deliver a CLI's own error line as content, a failure with no message is still a failure, and an MCP server's URL is http or https (2026-11-08)
+
+**Standing.** Rules on four rows of the one-shot CLI review (`docs/task-archive.md` Part 497). Built, and frozen from release (**D70**).
+
+**Decided.**
+- **A Claude assistant line with a top-level `error` is `Other`, not content.** The CLI prints its login prompt that way and ends with an
+  `is_error` result, so the stream now reaches that result before delivering anything and fallback stays open, as the buffered path always had it.
+- **Any `Failure` event is a failure, on both paths, whatever its message.** An empty message takes the stderr tail, or a fixed sentence, so the
+  detail is never blank; the buffered path no longer returns the partial text `Ok` for a backend that said `fail:` with no words.
+- **A non-zero exit with an empty stderr quotes the stdout tail in the detail.** The verdict is still read from stderr alone.
+- **`AgentMcpServers` refuses an `Http` server whose URL is not absolute `http` or `https`**, so a path that parses as a file URI ends the turn
+  with `mcp-server-invalid` instead of registering nothing.
+
+**Why.** Each turned a failure into something that reads as an answer or as nothing: a login prompt delivered as the reply, a partial text
+labelled `Ok`, an empty `exit 1:`, an agent started without the tools it was embedded for.
+
+**Rejected.** Keeping the error line as content and documenting that the stream commits first (the router could never fall back from an
+authentication failure). Classifying the stdout tail (it is mostly protocol lines, so a token count could read as a status code; the half
+stays open in `TASKS.md` Part 495). Treating an empty failure message as no failure (the in-band failure is the backend's account, and its
+words are optional).
+
+**Re-opens** when a partial `max_output_tokens` reply must reach a streaming caller, or when the CLI is measured printing a classifiable error on
+stdout outside stream-json.

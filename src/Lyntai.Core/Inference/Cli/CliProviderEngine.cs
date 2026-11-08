@@ -120,6 +120,13 @@ public sealed class CliProviderEngine(
     private TimeSpan Backstop(TimeSpan window) =>
         options.MaxProviderTimeout < window ? window : options.MaxProviderTimeout;
 
+    // a failure event is a failure whatever it says; an empty message borrows the stderr tail so the reply
+    // never carries a blank detail, and both paths read it the same way
+    private static string FailureMessage(string message, string stderrTail) =>
+        message.Length > 0 ? message
+        : stderrTail.Length > 0 ? stderrTail
+        : "the backend reported a failure without a message";
+
     // ── completion ───────────────────────────────────────────────────────────
 
     /// <summary>Run one buffered completion.</summary>
@@ -160,7 +167,7 @@ public sealed class CliProviderEngine(
 
         string text = "", contentText = "";
         TextUsage? usage = null;
-        string? failure = null;
+        string? failure = null;   // non-null once the backend reported a failure, whatever its message
         var sawResult = false;
         foreach (var raw in result.StdOut.Split('\n'))
         {
@@ -183,16 +190,22 @@ public sealed class CliProviderEngine(
         // codex turn can print turn.failed(401) and exit non-zero with only startup chatter on stderr, and
         // classifying the chatter would turn AuthFailed into a bare Failed (pitfalls.md, "Trusting the exit
         // code over the machine-readable answer"). The exit code stays in the detail as context.
-        if (failure is { Length: > 0 })
-            return new TextResponse("", ProviderVerdictClassifier.FromErrorText(failure),
-                Detail: result.ExitCode != 0 ? $"exit {result.ExitCode}: {failure}" : failure);
+        if (failure is not null)
+        {
+            var said = FailureMessage(failure, stderrTail);
+            return new TextResponse("", ProviderVerdictClassifier.FromErrorText(said),
+                Detail: result.ExitCode != 0 ? $"exit {result.ExitCode}: {said}" : said);
+        }
 
         // no in-band account: exit code and stderr are all there is — and a complete-looking answer from a
-        // run that exited non-zero is still a failed run
+        // run that exited non-zero is still a failed run. A child that wrote only to stdout leaves the detail
+        // empty, so its stdout tail stands in; the verdict is still read from stderr alone, since stdout is
+        // mostly protocol lines that would classify on a number.
         if (result.ExitCode != 0)
         {
             var exited = CliFault.Exited(result.ExitCode, stderrTail);
-            return new TextResponse("", exited.Verdict, Detail: exited.Detail);
+            return new TextResponse("", exited.Verdict,
+                Detail: stderrTail.Length > 0 ? exited.Detail : $"exit {result.ExitCode}: {result.OutputTail()}");
         }
 
         if (text.Length == 0)
@@ -267,7 +280,8 @@ public sealed class CliProviderEngine(
                     // delivered (it can't be unsent — and per design §6 the router won't fall back after the
                     // first token anyway), but the stream must END as an Error so the consumer isn't handed a
                     // truncated answer labelled complete.
-                    yield return TextChunk.Error(ProviderVerdictClassifier.FromErrorText(evt.Text), evt.Text);
+                    var said = FailureMessage(evt.Text, "");
+                    yield return TextChunk.Error(ProviderVerdictClassifier.FromErrorText(said), said);
                     yield break;
                 }
             }
