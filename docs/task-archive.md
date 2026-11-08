@@ -6928,3 +6928,10 @@ lines the doors' own tests pin. Landed in `08b41270`; the row stayed open in `TA
 
 - the two reviews; the eleven rows
 - the subagent line, the surrogate cut, the signed-in marker, the offset-less stamp and the usage clock
+
+## Part 498 — `TASKS.md` Part 494's last row: a per-turn call cap for the native tool loop (2026-11-08)
+
+✅ done 2026-11-08 — **Outcome:** the four `TASKS.md` blockers were re-checked first and none had cleared (no `hf_` token, no aggregator, no labels, the nine tests unrecurred; Docker down), `TASKS.md` Part 492 was already closed and the roadmap holds nothing startable, so the piece taken was the one row of Part 494. Ruled and built test-first as **D256**: `LyntaiOptions.ToolLoopMaxCallsPerTurn` (default 32, below 1 no cap, `LYNTAI_TOOL_LOOP_MAX_CALLS_PER_TURN`); a native turn runs its first N calls and answers the rest with an `error: not run` observation, so every call id keeps a result. **A host sees:** a model that sent more than 32 calls in one turn now has the rest refused. The two rows of `TASKS.md` Part 493 stay open: they want the Postgres suite (Docker was down) or an `IVectorStore` member. One new public property. Lane `platform`.
+
+- the option, its environment variable and the loop's cap (D256)
+- the four tests: cap, steps, no cap below 1, default and environment

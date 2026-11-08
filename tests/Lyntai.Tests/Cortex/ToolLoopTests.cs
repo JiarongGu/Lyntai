@@ -319,6 +319,69 @@ public class ToolLoopTests
         Assert.Equal(["call_1", "call_2"], toolResults.Select(m => m.ToolCallId)); // one result per call id
     }
 
+    private static TextResponse CallsTurn(int count) => new("", ProviderVerdict.Ok)
+    {
+        ToolCalls = [.. Enumerable.Range(1, count).Select(i => new TextToolCall($"call_{i}", "echo", "{}"))],
+    };
+
+    [Fact]
+    public async Task Native_runs_the_first_calls_of_a_turn_past_the_cap_and_answers_the_rest_with_an_error()
+    {
+        var client = new FakeTextClient { SupportsToolCallsResult = true };
+        client.Replies.Enqueue(CallsTurn(5));
+        client.Replies.Enqueue(new TextResponse("answered", ProviderVerdict.Ok));
+        var loop = new ToolLoop(client, new ToolRegistry([Echo()]), new LyntaiOptions { ToolLoopMaxCallsPerTurn = 2 });
+
+        var events = await loop.StreamAsync(Ask()).ToListAsync();
+
+        Assert.Equal(2, events.OfType<ToolResult>().Count(r => !r.IsError));
+        var skipped = events.OfType<ToolResult>().Where(r => r.IsError).ToList();
+        Assert.Equal(["call_3", "call_4", "call_5"], skipped.Select(r => r.CallId));
+        Assert.All(skipped, r => Assert.Contains("per-turn cap of 2", r.Content));
+        // every call still gets a result on the next request, or a provider rejects the transcript
+        var fed = client.Calls[1].Messages.Where(m => m.Role == "tool").Select(m => m.ToolCallId).ToList();
+        Assert.Equal(["call_1", "call_2", "call_3", "call_4", "call_5"], fed);
+    }
+
+    [Fact]
+    public async Task Native_executes_only_the_calls_within_the_cap()
+    {
+        var client = new FakeTextClient { SupportsToolCallsResult = true };
+        client.Replies.Enqueue(CallsTurn(4));
+        client.Replies.Enqueue(new TextResponse("answered", ProviderVerdict.Ok));
+
+        var result = await new ToolLoop(client, new ToolRegistry([Echo()]), new LyntaiOptions { ToolLoopMaxCallsPerTurn = 3 })
+            .RunAsync(Ask());
+
+        Assert.True(result.Ok);
+        Assert.Equal(3, result.Steps.Count); // the fourth was never invoked, so it is no step
+    }
+
+    [Theory]
+    [InlineData(0)]
+    [InlineData(-1)]
+    public async Task A_non_positive_cap_means_no_cap(int cap)
+    {
+        var client = new FakeTextClient { SupportsToolCallsResult = true };
+        client.Replies.Enqueue(CallsTurn(50));
+        client.Replies.Enqueue(new TextResponse("answered", ProviderVerdict.Ok));
+
+        var result = await new ToolLoop(client, new ToolRegistry([Echo()]), new LyntaiOptions { ToolLoopMaxCallsPerTurn = cap })
+            .RunAsync(Ask());
+
+        Assert.Equal(50, result.Steps.Count);
+    }
+
+    [Fact]
+    public void The_per_turn_cap_defaults_to_a_bound_and_reads_the_environment()
+    {
+        var options = new LyntaiOptions();
+        Assert.Equal(32, options.ToolLoopMaxCallsPerTurn);
+
+        options.ApplyEnvOverrides(k => k == "LYNTAI_TOOL_LOOP_MAX_CALLS_PER_TURN" ? "4" : null);
+        Assert.Equal(4, options.ToolLoopMaxCallsPerTurn);
+    }
+
     [Fact]
     public async Task Native_unknown_tool_is_reported_back_not_thrown()
     {
