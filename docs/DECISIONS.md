@@ -7651,7 +7651,7 @@ recall and its write-back is already a silent skip).
 
 ## D271 — a media submit throw that never reached the backend advances, and is rethrown only when no candidate accepted (2026-11-09)
 
-**Standing.** A ruling on `TASKS.md` Part 500's first row, **the steward's under the owner's delegation to develop while away, which the owner may reverse** — not the owner's words. Built, and frozen from release (**D70**).
+**Standing.** A ruling on `docs/task-archive.md` Part 512's first row, **the steward's under the owner's delegation to develop while away, which the owner may reverse** — not the owner's words. Built, and frozen from release (**D70**).
 
 **Decided.** `MediaRouter.SubmitAsync` no longer filters a throw by `NeverReachedTheBackend`. Every throw becomes `QueuedOperation.FromThrownSubmit`; one that may have been delivered stays `Inconclusive` and surfaces (**D64**), and one that provably never left the process is a plain failure with its classified verdict: the host takes that verdict's strike, the router advances, and the first such throw is rethrown (stack kept) only when no candidate accepted, so the durable job's retry still runs. A policy that surfaces the verdict rethrows at once. The generate and stream doors already advance on a failure before data.
 
@@ -7663,7 +7663,7 @@ recall and its write-back is already a silent skip).
 
 ## D272 — the media stream door opens a span per attempt, as the class says (2026-11-09)
 
-**Standing.** A ruling on `TASKS.md` Part 500's second row, **the steward's under the owner's delegation, which the owner may reverse** — not the owner's words. Built, and frozen from release (**D70**).
+**Standing.** A ruling on `docs/task-archive.md` Part 512's second row, **the steward's under the owner's delegation, which the owner may reverse** — not the owner's words. Built, and frozen from release (**D70**).
 
 **Decided.** `MediaRouter.StreamAsync` opens `StartGeneration("stream", …)` per backend attempt and `RecordGeneration` closes it in a `finally`, with the verdict and, on a terminal chunk, its usage. A caller's cancel records nothing, as on the inline door. `stream` is a new value of `lyntai.generation.operation`.
 
@@ -7675,7 +7675,7 @@ recall and its write-back is already a silent skip).
 
 ## D273 — a media stream's failure after data strikes the host (2026-11-09)
 
-**Standing.** A ruling on `TASKS.md` Part 500's third row, **the steward's under the owner's delegation, which the owner may reverse** — not the owner's words. Built, and frozen from release (**D70**).
+**Standing.** A ruling on `docs/task-archive.md` Part 512's third row, **the steward's under the owner's delegation, which the owner may reverse** — not the owner's words. Built, and frozen from release (**D70**).
 
 **Decided.** At the two exits after data (an error chunk, and a throw or a stop with a failure) `MediaRouter.StreamAsync` calls `Penalize` with the policy's action for the verdict, as it does before data. No fallback follows, as before. A terminal success still clears the strikes.
 
@@ -7687,7 +7687,7 @@ recall and its write-back is already a silent skip).
 
 ## D274 — `BudgetedMediaRouter` settles a stream's spend on the terminal chunk only (2026-11-09)
 
-**Standing.** A ruling on `TASKS.md` Part 500's fourth row, **the steward's under the owner's delegation, which the owner may reverse** — not the owner's words. Built, and frozen from release (**D70**).
+**Standing.** A ruling on `docs/task-archive.md` Part 512's fourth row, **the steward's under the owner's delegation, which the owner may reverse** — not the owner's words. Built, and frozen from release (**D70**).
 
 **Decided.** `BudgetedMediaRouter.StreamAsync` settles on a chunk with `Final` set and a positive cost, as `BudgetedTextClient` does on its `Final` chunk. A cost on any earlier chunk is never read.
 
@@ -7699,7 +7699,7 @@ recall and its write-back is already a silent skip).
 
 ## D275 — a `MediaInput` location is stored as `AbsoluteUri` (2026-11-09)
 
-**Standing.** A ruling on `TASKS.md` Part 500's fifth row, **the steward's under the owner's delegation, which the owner may reverse** — not the owner's words. Built, and frozen from release (**D70**).
+**Standing.** A ruling on `docs/task-archive.md` Part 512's fifth row, **the steward's under the owner's delegation, which the owner may reverse** — not the owner's words. Built, and frozen from release (**D70**).
 
 **Decided.** `MediaInput.From(role, Uri, mediaType)`, and so every named factory over it, stores `Uri.AbsoluteUri`, falling back to `OriginalString` for a relative URI, which has none. `a%20b.png` stays escaped.
 
@@ -7711,7 +7711,7 @@ recall and its write-back is already a silent skip).
 
 ## D276 — the pool promises no single live instance per key past `IdleTimeout`, and bounding a use is admission's (2026-11-09)
 
-**Standing.** A ruling on `TASKS.md` Part 500's sixth row, **the steward's under the owner's delegation, which the owner may reverse** — not the owner's words. Built as documentation; no member is added.
+**Standing.** A ruling on `docs/task-archive.md` Part 512's sixth row, **the steward's under the owner's delegation, which the owner may reverse** — not the owner's words. Built as documentation; no member is added.
 
 **Decided.** `BoundedProviderPool` and `ProviderPoolOptions.IdleTimeout` say that an entry is stamped when `GetOrAdd` is called, so a use longer than the timeout can have its entry retired by the next call for the key, which builds a second live instance; they point to `ProviderAdmission`, which is keyed on the configuration.
 
@@ -7723,7 +7723,7 @@ recall and its write-back is already a silent skip).
 
 ## D277 — the pool's default clock is monotonic, and an `IdleTimeout` of 0 or less means no reuse (2026-11-09)
 
-**Standing.** A ruling on `TASKS.md` Part 500's seventh row, **the steward's under the owner's delegation, which the owner may reverse** — not the owner's words. Built, and frozen from release (**D70**).
+**Standing.** A ruling on `docs/task-archive.md` Part 512's seventh row, **the steward's under the owner's delegation, which the owner may reverse** — not the owner's words. Built, and frozen from release (**D70**).
 
 **Decided.** The default `Func<DateTimeOffset>` behind `BoundedProviderPool` is an origin read once plus `Stopwatch` elapsed time, so a step of the system clock changes nothing. An `IdleTimeout` of 0 or less is documented as no reuse, which the eviction already did; a test pins it with the default clock and an injected one.
 
@@ -7735,7 +7735,7 @@ recall and its write-back is already a silent skip).
 
 ## D278 — `ConfigureProviderAdmission` counts the host's first descriptor as the earlier call's (2026-11-09)
 
-**Standing.** A ruling on `TASKS.md` Part 500's eighth row, **the steward's under the owner's delegation, which the owner may reverse** — not the owner's words. Built, and frozen from release (**D70**).
+**Standing.** A ruling on `docs/task-archive.md` Part 512's eighth row, **the steward's under the owner's delegation, which the owner may reverse** — not the owner's words. Built, and frozen from release (**D70**).
 
 **Decided.** The first non-keyed `ProviderAdmissionOptions` descriptor is the earlier call's. An instance is configured in place. A type or factory registration is replaced by a factory descriptor of the same lifetime that builds the original and then applies the action, so every call's action applies in call order and the container still resolves one options object.
 
@@ -7747,7 +7747,7 @@ recall and its write-back is already a silent skip).
 
 ## D279 — `FromThrownSubmit` has a precondition about cancellation, and a cancellation handed to it is Inconclusive (2026-11-09)
 
-**Standing.** A ruling on `TASKS.md` Part 500's ninth row, **the steward's under the owner's delegation, which the owner may reverse** — not the owner's words. Built as documentation and a pinning test.
+**Standing.** A ruling on `docs/task-archive.md` Part 512's ninth row, **the steward's under the owner's delegation, which the owner may reverse** — not the owner's words. Built as documentation and a pinning test.
 
 **Decided.** `QueuedOperation.FromThrownSubmit` documents that the caller rethrows its own cancellation before calling (`catch (OperationCanceledException) when ct.IsCancellationRequested`), as the router, `FalProvider` and `ComfyUiProvider` do. The helper cannot tell the caller's cancel from a backend's, and treats an `OperationCanceledException` as a throw that may have been delivered.
 
@@ -7759,7 +7759,7 @@ recall and its write-back is already a silent skip).
 
 ## D280 — an `InactivityPause` subscriber's fault is swallowed, each subscriber isolated (2026-11-09)
 
-**Standing.** A ruling on `TASKS.md` Part 500's last row, **the steward's under the owner's delegation, which the owner may reverse** — not the owner's words. Built, and frozen from release (**D70**).
+**Standing.** A ruling on `docs/task-archive.md` Part 512's last row, **the steward's under the owner's delegation, which the owner may reverse** — not the owner's words. Built, and frozen from release (**D70**).
 
 **Decided.** `InactivityPause` notifies each subscriber in its own `try`, and a throw is swallowed. `Hold` returns its handle and a release clears the count whatever a subscriber does, and the subscribers after a faulty one still run.
 

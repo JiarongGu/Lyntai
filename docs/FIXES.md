@@ -9,7 +9,7 @@ to `.agents/knowledge/pitfalls.md`; the release-facing line goes to `CHANGELOG.m
 
 ## 2026-11-09 — a refused media submit skipped the other candidates, a media stream was untraced and unstruck after data, and a streamed cost was billed per chunk
 
-**Symptom.** None reported; filed by the 2026-11-09 pools and media-router review (`docs/task-archive.md` Part 508) as `TASKS.md` Part 500's rows. With `[A, B]` and A refusing the connection on a submit, B was never tried and A took no strike. A stream attempt that fell over left no span. A stream that sent a byte and errored was never struck. A backend repeating a cumulative cost on progress chunks wrote one ledger line each. `a%20b.png` was stored as `a b.png`. A factory-registered `ProviderAdmissionOptions` never saw `ConfigureProviderAdmission`, and a throwing `InactivityPause` subscriber failed a `Hold` whose count was taken.
+**Symptom.** None reported; filed by the 2026-11-09 pools and media-router review (`docs/task-archive.md` Part 508) as `docs/task-archive.md` Part 512's rows. With `[A, B]` and A refusing the connection on a submit, B was never tried and A took no strike. A stream attempt that fell over left no span. A stream that sent a byte and errored was never struck. A backend repeating a cumulative cost on progress chunks wrote one ledger line each. `a%20b.png` was stored as `a b.png`. A factory-registered `ProviderAdmissionOptions` never saw `ConfigureProviderAdmission`, and a throwing `InactivityPause` subscriber failed a `Hold` whose count was taken.
 
 **Root cause.** The submit catch filtered a never-reached throw out so it propagated, which the router's other candidates paid for. `StreamAsync` never called `StartGeneration`, and its two exits after data never called `Penalize`. `BudgetedMediaRouter` settled on `Spent(chunk.Usage)` for every chunk, not the terminal one. `Uri.ToString()` unescapes. The admission extension found only an instance registration. `Notify` ran subscribers bare, after the count.
 
@@ -37,7 +37,7 @@ to `.agents/knowledge/pitfalls.md`; the release-facing line goes to `CHANGELOG.m
 
 ## 2026-11-09 — a credential temp file survived a failed write
 
-**Symptom.** None reported; filed by the 2026-11-09 pools review (`docs/task-archive.md` Part 508) as `TASKS.md` Part 500's one startable row. `OwnerOnlyTempFile.Write` created the owner-only file, then a write failing past that point (a full disk) threw with the half-written credential file on disk.
+**Symptom.** None reported; filed by the 2026-11-09 pools review (`docs/task-archive.md` Part 508) as `docs/task-archive.md` Part 509's one startable row. `OwnerOnlyTempFile.Write` created the owner-only file, then a write failing past that point (a full disk) threw with the half-written credential file on disk.
 
 **Root cause.** The file is created before the content is written, and the path is returned only after, so a throw in between left a file no caller knew the name of, the one party that deletes it.
 
