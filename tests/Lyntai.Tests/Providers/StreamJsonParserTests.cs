@@ -25,6 +25,18 @@ public class StreamJsonParserTests
         Assert.Equal("stub reply: hello", evt.Text);
     }
 
+    // A subagent's lines reach the session's stdout with `parent_tool_use_id` set; its words are not the answer
+    // (the agent reader drops them the same way).
+    [Fact]
+    public void A_subagents_assistant_text_is_not_the_answer()
+    {
+        const string child = """{"type":"assistant","parent_tool_use_id":"toolu_1","message":{"content":[{"type":"text","text":"sub says hi"}]}}""";
+        const string own = """{"type":"assistant","parent_tool_use_id":null,"message":{"content":[{"type":"text","text":"own words"}]}}""";
+
+        Assert.Equal(StreamJsonEventKind.Other, StreamJsonParser.Parse(child).Kind);
+        Assert.Equal("own words", StreamJsonParser.Parse(own).Text);
+    }
+
     [Fact]
     public void Result_line_yields_text_usage_and_cost()
     {

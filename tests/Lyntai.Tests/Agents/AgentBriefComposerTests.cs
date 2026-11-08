@@ -148,6 +148,20 @@ public class AgentBriefComposerTests
         Assert.Equal(a.Text.Length - 2, a.Characters);
     }
 
+    // a JSON "\ud83d" escape decodes to a lone surrogate, which a name or a message can carry
+    [Fact]
+    public void A_name_of_lone_surrogates_is_cut_without_throwing()
+    {
+        var name = string.Concat(Enumerable.Repeat("\uD83Dx", 31));
+        var transcript = new AgentTranscript([
+            new TranscriptTurn { Source = Claude, Prompt = "go", Tools = [new ToolUseSummary(name, 1, 0)], Verdict = ProviderVerdict.Ok },
+        ]);
+
+        var text = Composer().Brief(transcript).Text;
+
+        Assert.Contains("…", text);
+    }
+
     // ── the bound ────────────────────────────────────────────────────────────────────────────────
 
     [Fact]

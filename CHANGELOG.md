@@ -709,6 +709,11 @@ every addition.
 
 ### Fixed
 
+- **A one-shot `claude` call no longer takes a subagent's words as its answer, and a hand-over brief no longer throws on a lone surrogate.**
+  A line naming a parent tool call is read as that subagent's, not the turn's. A tool name or message holding an unpaired high
+  surrogate threw `IndexOutOfRangeException` out of `AgentBriefComposer.Brief`. Two smaller ones: a `codex login status` text that
+  negates "logged in" in a sentence reads as unknown (not authenticated) rather than signed in, and a Claude reset stamp with no
+  offset is read as UTC where it was read in the host's zone. A usage reading is stamped by the clock the container registers.
 - **`LlamaSharpProvider` frees its weights when the executor fails to build, and `Dispose` waits for a generation in flight.** A throw
   building the executor left the weights on the field for the next call to load a second copy over; `Dispose` freed the model under a
   running generation. A call made after `Dispose` now answers `Failed` where it threw `ObjectDisposedException`.
