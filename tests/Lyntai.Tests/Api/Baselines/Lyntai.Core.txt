@@ -5072,6 +5072,7 @@ static class Lyntai.Storage.MemoryGraphSql
     Reviews : String const
     SeedRecent : String const
     StrengthenEdge : String const
+    StrengthenEdgeWithinEngine : String const
     Supersede : String const
     Totals : String const
     Touch : String const

@@ -206,7 +206,7 @@ public sealed class PostgresMemoryGraphStore(
         {
             if (from == to) return (false, null);   // a self-edge is never written, so it is never answered
             var totals = await TotalsAsync(conn, engine, ct, tx).ConfigureAwait(false);
-            var written = await StrengthenAsync(conn, from, to, kind, weight, totals, ct, tx).ConfigureAwait(false) > 0;
+            var written = await StrengthenWithinEngineAsync(conn, engine, from, to, kind, weight, totals, ct, tx).ConfigureAwait(false) > 0;
             if (!written) return (false, null);
             var revision = await conn.ExecuteScalarAsync<long>(new CommandDefinition(
                 "SELECT revision FROM lyntai_memory_node WHERE id = @from AND engine = @engine", new { from, engine },
@@ -511,6 +511,15 @@ public sealed class PostgresMemoryGraphStore(
             new
             {
                 from, to, kind, weight, position = totals.Position, ordinal = totals.Ordinal,
+                chars = totals.Chars, at = totals.EncodedAt,
+            }, transaction: tx, cancellationToken: ct));
+
+    private static Task<int> StrengthenWithinEngineAsync(IDbConnection conn, string engine, long from, long to, string kind,
+        double weight, MemoryPositionRow totals, CancellationToken ct, IDbTransaction? tx = null) =>
+        conn.ExecuteAsync(new CommandDefinition(MemoryGraphSql.StrengthenEdgeWithinEngine,
+            new
+            {
+                engine, from, to, kind, weight, position = totals.Position, ordinal = totals.Ordinal,
                 chars = totals.Chars, at = totals.EncodedAt,
             }, transaction: tx, cancellationToken: ct));
 

@@ -37,6 +37,9 @@ every addition.
 
 ### Changed
 
+- **A keyed link writes no edge between entries of two engines** (**D260**). `LinkKeyedAsync` documents that an endpoint the engine does not hold writes nothing and leaves
+  no receipt, but SQLite and Postgres wrote the edge and an `Applied` receipt, and the in-memory and file stores wrote the edge while reporting `false`. Every store now skips it.
+  The un-keyed `LinkAsync` is unchanged.
 - **A CLI's own error line is no longer streamed as the answer, a failure with no message is still a failure, and an MCP server's URL must be http or https** (**D257**).
   A Claude assistant line carrying `error` (the login prompt) was delivered as content before the `is_error` result ended the stream, so the router could not fall back; it now
   waits for the result. A backend `Failure` event with an empty message returned the partial text `Ok` buffered and `Error` streamed; both paths now fail it. A non-zero exit

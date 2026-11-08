@@ -329,8 +329,9 @@ new decision overturns an old one, rewrite the old entry as a stub pointing here
 | [D257](#d257--a-stream-does-not-deliver-a-clis-own-error-line-as-content-a-failure-with-no-message-is-still-a-failure-and-an-mcp-servers-url-is-http-or-https-2026-11-08) | 2026-11-08 | a stream does not deliver a CLI's own error line as content, a failure with no message is still a… |
 | [D258](#d258--a-negative-count-or-cost-on-a-backends-wire-reads-as-no-figure-2026-11-08) | 2026-11-08 | a negative count or cost on a backend's wire reads as no figure |
 | [D259](#d259--a-prune-that-empties-a-scope-drops-its-vector-collection-which-releases-the-vector-space-that-stamped-it-2026-11-08) | 2026-11-08 | a prune that empties a scope drops its vector collection, which releases the vector space that st… |
+| [D260](#d260--a-keyed-link-writes-an-edge-only-between-two-entries-the-calling-engine-holds-2026-11-08) | 2026-11-08 | a keyed link writes an edge only between two entries the calling engine holds |
 
-**254 live decisions.** The rest are stubs — `D<n>` is a permanent identifier, so a number is never reused or renumbered (5): [D36](#d36--a-translation-between-two-verdict-taxonomies-gets-one-arm-per-member-gated-by-a-test-2026-08-05) → D136 · [D80](#d80--merged-into-d77-2026-08-16-folded-2026-08-17) → D77 · [D131](#d131--a-backends-produces-is-derived-from-its-configuration-so-a-modality-is-a-field-2026-09-14) → D133 · [D134](#d134--a-registration-names-the-backend-the-provider-suffix-is-gone-from-all-seventeen-2026-09-14) → D137 · [D145](#d145--the-microsoftextensionsai-module-is-a-bridge-not-a-provider-2026-09-15) → D146
+**255 live decisions.** The rest are stubs — `D<n>` is a permanent identifier, so a number is never reused or renumbered (5): [D36](#d36--a-translation-between-two-verdict-taxonomies-gets-one-arm-per-member-gated-by-a-test-2026-08-05) → D136 · [D80](#d80--merged-into-d77-2026-08-16-folded-2026-08-17) → D77 · [D131](#d131--a-backends-produces-is-derived-from-its-configuration-so-a-modality-is-a-field-2026-09-14) → D133 · [D134](#d134--a-registration-names-the-backend-the-provider-suffix-is-gone-from-all-seventeen-2026-09-14) → D137 · [D145](#d145--the-microsoftextensionsai-module-is-a-bridge-not-a-provider-2026-09-15) → D146
 
 <!-- index:end -->
 
@@ -7483,3 +7484,20 @@ the collection (an orphan of the old space would then be read as the new one, si
 
 **Re-opens** when a write racing a prune must not lose its vector: one landing between the survivor read and the removal is stored with no vector until a re-embed, the same
 degradation an orphan gets.
+
+## D260 — a keyed link writes an edge only between two entries the calling engine holds (2026-11-08)
+
+**Standing.** Rules on the last row of the memory graph and vector stores review (`docs/task-archive.md` Part 489). Built, and frozen from release (**D70**).
+
+**Decided.** `LinkKeyedAsync` names the engine on both endpoints: SQLite and Postgres run `MemoryGraphSql.StrengthenEdgeWithinEngine`, and the in-memory and file stores plan no edge, when either id
+belongs to another engine, so no edge and no receipt land. The keyed contract already said an endpoint the engine does not hold writes nothing; the stores now keep it. The un-keyed `LinkAsync`,
+`LinkManyAsync` and a write-back's edges stay engine-blind.
+
+**Why.** Ids are unique across engines, so a call carrying another engine's id passed the existence test. The SQL stores wrote the edge and an `Applied` receipt of revision 0; the
+in-memory store reported `false` with no receipt but still applied the edge. A receipt is the one thing a keyed call promises not to leave for an effect that did not land.
+
+**Rejected.** The predicate on every link path: the file backend journals an edge by its source's engine and `FileSystemGraphRestartTests` pins a cross-engine edge surviving one journal compacting, so
+the store-level contract has not said an un-keyed edge stays inside one engine (the engine layer refuses it already, `GraphMemoryEngine.LinkAsync`). Refusing with an exception (a node deleted between a
+recall and its write-back is already a silent skip).
+
+**Re-opens** when a ruling says an un-keyed edge stays inside one engine on every store: the statement above gains the predicate and that restart test loses its scenario.

@@ -391,13 +391,17 @@ internal sealed class MemoryGraphState(Func<DateTimeOffset> clock)
             result = new GraphKeyed<bool>(true, true, held);
             return new GraphChange();
         }
-        var change = PlanLink(engine, [edge]);
+        // an endpoint another engine holds writes nothing, where the un-keyed PlanLink goes by id alone
+        var within = HeldBy(engine, edge.From) && HeldBy(engine, edge.To);
+        var change = within ? PlanLink(engine, [edge]) : new GraphChange();
         PlanPurge(engine, key.At, change);
-        var written = change.Edges.Count > 0 && _nodes.TryGetValue(edge.From, out var from) && from.Record.Engine == engine;
+        var written = change.Edges.Count > 0;
         result = new GraphKeyed<bool>(written, false,
             written ? Stamp(change, engine, key, edge.From, _nodes[edge.From].Record.Revision, MemoryOperationOutcome.Applied) : null);
         return change;
     }
+
+    private bool HeldBy(string engine, long id) => _nodes.TryGetValue(id, out var node) && node.Record.Engine == engine;
 
     public GraphChange PlanConfirmKeyed(string engine, GraphConfirm confirm, GraphOperationKey key,
         out GraphKeyed<GraphConfirmResult> result)

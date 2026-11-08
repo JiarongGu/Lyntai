@@ -2625,6 +2625,36 @@ public static class MemoryGraphStoreContract
         Assert.Equal(first.Receipt!.NodeId, from);
     }
 
+    /// <summary><b>A keyed link names the engine that holds both its ends.</b> An id another engine holds writes no edge and leaves
+    /// no receipt, from either end; the same call inside one engine still writes.</summary>
+    public static async Task A_keyed_link_across_engines_writes_no_edge_and_no_receipt(IMemoryGraphStore store, string key)
+    {
+        var keyed = Assert.IsAssignableFrom<IKeyedMemoryGraphStore>(store);
+        var counting = Assert.IsAssignableFrom<ICountableMemoryGraphStore>(store);
+        const string engine = "tv-link-a", other = "tv-link-b";
+        var mine = await store.UpsertAsync(Write(engine, key, "held by the first engine"));
+        var mate = await store.UpsertAsync(Write(engine, key, "also held by the first engine"));
+        var theirs = await store.UpsertAsync(Write(other, key, "held by the second engine"));
+
+        var toOther = await keyed.LinkKeyedAsync(engine, mine, theirs, "disputes", 1,
+            Op("link-to", key, MemoryOperationKind.Relate, "fp-a", Jun));
+        var fromOther = await keyed.LinkKeyedAsync(engine, theirs, mine, "disputes", 1,
+            Op("link-from", key, MemoryOperationKind.Relate, "fp-b", Jun));
+
+        Assert.False(toOther.Value);
+        Assert.Null(toOther.Receipt);
+        Assert.False(fromOther.Value);
+        Assert.Null(fromOther.Receipt);
+        Assert.Equal(0, (await counting.CountAsync(engine, key, null)).Links);
+        Assert.Equal(0, (await counting.CountAsync(other, key, null)).Links);
+        Assert.Null(await keyed.ReceiptAsync(engine, key, "link-to", Jun));
+
+        var inside = await keyed.LinkKeyedAsync(engine, mine, mate, "disputes", 1,
+            Op("link-in", key, MemoryOperationKind.Relate, "fp-c", Jun));
+        Assert.True(inside.Value);
+        Assert.Equal(1, (await counting.CountAsync(engine, key, null)).Links);
+    }
+
     /// <summary><b>A keyed confirmation repeated stamps once</b>: the repeat reports <see cref="GraphConfirmOutcome.Unchanged"/> with
     /// the receipt's revision, and a LATER instant on the repeat is not stamped either.</summary>
     public static async Task A_keyed_confirmation_repeated_stamps_once(IMemoryGraphStore store, string key)
