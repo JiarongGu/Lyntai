@@ -362,8 +362,9 @@ new decision overturns an old one, rewrite the old entry as a stub pointing here
 | [D290](#d290--a-blends-explicit-limit-wins-over-more-authoritative-entries-than-it-allows-2026-11-09) | 2026-11-09 | a blend's explicit `Limit` wins over more authoritative entries than it allows |
 | [D291](#d291--a-scoring-verification-endorsecount-of-0-or-less-is-no-opinion-with-a-warning-at-composition-2026-11-09) | 2026-11-09 | a scoring verification `EndorseCount` of 0 or less is no opinion, with a warning at composition |
 | [D292](#d292--a-semantic-seed-filters-before-it-takes-2026-11-09) | 2026-11-09 | a semantic seed filters before it takes |
+| [D293](#d293--the-migration-passes-and-create-extension-run-under-a-lock-an-advisory-lock-on-postgres-a-named-mutex-on-sqlite-2026-11-09) | 2026-11-09 | the migration passes and `CREATE EXTENSION` run under a lock: an advisory lock on Postgres, a nam… |
 
-**287 live decisions.** The rest are stubs — `D<n>` is a permanent identifier, so a number is never reused or renumbered (5): [D36](#d36--a-translation-between-two-verdict-taxonomies-gets-one-arm-per-member-gated-by-a-test-2026-08-05) → D136 · [D80](#d80--merged-into-d77-2026-08-16-folded-2026-08-17) → D77 · [D131](#d131--a-backends-produces-is-derived-from-its-configuration-so-a-modality-is-a-field-2026-09-14) → D133 · [D134](#d134--a-registration-names-the-backend-the-provider-suffix-is-gone-from-all-seventeen-2026-09-14) → D137 · [D145](#d145--the-microsoftextensionsai-module-is-a-bridge-not-a-provider-2026-09-15) → D146
+**288 live decisions.** The rest are stubs — `D<n>` is a permanent identifier, so a number is never reused or renumbered (5): [D36](#d36--a-translation-between-two-verdict-taxonomies-gets-one-arm-per-member-gated-by-a-test-2026-08-05) → D136 · [D80](#d80--merged-into-d77-2026-08-16-folded-2026-08-17) → D77 · [D131](#d131--a-backends-produces-is-derived-from-its-configuration-so-a-modality-is-a-field-2026-09-14) → D133 · [D134](#d134--a-registration-names-the-backend-the-provider-suffix-is-gone-from-all-seventeen-2026-09-14) → D137 · [D145](#d145--the-microsoftextensionsai-module-is-a-bridge-not-a-provider-2026-09-15) → D146
 
 <!-- index:end -->
 
@@ -7926,3 +7927,15 @@ recall and its write-back is already a silent skip).
 **Rejected.** Keeping the bound as the cost cap it was (the extra reads are bounded by `K`, which the search already paid for, and a seed source that returns less than it holds is what the limit was never meant to mean).
 
 **Re-opens** when the per-match fetch of a wide `K` is measured to cost a recall noticeable time.
+
+## D293 — the migration passes and `CREATE EXTENSION` run under a lock: an advisory lock on Postgres, a named mutex on SQLite (2026-11-09)
+
+**Standing.** A ruling on `TASKS.md` Part 496's first row, **the steward's under the owner's delegation, which the owner may reverse** — not the owner's words. Built; no public member moves.
+
+**Decided.** Both `MigrationRunnerService`s take a lock around every feature pass: Postgres a session `pg_advisory_lock` on a connection of its own (released explicitly, then the connection is disposed), SQLite a named mutex keyed on the hash of the database's full path. `PostgresVectorStore`'s `CREATE EXTENSION` and table creation take the same Postgres lock. A holder that died leaves an abandoned mutex, which the waiter owns and carries on: the migrations are idempotent and the version table says what ran.
+
+**Why.** Two processes against an empty or old database each read the version table as unapplied, and the loser's bare `CREATE`/`ALTER` threw out of `UseXStorage`. A test of four runners on a fresh SQLite file failed on it before the change.
+
+**Rejected.** Retrying a failed first run once (it hides the race rather than closing it, and a retry that meets a half-applied pass can fail for a reason no retry clears).
+
+**Re-opens** when a deployment migrates through a connection pooler that does not keep a session (transaction pooling drops a session advisory lock), which would want a transaction-level lock or the migration run outside the pooler.

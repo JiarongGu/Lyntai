@@ -229,8 +229,8 @@ shipping a migration that does nothing. `check-counts` holds the first number.
 **Never renumber a shipped migration**: the number is recorded in `lyntai_version_info`, so a new one re-runs
 it against tables that already exist. Composite PKs and FKs go **inline at `Create.Table`** (SQLite has no
 `ALTER ADD CONSTRAINT`); raw `Execute.Sql` covers what the fluent API cannot (FTS tables, triggers,
-`ON DELETE CASCADE`). The runner applies migrations under WAL + `busy_timeout` (`MigrationRunnerService`) and
-is idempotent.
+`ON DELETE CASCADE`). The runner applies migrations under WAL + `busy_timeout` (`MigrationRunnerService`), is
+idempotent, and takes a per-database lock around its passes so two processes starting together take turns (**D293**).
 
 **Every migration carries `[Tags(nameof(StorageFeature.<Feature>), StorageFeatures.AllTag)]` — both tags,
 always.** The feature tag is what a SUBSET pass requests; `AllTag` is what the default `StorageFeature.All`

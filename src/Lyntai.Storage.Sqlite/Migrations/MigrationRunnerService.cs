@@ -26,10 +26,7 @@ public static class MigrationRunnerService
         // first, through the factory that applies them to every connection
         using (new SqliteConnectionFactory(dbPath).Open()) { }
 
-        // the All-vs-subset tag dispatch lives in Core (StorageFeatures.TagPasses) so both backend
-        // runners share the all-requested-tags-must-match semantics
-        foreach (var tags in StorageFeatures.TagPasses(features))
-            RunPass(ConnectionString(dbPath), tags);
+        RunPasses(dbPath, features, CancellationToken.None);
     }
 
     /// <summary>Migrate every domain's schema, awaitable — for an app owning its schema
@@ -60,7 +57,19 @@ public static class MigrationRunnerService
         CreateDirectory(dbPath);
         await using (await new SqliteConnectionFactory(dbPath).OpenAsync(ct).ConfigureAwait(false)) { }
 
-        foreach (var tags in StorageFeatures.TagPasses(features))
+        RunPasses(dbPath, features, ct);
+    }
+
+    // The passes run under a lock on the database file, so a second migrator waits for the first rather than
+    // racing its DDL. Synchronous on purpose: the lock belongs to this thread.
+    private static void RunPasses(string dbPath, StorageFeature features, CancellationToken ct)
+    {
+        // the All-vs-subset tag dispatch lives in Core (StorageFeatures.TagPasses) so both backend
+        // runners share the all-requested-tags-must-match semantics
+        var passes = StorageFeatures.TagPasses(features).ToList();
+        if (passes.Count == 0) return;
+        using var _ = MigrationLock.Acquire(dbPath);
+        foreach (var tags in passes)
         {
             ct.ThrowIfCancellationRequested(); // a pass boundary is the last honest cancellation point
             RunPass(ConnectionString(dbPath), tags);
