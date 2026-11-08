@@ -9,22 +9,23 @@ namespace Lyntai.Providers.Basic;
 internal static class WireJson
 {
     /// <summary>A numeric property as a <c>long</c> — 0 when the parent is not an object, when the property
-    /// is absent or non-numeric, or when the number does not fit a <c>long</c>. A usage count is telemetry,
-    /// not the answer, so 0-and-carry-on beats failing a reply the caller already paid for.</summary>
+    /// is absent or non-numeric, when the number does not fit a <c>long</c>, or when it is negative (a count
+    /// of tokens never is, and a tracker that added it would lower a recorded spend). A usage count is
+    /// telemetry, not the answer, so 0-and-carry-on beats failing a reply the caller already paid for.</summary>
     /// <param name="parent">The object to read from.</param>
     /// <param name="name">The property name.</param>
     internal static long Long(JsonElement parent, string name) =>
-        Property(parent, name, JsonValueKind.Number) is { } el && el.TryGetInt64(out var value) ? value : 0;
+        Property(parent, name, JsonValueKind.Number) is { } el && el.TryGetInt64(out var value) && value >= 0 ? value : 0;
 
     /// <summary>A numeric property as an <c>int</c>, or null when absent, non-numeric, fractional or out of
     /// range.</summary>
     internal static int? Int32(JsonElement parent, string name) =>
         Property(parent, name, JsonValueKind.Number) is { } el && el.TryGetInt32(out var value) ? value : null;
 
-    /// <summary>A numeric property as a <c>long</c>, or null when absent, non-numeric, fractional or out of
-    /// range — for a count whose ABSENCE is itself the answer, where <see cref="Long"/>'s zero would lie.</summary>
+    /// <summary>A numeric property as a <c>long</c>, or null when absent, non-numeric, fractional, out of range or
+    /// negative — for a count whose ABSENCE is itself the answer, where <see cref="Long"/>'s zero would lie.</summary>
     internal static long? Int64(JsonElement parent, string name) =>
-        Property(parent, name, JsonValueKind.Number) is { } el && el.TryGetInt64(out var value) ? value : null;
+        Property(parent, name, JsonValueKind.Number) is { } el && el.TryGetInt64(out var value) && value >= 0 ? value : null;
 
     /// <summary>A Unix-seconds stamp as a moment, or null when it is null or past the range of a date (an epoch in
     /// MILLISECONDS written where seconds belong is), where <see cref="DateTimeOffset.FromUnixTimeSeconds"/> throws.</summary>
@@ -32,12 +33,12 @@ internal static class WireJson
     internal static DateTimeOffset? UnixSeconds(long? seconds) =>
         seconds is { } s && s is >= -62135596800L and <= 253402300799L ? DateTimeOffset.FromUnixTimeSeconds(s) : null;
 
-    /// <summary>A numeric property as a finite <c>double</c>, or null when absent, non-numeric or not representable
-    /// (<c>1e999</c> reads as infinity, which no cost or count is).</summary>
+    /// <summary>A numeric property as a finite, non-negative <c>double</c>, or null when absent, non-numeric, not
+    /// representable (<c>1e999</c> reads as infinity, which no cost or count is) or negative.</summary>
     /// <param name="parent">The object to read from.</param>
     /// <param name="name">The property name.</param>
     internal static double? Finite(JsonElement parent, string name) =>
-        Property(parent, name, JsonValueKind.Number) is { } el && el.TryGetDouble(out var value) && double.IsFinite(value) ? value : null;
+        Property(parent, name, JsonValueKind.Number) is { } el && el.TryGetDouble(out var value) && double.IsFinite(value) && value >= 0 ? value : null;
 
     /// <summary>A percent from 0 to 100 as the server wrote it, with the least difference its digits show (1 for
     /// <c>23</c>, 0.1 for <c>23.5</c>; null for exponent form). Absent or null is a stated absence and reads true with

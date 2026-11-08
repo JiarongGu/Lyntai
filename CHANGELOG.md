@@ -38,6 +38,7 @@ every addition.
 ### Changed
 
 - **A CLI's own error line is no longer streamed as the answer, a failure with no message is still a failure, and an MCP server's URL must be http or https** (**D257**).
+- **A negative token count on a backend's wire reads as 0 and a negative cost as absent** (**D258**), so a usage tracker's recorded spend never goes down.
   A Claude assistant line carrying `error` (the login prompt) was delivered as content before the `is_error` result ended the stream, so the router could not fall back; it now
   waits for the result. A backend `Failure` event with an empty message returned the partial text `Ok` buffered and `Error` streamed; both paths now fail it. A non-zero exit
   with an empty stderr quotes the stdout tail. An `Http` agent MCP server whose URL parses as a file URI (a path) ends the turn `mcp-server-invalid` instead of registering nothing.
