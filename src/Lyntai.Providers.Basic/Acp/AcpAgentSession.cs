@@ -244,7 +244,7 @@ public sealed class AcpAgentSession : IAgentSession
 
         refusal = null;
         launch = new AcpLaunch(
-            tokens, Path.GetFullPath(options.WorkingDirectory ?? Directory.GetCurrentDirectory()), _options.ResolveTimeout(options.TimeoutSeconds),
+            tokens, Path.GetFullPath(options.WorkingDirectory ?? Directory.GetCurrentDirectory()), _options.ResolveAgentTimeout(options.TimeoutSeconds),
             AgentAccounts.Merge(AgentAccounts.MergeTurn(_environment, options.Environment), accountEnvironment));
         return true;
     }

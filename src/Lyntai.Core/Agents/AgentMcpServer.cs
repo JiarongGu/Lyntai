@@ -55,7 +55,9 @@ public sealed record AgentMcpServer
     public IReadOnlyList<string> Arguments { get; init; } = [];
 
     /// <summary><see cref="McpTransport.Stdio"/>: environment variables for the child — how an app usually
-    /// passes its own server a workspace path, a database handle or a token.</summary>
+    /// passes its own server a workspace path, a database handle or a token. The codex door forwards them by
+    /// NAME through its own environment (a value is never in argv), so a name that two servers give different
+    /// values, or one the door sets itself (<c>CODEX_HOME</c>, an account's keys, a bearer variable), refuses the turn.</summary>
     public IReadOnlyDictionary<string, string> Environment { get; init; } =
         new Dictionary<string, string>(StringComparer.Ordinal);
 

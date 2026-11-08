@@ -4,6 +4,7 @@ using Lyntai.Inference.Cli;
 using Lyntai.Processes;
 using Lyntai.Providers.ClaudeCli;
 using Lyntai.Providers.CodexCli;
+using Lyntai.Storage.InMemory;
 using Lyntai.Tests.Fakes;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
@@ -610,8 +611,85 @@ public class CodexAgentSessionTests
         // to parse as TOML is to use the raw string, which would change the path SILENTLY rather than fail
         Assert.Contains(@"mcp_servers.app-tools.command=""C:\\Program Files\\app\\mcp.exe""", argv);
         Assert.Contains(@"mcp_servers.app-tools.args=[""--serve""]", argv);
-        Assert.Contains(@"mcp_servers.app-tools.env={ ""APP_WORKSPACE"" = ""/w"" }", argv);
+        Assert.Contains(@"mcp_servers.app-tools.env_vars=[""APP_WORKSPACE""]", argv);
         Assert.Equal(3, argv.Count(a => a == "-c"));
+    }
+
+    [Fact]
+    public async Task A_stdio_servers_environment_travels_by_NAME_and_no_value_reaches_argv()
+    {
+        // D38: a credential never reaches argv, which any process that lists processes can read. codex's
+        // env_vars names the variables to forward; the values ride in the child's own environment.
+        var runner = new FakeProcessRunner(MeasuredSuccess);
+        var server = AgentMcpServer.Stdio("app", "mcp.exe", [],
+            new Dictionary<string, string> { ["APP_DB_PASSWORD"] = "hunter2-value", ["APP_REGION"] = "eu-west" });
+
+        await Session(runner).StreamAsync(Ask() with { McpServers = [server] }).ToListAsync();
+
+        Assert.Contains(@"mcp_servers.app.env_vars=[""APP_DB_PASSWORD"", ""APP_REGION""]", runner.LastArgs!);
+        Assert.DoesNotContain(runner.LastArgs!, a => a.Contains("hunter2-value", StringComparison.Ordinal) || a.Contains("eu-west", StringComparison.Ordinal));
+        Assert.DoesNotContain(runner.LastArgs!, a => a.StartsWith("mcp_servers.app.env=", StringComparison.Ordinal));
+        Assert.Equal("hunter2-value", runner.LastEnvironment?["APP_DB_PASSWORD"]);
+        Assert.Equal("eu-west", runner.LastEnvironment?["APP_REGION"]);
+    }
+
+    [Theory]
+    [InlineData("LYNTAI_MCP_TOKEN_REMOTE")]   // the door's own bearer variables
+    [InlineData("lyntai_mcp_token_remote")]
+    [InlineData("CODEX_HOME")]                // the account's home
+    [InlineData("OPENAI_API_KEY")]            // what an account may set
+    [InlineData("CODEX_API_KEY")]
+    [InlineData("HAS=EQUALS")]
+    [InlineData("")]
+    public async Task A_stdio_environment_name_the_door_owns_refuses_the_turn_without_spawning(string name)
+    {
+        var runner = new FakeProcessRunner(MeasuredSuccess);
+        var server = AgentMcpServer.Stdio("app", "mcp.exe", [], new Dictionary<string, string> { [name] = "the-value" });
+
+        var events = await Session(runner).StreamAsync(Ask() with { McpServers = [server] }).ToListAsync();
+
+        var ended = Assert.IsType<SessionEnded>(Assert.Single(events));
+        Assert.Equal(ProviderVerdict.Unsupported, ended.Verdict);
+        Assert.Equal("mcp-server-invalid", ended.Subtype);
+        Assert.DoesNotContain("the-value", ended.Diagnostic, StringComparison.Ordinal);
+        Assert.Empty(runner.Calls);
+    }
+
+    [Fact]
+    public async Task Two_servers_giving_one_variable_two_values_refuse_and_two_giving_it_one_value_do_not()
+    {
+        // the child's environment holds ONE value per name, so by-name forwarding cannot carry two
+        AgentMcpServer ServerWith(string name, string value) =>
+            AgentMcpServer.Stdio(name, "mcp.exe", [], new Dictionary<string, string> { ["SHARED_VAR"] = value });
+
+        var refusing = new FakeProcessRunner(MeasuredSuccess);
+        var events = await Session(refusing).StreamAsync(
+            Ask() with { McpServers = [ServerWith("one", "a"), ServerWith("two", "b")] }).ToListAsync();
+        var ended = Assert.IsType<SessionEnded>(Assert.Single(events));
+        Assert.Equal("mcp-server-invalid", ended.Subtype);
+        Assert.Contains("SHARED_VAR", ended.Diagnostic, StringComparison.Ordinal);
+        Assert.Empty(refusing.Calls);
+
+        var agreeing = new FakeProcessRunner(MeasuredSuccess);
+        await Session(agreeing).StreamAsync(
+            Ask() with { McpServers = [ServerWith("one", "a"), ServerWith("two", "a")] }).ToListAsync();
+        Assert.Equal("a", agreeing.LastEnvironment?["SHARED_VAR"]);
+    }
+
+    [Fact]
+    public async Task The_bearer_variable_name_holds_TOKEN_so_codexs_default_shell_policy_filters_it()
+    {
+        // codex's shell_environment_policy default drops a variable whose name holds KEY, SECRET or TOKEN from
+        // a shell tool's environment, which is what keeps a model running `env` from reading the bearer
+        var runner = new FakeProcessRunner(MeasuredSuccess);
+
+        await Session(runner).StreamAsync(Ask() with
+        {
+            McpServers = [AgentMcpServer.Http("remote", "https://tools.example.invalid/mcp", "tok")],
+        }).ToListAsync();
+
+        var variable = Assert.Single(runner.LastEnvironment!.Keys);
+        Assert.Contains("TOKEN", variable, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -661,9 +739,9 @@ public class CodexAgentSessionTests
         await Session(runner).StreamAsync(Ask() with { McpServers = [server] }).ToListAsync();
 
         Assert.Contains(@"mcp_servers.remote.url=""https://tools.example.invalid/mcp""", runner.LastArgs!);
-        Assert.Contains(@"mcp_servers.remote.bearer_token_env_var=""LYNTAI_MCP_BEARER_REMOTE""", runner.LastArgs!);
+        Assert.Contains(@"mcp_servers.remote.bearer_token_env_var=""LYNTAI_MCP_TOKEN_REMOTE""", runner.LastArgs!);
         Assert.DoesNotContain(runner.LastArgs!, a => a.Contains("s3cret-token", StringComparison.Ordinal));
-        Assert.Equal("s3cret-token", runner.LastEnvironment?["LYNTAI_MCP_BEARER_REMOTE"]);
+        Assert.Equal("s3cret-token", runner.LastEnvironment?["LYNTAI_MCP_TOKEN_REMOTE"]);
     }
 
     [Fact]
@@ -681,7 +759,7 @@ public class CodexAgentSessionTests
         }).ToListAsync();
 
         Assert.Equal("portable/home", runner.LastEnvironment?["CODEX_HOME"]);
-        Assert.Equal("tok", runner.LastEnvironment?["LYNTAI_MCP_BEARER_REMOTE"]);
+        Assert.Equal("tok", runner.LastEnvironment?["LYNTAI_MCP_TOKEN_REMOTE"]);
     }
 
     [Fact]
@@ -700,7 +778,7 @@ public class CodexAgentSessionTests
 
         Assert.True(runner.LastEnvironment!.TryGetValue("OPENAI_API_KEY", out var removed));
         Assert.Null(removed);
-        Assert.Equal("tok", runner.LastEnvironment["LYNTAI_MCP_BEARER_REMOTE"]);
+        Assert.Equal("tok", runner.LastEnvironment["LYNTAI_MCP_TOKEN_REMOTE"]);
     }
 
     [Fact]
@@ -780,7 +858,7 @@ public class CodexAgentSessionTests
     }
 
     [Theory]
-    [InlineData("app-tools", "app_tools")]   // the live case: both derive LYNTAI_MCP_BEARER_APP_TOOLS
+    [InlineData("app-tools", "app_tools")]   // the live case: both derive LYNTAI_MCP_TOKEN_APP_TOOLS
     [InlineData("a-b", "a_b")]
     public async Task Two_names_differing_only_by_dash_or_underscore_refuse_rather_than_crossing_tokens(
         string first, string second)
@@ -833,6 +911,27 @@ public class CodexAgentSessionTests
         var ended = events.OfType<SessionEnded>().Single();
         Assert.True(ended.IsError);
         Assert.Contains("boom stderr", ended.Diagnostic);
+    }
+
+    [Fact]
+    public async Task A_rate_limit_named_only_on_stderr_is_a_Limit_failure_and_holds_the_seat()
+    {
+        var runner = new FakeProcessRunner(throwsAfterLines: new ProcessRunException("codex", 1, "429 Too Many Requests"));
+
+        var events = await Session(runner).StreamAsync(Ask()).ToListAsync();
+
+        var ended = events.OfType<SessionEnded>().Single();
+        Assert.Equal(ProviderVerdict.RateLimited, ended.Verdict);
+        Assert.Equal(AgentFailureKind.Limit, ended.Failure!.Kind);
+
+        // the pool keys on the kind: a Limit holds the exact seat, a Fatal held nothing
+        var account = new AgentAccount { Provider = "codex-cli", Name = "a", Home = "/homes/a" };
+        var options = new AgentPoolOptions();
+        options.Choices.Add(new AgentChoice { Provider = "codex-cli", Accounts = [account] });
+        var pool = new AgentAccountPool(options, new InMemoryKeyValueStore(), new ManualTimeProvider());
+        var pick = (await pool.PickAsync()).Pick ?? throw new Xunit.Sdk.XunitException("no seat was permitted");
+        await pool.ReportAsync(pick, ended);
+        Assert.Null((await pool.PickAsync()).Pick);
     }
 
     [Fact]

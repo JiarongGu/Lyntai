@@ -15,31 +15,66 @@ namespace Lyntai.Providers.CodexCli;
 /// <c>codex mcp list</c> / <c>codex mcp get</c> — which READ configuration and spend no turn — with the
 /// overrides applied, and reading back the server codex actually registered:</para>
 /// <code>
-/// codex mcp list -c 'mcp_servers.x.command="node"' -c 'mcp_servers.x.args=["a","b"]' \
-///                -c 'mcp_servers.x.env={ "K1" = "v1" }'
-///   → Name x  Command node  Args a b  Env K1=*****  Status enabled
+/// codex mcp get x -c 'mcp_servers.x.command="node"' -c 'mcp_servers.x.env_vars=["K1","K2"]'
+///   → transport: stdio · command: node · env: K1=*****, K2=*****   (codex-cli 0.167.0, 2026-11-09)
 /// codex mcp get h -c 'mcp_servers.h.url="https://example.invalid/mcp"' \
-///                 -c 'mcp_servers.h.bearer_token_env_var="LYNTAI_MCP_BEARER_H"'
-///   → transport: streamable_http · url: … · bearer_token_env_var: LYNTAI_MCP_BEARER_H
+///                 -c 'mcp_servers.h.bearer_token_env_var="LYNTAI_MCP_TOKEN_H"'
+///   → transport: streamable_http · url: … · bearer_token_env_var: LYNTAI_MCP_TOKEN_H
 /// </code>
 ///
-/// <para><b>Why a bearer token travels in the ENVIRONMENT and not in argv.</b> codex accepts only
-/// <c>bearer_token_env_var</c> — the NAME of a variable to read — and never a literal token, which is the
-/// shape to want anyway: a command line is readable by any process that can list processes, so rendering
-/// <c>-c …http_headers={ "Authorization" = "Bearer …" }</c> would publish the caller's secret to the whole
-/// machine. So the value goes into the child's environment under a generated name and only that name
-/// reaches argv.</para></summary>
+/// <para><b>Why a secret travels in the ENVIRONMENT and not in argv</b> (<c>docs/DECISIONS.md</c> D38). A
+/// command line is readable by any process that can list processes. codex accepts only
+/// <c>bearer_token_env_var</c> — the NAME of a variable to read — for an HTTP bearer, and
+/// <c>env_vars</c> — the NAMES to forward — for a stdio server's variables; the values go into the child's
+/// environment and only the names reach argv. The bearer's name holds <c>TOKEN</c>, which codex's default
+/// shell-environment policy filters from a shell tool.</para></summary>
 internal static class CodexMcpConfig
 {
     /// <summary>The prefix of the environment variable a bearer token is passed through. The server name is
     /// appended so several servers can each carry their own.</summary>
-    private const string BearerPrefix = "LYNTAI_MCP_BEARER_";
+    private const string BearerPrefix = "LYNTAI_MCP_TOKEN_";
+
+    /// <summary>Can every stdio server's variables be forwarded by name? False with a <paramref name="refusal"/>
+    /// naming the variable, never its value, when one is not a name an environment can hold, is one this door
+    /// sets itself (a bearer variable, the account's home or keys), or is given two values by two servers —
+    /// the child's environment holds one value per name.</summary>
+    public static bool TryCheck(IReadOnlyList<AgentMcpServer> servers, out string? refusal)
+    {
+        var values = new Dictionary<string, (string Server, string Value)>(StringComparer.OrdinalIgnoreCase);
+        foreach (var server in servers.Where(s => s.Transport == McpTransport.Stdio))
+        {
+            foreach (var (name, value) in server.Environment)
+            {
+                if (string.IsNullOrWhiteSpace(name) || name.Contains('=') || name.Any(char.IsControl))
+                    refusal = $"MCP server '{server.Name}' names '{name}' as an environment variable, which is not a name one can have.";
+                else if (value.Any(char.IsControl))
+                    refusal = $"MCP server '{server.Name}' gives {name} a value holding a control character.";
+                else if (name.StartsWith(BearerPrefix, StringComparison.OrdinalIgnoreCase)
+                    || name.Equals(CodexAgentDoor.AccountHomeVariable, StringComparison.OrdinalIgnoreCase)
+                    || CodexAgentDoor.Mapping.Variables.Contains(name, StringComparer.OrdinalIgnoreCase))
+                    refusal = $"MCP server '{server.Name}' sets {name}, a variable the codex door sets itself; " +
+                        "the server's variables travel in codex's own environment by name, so it would overwrite it.";
+                else if (values.TryGetValue(name, out var earlier) && earlier.Value != value)
+                    refusal = $"MCP servers '{earlier.Server}' and '{server.Name}' give {name} different values; " +
+                        "the variables travel in codex's own environment by name, which holds one value per name.";
+                else
+                {
+                    values[name] = (server.Name, value);
+                    continue;
+                }
+                return false;
+            }
+        }
+        refusal = null;
+        return true;
+    }
 
     /// <summary>Build the <c>-c</c> arguments for <paramref name="servers"/>, plus any environment variables
-    /// the spawn must carry for them. Callers validate through <see cref="AgentMcpServers.TryValidate"/>
-    /// first; this method assumes usable entries.</summary>
+    /// the spawn must carry for them. Callers validate through <see cref="AgentMcpServers.TryValidate"/> and
+    /// <see cref="TryCheck"/> first; this method assumes usable entries.</summary>
     /// <param name="servers">The host application's servers. Empty yields empty.</param>
-    /// <param name="environment">Variables to merge into the child's environment (bearer tokens).</param>
+    /// <param name="environment">Variables to merge into the child's environment (bearer tokens and a stdio
+    /// server's own variables).</param>
     public static List<string> Build(
         IReadOnlyList<AgentMcpServer> servers, out Dictionary<string, string> environment)
     {
@@ -55,7 +90,11 @@ internal static class CodexMcpConfig
                 if (server.Arguments.Count > 0)
                     Add(args, $"{key}.args", TomlArray(server.Arguments));
                 if (server.Environment.Count > 0)
-                    Add(args, $"{key}.env", TomlTable(server.Environment));
+                {
+                    // the NAMES go to argv (codex's env_vars forwards them); the VALUES go to the child's environment
+                    Add(args, $"{key}.env_vars", TomlArray([.. server.Environment.Keys]));
+                    foreach (var (name, value) in server.Environment) environment[name] = value;
+                }
             }
             else
             {
@@ -86,14 +125,11 @@ internal static class CodexMcpConfig
     private static string TomlArray(IReadOnlyList<string> values) =>
         $"[{string.Join(", ", values.Select(Toml))}]";
 
-    private static string TomlTable(IReadOnlyDictionary<string, string> entries) =>
-        $"{{ {string.Join(", ", entries.Select(e => $"{Toml(e.Key)} = {Toml(e.Value)}"))} }}";
-
     /// <summary>A TOML basic string. Every value is quoted and escaped rather than emitted raw, because
     /// codex's documented fallback for a value that FAILS to parse as TOML is to use the raw string as a
     /// literal — so a bad escape does not fail loudly, it silently changes the value. Windows paths are the
     /// case that matters: <c>C:\app\mcp.exe</c> inside a basic string contains <c>\a</c>, which is not a TOML
-    /// escape. Quoted keys are legal in an inline table, so the same helper serves both halves.</summary>
+    /// escape.</summary>
     private static string Toml(string value)
     {
         var sb = new StringBuilder(value.Length + 2).Append('"');

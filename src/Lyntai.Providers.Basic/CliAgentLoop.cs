@@ -94,13 +94,16 @@ internal static class CliAgentLoop
         _ => null,
     };
 
-    // A process fault is the harness's, not the door's: only its stderr may name an access failure, a stalled
-    // window is transient, and anything else is fatal.
+    // A process fault is the harness's, not the door's: only its stderr may name an access failure or a limit, a
+    // stalled window is transient, and anything else is fatal. The pool keys on the kind, so a limit the verdict
+    // names must not read Fatal.
     internal static AgentFailure FaultFailure(Exception ex, ProviderVerdict verdict) => ex switch
     {
         ProcessTimeoutException => new AgentFailure(AgentFailureKind.Transient, "process.inactivity-timeout"),
         ProcessRunException when verdict is ProviderVerdict.AuthFailed or ProviderVerdict.NotConfigured =>
             new AgentFailure(AgentFailureKind.Access, "process.stderr:auth"),
+        ProcessRunException when verdict is ProviderVerdict.RateLimited =>
+            new AgentFailure(AgentFailureKind.Limit, "process.stderr:rate-limit"),
         ProcessRunException => new AgentFailure(AgentFailureKind.Fatal, "process.exit"),
         _ => new AgentFailure(AgentFailureKind.Fatal, "process.spawn"),
     };

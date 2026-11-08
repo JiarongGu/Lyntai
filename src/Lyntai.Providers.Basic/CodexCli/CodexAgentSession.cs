@@ -114,6 +114,12 @@ public sealed class CodexAgentSession : IAgentSession
             yield break;
         }
 
+        if (!CodexMcpConfig.TryCheck(options.McpServers, out var mcpEnvironmentRefusal))
+        {
+            yield return CliAgentLoop.Refused(AgentMcpServers.RefusedSubtype, mcpEnvironmentRefusal);
+            yield break;
+        }
+
         if (!AgentAccounts.TryCheckTurn(options.Environment, out var environmentRefusal))
         {
             yield return CliAgentLoop.Refused(AgentAccounts.EnvironmentRefusedSubtype, environmentRefusal);
@@ -151,7 +157,7 @@ public sealed class CodexAgentSession : IAgentSession
         var (exe, prefixArgs) = CliCommand.Resolve(_command, Backend);
         var reader = new CodexAgentReader(_time);
         var turn = CliAgentLoop.RunAsync(_runner, exe, [.. prefixArgs, .. agentArgs], CodexAgentArgs.BuildPrompt(options),
-            _options.ResolveTimeout(options.TimeoutSeconds),
+            _options.ResolveAgentTimeout(options.TimeoutSeconds),
             options, AgentAccounts.Merge(AgentAccounts.Merge(AgentAccounts.MergeTurn(_environment, options.Environment), mcpEnvironment), accountEnvironment),
             reader, _logger, "codex", ct);
         await foreach (var evt in turn.ConfigureAwait(false))

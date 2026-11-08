@@ -114,7 +114,7 @@ public class AgentAccountTests
         }).ToListAsync();
 
         Assert.Equal(Home, runner.LastEnvironment![variable]);
-        Assert.Equal("tok", runner.LastEnvironment["LYNTAI_MCP_BEARER_REMOTE"]);
+        Assert.Equal("tok", runner.LastEnvironment["LYNTAI_MCP_TOKEN_REMOTE"]);
     }
 
     [Theory, MemberData(nameof(Doors))]
