@@ -132,11 +132,15 @@ internal sealed class FileSystemRoot : IDisposable
     public static void DeleteTemporary(string file) => Delete(file + Temporary);
 
     /// <summary>Deletes every temporary file an interrupted <see cref="Write"/> left directly in
-    /// <paramref name="directory"/>; a directory that does not exist has none.</summary>
+    /// <paramref name="directory"/> — a record's <c>.md.tmp</c> and nothing else, since a person's own
+    /// <c>.tmp</c> file is not ours to delete; a directory that does not exist has none.</summary>
     public static void DeleteStrays(string directory)
     {
         if (!Directory.Exists(directory)) return;
-        foreach (var stray in Directory.EnumerateFiles(directory, "*" + Temporary)) File.Delete(stray);
+        // the filter again, because a three-letter extension pattern also matches a longer one on Windows
+        foreach (var stray in Directory.EnumerateFiles(directory, "*.md" + Temporary)
+                     .Where(f => f.EndsWith(".md" + Temporary, StringComparison.Ordinal)))
+            File.Delete(stray);
     }
 
     public static void DeleteDirectory(string directory)

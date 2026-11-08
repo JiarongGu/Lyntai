@@ -37,9 +37,10 @@ const between = (text, startRe, endToken) => {
 };
 
 // A docs mention must be a TABLE ROW, not any prose occurrence — both docs describe the package set as a table,
-// and every package is named in prose somewhere else (so a prose match also passes vacuously).
+// and every package is named in prose somewhere else (so a prose match also passes vacuously). The id must be
+// the row's FIRST cell: another package's row that names this one in its notes is not this one's row.
 const hasTableRow = (doc, id) =>
-  new RegExp(`^\\|.*\`${id.replace(/\./g, '\\.')}\``, 'm').test(doc);
+  new RegExp(`^\\|\\s*\`${id.replace(/\./g, '\\.')}\`\\s*\\|`, 'm').test(doc);
 
 /** The packable projects under `src/` — the source of truth every registry below must agree with. */
 export function packableProjects(repoRoot) {

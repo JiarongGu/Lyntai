@@ -24,8 +24,11 @@ public sealed class LazyMigratingConnectionFactory(IDbConnectionFactory inner, A
     public Task<DbConnection> OpenAsync(CancellationToken ct = default)
     {
         // the migration itself is synchronous (FluentMigrator) and one-time; only the open is async —
-        // and the inner factory's genuinely-async open must not be flattened by this decorator
-        EnsureMigrated();
+        // and the inner factory's genuinely-async open must not be flattened by this decorator.
+        // A failure is the returned task's, never a throw out of this call, and a cancelled token migrates nothing.
+        if (ct.IsCancellationRequested) return Task.FromCanceled<DbConnection>(ct);
+        try { EnsureMigrated(); }
+        catch (Exception ex) { return Task.FromException<DbConnection>(ex); }
         return inner.OpenAsync(ct);
     }
 

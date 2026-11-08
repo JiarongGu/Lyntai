@@ -358,6 +358,14 @@ describe('requiredModelProviderMembers (D127)', () => {
     assert.ok(requiredModelProviderMembers(fixture(r)).includes('RankAsync'));
   });
 
+  it('names a settable or init-only property added without a default', () => {
+    for (const accessors of ['{ get; set; }', '{ get; init; }']) {
+      const r = iface('    new string Id { get; }\n    ProviderCapabilities Capabilities { get; }\n'
+        + `    string Extra ${accessors}\n`);
+      assert.ok(requiredModelProviderMembers(fixture(r)).includes('Extra'), accessors);
+    }
+  });
+
   it('counts a defaulted operation as satisfied, however many lines its body spans', () => {
     const r = iface('    new string Id { get; }\n    ProviderCapabilities Capabilities { get; }\n'
       + '    Task<int> RankAsync(\n        string q, CancellationToken ct = default) =>\n'

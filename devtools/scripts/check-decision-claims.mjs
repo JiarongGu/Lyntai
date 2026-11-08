@@ -236,7 +236,7 @@ export function requiredModelProviderMembers(r) {
   // member's end, but the property still ends there. Blanking without the `;` merged every property into
   // the next member's chunk, and the first member carrying a `=>` then made the whole run look defaulted —
   // which reported zero required members on an interface that has two, a gate that could not fail.
-  for (const chunk of src.slice(start, end).replace(/\{\s*get;\s*\}/g, '<prop>;').split(';')) {
+  for (const chunk of src.slice(start, end).replace(/\{\s*get;(?:\s*(?:set|init);)?\s*\}/g, '<prop>;').split(';')) {
     const decl = chunk.trim();
     if (!decl) continue;
     const name = /(\w+)\s*(?:<prop>|\()/.exec(decl)?.[1];

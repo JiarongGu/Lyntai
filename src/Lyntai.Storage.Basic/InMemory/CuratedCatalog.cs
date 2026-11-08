@@ -86,7 +86,7 @@ internal sealed class CuratedCatalog
         int? limit, IReadOnlyDictionary<string, string>? metadataMatch)
     {
         var q = Filter(_entries, kind, enabledOnly, taskKey, scope, metadataMatch)
-            .OrderBy(e => e.Kind, StringComparer.Ordinal).ThenBy(e => e.CreatedAt).ThenBy(e => e.Id);
+            .OrderBy(e => e.Kind, Utf8Ordinal.Instance).ThenBy(e => e.CreatedAt).ThenBy(e => e.Id);
         return [.. limit is { } n ? q.Take(n) : q];
     }
 
@@ -108,7 +108,7 @@ internal sealed class CuratedCatalog
         [.. _entries
             .Where(e => !enabledOnly || e.Enabled)
             .Where(e => CuratedMemorySections.AppliesTo(e, taskKey, scopes))
-            .OrderBy(e => e.Kind, StringComparer.Ordinal).ThenBy(e => e.CreatedAt).ThenBy(e => e.Id)];
+            .OrderBy(e => e.Kind, Utf8Ordinal.Instance).ThenBy(e => e.CreatedAt).ThenBy(e => e.Id)];
 
     // taskKey/scope are STRICT equality here — the admin filter, unlike ForComposition's applies-everywhere
     private static IEnumerable<CuratedMemory> Filter(IEnumerable<CuratedMemory> q, string? kind, bool enabledOnly,

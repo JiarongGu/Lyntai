@@ -39,6 +39,18 @@ public static class MemoryStoreContract
         Assert.Contains("智能代理", hits[0].Content);
     }
 
+    /// <summary>A query of two-character words ("配偶 客户") has no term an index can serve, and a row that happens
+    /// to hold the whole phrase must not stop the words matching the rows that hold only one of them.</summary>
+    public static async Task A_query_of_short_words_finds_a_row_holding_one_as_well_as_the_phrase(IMemoryStore store, string key)
+    {
+        await store.RememberAsync(key, "notes", "配偶 客户 备注");
+        await store.RememberAsync(key, "notes", "客户资料");
+
+        var hits = await store.RecallAsync(key, query: "配偶 客户");
+
+        Assert.Equal(2, hits.Count);
+    }
+
     public static async Task Scope_filter_applies(IMemoryStore store, string key)
     {
         await store.RememberAsync(key, "alpha", "fact in alpha scope");

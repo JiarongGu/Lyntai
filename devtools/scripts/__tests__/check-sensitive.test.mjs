@@ -14,7 +14,7 @@ import { describe, it } from 'node:test';
 import {
   builtins, checkSensitive, decodeText, loadPatterns, scanFiles, sources,
 } from '../check-sensitive.mjs';
-import { git, makeRepo, makeTree, recorder, removeTree, writeInto } from './_fixtures.mjs';
+import { git, makeRepo, makeTree, recorder, removeTree, repoRoot, writeInto } from './_fixtures.mjs';
 
 const DRIVE = 'C:';
 const HOME_LEAK = `${DRIVE}\\Users\\nobody\\notes.txt`;          // Windows user-home shape
@@ -96,6 +96,13 @@ describe('check-sensitive — the built-in patterns FIRE', () => {
   it('ships exactly the two structural built-ins (they are the tracked, publishable half)', () => {
     assert.equal(builtins.length, 2);
     assert.equal(builtinsOnly.length, 2, 'no local file → the built-ins still run');
+  });
+});
+
+describe('the pre-commit hook', () => {
+  it('is committed executable, because git skips a hook without the bit and every guard in it goes with it', () => {
+    const entry = git(repoRoot, ['ls-files', '-s', 'devtools/hooks/pre-commit']);
+    assert.match(entry, /^100755 /, `the index holds ${entry.trim() || 'no entry'}`);
   });
 });
 
@@ -202,6 +209,17 @@ describe('check-sensitive — end to end over a real repository', () => {
     const log = recorder(); const err = recorder();
     assert.equal(checkSensitive({ repo: dir, tree: true, log, err }), 0);
     assert.match(log.text(), /clean — no dev-machine paths or private tokens/);
+  });
+
+  it('a bad line in the private ban list blocks, because the ban it meant to state never ran', (t) => {
+    const dir = makeRepo({ 'local/sensitive-patterns.txt': '[unclosed\n', 'README.md': 'clean\n' });
+    t.after(() => removeTree(dir));
+    git(dir, ['add', '-f', '.']);
+
+    const log = recorder(); const err = recorder();
+    assert.equal(checkSensitive({ repo: dir, tree: true, log, err }), 1);
+    assert.match(err.text(), /bad regex in local\/sensitive-patterns\.txt: \[unclosed/);
+    assert.match(err.text(), /not armed/);
   });
 
   it('--tree blocks on a leak in a tracked file, naming file and line', (t) => {

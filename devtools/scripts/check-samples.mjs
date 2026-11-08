@@ -147,6 +147,9 @@ const USING_DIRECTIVE = /^\s*(?:global\s+)?using\s+(?:static\s+)?[A-Za-z_][\w.]*
 const DECLARATION_START =
   /^\s*(?:\[|namespace\b|public\b|internal\b|protected\b|private\b|file\b|sealed\b|abstract\b|partial\b|class\b|record\b|struct\b|interface\b|enum\b|delegate\b)/;
 
+// The spellings a Markdown renderer treats as C#; an info string may carry more words after the language.
+const CSHARP_LANG = /^(?:csharp|cs|c#)$/i;
+
 /**
  * Every fenced ```csharp block in one document, with the `compile-skip` annotation that governs it.
  *
@@ -167,14 +170,15 @@ export function extractBlocks(text, file) {
 
   let open = null;   // { indent, ticks, lang, start }
   for (let i = 0; i < lines.length; i++) {
-    const fence = lines[i].match(/^(\s*)(`{3,})\s*(\S*)\s*$/);
+    const fence = lines[i].match(/^(\s*)(`{3,})\s*(\S*)(.*)$/);
     if (!fence) continue;
-    const [, indent, ticks, lang] = fence;
+    const [, indent, ticks, lang, rest] = fence;
+    const info = `${lang}${rest.trim()}`;
 
     if (open) {
       // A closer is at least as long as its opener and carries no info string.
-      if (ticks.length < open.ticks || lang !== '') continue;
-      if (open.lang === 'csharp') {
+      if (ticks.length < open.ticks || info !== '') continue;
+      if (CSHARP_LANG.test(open.lang)) {
         const body = lines.slice(open.start + 1, i).map((l) => (l.startsWith(indent) ? l.slice(indent.length) : l));
         const notes = annotationsAbove(lines, open.start);
         const ownSkip = (notes.text.match(SKIP_BLOCK) ?? [])[1] ?? null;

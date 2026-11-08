@@ -146,8 +146,8 @@ export function countLanguageArms(repo) {
   if (at < 0) return -1;
   const body = text.slice(at);
   const inner = body.slice(body.indexOf('{') + 1, body.indexOf('}'));
-  return inner.replace(/\/\/\/.*/g, '').split(',')
-    .map((s) => s.trim())
+  return inner.replace(/\/\/.*/g, '').split(',')
+    .map((s) => s.trim().replace(/\s*=.*$/s, ''))
     .filter((s) => /^[A-Za-z]\w*$/.test(s))
     .length;
 }

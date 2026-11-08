@@ -225,14 +225,28 @@ public sealed class SqliteCuratedMemoryStore(IDbConnectionFactory factory,
         var scopeList = scopes as IReadOnlyList<string> ?? [.. scopes];
         // empty scopes → scope filter disabled; else the entry's scope must be null/empty (applies everywhere)
         // or one of the requested scopes. task-key-null rows apply to every task.
-        var scopeClause = scopeList.Count == 0 ? "" : " AND (scope IS NULL OR scope = '' OR scope IN @scopes)";
+        var scopeClause = scopeList.Count == 0 ? "" : " AND (scope IS NULL OR scope = '' OR scope IN (SELECT value FROM json_each(@scopes)))";
         await using var conn = await factory.OpenAsync(ct).ConfigureAwait(false);
         var rows = await conn.QueryAsync<CuratedMemoryRow>(new CommandDefinition($"""
             SELECT {Cols} FROM lyntai_curated_memory
             WHERE (@enabledOnly = 0 OR enabled = 1) AND (task IS NULL OR task = @task){scopeClause}
             ORDER BY kind, created_at, id
-            """, new { task = taskKey, enabledOnly, scopes = scopeList }, cancellationToken: ct)).ConfigureAwait(false);
+            """, new { task = taskKey, enabledOnly, scopes = ScopeArray(scopeList) }, cancellationToken: ct)).ConfigureAwait(false);
         return [.. rows.Select(r => r.ToRecord())];
+    }
+
+    // The scopes travel as ONE JSON parameter: `IN @scopes` expands to a parameter per scope, which SQLite refuses
+    // past its bound-variable limit. Written by hand, not serialised, so the project stays trim-clean.
+    private static string ScopeArray(IReadOnlyList<string> scopes)
+    {
+        using var buffer = new MemoryStream();
+        using (var json = new System.Text.Json.Utf8JsonWriter(buffer))
+        {
+            json.WriteStartArray();
+            foreach (var scope in scopes) json.WriteStringValue(scope);
+            json.WriteEndArray();
+        }
+        return Encoding.UTF8.GetString(buffer.GetBuffer(), 0, (int)buffer.Length);
     }
 
     // mirror each metadata pair into the relational index (the queryable side of the opaque JSON column)

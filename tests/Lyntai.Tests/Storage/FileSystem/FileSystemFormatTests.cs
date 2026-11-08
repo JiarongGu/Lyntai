@@ -166,6 +166,23 @@ public class FileSystemFormatTests
     }
 
     [Fact]
+    public void A_temporary_file_that_is_not_a_records_is_not_cleared_on_load()
+    {
+        using var temp = new TempRoot();
+        var dir = temp.Root.Combine("kv");
+        temp.Root.Write(Path.Combine(dir, "a.md"), RecordFile.Write(new RecordHeader().Add("key", "a"), "new"));
+        File.WriteAllText(Path.Combine(dir, "notes.tmp"), "a person's file");
+        File.WriteAllText(Path.Combine(dir, "a.md.tmp"), "half a write");
+        File.WriteAllText(Path.Combine(dir, "a.md.tmpx"), "a longer extension");
+
+        Assert.Equal(["a"], temp.Root.Load(dir, (_, h, _) => h.RequiredString("key")));
+
+        Assert.False(File.Exists(Path.Combine(dir, "a.md.tmp")));
+        Assert.True(File.Exists(Path.Combine(dir, "notes.tmp")));
+        Assert.True(File.Exists(Path.Combine(dir, "a.md.tmpx")));
+    }
+
+    [Fact]
     public void A_numbered_file_that_does_not_parse_still_reserves_its_id()
     {
         using var temp = new TempRoot();
