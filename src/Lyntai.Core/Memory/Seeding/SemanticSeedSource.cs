@@ -29,7 +29,9 @@ namespace Lyntai.Memory.Seeding;
 /// <para><b>Two bounds on two different things.</b> <see cref="SemanticSeedOptions.K"/> is the SEARCH width;
 /// <see cref="MemorySeedRequest.Limit"/> additionally caps what is RETURNED. Coupling them would narrow the
 /// search itself whenever a recall's limit is smaller. The cap is deterministic because this source sorts a
-/// scope-less merge by score then id, the order one collection's search already has.</para></summary>
+/// scope-less merge by score then id, the order one collection's search already has. A match whose id does not
+/// parse or whose entry no longer exists is skipped without using the cap, so up to <see cref="SemanticSeedOptions.K"/>
+/// matches may be read to return the nodes the limit allows.</para></summary>
 public sealed class SemanticSeedSource(
     IEnumerable<IModelProvider> providers,
     IVectorStore vectors,
@@ -79,12 +81,12 @@ public sealed class SemanticSeedSource(
         }
 
         // RETURN is capped by both — MemorySeedRequest.Limit's own contract ("may return at most") applies
-        // here regardless of how wide the search was.
+        // here regardless of how wide the search was. The cap counts LIVE nodes: the walk below skips a match
+        // whose id or entry is gone, so a stale top match never costs a live one lower in the order.
         var take = Math.Min(_options.K, request.Limit);
         var ordered = near
             .OrderByDescending(m => m.Score)
-            .ThenBy(m => m.Id, StringComparer.Ordinal)
-            .Take(take);
+            .ThenBy(m => m.Id, StringComparer.Ordinal);
 
         var results = new List<GraphNode>(take);
         var seen = new HashSet<long>();
@@ -92,6 +94,7 @@ public sealed class SemanticSeedSource(
         {
             foreach (var match in ordered)
             {
+                if (results.Count >= take) break;
                 if (!long.TryParse(match.Id, NumberStyles.Integer, CultureInfo.InvariantCulture, out var id)) continue;
                 if (!seen.Add(id)) continue;
                 var node = await request.Store.GetAsync(request.Engine, id, ct).ConfigureAwait(false);

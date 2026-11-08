@@ -351,8 +351,9 @@ new decision overturns an old one, rewrite the old entry as a stub pointing here
 | [D279](#d279--memorycontentkey-is-documented-as-a-hash-over-utf-8-with-a-lone-surrogate-as-ufffd-2026-11-09) | 2026-11-09 | `MemoryContentKey` is documented as a hash over UTF-8, with a lone surrogate as U+FFFD |
 | [D280](#d280--a-blends-explicit-limit-wins-over-more-authoritative-entries-than-it-allows-2026-11-09) | 2026-11-09 | a blend's explicit `Limit` wins over more authoritative entries than it allows |
 | [D281](#d281--a-scoring-verification-endorsecount-of-0-or-less-is-no-opinion-with-a-warning-at-composition-2026-11-09) | 2026-11-09 | a scoring verification `EndorseCount` of 0 or less is no opinion, with a warning at composition |
+| [D282](#d282--a-semantic-seed-filters-before-it-takes-2026-11-09) | 2026-11-09 | a semantic seed filters before it takes |
 
-**276 live decisions.** The rest are stubs — `D<n>` is a permanent identifier, so a number is never reused or renumbered (5): [D36](#d36--a-translation-between-two-verdict-taxonomies-gets-one-arm-per-member-gated-by-a-test-2026-08-05) → D136 · [D80](#d80--merged-into-d77-2026-08-16-folded-2026-08-17) → D77 · [D131](#d131--a-backends-produces-is-derived-from-its-configuration-so-a-modality-is-a-field-2026-09-14) → D133 · [D134](#d134--a-registration-names-the-backend-the-provider-suffix-is-gone-from-all-seventeen-2026-09-14) → D137 · [D145](#d145--the-microsoftextensionsai-module-is-a-bridge-not-a-provider-2026-09-15) → D146
+**277 live decisions.** The rest are stubs — `D<n>` is a permanent identifier, so a number is never reused or renumbered (5): [D36](#d36--a-translation-between-two-verdict-taxonomies-gets-one-arm-per-member-gated-by-a-test-2026-08-05) → D136 · [D80](#d80--merged-into-d77-2026-08-16-folded-2026-08-17) → D77 · [D131](#d131--a-backends-produces-is-derived-from-its-configuration-so-a-modality-is-a-field-2026-09-14) → D133 · [D134](#d134--a-registration-names-the-backend-the-provider-suffix-is-gone-from-all-seventeen-2026-09-14) → D137 · [D145](#d145--the-microsoftextensionsai-module-is-a-bridge-not-a-provider-2026-09-15) → D146
 
 <!-- index:end -->
 
@@ -7782,4 +7783,16 @@ recall and its write-back is already a silent skip).
 
 **Rejected.** Validating at 1 or more (it narrows a published option and turns a setting that loaded into a composition failure, where `LlmVerificationOptions.ContentChars` is validated because its zero has no reading).
 
-**Re-opens** when a caller needs "judge but endorse nothing" to read the scores alone, which `MemoryVerification.Scores` carries today only with an endorsement.
+**Re-opens** when a caller needs "score but endorse nothing" to read the scores alone, which a count of 0 does not give: it skips the call.
+
+## D282 — a semantic seed filters before it takes (2026-11-09)
+
+**Standing.** A ruling on `TASKS.md` Part 499's last row, **the steward's under the owner's delegation, which the owner may reverse** — not the owner's words. Built, and frozen from release (**D70**).
+
+**Decided.** `SemanticSeedSource` walks the ordered matches and stops at `min(K, Limit)` live nodes, skipping a match whose id does not parse, repeats, or names an entry that no longer exists. A stale top match and a `Limit` of 1 now return the second.
+
+**Why.** The take came before the filter, so a dropped match returned fewer seeds than asked for although lower-ranked live ones were in the search.
+
+**Rejected.** Keeping the bound as the cost cap it was (the extra reads are bounded by `K`, which the search already paid for, and a seed source that returns less than it holds is what the limit was never meant to mean).
+
+**Re-opens** when the per-match fetch of a wide `K` is measured to cost a recall noticeable time.
