@@ -266,6 +266,23 @@ public class GraphMemoryPortabilityTests
         Assert.Equal((8, 0, exported.Links), (result.Imported, result.AlreadyPresent, result.Links));
     }
 
+    [Fact]
+    public async Task A_blend_s_refusal_names_the_line_of_the_file_the_editor_shows()
+    {
+        var blend = new CompositeMemoryEngine("p", [
+            new CuratedMemoryEngine("p/notes", new InMemoryCuratedMemoryStore()), Engine(new InMemoryMemoryGraphStore())]);
+        string Mine(string line) => line.Replace("\"engine\":\"g\"", $"\"engine\":\"{Name}\"", StringComparison.Ordinal);
+        var curated = """{"v":1,"record":"curated","engine":"p/notes","kind":"memory","content":"c","enabled":true}""";
+        var bad = Second.Replace("\"stability\":5", "\"stability\":\"x\"", StringComparison.Ordinal);
+
+        // lines 1 and 3 are blank, 2 and 4 are the curated member's: the graph member's bad line is line 6
+        var file = string.Join('\n', "", Mine(Good), "", curated, "", Mine(bad));
+
+        var ex = await Assert.ThrowsAsync<InvalidDataException>(() => blend.ImportAsync("t", null, new StringReader(file)));
+
+        Assert.Contains("line 6 ", ex.Message, StringComparison.Ordinal);
+    }
+
     private const string Good = """{"v":1,"record":"graph","engine":"g","id":1,"scope":"s","headline":"h","content":"c","grade":"Associative","createdAt":"2026-10-24T00:00:00+00:00","recallCount":0,"stability":5,"difficulty":5,"age":1,"ordinalAge":1,"volumeAge":1,"elapsedAge":0}""";
 
     // a second, distinct entry, so a refusal names the field it is about rather than the repeated id

@@ -45,4 +45,21 @@ public sealed class TraceServiceTests
         Assert.Equal(0, loaded!.Steps[0].Sequence);
         Assert.Equal(0, loaded.Steps[0].OffsetMs); // now == start → 0ms in
     }
+
+    [Fact] // a wall clock stepped back mid-run must not stamp a step before the run began
+    public async Task Recorder_floors_the_offset_at_zero_when_the_clock_steps_back()
+    {
+        var start = new DateTimeOffset(2026, 7, 20, 0, 0, 0, TimeSpan.Zero);
+        var now = start;
+        var store = new InMemoryTraceStore();
+        var svc = new TraceService(store, () => now);
+
+        var rec = svc.Begin("s", "chat");
+        now = start.AddMilliseconds(-5000);
+        rec.Record(new TraceStep { Kind = "phase", Label = "a" });
+        await rec.CompleteAsync();
+
+        var loaded = await svc.GetAsync("s");
+        Assert.Equal(0, loaded!.Steps[0].OffsetMs);
+    }
 }

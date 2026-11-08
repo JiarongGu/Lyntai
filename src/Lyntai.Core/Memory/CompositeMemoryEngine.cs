@@ -674,8 +674,15 @@ public sealed class CompositeMemoryEngine
         foreach (var (member, mine) in routed)
         {
             ct.ThrowIfCancellationRequested();
-            var text = string.Join('\n', mine.Select(l => l.Text));
-            var result = await member.ImportAsync(taskKey, scope, new StringReader(text), ct).ConfigureAwait(false);
+            // each line sits at its own number, blanks between, so a member's refusal names the line the editor shows
+            var text = new System.Text.StringBuilder();
+            var at = 0;
+            foreach (var l in mine)
+            {
+                text.Append('\n', l.Number - at - 1).Append(l.Text).Append('\n');
+                at = l.Number;
+            }
+            var result = await member.ImportAsync(taskKey, scope, new StringReader(text.ToString()), ct).ConfigureAwait(false);
             (imported, present) = (imported + result.Imported, present + result.AlreadyPresent);
             (links, dropped) = (links + result.Links, dropped + result.LinksDropped);
         }

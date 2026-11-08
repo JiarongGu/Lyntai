@@ -37,13 +37,13 @@ public sealed partial class PromptRegistry(
     {
         var template = defaultTemplate;
 
-        var @override = await GetOverrideAsync(name, ct).ConfigureAwait(false);
+        var (@override, source) = await GetOverrideAsync(name, ct).ConfigureAwait(false);
         if (!string.IsNullOrWhiteSpace(@override))
         {
             var missing = ValidateOverride(defaultTemplate, @override);
             if (missing.Count > 0)
-                _logger.LogWarning("prompt override {Key} rejected — drops placeholder(s) {Missing}; using the default",
-                    KeyPrefix + name, string.Join(", ", missing));
+                _logger.LogWarning("prompt override {Source} rejected — drops placeholder(s) {Missing}; using the default",
+                    source, string.Join(", ", missing));
             else
                 template = @override;
         }
@@ -63,7 +63,8 @@ public sealed partial class PromptRegistry(
         return template;
     }
 
-    private async Task<string?> GetOverrideAsync(string name, CancellationToken ct)
+    // the template and where it came from, which is what a rejection warning names
+    private async Task<(string? Template, string Source)> GetOverrideAsync(string name, CancellationToken ct)
     {
         try
         {
@@ -71,9 +72,10 @@ public sealed partial class PromptRegistry(
             if (versions is not null)
             {
                 var active = await versions.GetActiveAsync(name, ct).ConfigureAwait(false);
-                if (active is not null) return active.Template;
+                if (active is not null) return (active.Template, $"version {active.Version} of {name}");
             }
-            return kv is null ? null : await kv.GetAsync(KeyPrefix + name, ct).ConfigureAwait(false);
+            var key = KeyPrefix + name;
+            return (kv is null ? null : await kv.GetAsync(key, ct).ConfigureAwait(false), key);
         }
         // A BYO remote store's own deadline is not the caller's cancel, though both arrive as this type —
         // and rendering a prompt must survive one, which is what "a store outage → the default" promises.
@@ -81,7 +83,7 @@ public sealed partial class PromptRegistry(
         catch (Exception ex)
         {
             _logger.LogWarning(ex, "prompt override lookup failed for {Name}; using the default", name);
-            return null; // fail-open: a storage outage never blocks prompt rendering
+            return (null, name); // fail-open: a storage outage never blocks prompt rendering
         }
     }
 
