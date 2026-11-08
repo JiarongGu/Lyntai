@@ -7010,3 +7010,9 @@ lines the doors' own tests pin. Landed in `08b41270`; the row stayed open in `TA
 
 - the two reviews; the eleven rows
 - the eight fixes and their reverted-source proof
+
+## Part 509 — `TASKS.md` Part 500's one startable row: a credential temp file left behind by a failed write (2026-11-09)
+
+✅ done 2026-11-09 — **Outcome:** the blockers were re-checked first and none had cleared; every other open row waits on a ruling and `docs/ROADMAP.md` holds nothing startable (each step is behind a ruling), so the piece taken was the one startable row. `OwnerOnlyTempFile.Write` now deletes the partial file and rethrows when the write fails; an internal overload taking the encoding lets the test fail the write with a strict UTF-8 encoding rather than an OS trick (`docs/FIXES.md` 2026-11-09, the test failed with the `catch` removed). No decision; no public member. Lane `platform`.
+
+- the one fix and its reverted-source proof

@@ -745,6 +745,8 @@ every addition.
 
 ### Fixed
 
+- **A failed credential temp file write no longer leaves the file behind.** `OwnerOnlyTempFile.Write` deletes the partial file and
+  rethrows when the write itself fails (a full disk), where the path never reached the caller and nothing could remove it.
 - **An emoji inside a CJK query is no longer cut in half, a NaN salience no longer erases a real one, a tiny rate limit no longer throws,
   and one failed resolution no longer turns call tracing off.** The search terms of a spaceless run slide over code points, so a
   store is never handed a lone surrogate. `MaximalSalienceCompositionPolicy` skips a non-finite value another policy reported. A
