@@ -6942,3 +6942,10 @@ lines the doors' own tests pin. Landed in `08b41270`; the row stayed open in `TA
 
 - the parser, the engine's failure message and stdout tail, the URL scheme (D257)
 - the five tests: error line, empty failure on both paths, stdout tail, four refused URLs
+
+## Part 500 — `TASKS.md` Part 489's negative usage count (2026-11-08)
+
+✅ done 2026-11-08 — **Outcome:** the four `TASKS.md` blockers were re-checked first and none had cleared (no `hf_` token, no aggregator, no labels, the nine tests unrecurred; Docker down), Parts 492 and 494 were already closed, and Part 493's two rows want the Postgres suite or an `IVectorStore` member, so the piece taken was the one row of the review backlog where the evidence leaned one way: ruled and built test-first as **D258**, in `WireJson` alone, so every wire reader gets it. **A host sees:** a negative token count reads as 0 (or absent where absence is the answer) and a negative cost as absent, so a tracker's recorded spend never falls. The accept-loop row of Part 487 and the non-finite request number of Part 489 were read and left: the first cannot be induced and the second moves where three callers build a payload. Not run: the Postgres leg (Docker down). Lane `inference`.
+
+- `WireJson.Long`, `Int64` and `Finite` (D258)
+- the five tests in `WireNumberToleranceTests`: HTTP, Claude result, agent final usage, Codex envelope, a nullable count

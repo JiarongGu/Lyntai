@@ -164,6 +164,72 @@ public class WireNumberToleranceTests
         Assert.Equal(1, usage.Value.CacheRead);
     }
 
+    // ── a negative count is no count (D258) ──────────────────────────────────
+
+    [Fact]
+    public async Task A_negative_token_count_reads_as_zero_so_a_recorded_spend_never_goes_down()
+    {
+        var handler = new StubHttpHandler().Enqueue(HttpStatusCode.OK, """
+            {"choices":[{"message":{"role":"assistant","content":"hello"},"finish_reason":"stop"}],
+             "usage":{"prompt_tokens":-1,"completion_tokens":4}}
+            """);
+
+        var reply = await Provider(handler).CompleteAsync(Req);
+
+        Assert.Equal(ProviderVerdict.Ok, reply.Verdict);
+        Assert.Equal(0, reply.Usage!.InputTokens);
+        Assert.Equal(4, reply.Usage.OutputTokens);
+    }
+
+    [Fact]
+    public void A_negative_count_and_a_negative_cost_on_a_claude_result_read_as_unreported()
+    {
+        const string line = """
+            {"type":"result","result":"done","usage":{"input_tokens":-5,"output_tokens":340,"cache_read_input_tokens":-800},"total_cost_usd":-0.012}
+            """;
+
+        var evt = StreamJsonParser.Parse(line);
+
+        Assert.Equal(0, evt.Usage!.InputTokens);
+        Assert.Equal(340, evt.Usage.OutputTokens);
+        Assert.Equal(0, evt.Usage.CacheReadTokens);
+        Assert.Null(evt.Usage.CostUsd);
+    }
+
+    [Fact]
+    public void A_negative_count_on_the_agent_readers_final_usage_is_zero()
+    {
+        const string line = """
+            {"type":"result","result":"done","session_id":"s1","is_error":false,
+             "usage":{"input_tokens":20,"output_tokens":-8,"cache_read_input_tokens":0,"cache_creation_input_tokens":0}}
+            """;
+
+        var events = new StreamJsonAgentReader().Read(line).ToList();
+
+        Assert.Equal(0, Assert.Single(events.OfType<UsageFinal>()).OutputTokens);
+    }
+
+    [Fact]
+    public void The_codex_envelope_reads_a_negative_count_as_zero()
+    {
+        using var doc = JsonDocument.Parse(
+            """{"type":"turn.completed","usage":{"input_tokens":-2,"output_tokens":7,"cached_input_tokens":1}}""");
+
+        var usage = CodexEnvelope.ReadUsage(doc.RootElement);
+
+        Assert.Equal(0, usage!.Value.Input);
+        Assert.Equal(7, usage.Value.Output);
+    }
+
+    [Fact]
+    public void A_nullable_count_is_absent_when_negative()
+    {
+        using var doc = JsonDocument.Parse("""{"used":-3,"size":200000}""");
+
+        Assert.Null(Lyntai.Providers.Basic.WireJson.Int64(doc.RootElement, "used"));
+        Assert.Equal(200000, Lyntai.Providers.Basic.WireJson.Int64(doc.RootElement, "size"));
+    }
+
     // ── helpers ──────────────────────────────────────────────────────────────
 
     private static TextRequest Req => new() { Messages = [TextMessage.User("hi")], Model = "gpt-x" };
