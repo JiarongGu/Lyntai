@@ -35,6 +35,12 @@ every addition.
   floor outside 0 to 1, a negative span, a blank claim or a negative age must pass a legal value; one that registered the vector
   tool selector must give `AddLyntai` a vector backend or drop the call; and a cap above 100 must come down.**
 
+- **Three inputs that used to run wrongly are refused** (**D266**, **D267**, **D269**). A `.cmd` or `.bat` launcher (the npm install of `codex` on Windows) was handed
+  arguments `cmd.exe` re-parses, so a `&`, `|`, `<`, `>`, `^`, `%` or a line break could run a second command; `ProcessRunner` now throws `ArgumentException` before the spawn.
+  The Codex door refuses a stdio MCP server's variable named `LYNTAI_MCP_TOKEN_*`, `CODEX_HOME` or an account key, and two servers giving one variable two values.
+  `OnnxProvider.FromDirectory` throws `InvalidDataException` for an export declaring last-token, max or weighted-mean pooling or a `Dense` module, which it mean-pooled silently.
+  **Pass `OnnxProviderOptions.Pooling` to run such an export with the pooling you choose, and a `.cmd` launcher no argument holding those characters.**
+
 ### Changed
 
 - **Five places where the file, in-memory and SQL stores disagreed now agree** (**D261**–**D265**). The file backend keeps a `next-id` file beside
@@ -44,6 +50,13 @@ every addition.
   `ChatThreads.Page` order by UTF-8 bytes in process, so a character past U+FFFF sorts after U+E000 to U+FFFF as in SQLite. Every vector store's
   `UpsertAsync` throws `ArgumentException` for a NaN or infinite component and stores nothing; `IVectorStore` now says an implementation must.
   A response cache with `CacheOptions.MaxEntries` of 0 or less stores nothing on every backend, where the SQL caches kept one entry.
+- **A stdio MCP server's variables no longer travel in Codex's argv, the agent doors wait 15 minutes of silence, and a rate limit on stderr holds the account** (**D267**, **D268**).
+  `env` is passed to codex by name (`env_vars`) with the values in its environment, and the bearer variable is now `LYNTAI_MCP_TOKEN_<NAME>`. `LyntaiOptions.AgentTimeout`
+  (15 minutes) is the inactivity window of the Codex, Claude and ACP doors when a turn names none; text calls keep two. A stderr `429` is a `Limit` failure, not `Fatal`.
+- **A run ends when a grandchild holds the pipes after the child exited, and a throwing stdin producer ends the exchange with its own fault** (**D266**). The runner waits
+  2 s of silence, kills the tree and returns what it read; a producer's exception closes stdin, kills the child and is rethrown.
+- **Local inference: a RoBERTa-family export reads 512 where it declared 514, a forward pass is at most 128 rows, and a Model2Vec vocabulary longer than its table no longer dilutes the mean** (**D269**, **D270**).
+
 - **A pool's never-idle timeout, an empty media stream, a cancel after a render and four smaller edges no longer misbehave.**
   `ProviderPoolOptions.IdleTimeout` of `TimeSpan.MaxValue` or `Timeout.InfiniteTimeSpan` now means never; the first threw on every access and the second retired every entry on every access.
   A media stream whose only chunk is a terminal one falls over to the next candidate instead of completing empty, and a null or `Ok`-with-no-artifacts response from a backend of your own is a failure
