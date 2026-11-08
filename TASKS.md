@@ -15,7 +15,7 @@ LLM-ops layer (prompt registry, scoring, traces, memory). `AddLyntai(...)` and g
 
 <!-- open-items:begin — GENERATED. Edit the per-item `item:` markers, never this table. -->
 
-## Open items — 70 across 18 Parts: 1 startable, 3 blocked, 1 watch, 65 decision-only
+## Open items — 70 across 18 Parts: 3 blocked, 1 watch, 66 decision-only
 
 _Generated from the per-item `<!-- item: … -->` markers by `node devtools/dev.mjs check-backlog --write`._
 _Edit a marker, never this table — `verify` fails the moment the two disagree._
@@ -82,16 +82,16 @@ _Edit a marker, never this table — `verify` fails the moment the two disagree.
 | 521 | 490 | A RoBERTa-family export that declares no narrower limit keeps 514 | decision-only | a ruling: subtract the two padding positions when config.json's model_type … |
 | 523 | 490 | A non-segmented call is one forward pass whatever its size | decision-only | a ruling: keep An_unsegmented_call_is_ONE_pass_however_many_inputs_it_holds… |
 | 524 | 490 | A segmented text's vector is always unit length, a one-window text's is not… | decision-only | a ruling: document it as direction-only (cosine is unaffected) or return th… |
-| 526 | 490 | `LlamaSharpProvider` leaks the weights when the executor fails to build, an… | startable |  |
-| 535 | 491 | A transient fetch failure fails a durable job for good | decision-only | a ruling: which verdicts are transient and whether a transient fetch polls … |
-| 537 | 491 | A ComfyUI run lost to a server restart polls for ever | decision-only | a ruling: consult /queue and fail or call it inconclusive when the id is in… |
-| 539 | 491 | Cancelling a durable generation job does not cancel the backend render | decision-only | a ruling: a best-effort CancelAsync when a cancel is seen with an operation… |
-| 540 | 491 | `generate_fetch` bills and delivers again on every call, and the job engine… | decision-only | a ruling: whether the spend ledger or the tool owns de-duplication per (bac… |
-| 542 | 491 | `generate_backends` lists and probes every registered `IModelProvider` | decision-only | a ruling: filter to providers that produce image, video, audio or 3d, or ke… |
-| 544 | 491 | A ComfyUI output walk includes `type: "temp"` previews | decision-only | a ruling: drop temp outputs by default with an option to include them, or k… |
-| 551 | 493 | A vector collection that was emptied stays stamped with its old space | decision-only | a ruling, and a way to tell a collection is empty: IVectorStore has no coun… |
-| 553 | 493 | A keyed link across engines writes the edge and a receipt in the SQL stores | decision-only | a ruling, and a Postgres run: the predicate goes into the SQL both SQL stor… |
-| 561 | 494 | `ToolLoop` bounds its iterations and not the calls in one turn | decision-only | a ruling: a per-turn call cap as a new member of the tool-loop options, and… |
+| 526 | 490 | A `ContextSize` the machine cannot hold aborts the host process | decision-only | a ruling: refuse a ContextSize past the model's trained context (read from … |
+| 534 | 491 | A transient fetch failure fails a durable job for good | decision-only | a ruling: which verdicts are transient and whether a transient fetch polls … |
+| 536 | 491 | A ComfyUI run lost to a server restart polls for ever | decision-only | a ruling: consult /queue and fail or call it inconclusive when the id is in… |
+| 538 | 491 | Cancelling a durable generation job does not cancel the backend render | decision-only | a ruling: a best-effort CancelAsync when a cancel is seen with an operation… |
+| 539 | 491 | `generate_fetch` bills and delivers again on every call, and the job engine… | decision-only | a ruling: whether the spend ledger or the tool owns de-duplication per (bac… |
+| 541 | 491 | `generate_backends` lists and probes every registered `IModelProvider` | decision-only | a ruling: filter to providers that produce image, video, audio or 3d, or ke… |
+| 543 | 491 | A ComfyUI output walk includes `type: "temp"` previews | decision-only | a ruling: drop temp outputs by default with an option to include them, or k… |
+| 550 | 493 | A vector collection that was emptied stays stamped with its old space | decision-only | a ruling, and a way to tell a collection is empty: IVectorStore has no coun… |
+| 552 | 493 | A keyed link across engines writes the edge and a receipt in the SQL stores | decision-only | a ruling, and a Postgres run: the predicate goes into the SQL both SQL stor… |
+| 560 | 494 | `ToolLoop` bounds its iterations and not the calls in one turn | decision-only | a ruling: a per-turn call cap as a new member of the tool-loop options, and… |
 
 <!-- open-items:end -->
 
@@ -523,9 +523,8 @@ that Part (the `JsonExtract` first-brace row was already filed in Part 487). A r
 - [ ] **A non-segmented call is one forward pass whatever its size.** 6,000 rows of 512 tokens at hidden size 768 is a 9.4 GB output copied by `ToArray()`, and `checked(i * rowSize)` overflows at row 5,461. <!-- item: state=decision-only needs="a ruling: keep An_unsegmented_call_is_ONE_pass_however_many_inputs_it_holds and document a caller cap, or cap the pass by a count or a memory budget; reading the tensor's buffer without ToArray is not in question" -->
 - [ ] **A segmented text's vector is always unit length, a one-window text's is not when `Normalize` is false.** `VectorMath.WeightedMeanDirection` normalises, so a long and a short text differ <!-- item: state=decision-only needs="a ruling: document it as direction-only (cosine is unaffected) or return the weighted mean of the raw rows when normalize is false, for dot-product and L2 consumers" -->
   in scale under a model with no `Normalize` module.
-- [ ] **`LlamaSharpProvider` leaks the weights when the executor fails to build, and `Dispose` ignores a generation in flight.** `EnsureLoaded` assigns `_weights` before `new StatelessExecutor`, so a throw (a `ContextSize` <!-- item: state=startable -->
-  past memory) leaves them loaded and the next call loads a second copy over the field; `Dispose` frees the executor under a running `InferAsync` and the stream's `finally` releases a disposed semaphore.
-  Fix: build into locals and dispose on a throw; `Dispose` waits on the gate and `StreamAsync` checks `_disposed` once it holds it. **The test needs a GGUF model and a CPU backend package the test project does not reference** (a named, obtainable download, as `docs/task-archive.md` Part 478 added one for a run), so it was not written here.
+- [ ] **A `ContextSize` the machine cannot hold aborts the host process.** Measured against a real 135M GGUF and the CPU backend: `ContextSize = int.MaxValue / 2` <!-- item: state=decision-only needs="a ruling: refuse a ContextSize past the model's trained context (read from the GGUF) before the native call, document that it is the host's to bound, or leave it; a refusal narrows what a host may set" -->
+  does not throw out of `LLamaWeights` or `StatelessExecutor`, it kills the test host natively, so no `catch` in `EnsureLoaded` and no `Failed` verdict can answer it and the router cannot fall over.
 
 ## Part 491 — what the 2026-11-08 review of the generation platform found and did not fix yet
 

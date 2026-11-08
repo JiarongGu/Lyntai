@@ -709,6 +709,9 @@ every addition.
 
 ### Fixed
 
+- **`LlamaSharpProvider` frees its weights when the executor fails to build, and `Dispose` waits for a generation in flight.** A throw
+  building the executor left the weights on the field for the next call to load a second copy over; `Dispose` freed the model under a
+  running generation. A call made after `Dispose` now answers `Failed` where it threw `ObjectDisposedException`.
 - **A refused fal submit is classified by its status.** `FalProvider` left the verdict of a refused submit to the
   words of the answer; a `403` or `401` is now an auth failure and a `429` is rate-limited, so the router benches the
   account instead of asking it again. fal's first answer to a submit on an account with no balance was

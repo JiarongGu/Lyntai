@@ -77,6 +77,20 @@ public class AddLlamaSharpProviderTests : IDisposable
     }
 
     [Fact]
+    public async Task A_call_after_Dispose_answers_Failed_and_a_second_Dispose_is_harmless()
+    {
+        var provider = new LlamaSharpProvider("local", new LlamaSharpOptions { ModelPath = MissingModel() },
+            new LyntaiOptions { ProviderTimeout = TimeSpan.FromSeconds(5) });
+        provider.Dispose();
+        provider.Dispose();
+
+        var reply = await provider.CompleteAsync(Ask());
+
+        Assert.Equal(ProviderVerdict.Failed, reply.Verdict);
+        Assert.Contains("disposed", reply.Detail, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public async Task Router_skips_an_unavailable_local_candidate()
     {
         var services = new ServiceCollection();
