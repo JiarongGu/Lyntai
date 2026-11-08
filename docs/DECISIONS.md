@@ -350,8 +350,9 @@ new decision overturns an old one, rewrite the old entry as a stub pointing here
 | [D278](#d278--a-graph-export-refuses-a-non-finite-number-before-it-writes-and-an-import-accepts-an-empty-scope-or-headline-2026-11-09) | 2026-11-09 | a graph export refuses a non-finite number before it writes, and an import accepts an empty scope… |
 | [D279](#d279--memorycontentkey-is-documented-as-a-hash-over-utf-8-with-a-lone-surrogate-as-ufffd-2026-11-09) | 2026-11-09 | `MemoryContentKey` is documented as a hash over UTF-8, with a lone surrogate as U+FFFD |
 | [D280](#d280--a-blends-explicit-limit-wins-over-more-authoritative-entries-than-it-allows-2026-11-09) | 2026-11-09 | a blend's explicit `Limit` wins over more authoritative entries than it allows |
+| [D281](#d281--a-scoring-verification-endorsecount-of-0-or-less-is-no-opinion-with-a-warning-at-composition-2026-11-09) | 2026-11-09 | a scoring verification `EndorseCount` of 0 or less is no opinion, with a warning at composition |
 
-**275 live decisions.** The rest are stubs — `D<n>` is a permanent identifier, so a number is never reused or renumbered (5): [D36](#d36--a-translation-between-two-verdict-taxonomies-gets-one-arm-per-member-gated-by-a-test-2026-08-05) → D136 · [D80](#d80--merged-into-d77-2026-08-16-folded-2026-08-17) → D77 · [D131](#d131--a-backends-produces-is-derived-from-its-configuration-so-a-modality-is-a-field-2026-09-14) → D133 · [D134](#d134--a-registration-names-the-backend-the-provider-suffix-is-gone-from-all-seventeen-2026-09-14) → D137 · [D145](#d145--the-microsoftextensionsai-module-is-a-bridge-not-a-provider-2026-09-15) → D146
+**276 live decisions.** The rest are stubs — `D<n>` is a permanent identifier, so a number is never reused or renumbered (5): [D36](#d36--a-translation-between-two-verdict-taxonomies-gets-one-arm-per-member-gated-by-a-test-2026-08-05) → D136 · [D80](#d80--merged-into-d77-2026-08-16-folded-2026-08-17) → D77 · [D131](#d131--a-backends-produces-is-derived-from-its-configuration-so-a-modality-is-a-field-2026-09-14) → D133 · [D134](#d134--a-registration-names-the-backend-the-provider-suffix-is-gone-from-all-seventeen-2026-09-14) → D137 · [D145](#d145--the-microsoftextensionsai-module-is-a-bridge-not-a-provider-2026-09-15) → D146
 
 <!-- index:end -->
 
@@ -7770,3 +7771,15 @@ recall and its write-back is already a silent skip).
 **Rejected.** Letting the authoritative tier overrun `Limit` (a bound that sometimes does not bound).
 
 **Re-opens** when a caller needs a reserve for exact facts inside a limit, which is what a graph engine's own authoritative reserve already is.
+
+## D281 — a scoring verification `EndorseCount` of 0 or less is no opinion, with a warning at composition (2026-11-09)
+
+**Standing.** A ruling on `TASKS.md` Part 499's eleventh row, **the steward's under the owner's delegation, which the owner may reverse** — not the owner's words. Built, and frozen from release (**D70**).
+
+**Decided.** `ScoringVerificationPolicy` reports `NoOpinion` without calling the backend when `ScoringVerificationOptions.EndorseCount` is 0 or less, and logs one warning when the policy is composed. The option's accepted range does not move: no value throws.
+
+**Why.** The option took 0 and negatives and answered a judged empty verdict on every recall after a backend call, the signal the verification seam says a fault must never produce, and at the price of a score call each time.
+
+**Rejected.** Validating at 1 or more (it narrows a published option and turns a setting that loaded into a composition failure, where `LlmVerificationOptions.ContentChars` is validated because its zero has no reading).
+
+**Re-opens** when a caller needs "judge but endorse nothing" to read the scores alone, which `MemoryVerification.Scores` carries today only with an endorsement.

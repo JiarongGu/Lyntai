@@ -38,6 +38,9 @@ public sealed class ScoringVerificationOptions
     /// endorsing more REPLACES it — the measured failure of an LLM judge that endorsed 29.1 of 80.
     /// <c>docs/memory.md</c> carries the mechanism.</para>
     ///
+    /// <para>A value of 0 or less endorses nothing, so the policy reports <c>NoOpinion</c> on every recall
+    /// without calling the backend, and logs a warning once when it is composed.</para>
+    ///
     /// <para>The library cannot default it for you: <see cref="MemoryVerificationRequest"/> deliberately
     /// does not carry the caller's limit, so a policy cannot read it.</para></summary>
     public int EndorseCount { get; set; } = 20;
