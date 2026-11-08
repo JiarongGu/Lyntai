@@ -213,7 +213,13 @@ public class AgentProviderConformanceTests
         var runner = new FakeProcessRunner();
         using var sp = Compose(runner);
         var registry = sp.GetRequiredService<AgentProviderRegistry>();
-        if (registry.Get(providerId).Describe().Accounts is not { } mapping) return;   // a door that reads none refuses it, held above
+        if (registry.Get(providerId).Describe().Accounts is not { } mapping)
+        {
+            // a door that reads none must say so, and refuses an account (held above): not a pass by omission
+            Assert.Equal(AgentSupport.Unsupported,
+                DoorOf(registry, providerId, doorId).Abilities.Single(a => a.Name == AgentAbilities.Accounts).Support);
+            return;
+        }
 
         await Run(registry.Get(providerId), doorId, Needing(AgentAbilities.Accounts, providerId));
 

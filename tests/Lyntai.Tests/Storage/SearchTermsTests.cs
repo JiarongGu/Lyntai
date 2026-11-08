@@ -15,6 +15,30 @@ public class SearchTermsTests
 {
     // ---- spaceless scripts: the decision claims all three behave alike; only Chinese was ever measured ----
 
+    /// <summary>An emoji is script-neutral, so it stays inside a CJK run, and a window slid by UTF-16 unit cut
+    /// it in half: the lone surrogate reaches a store as a term that never matches, or that Npgsql refuses.</summary>
+    [Fact]
+    public void An_emoji_inside_a_cjk_run_is_never_cut_in_half()
+    {
+        const string text = "我今天很开心😀你好吗";
+
+        var terms = SearchTerms.SubstringTerms(text);
+
+        Assert.Contains(terms, t => t.Contains("😀"));   // the emoji travels whole
+        Assert.All(terms, t => Assert.True(IsWellFormed(t), $"a lone surrogate in '{t}'"));
+        Assert.All(terms, t => Assert.True(t.EnumerateRunes().Count() >= 2));
+    }
+
+    private static bool IsWellFormed(string s)
+    {
+        for (var i = 0; i < s.Length; i++)
+        {
+            if (char.IsHighSurrogate(s[i]) && i + 1 < s.Length && char.IsLowSurrogate(s[i + 1])) { i++; continue; }
+            if (char.IsSurrogate(s[i])) return false;
+        }
+        return true;
+    }
+
     /// <summary>Japanese, both syllabaries. <b>The sharper case than Chinese, and worth stating why:</b> kana
     /// words are frequently two characters and hiragana's character inventory is small, so trigram collisions
     /// are likelier than in Chinese. This pins the SPLIT only — that Japanese reaches the trigram path at all

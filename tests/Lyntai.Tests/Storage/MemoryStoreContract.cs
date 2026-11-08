@@ -107,6 +107,7 @@ public static class MemoryStoreContract
         Assert.DoesNotContain(live, m => m.Content == "ephemeral");
 
         Assert.True(await store.PruneAsync() >= 1);       // removed by prune
+        Assert.Equal(0, await store.PruneAsync());         // ...so there is nothing left for a second one to count
     }
 
     /// <summary>Re-remembering an identical fact dedups AND resets its TTL clock — the refresh keeps it alive past the original expiry.</summary>
@@ -182,6 +183,7 @@ public static class MemoryStoreContract
         advance(TimeSpan.FromMinutes(6));
 
         Assert.Equal(1, await store.PruneAsync(taskKey: key + "-a"));
+        Assert.Equal(0, await store.PruneAsync(taskKey: key + "-a"));   // deleted, not merely counted
         Assert.Empty(await store.RecallAsync(key + "-a"));
         Assert.Equal(1, await store.PruneAsync(taskKey: key + "-b")); // still there → untouched by the scoped prune
     }
@@ -312,17 +314,17 @@ public static class MemoryStoreContract
     /// — the presets never set both.</summary>
     public static async Task Both_count_cap_and_size_budget_apply(IMemoryStore store, string key)
     {
-        // cap 3, budget 25 chars, entries of 10 chars each: the cap alone would keep 3 (30 chars), but the
-        // 25-char budget trims to the newest 2 (20 ≤ 25; a 3rd = 30 > 25). Both bounds bind.
-        await store.RememberAsync(key, "s", new string('a', 10));
-        await store.RememberAsync(key, "s", new string('b', 10));
-        await store.RememberAsync(key, "s", new string('c', 10));
-        await store.RememberAsync(key, "s", new string('d', 10));
+        // cap 3, budget 25 chars. Four 5-char entries are 20 chars, inside the budget, so ONLY the cap can
+        // trim them: the newest 3 survive.
+        foreach (var letter in "abcd") await store.RememberAsync(key, "s", new string(letter, 5));
+        var capped = (await store.RecallAsync(key)).Select(h => h.Content).ToHashSet();
+        Assert.Equal([new string('d', 5), new string('c', 5), new string('b', 5)], capped.OrderByDescending(c => c));
 
-        var contents = (await store.RecallAsync(key)).Select(h => h.Content).ToHashSet();
-        Assert.Equal(2, contents.Count);
-        Assert.Contains(new string('d', 10), contents); // newest 2 survive both bounds
-        Assert.Contains(new string('c', 10), contents);
+        // a 20-char entry leaves room for one more 5-char one (25), well inside the cap of 3: ONLY the budget
+        // can trim to the newest two.
+        await store.RememberAsync(key, "s", new string('e', 20));
+        var budgeted = (await store.RecallAsync(key)).Select(h => h.Content).ToHashSet();
+        Assert.Equal([new string('e', 20), new string('d', 5)], budgeted.OrderByDescending(c => c));
     }
 
     /// <summary>Store built with <c>CountCap(2, Lru)</c>: entries with a TIED recency (same tick, none

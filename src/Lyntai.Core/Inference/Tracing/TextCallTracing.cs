@@ -73,7 +73,8 @@ internal sealed class TracingTextClient : DelegatingTextClient
         _options = options;
         _logger = logger ?? NullLogger<TracingTextClient>.Instance;
         // resolved on first use, never while the ITextClient singleton is being built: an LLM scorer needs it
-        _sinks = new(() => Resolve(services, options));
+        // PublicationOnly: a failed resolution is not cached, so one transient fault does not disable tracing for good
+        _sinks = new(() => Resolve(services, options), LazyThreadSafetyMode.PublicationOnly);
     }
 
     public override async Task<TextResponse> CompleteAsync(TextRequest req, CancellationToken ct = default)

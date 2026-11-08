@@ -49,10 +49,18 @@ public sealed class FrontDoorDecoratorSlotTests
     [Fact]
     public void Repeating_the_same_registration_is_a_no_op()
     {
-        Compose(b => b
-            .AddResponseCache().AddResponseCache()
-            .AddUsageBudget().AddUsageBudget()
-            .AddRateLimit().AddRateLimit()
-            .AddFrontDoorDecorator(15, PassThrough).AddFrontDoorDecorator(15, PassThrough));
+        LyntaiBuilder? composed = null;
+        Compose(b =>
+        {
+            composed = b;
+            b.AddResponseCache().AddResponseCache()
+                .AddUsageBudget().AddUsageBudget()
+                .AddRateLimit().AddRateLimit()
+                .AddFrontDoorDecorator(15, PassThrough).AddFrontDoorDecorator(15, PassThrough);
+        });
+
+        // one layer per slot: a repeat that stacked a second would put the order in the list twice
+        Assert.Equal(4, composed!.FrontDoorDecorators.Count);
+        Assert.Equal(4, composed.FrontDoorDecorators.Select(d => d.Order).Distinct().Count());
     }
 }

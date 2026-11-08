@@ -115,7 +115,8 @@ public sealed class TokenBucketRateLimiter : IRateLimiter
                 var elapsed = (now - _last).TotalSeconds;
                 if (elapsed > 0)
                 {
-                    _tokens = Math.Min(burst, _tokens + elapsed * ratePerSecond);
+                    // a NaN rate would poison the count for good, so it refills nothing
+                    if (!double.IsNaN(ratePerSecond)) _tokens = Math.Min(burst, _tokens + elapsed * ratePerSecond);
                     _last = now;
                 }
                 _tokens -= 1;                            // reserve a permit (may go negative = queued)
@@ -123,9 +124,10 @@ public sealed class TokenBucketRateLimiter : IRateLimiter
                 // an explicit zero/negative rate never refills — refuse rather than divide by it
                 // (TimeSpan.FromSeconds(Infinity) would throw); "burst then block" is the configured intent
                 if (ratePerSecond <= 0) { _tokens += 1; return null; }
-                var wait = TimeSpan.FromSeconds(-_tokens / ratePerSecond);
-                if (wait > maxWait) { _tokens += 1; return null; } // too long → refund + refuse
-                return wait;
+                // compared in seconds BEFORE building the span: a tiny or NaN rate has no representable wait
+                var seconds = -_tokens / ratePerSecond;
+                if (!(seconds <= maxWait.TotalSeconds)) { _tokens += 1; return null; } // too long → refund + refuse
+                return TimeSpan.FromSeconds(seconds);
             }
         }
 

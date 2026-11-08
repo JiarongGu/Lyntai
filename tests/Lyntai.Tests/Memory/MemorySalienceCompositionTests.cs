@@ -36,6 +36,18 @@ public class MemorySalienceCompositionTests
         Assert.Equal(3, merged.Get(MemorySignals.WellKnown.Difficulty));
     }
 
+    [Fact]
+    public void A_non_finite_value_from_one_policy_never_beats_a_real_one()
+    {
+        // Math.Max propagates NaN, and a NaN salience reads as 1: one BYO policy would erase another's finding.
+        var composition = new MaximalSalienceCompositionPolicy();
+        var broken = MemorySignals.Empty.With(MemorySignals.WellKnown.Salience, double.NaN);
+        var real = MemorySignals.Empty.With(MemorySignals.WellKnown.Salience, 3);
+
+        Assert.Equal(3, composition.Signals([broken, real]).Get(MemorySignals.WellKnown.Salience));
+        Assert.Equal(3, composition.Signals([real, broken]).Get(MemorySignals.WellKnown.Salience));
+    }
+
     /// <summary>A composition policy nothing can vary is decoration — swaps <see cref="MaximalSalienceCompositionPolicy"/>
     /// for a MIN-based one over the SAME two salience policies (both writing the SAME signal name with DIFFERENT
     /// values) and shows the stored salience actually moves.</summary>

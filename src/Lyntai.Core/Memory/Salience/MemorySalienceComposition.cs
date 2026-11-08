@@ -42,7 +42,8 @@ public sealed class MaximalSalienceCompositionPolicy : IMemorySalienceCompositio
         var merged = new Dictionary<string, double>(StringComparer.Ordinal);
         foreach (var bag in signals)
             foreach (var (name, value) in bag.Values)
-                merged[name] = merged.TryGetValue(name, out var existing) ? Math.Max(existing, value) : value;
+                if (!double.IsFinite(value)) continue;   // Math.Max propagates NaN, which would erase a real finding
+                else merged[name] = merged.TryGetValue(name, out var existing) ? Math.Max(existing, value) : value;
 
         return MemorySignals.From(merged);
     }

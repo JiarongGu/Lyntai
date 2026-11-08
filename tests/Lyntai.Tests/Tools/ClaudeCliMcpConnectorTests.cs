@@ -29,7 +29,10 @@ public class ClaudeCliMcpConnectorTests
     [Fact]
     public void Settings_allow_list_only_our_server()
     {
-        Assert.Contains("mcp__lyntai__*", ClaudeCliMcpConnector.SettingsJson("lyntai"));
+        var allow = System.Text.Json.Nodes.JsonNode.Parse(ClaudeCliMcpConnector.SettingsJson("lyntai"))!
+            ["permissions"]!["allow"]!.AsArray().Select(n => n!.GetValue<string>());
+
+        Assert.Equal(["mcp__lyntai__*"], allow);   // exactly ours: a built-in tool in the list would be granted too
     }
 
     [Fact]
@@ -52,7 +55,7 @@ public class ClaudeCliMcpConnectorTests
         Assert.Contains("--mcp-config", args);
         Assert.Contains("--settings", args);
         Assert.Contains("--allowedTools", args);
-        Assert.Contains("mcp__lyntai__*", args);
+        Assert.Equal("mcp__lyntai__*", args[args.ToList().IndexOf("--allowedTools") + 1]);
         Assert.Equal("/tmp/mcp.json", args[args.ToList().IndexOf("--mcp-config") + 1]);
         Assert.Equal("/tmp/settings.json", args[args.ToList().IndexOf("--settings") + 1]);
 

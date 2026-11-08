@@ -23,9 +23,8 @@ public sealed record GenerationStage(
     /// single artifact when the previous stage produced exactly one, and a REFUSAL
     /// (<see cref="ProviderVerdict.Unsupported"/>, without calling a backend) when it produced none or
     /// several.
-    /// <para>There is deliberately no cleverer default. A media type cannot be branched on — a mesh backend
-    /// reports a GLB as <c>application/octet-stream</c> — and "the first <c>image/*</c>" picks a UV texture
-    /// atlas, which chains, renders, and is wrong.</para>
+    /// <para>There is deliberately no cleverer default: "the first <c>image/*</c>" picks a UV texture
+    /// atlas on a mesh backend, which chains, renders, and is wrong.</para>
     /// <para>An exception thrown here PROPAGATES: reporting a caller's own bug as a capability gap would send
     /// them looking at their backends.</para>
     /// <para>Nothing reads it on the first stage; setting it there THROWS.</para></summary>

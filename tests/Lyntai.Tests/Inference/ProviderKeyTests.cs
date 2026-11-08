@@ -92,6 +92,7 @@ public class ProviderKeyTests
         var again = ProviderKey.For("x").With("a", "1").With("b", "2").Build();
 
         Assert.Equal(built, again);
+        Assert.NotEqual(built, ProviderKey.For("x").With("b", "2").With("a", "1").Build());   // significant
     }
 
     [Theory]

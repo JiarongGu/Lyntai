@@ -55,6 +55,7 @@ public class MemoryFailOpenCancellationTests
         var recall = await engine.RecallAsync(Query());
 
         Assert.NotEmpty(recall.Items);
+        Assert.True(store.TimedOut > 0);   // the write-back was REACHED and timed out, not skipped
     }
 
     /// <summary>Names one subject unconditionally, so the subject-index write is actually REACHED. Without an
@@ -78,6 +79,7 @@ public class MemoryFailOpenCancellationTests
 
         await engine.RememberAsync(Write());
 
+        Assert.True(store.TimedOut > 0);   // the subject index was REACHED and timed out, not skipped
         Assert.NotEmpty((await engine.RecallAsync(Query())).Items);
     }
 

@@ -44,6 +44,31 @@ public class TextCallTracingTests
         return services.BuildServiceProvider();
     }
 
+    /// <summary>Fails its first ask for the trace service, then answers like the real container.</summary>
+    private sealed class FlakyServices(IServiceProvider inner) : IServiceProvider
+    {
+        private int _asked;
+
+        public object? GetService(Type serviceType) =>
+            serviceType == typeof(ITraceService) && _asked++ == 0
+                ? throw new InvalidOperationException("transient resolution failure")
+                : inner.GetService(serviceType);
+    }
+
+    [Fact]
+    public async Task One_failed_resolution_of_the_trace_service_does_not_disable_tracing_for_good()
+    {
+        using var sp = Build(Answering());
+        var traces = sp.GetRequiredService<CapturingTraceStore>();
+        var client = new TracingTextClient(
+            sp.GetRequiredService<ITextClient>(), new FlakyServices(sp), new TextCallTracingOptions());
+
+        await client.CompleteAsync(Req());   // the failed resolution is logged and the call still answers
+        await client.CompleteAsync(Req());
+
+        Assert.Single(traces.Saved);         // the second call resolved afresh and left its trace
+    }
+
     [Fact]
     public async Task One_call_leaves_one_trace_with_one_llm_step_carrying_usage_verdict_and_consumer()
     {

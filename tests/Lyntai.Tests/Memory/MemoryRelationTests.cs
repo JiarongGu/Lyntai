@@ -81,6 +81,7 @@ public class MemoryRelationTests
         Assert.Null(current.Items.Single().Relations);
         // the ledger still has both, so it still says so
         var history = await engine.RecallAsync(Ask(reading: MemoryValidityReading.History));
+        Assert.Equal(2, history.Items.Count);
         Assert.All(history.Items, i => Assert.NotNull(i.Relations));
     }
 

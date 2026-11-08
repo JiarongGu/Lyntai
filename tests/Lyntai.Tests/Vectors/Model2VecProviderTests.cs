@@ -101,6 +101,7 @@ public class Model2VecProviderTests : IDisposable
 
         var vector = (await vectorProvider.EmbedAsync(["alpha beta"]))[0];
 
+        Assert.Equal(vectorProvider.Dimensions, vector.Length);
         Assert.All(vector, v => Assert.Equal(5.5f, v, 3));
     }
 
@@ -115,6 +116,7 @@ public class Model2VecProviderTests : IDisposable
 
         var vector = (await vectorProvider.EmbedAsync(["alpha"]))[0];
 
+        Assert.Equal(vectorProvider.Dimensions, vector.Length);
         Assert.All(vector, v => Assert.Equal(5f, v, 3));
     }
 
@@ -140,6 +142,8 @@ public class Model2VecProviderTests : IDisposable
 
         var vectors = await vectorProvider.EmbedAsync(["", "   "]);
 
+        Assert.Equal(2, vectors.Count);
+        Assert.All(vectors, v => Assert.Equal(vectorProvider.Dimensions, v.Length));
         Assert.All(vectors, v => Assert.All(v, component => Assert.Equal(0f, component)));
     }
 
@@ -188,6 +192,7 @@ public class Model2VecProviderTests : IDisposable
 
         var vector = (await vectorProvider.EmbedAsync([text]))[0];
 
+        Assert.Equal(vectorProvider.Dimensions, vector.Length);
         Assert.All(vector, v => Assert.Equal(5.5f, v, 3));
     }
 }
