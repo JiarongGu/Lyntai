@@ -6956,3 +6956,10 @@ lines the doors' own tests pin. Landed in `08b41270`; the row stayed open in `TA
 
 - `GraphVectorProjection.RemoveAsync` and both prune paths of `GraphMemoryEngine` (D259)
 - the four cases in `VectorSpaceTests`: an emptied scope releases its space, and a scope left an entry keeps it, each on the derivable and the store path
+
+## Part 502 — `TASKS.md` Part 493's keyed link across engines (2026-11-08)
+
+✅ done 2026-11-08 — **Outcome:** Part 493's last row waited on a Postgres run; Docker was started and the Postgres leg ran. The row's premise was half wrong: the in-memory store did not refuse, it reported `false` with no receipt but still applied the edge. Ruled and built test-first as **D260**, on the keyed path only: a first attempt at every link path broke `FileSystemGraphRestartTests`, which pins a deliberate cross-engine edge in the file backend's journal, so the un-keyed statement stays engine-blind (D260 says when that re-opens). **A host sees:** a keyed link between two engines' entries writes no edge and no receipt on every store. Part 493 closes with it. Lane `storage`.
+
+- `MemoryGraphSql.StrengthenEdgeWithinEngine`, both SQL `LinkKeyedAsync` paths, and `MemoryGraphState.PlanLinkKeyed` (D260)
+- the fact `A_keyed_link_across_engines_writes_no_edge_and_no_receipt`, run on all four backends

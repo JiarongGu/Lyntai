@@ -254,12 +254,30 @@ public static class MemoryGraphSql
     /// so they never disagree about when it was last strengthened. <b>An endpoint that no longer exists —
     /// deleted while a write-back was in flight — writes nothing</b>, on every backend, rather than a
     /// foreign-key violation part-way through a batch.</summary>
-    public const string StrengthenEdge = """
+    public const string StrengthenEdge = $"""
+        {StrengthenHead}
+        WHERE EXISTS (SELECT 1 FROM lyntai_memory_node WHERE id = @from)
+          AND EXISTS (SELECT 1 FROM lyntai_memory_node WHERE id = @to)
+        {StrengthenTail}
+        """;
+
+    /// <summary><see cref="StrengthenEdge"/> for a keyed link, which names its engine: <b>an endpoint another engine holds writes
+    /// nothing</b> either, so the receipt the caller writes beside it is never for an edge that did not land. The unkeyed statement
+    /// stays engine-blind on purpose, since the file backend journals an edge by its source's engine.</summary>
+    public const string StrengthenEdgeWithinEngine = $"""
+        {StrengthenHead}
+        WHERE EXISTS (SELECT 1 FROM lyntai_memory_node WHERE id = @from AND engine = @engine)
+          AND EXISTS (SELECT 1 FROM lyntai_memory_node WHERE id = @to AND engine = @engine)
+        {StrengthenTail}
+        """;
+
+    private const string StrengthenHead = """
         INSERT INTO lyntai_memory_edge (from_id, to_id, kind, weight, strengthened_position,
             strengthened_ordinal, strengthened_chars, strengthened_at)
         SELECT @from, @to, @kind, @weight, @position, @ordinal, @chars, @at
-        WHERE EXISTS (SELECT 1 FROM lyntai_memory_node WHERE id = @from)
-          AND EXISTS (SELECT 1 FROM lyntai_memory_node WHERE id = @to)
+        """;
+
+    private const string StrengthenTail = """
         ON CONFLICT (from_id, to_id, kind)
             DO UPDATE SET weight = lyntai_memory_edge.weight + @weight,
                           strengthened_position = @position, strengthened_ordinal = @ordinal,
