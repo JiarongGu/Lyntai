@@ -52,10 +52,11 @@ export class StagedDiffFailure extends Error {
 }
 
 // -U0 so only the changed lines are reported; a missing/unstaged file yields an empty diff, not an error.
+// `--no-color --no-ext-diff`: a user's `color.diff=always` or `diff.external` changes the line format the guard parses.
 // `exec` is a seam so a test can drive the spawn-failure branch (a missing `git`) without uninstalling git.
 export const stagedDiff = (repoRoot, file, exec = execFileSync) => {
   try {
-    return exec('git', ['diff', '--cached', '-U0', '--', file],
+    return exec('git', ['diff', '--cached', '--no-color', '--no-ext-diff', '-U0', '--', file],
       { cwd: repoRoot, encoding: 'utf8', maxBuffer: 16 * 1024 * 1024 });
   } catch (cause) {
     throw new StagedDiffFailure(file, cause);

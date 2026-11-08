@@ -88,6 +88,19 @@ describe('check-samples — finding the blocks', () => {
   it('a non-csharp fence is not a sample', () => {
     assert.equal(extractBlocks('```bash\nnode x\n```\n', 'x.md').length, 0);
   });
+
+  it('every spelling a renderer reads as C# is a sample, with or without words after it', () => {
+    for (const info of ['cs', 'c#', 'C#', 'CSharp', 'csharp title=x', 'cs {1,3}']) {
+      const blocks = extractBlocks(`\`\`\`${info}\nint x = "s";\n\`\`\`\n`, 'x.md');
+      assert.equal(blocks.length, 1, info);
+      assert.deepEqual(blocks[0].body, ['int x = "s";'], info);
+    }
+  });
+
+  it('a fence whose info string carries words does not close a block', () => {
+    const blocks = extractBlocks('```csharp\nint x = 1;\n``` note\nint y = 2;\n```\n', 'x.md');
+    assert.deepEqual(blocks[0].body, ['int x = 1;', '``` note', 'int y = 2;']);
+  });
 });
 
 describe('check-samples — the compile-skip escapes', () => {

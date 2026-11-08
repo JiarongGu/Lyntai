@@ -122,6 +122,14 @@ describe('check-counts — the counters, pinned against the real tree', () => {
     assert.equal(n, members.length);
   });
 
+  it('language arms counts a member with an initialiser or a trailing comment', () => {
+    const dir = makeTree({
+      'tests/Lyntai.Tests/Memory/Corpus/CorpusLexicon.cs':
+        'public enum CorpusLanguage\n{\n    English = 0,\n    Chinese, // the second arm\n    Mixed\n}\n',
+    });
+    try { assert.equal(countLanguageArms(dir), 3); } finally { removeTree(dir); }
+  });
+
   it('golden shapes counts hash literals in Goldens(), not data rows', () => {
     // Cross-checked against the actual TheoryData rows rather than trusted as a literal: a row is a tuple
     // whose shape varies (a named `with { ... }` versus a positional `new CorpusShape(...)`), so the hash

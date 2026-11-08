@@ -263,6 +263,13 @@ describe('check-version-bump — when GIT ITSELF fails, the guard fails CLOSED',
     assert.match(out, /NOT a report that the version was hand-edited/);
   });
 
+  it('stagedDiff asks for a plain diff, so a user git config cannot colour or externalise the lines it reads', () => {
+    let argv = null;
+    stagedDiff('.', 'CHANGELOG.md', (_cmd, args) => { argv = args; return ''; });
+    assert.ok(argv.includes('--no-color'), 'a coloured diff starts each line with an escape, not +/-');
+    assert.ok(argv.includes('--no-ext-diff'), 'an external diff tool replaces the format the guard parses');
+  });
+
   it('stagedDiff throws StagedDiffFailure rather than returning "" — the seam itself, not just the gate', (t) => {
     const dir = makeRepo({ 'CHANGELOG.md': '# Changelog\n' });
     t.after(() => removeTree(dir));

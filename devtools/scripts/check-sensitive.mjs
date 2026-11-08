@@ -113,6 +113,10 @@ export function checkSensitive({ repo: repoRoot = repo, tree = false, log = cons
     loadPatterns(path.join(repoRoot, 'local', 'sensitive-patterns.txt'));
   for (const line of badLines) err(`check-sensitive: bad regex in local/sensitive-patterns.txt: ${line}`);
   if (localFileMissing) err('check-sensitive: local/sensitive-patterns.txt missing — running built-ins only.');
+  // A missing file is a state a fresh clone is legitimately in; a line that does not parse is a ban its author
+  // meant and that never ran, so the guard is not armed and must not report clean.
+  const notArmed = badLines.length > 0;
+  if (notArmed) err(`check-sensitive: ✗ ${badLines.length} ban pattern(s) did not parse — the guard is not armed; fix them in local/sensitive-patterns.txt.`);
 
   const { files, bytesOf } = sources(repoRoot, { tree });
   // Fail closed on an empty TREE listing — a broken `git ls-files` must never print "clean". An empty
@@ -136,8 +140,8 @@ export function checkSensitive({ repo: repoRoot = repo, tree = false, log = cons
   }
 
   if (hits.length === 0) {
-    if (tree) log('check-sensitive: clean — no dev-machine paths or private tokens in tracked files.');
-    return 0;
+    if (tree && !notArmed) log('check-sensitive: clean — no dev-machine paths or private tokens in tracked files.');
+    return notArmed ? 1 : 0;
   }
 
   err('\n\x1b[31m✖ check-sensitive: blocked — private-data leak(s) detected:\x1b[0m');

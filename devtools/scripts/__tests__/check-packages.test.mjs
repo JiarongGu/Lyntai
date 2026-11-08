@@ -113,6 +113,15 @@ describe('check-packages — a package missing from one registry is DETECTED', (
     assert.match(problemText(r), /Lyntai\.Core: not in packableProjects/);
   });
 
+  it('a docs row for ANOTHER package that merely names this one is not this one\'s row', () => {
+    const r = run((f) => {
+      f['docs/AOT.md'] = '| Package | Status |\n|---|---|\n| `Lyntai.Bundle` | references `Lyntai.Core` |\n';
+      f['README.md'] = '| Package | What it gives you |\n|---|---|\n| `Lyntai.Bundle` | pulls `Lyntai.Core` in |\n';
+    });
+    assert.match(problemText(r), /Lyntai\.Core: no row in the docs\/AOT\.md table/);
+    assert.match(problemText(r), /Lyntai\.Core: no row in the README Packages table/);
+  });
+
   it('the solution', () => {
     const r = run((f) => {
       f['Lyntai.slnx'] = f['Lyntai.slnx'].replace(/.*Lyntai\.Core\.csproj.*\n/, '');
