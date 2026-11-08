@@ -7029,3 +7029,11 @@ lines the doors' own tests pin. Landed in `08b41270`; the row stayed open in `TA
 
 - the three code commits and their tests
 - D266 to D270, the changelog and fix-log entries
+
+## Part 512 — the steward's rulings on `TASKS.md` Part 500's ten rows, built (2026-11-09)
+
+✅ done 2026-11-09 — **Outcome:** all ten rows' premises held against the code, and each ruling was built; they are **the steward's, under the owner's delegation to develop while away, and the owner may reverse them**. `docs/DECISIONS.md` **D271** to **D280** record each with the side it rejected, and D271 names the closest call: another host may bill for a render the first would have accepted. **Media router:** a submit throw that never reached the backend advances and is rethrown only when none accepted; the stream door has its span and strikes a failure after data; `BudgetedMediaRouter` settles a stream on the terminal chunk; a `MediaInput` URI is stored as `AbsoluteUri`. **Pool and admission:** the idle-stamp promise documented with a pointer to admission, a monotonic default clock, a zero or negative `IdleTimeout` documented as no reuse, a factory- or type-registered options object composed onto. **Helpers:** the cancellation precondition of `FromThrownSubmit` documented, and `InactivityPause` isolates each subscriber's fault. Nine tests failed first; the zero-timeout, `TaskCanceledException` and relative-URI tests pin behaviour that already held (`docs/FIXES.md` 2026-11-09, the media router entry).
+<br>**What stays the owner's:** a lease on `IProviderPool` and a `TimeProvider` constructor, each a new public member.
+
+- the three code commits and their tests
+- D271 to D280, the changelog and fix-log entries

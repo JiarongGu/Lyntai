@@ -7,6 +7,20 @@ to `.agents/knowledge/pitfalls.md`; the release-facing line goes to `CHANGELOG.m
 
 ---
 
+## 2026-11-09 — a refused media submit skipped the other candidates, a media stream was untraced and unstruck after data, and a streamed cost was billed per chunk
+
+**Symptom.** None reported; filed by the 2026-11-09 pools and media-router review (`docs/task-archive.md` Part 508) as `TASKS.md` Part 500's rows. With `[A, B]` and A refusing the connection on a submit, B was never tried and A took no strike. A stream attempt that fell over left no span. A stream that sent a byte and errored was never struck. A backend repeating a cumulative cost on progress chunks wrote one ledger line each. `a%20b.png` was stored as `a b.png`. A factory-registered `ProviderAdmissionOptions` never saw `ConfigureProviderAdmission`, and a throwing `InactivityPause` subscriber failed a `Hold` whose count was taken.
+
+**Root cause.** The submit catch filtered a never-reached throw out so it propagated, which the router's other candidates paid for. `StreamAsync` never called `StartGeneration`, and its two exits after data never called `Penalize`. `BudgetedMediaRouter` settled on `Spent(chunk.Usage)` for every chunk, not the terminal one. `Uri.ToString()` unescapes. The admission extension found only an instance registration. `Notify` ran subscribers bare, after the count.
+
+**Fix.** The catch takes every throw through `FromThrownSubmit`, files the undelivered one as a rejection and rethrows the first only when none accepted; the stream door gets its span (`StreamAttemptAsync` over `PumpAsync`) and the two `Penalize` calls; the budget settles on `Final`; `AbsoluteUri`; a type or factory options registration is wrapped; each subscriber runs in its own `try`. `docs/DECISIONS.md` D271 to D280.
+
+**Verify.** Each test failed first (nine of them, run before the change): `A_submit_throw_that_never_left_the_process_advances_to_the_next_candidate`, `Every_candidate_refusing_the_connection_still_throws_so_the_durable_job_retries`, `A_stream_attempt_gets_a_span_so_a_failed_one_that_fell_over_is_visible`, `A_failure_AFTER_data_strikes_the_host_though_the_stream_has_no_fallback_to_make`, `A_THROW_after_data_strikes_the_host_too`, `A_stream_whose_progress_chunks_carry_a_cost_writes_one_ledger_line_from_the_terminal_chunk`, `A_uri_input_keeps_the_wire_form_so_an_escaped_character_survives`, `Admission_configuration_composes_onto_a_factory_registration_the_host_made_first`, `A_subscriber_that_throws_neither_fails_the_hold_nor_stops_the_ones_after_it`. The zero-timeout pool test, the `TaskCanceledException` test and the relative-URI test pin behaviour that already held, and so passed first.
+
+**Introduced by.** Not traced to a commit for each.
+
+---
+
 ## 2026-11-09 — a run hung on a grandchild holding the pipes, a throwing stdin producer left the child waiting, a stderr rate limit read Fatal, and Model2Vec divided by tokens it never read
 
 **Symptom.** None reported; the rows were filed by the 2026-11-08 reviews (`TASKS.md` Part 485 and Part 490, since closed). A node parent that exited while a detached child inherited its stdout made `RunAsync` and `StreamLinesAsync` wait for the child's end (reproduced: a 30 s guard expired). A stdin producer that threw left the child's stdin open, so the exchange read as the child's inactivity timeout. A stderr `429` ended an agent turn with `AgentFailureKind.Fatal`, which the account pool does not hold. A `vocab.txt` longer than the table made every `Model2VecProvider` mean divide by tokens that added no row.
