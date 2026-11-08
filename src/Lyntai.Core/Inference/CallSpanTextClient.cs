@@ -27,11 +27,16 @@ internal sealed class CallSpanTextClient(ITextClient inner) : DelegatingTextClie
         }
     }
 
-    public override async IAsyncEnumerable<TextChunk> StreamAsync(TextRequest req,
-        [EnumeratorCancellation] CancellationToken ct = default)
+    // the inner stream is CALLED here, not at the first read: a layer beneath that reads an ambient scope when
+    // its StreamAsync is called (call tracing) would otherwise read whatever is ambient at the first read
+    public override IAsyncEnumerable<TextChunk> StreamAsync(TextRequest req, CancellationToken ct = default) =>
+        SpannedAsync(req, Inner.StreamAsync(req, ct), ct);
+
+    private static async IAsyncEnumerable<TextChunk> SpannedAsync(TextRequest req, IAsyncEnumerable<TextChunk> stream,
+        [EnumeratorCancellation] CancellationToken ct)
     {
         using var span = LyntaiDiagnostics.StartCallSpan(Operation, req.Consumer, "stream");
-        var enumerator = Inner.StreamAsync(req, ct).GetAsyncEnumerator(ct);
+        var enumerator = stream.GetAsyncEnumerator(ct);
         await using (enumerator.ConfigureAwait(false))
         {
             while (true)

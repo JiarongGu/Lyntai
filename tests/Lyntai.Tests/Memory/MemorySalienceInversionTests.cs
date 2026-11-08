@@ -241,6 +241,11 @@ public sealed class MemorySalienceInversionTests
 
         Assert.Equal(0, off.Pollution, precision: 10);
         Assert.Equal(0, salience.Pollution, precision: 10);
+
+        // control: a recall that returned nothing at all would also read pollution 0, so the recalls here
+        // must have returned some of the relevant material
+        Assert.True(off.Miss < 1, $"the Off arm recalled no relevant entry (miss {off.Miss:F4})");
+        Assert.True(salience.Miss < 1, $"the Salience arm recalled no relevant entry (miss {salience.Miss:F4})");
     }
 
     /// <summary><b>Registering NOTHING leaves salience ON; registering

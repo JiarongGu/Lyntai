@@ -109,12 +109,21 @@ public class AgentDiagnosticsTests
 
         var client = new FakeTextClient();
         client.Replies.Enqueue(new TextResponse("""{"tool":"boom-tl","arguments":{}}""", ProviderVerdict.Ok));
+        client.Replies.Enqueue(new TextResponse("""{"tool":"fine-tl","arguments":{}}""", ProviderVerdict.Ok));
         client.Replies.Enqueue(new TextResponse("""{"final":"handled"}""", ProviderVerdict.Ok));
-        var tool = new FunctionTool("boom-tl", (_, _) => throw new InvalidOperationException("kaboom"));
-        await new ToolLoop(client, new ToolRegistry([tool]), new LyntaiOptions())
+        var boom = new FunctionTool("boom-tl", (_, _) => throw new InvalidOperationException("kaboom"));
+        var fine = new FunctionTool("fine-tl", (_, _) => Task.FromResult("ok"), "works");
+        await new ToolLoop(client, new ToolRegistry([boom, fine]), new LyntaiOptions())
             .RunAsync(new TextRequest { Messages = [TextMessage.User("go")] });
 
-        lock (invocations) Assert.Contains(("boom-tl", true), invocations); // throwing tool → error=true
+        // each tool carries ITS OWN flag: a tag stuck on one value would pass a single assertion
+        lock (invocations)
+        {
+            Assert.Contains(("boom-tl", true), invocations);
+            Assert.Contains(("fine-tl", false), invocations);
+            Assert.DoesNotContain(("boom-tl", false), invocations);
+            Assert.DoesNotContain(("fine-tl", true), invocations);
+        }
     }
 
     // ---- durable jobs --------------------------------------------------------------------------------
@@ -153,6 +162,26 @@ public class AgentDiagnosticsTests
         lock (processed) Assert.Contains(("lane-tel", "succeeded"), processed);
     }
 
+    [Fact]
+    public async Task A_job_that_fails_is_tagged_failed_not_succeeded()
+    {
+        var spans = new List<Activity>();
+        using var listener = SpanListener(spans);
+        ActivitySource.AddActivityListener(listener);
+
+        var clock = new MutableClock();
+        var store = new InMemoryJobStore(clock.Get);
+        var options = new LyntaiOptions();
+        var handler = new FakeJobHandler("doomed-job", _ => Task.FromResult(JobOutcome.Fail("no good")));
+        var runner = new JobRunner(store, new JobHandlerRegistry([handler]), options, clock: clock.Get);
+        await new JobQueue(store, options).EnqueueAsync("lane-fail", "doomed-job", "{}");
+
+        await runner.RunOnceAsync();
+
+        var span = Assert.Single(SpansWith(spans, "lyntai.job.lane", "lane-fail"));
+        Assert.Equal("failed", span.GetTagItem("lyntai.job.outcome"));
+    }
+
     // ---- guards --------------------------------------------------------------------------------------
 
     [Fact]
@@ -171,10 +200,22 @@ public class AgentDiagnosticsTests
             lock (decisions) decisions.Add((gate, name, result));
         });
 
-        var rail = new GuardRail([new BlockGuard("guard-tel")]);
+        var rail = new GuardRail([new BlockGuard("guard-tel"), new AllowGuard("guard-ok")]);
         await rail.InspectRequestAsync(new TextRequest { Messages = [TextMessage.User("hi")] });
 
-        lock (decisions) Assert.Contains(("input", "guard-tel", "block"), decisions);
+        lock (decisions)
+        {
+            Assert.Contains(("input", "guard-tel", "block"), decisions);
+            // a guard that let the request through is not recorded as a block
+            Assert.DoesNotContain(decisions, d => d.Name == "guard-ok" && d.Result == "block");
+        }
+    }
+
+    private sealed class AllowGuard(string name) : IGuard
+    {
+        public string Name => name;
+        public Task<GuardOutcome> InspectRequestAsync(TextRequest req, CancellationToken ct = default) =>
+            Task.FromResult(GuardOutcome.Allow);
     }
 
     private sealed class BlockGuard(string name) : IGuard

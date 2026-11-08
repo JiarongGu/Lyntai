@@ -154,6 +154,48 @@ public class ModulatedRetrievabilityTests : RetrievabilityPolicyContractFacts
         Assert.Equal(multiplied.CandidateCutoff(0.05), maxed.CandidateCutoff(0.05) * 3, 9);
     }
 
+    /// <summary>Answers <paramref name="declared"/> for the declared maxima (every factor equals 3) and
+    /// <paramref name="applied"/> for anything else, so the two sides of the clamp can be driven apart.</summary>
+    private sealed class SplitComposition(double declared, double applied) : IMemoryRetentionCompositionPolicy
+    {
+        public double StabilityFactor(IReadOnlyList<double> factors) =>
+            factors.Count > 0 && factors.All(f => f == 3) ? declared : applied;
+    }
+
+    [Theory]
+    [InlineData(double.NaN)]
+    [InlineData(double.PositiveInfinity)]
+    [InlineData(0.25)]
+    [InlineData(-4)]
+    public void A_composed_factor_that_is_not_finite_or_is_below_one_widens_and_applies_nothing(double bad)
+    {
+        var state = State(age: 40, stability: 20);
+        var retention = new IMemoryRetentionPolicy[] { new FixedRetentionPolicy(2, declaredMax: 3) };
+        var plain = Inner();
+        var policy = new ModulatedRetrievability(plain, retention, new SplitComposition(bad, bad));
+
+        Assert.Equal(plain.Retrievability(state), policy.Retrievability(state), 9);
+        Assert.Equal(plain.CandidateCutoff(0.05), policy.CandidateCutoff(0.05), 9);
+
+        // positive control: the same policy under a sane composition is modulated, so the equality above
+        // is the clamp's doing and not an inert decorator
+        var sane = new ModulatedRetrievability(plain, retention, new SplitComposition(3, 2));
+        Assert.NotEqual(plain.Retrievability(state), sane.Retrievability(state));
+    }
+
+    [Fact]
+    public void A_composed_factor_above_the_declared_product_is_held_to_it()
+    {
+        var state = State(age: 40, stability: 20);
+        var retention = new IMemoryRetentionPolicy[] { new FixedRetentionPolicy(2, declaredMax: 3) };
+        // declared product 4, but the composition answers 100 for the policy's actual factor of 2
+        var policy = new ModulatedRetrievability(Inner(), retention, new SplitComposition(declared: 4, applied: 100));
+
+        // half-life 20 x 4, never 20 x 100
+        Assert.Equal(Math.Pow(2, -40.0 / 80), policy.Retrievability(state), 9);
+        Assert.Equal(Inner().CandidateCutoff(0.05) * 4, policy.CandidateCutoff(0.05), 9);
+    }
+
     [Fact]
     public void A_retention_policy_may_not_SHORTEN_a_half_life()
     {

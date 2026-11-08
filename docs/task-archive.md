@@ -6979,3 +6979,11 @@ lines the doors' own tests pin. Landed in `08b41270`; the row stayed open in `TA
 - the three reviews; the nine rows
 - the code fixes and their reverted-source proof
 - the hardened tests and the corrected documents
+
+## Part 505 — `TASKS.md` Part 498's three startable rows: the composed retention factor, a traced stream's scope and the tests that could pass unchecked (2026-11-08)
+
+✅ done 2026-11-08 — **Outcome:** `TASKS.md` Parts 492 to 494 were already closed (archive Parts 495, 498, 501 and 502) and the four blockers were re-checked first and none had cleared (no `hf_` token, no aggregator, no labels, the nine tests unrecurred), so the piece taken was the three startable rows the last review filed. **Code** (`docs/FIXES.md` 2026-11-08, each test failed first): `ModulatedRetrievability` clamps the composed factor to `[1, declared product]`; a throwing salience composition costs the write's signals, not the write; a traced stream reads its scope when called, which needed `CallSpanTextClient` to call the inner stream when it is called rather than at the first read. **Tests:** thirteen named tests judged one by one; eight gained a count, a control or a second value (a link line that exists, a reindex count, a positive limit, a recall that returned something, a shared store with a written-to engine, the span's events and the streamed door, a succeeding tool and an allowed guard and a failed job, the review row's one non-curve column), `ProviderConsumerTagTests` reads the constants by reflection, and three were renamed to say what they hold (`The_two_confirmation_source_files_name_no_process_or_network_type`, `The_key_is_a_digest_that_carries_no_input_text_a_secret_included`, `A_healthy_primary_stream_is_served_and_the_fallback_is_never_touched`). The mutation of each was judged by reading its production line, not run; the fixes' tests were run against the reverted source. No decision; no public member. Lanes `inference`, `memory`.
+
+- the composed-factor clamp and the salience composition's isolation
+- the stream scope captured at the call, in the tracing decorator and the call span
+- the thirteen tests

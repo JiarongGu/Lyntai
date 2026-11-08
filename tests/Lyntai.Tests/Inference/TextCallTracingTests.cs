@@ -283,6 +283,50 @@ public class TextCallTracingTests
         Assert.Single(Assert.Single(sp.GetRequiredService<CapturingTraceStore>().Saved).Steps);
     }
 
+    private static async Task<string> Drain(IAsyncEnumerable<TextChunk> stream)
+    {
+        var text = "";
+        await foreach (var chunk in stream) text += chunk.Text;
+        return text;
+    }
+
+    [Fact]
+    public async Task A_stream_called_inside_Into_and_read_after_the_scope_ends_records_on_that_recorder()
+    {
+        var provider = Answering();
+        provider.StreamScript = _ => [TextChunk.Content("ab"), TextChunk.Final()];
+        using var sp = Build(provider, b => b.AddTextCallTracing());
+        var saved = sp.GetRequiredService<CapturingTraceStore>().Saved;
+        var recorder = sp.GetRequiredService<ITraceService>().Begin("run-1", "batch");
+
+        IAsyncEnumerable<TextChunk> stream;
+        using (TextCallTracing.Into(recorder)) stream = sp.GetRequiredService<ITextClient>().StreamAsync(Req());
+        Assert.Equal("ab", await Drain(stream));                                       // consumed with no scope ambient
+
+        Assert.Empty(saved);                                                           // no trace of its own
+        await recorder.CompleteAsync();
+        Assert.Single(Assert.Single(saved).Steps);
+    }
+
+    [Fact]
+    public async Task A_stream_called_outside_a_scope_and_read_inside_one_leaves_that_recorder_alone()
+    {
+        var provider = Answering();
+        provider.StreamScript = _ => [TextChunk.Content("ab"), TextChunk.Final()];
+        using var sp = Build(provider, b => b.AddTextCallTracing());
+        var saved = sp.GetRequiredService<CapturingTraceStore>().Saved;
+        var recorder = sp.GetRequiredService<ITraceService>().Begin("run-1", "batch");
+        var stream = sp.GetRequiredService<ITextClient>().StreamAsync(Req());          // called with no scope
+
+        using (TextCallTracing.Into(recorder)) await Drain(stream);
+
+        var own = Assert.Single(saved);                                                // written under its own id
+        Assert.NotEqual("run-1", own.SessionId);
+        await recorder.CompleteAsync();
+        Assert.Equal(2, saved.Count);
+        Assert.Empty(saved.Single(t => t.SessionId == "run-1").Steps);
+    }
+
     [Fact]
     public async Task Include_false_passes_the_call_through_untraced()
     {

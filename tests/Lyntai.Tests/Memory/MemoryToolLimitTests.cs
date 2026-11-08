@@ -88,5 +88,10 @@ public class MemoryToolLimitTests
 
         Assert.Empty(recall.Items);
         Assert.Empty(source.Limits);
+
+        // positive control: the same engine and source ARE asked for a positive limit, so the empty list above
+        // is the guard's doing and not a source that is never consulted
+        await engine.RecallAsync(new MemoryQuery("t", "s", "ferry", Limit: 5));
+        Assert.NotEmpty(source.Limits);
     }
 }

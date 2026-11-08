@@ -14,6 +14,20 @@ namespace Lyntai.Tests.Inference;
 /// invisible to every gate here.</para></summary>
 public class ProviderConsumerTagTests
 {
+    // read off the type, so a constant added later is held to the same two rules with no edit here
+    private static string[] DeclaredTags() =>
+        [.. typeof(ProviderConsumers).GetFields(System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Static)
+            .Where(f => f.IsLiteral && f.FieldType == typeof(string))
+            .Select(f => (string)f.GetRawConstantValue()!)];
+
+    [Fact]
+    public void The_reflection_finds_the_declared_tags()
+    {
+        var tags = DeclaredTags();
+        Assert.True(tags.Length >= 5, $"found {tags.Length}");
+        Assert.Contains(ProviderConsumers.Chat, tags);
+    }
+
     [Fact]
     public void A_chat_turns_default_tag_is_the_declared_constant_not_a_loose_literal()
     {
@@ -26,10 +40,7 @@ public class ProviderConsumerTagTests
     [Fact]
     public void The_declared_tags_are_distinct_so_two_workloads_cannot_share_one_bucket()
     {
-        string[] tags = [
-            ProviderConsumers.Default, ProviderConsumers.Scoring, ProviderConsumers.Memory,
-            ProviderConsumers.Agent, ProviderConsumers.Chat,
-        ];
+        var tags = DeclaredTags();
 
         Assert.Equal(tags.Length, tags.Distinct(StringComparer.Ordinal).Count());
     }
@@ -39,9 +50,7 @@ public class ProviderConsumerTagTests
     {
         // LyntaiOptions resolves these by ordinal dictionary lookup and the env-var scan upper-cases the
         // suffix, so a capitalised constant would key a bucket no configuration could name.
-        foreach (var tag in new[] {
-            ProviderConsumers.Default, ProviderConsumers.Scoring, ProviderConsumers.Memory,
-            ProviderConsumers.Agent, ProviderConsumers.Chat })
+        foreach (var tag in DeclaredTags())
             Assert.Equal(tag.ToLowerInvariant(), tag);
     }
 }

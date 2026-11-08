@@ -96,8 +96,9 @@ public class RouterEndToEndTests : IDisposable
     }
 
     [Fact]
-    public async Task Streaming_never_falls_back_after_the_first_token()
+    public async Task A_healthy_primary_stream_is_served_and_the_fallback_is_never_touched()
     {
+        // no failure is injected here: "no fallback after the first token" is pinned in TextRouterStreamTests
         using var sp = BuildStack();
         var router = sp.GetRequiredService<ITextRouter>();
 
