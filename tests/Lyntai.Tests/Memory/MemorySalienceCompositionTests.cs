@@ -65,6 +65,36 @@ public class MemorySalienceCompositionTests
         }
     }
 
+    private sealed class ThrowingSalienceComposition : IMemorySalienceCompositionPolicy
+    {
+        public MemorySignals Signals(IReadOnlyList<MemorySignals> signals) =>
+            throw new InvalidOperationException("a broken composition");
+    }
+
+    [Fact]
+    public async Task A_composition_that_throws_costs_the_signals_and_never_the_write()
+    {
+        var broken = Build(new ThrowingSalienceComposition());
+        var healthy = Build(new MaximalSalienceCompositionPolicy());
+
+        await broken.RememberAsync(new MemoryWrite("t", "s", "a fact worth keeping"));
+        await healthy.RememberAsync(new MemoryWrite("t", "s", "a fact worth keeping"));
+        for (var i = 0; i < 40; i++)
+        {
+            await broken.RememberAsync(new MemoryWrite("t", "filler", $"unrelated filler {i}"));
+            await healthy.RememberAsync(new MemoryWrite("t", "filler", $"unrelated filler {i}"));
+        }
+
+        var brokenItem = (await broken.RecallAsync(new MemoryQuery("t", "s", "fact"))).Items.Single();
+        var healthyItem = (await healthy.RecallAsync(new MemoryQuery("t", "s", "fact"))).Items.Single();
+
+        // the write landed and was recalled; it carries no salience, so it has aged faster than the same
+        // write under a working composition (the positive control that the signal matters here at all)
+        Assert.Contains("a fact worth keeping", brokenItem.Headline);
+        Assert.True(healthyItem.Retrievability > brokenItem.Retrievability,
+            $"healthy={healthyItem.Retrievability:F6} should exceed broken={brokenItem.Retrievability:F6}");
+    }
+
     private static GraphMemoryEngine Build(IMemorySalienceCompositionPolicy composition) =>
         new("e", new InMemoryMemoryGraphStore(), seams: new GraphMemorySeams
             {

@@ -80,17 +80,20 @@ internal sealed class TracingTextClient : DelegatingTextClient
     public override async Task<TextResponse> CompleteAsync(TextRequest req, CancellationToken ct = default)
     {
         if (!Traced(req)) return await Inner.CompleteAsync(req, ct).ConfigureAwait(false);
+        var scope = TextCallTracing.Current;
         var clock = Stopwatch.StartNew();
         var reply = await Inner.CompleteAsync(req, ct).ConfigureAwait(false);
-        await RecordAsync(req, reply.Verdict, reply.Text, reply.Usage, reply.Detail, clock.ElapsedMilliseconds, ct)
+        await RecordAsync(scope, req, reply.Verdict, reply.Text, reply.Usage, reply.Detail, clock.ElapsedMilliseconds, ct)
             .ConfigureAwait(false);
         return reply;
     }
 
     public override IAsyncEnumerable<TextChunk> StreamAsync(TextRequest req, CancellationToken ct = default) =>
-        Traced(req) ? StreamTracedAsync(req, ct) : Inner.StreamAsync(req, ct);
+        // the scope is read HERE, when the stream is called, not in the iterator when it is first consumed
+        Traced(req) ? StreamTracedAsync(TextCallTracing.Current, req, ct) : Inner.StreamAsync(req, ct);
 
-    private async IAsyncEnumerable<TextChunk> StreamTracedAsync(TextRequest req, [EnumeratorCancellation] CancellationToken ct)
+    private async IAsyncEnumerable<TextChunk> StreamTracedAsync(
+        TextCallTracing.Scope? scope, TextRequest req, [EnumeratorCancellation] CancellationToken ct)
     {
         var clock = Stopwatch.StartNew();
         var text = new StringBuilder();
@@ -121,7 +124,7 @@ internal sealed class TracingTextClient : DelegatingTextClient
             await chunks.DisposeAsync().ConfigureAwait(false);
             // an abandoned stream is recorded here, on dispose; one that threw is not, as a thrown completion is not
             if (!threw)
-                await RecordAsync(req, end?.Verdict, text.ToString(), end?.Usage, end?.Detail, clock.ElapsedMilliseconds, ct)
+                await RecordAsync(scope, req, end?.Verdict, text.ToString(), end?.Usage, end?.Detail, clock.ElapsedMilliseconds, ct)
                     .ConfigureAwait(false);
         }
     }
@@ -142,12 +145,11 @@ internal sealed class TracingTextClient : DelegatingTextClient
 
     // verdict is null for a stream that ended before its Final or Error chunk: traced, but not scored
     private async Task RecordAsync(
-        TextRequest req, ProviderVerdict? verdict, string text, TextUsage? usage, string? detail, long ms, CancellationToken ct)
+        TextCallTracing.Scope? scope, TextRequest req, ProviderVerdict? verdict, string text, TextUsage? usage, string? detail, long ms, CancellationToken ct)
     {
         try
         {
             var sinks = _sinks.Value;
-            var scope = TextCallTracing.Current;
             var recorder = scope?.Recorder ?? sinks.Traces.Begin(Guid.NewGuid().ToString("N"), _options.Mode);
             var scored = verdict is not null && sinks.Scoring is not null;
             var scoreSession = scope?.NextScoreSession() ?? recorder.SessionId;

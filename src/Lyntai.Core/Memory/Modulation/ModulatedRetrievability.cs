@@ -46,7 +46,7 @@ public sealed class ModulatedRetrievability : IMemoryRetrievabilityPolicy
         _inner = inner ?? throw new ArgumentNullException(nameof(inner));
         _retentionPolicies = [.. retentionPolicies ?? throw new ArgumentNullException(nameof(retentionPolicies))];
         _composition = composition ?? new MultiplicativeRetentionCompositionPolicy();
-        _maxFactor = _composition.StabilityFactor([.. _retentionPolicies.Select(Declared)]);
+        _maxFactor = Composed([.. _retentionPolicies.Select(Declared)], upper: double.PositiveInfinity);
     }
 
     /// <inheritdoc />
@@ -92,9 +92,18 @@ public sealed class ModulatedRetrievability : IMemoryRetrievabilityPolicy
             // and the symptom of that is a memory that quietly stops coming back
             clamped[i] = double.IsFinite(reported) ? Math.Clamp(reported, 1, declared) : 1;
         }
-        var factor = _composition.StabilityFactor(clamped);
+        var factor = Composed(clamped, _maxFactor);
 
         return factor == 1 ? state : state with { Stability = state.Stability * factor };
+    }
+
+    /// <summary>The composition's answer held to <c>[1, upper]</c>, a non-finite one as 1: a composition is a
+    /// BYO seam, and one answer above <see cref="_maxFactor"/> breaks <see cref="CandidateCutoff"/>'s superset
+    /// guarantee exactly as an unclamped policy factor does.</summary>
+    private double Composed(IReadOnlyList<double> factors, double upper)
+    {
+        var composed = _composition.StabilityFactor(factors);
+        return double.IsFinite(composed) ? Math.Clamp(composed, 1, upper) : 1;
     }
 
     /// <summary>A retention policy's declared maximum, coerced the same way everywhere it is used. Non-finite

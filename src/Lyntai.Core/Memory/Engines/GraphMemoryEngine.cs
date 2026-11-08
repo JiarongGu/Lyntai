@@ -1187,7 +1187,17 @@ public sealed class GraphMemoryEngine(
             results.Add(signals);
             if (signals.Count > 0) contributions.Add((long)policy.Provenance);
         }
-        return (_salienceComposition.Signals(results), MemoryProvenance.Pack(contributions));
+        try
+        {
+            return (_salienceComposition.Signals(results), MemoryProvenance.Pack(contributions));
+        }
+        catch (Exception ex)
+        {
+            // a throwing composition is a broken policy too: the write stores no signals and credits no one
+            _logger.LogWarning(ex,
+                "salience composition failed for {Engine}; storing without signals", Name);
+            return (MemorySignals.Empty, MemoryProvenance.Pack([]));
+        }
     }
 
     /// <summary>Index a newly stored entry's own vector, then link it to its nearest existing neighbours, from
