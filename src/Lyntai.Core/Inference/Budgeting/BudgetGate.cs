@@ -109,13 +109,14 @@ internal sealed class BudgetAdmission(
     /// <summary>Why the call is refused, or null when it may run.</summary>
     public string? Refusal { get; } = refusal;
 
-    /// <summary>Account for what the call spent. A hold is reconciled ONCE, with no cancellation — a cancelled call
-    /// must still release it; anything after that, or on the soft path, is recorded as before. Null records
-    /// nothing, so a <c>finally</c> calling this after the usage was settled is a no-op.</summary>
-    public ValueTask SettleAsync(ProviderUsage? usage, CancellationToken ct)
+    /// <summary>Account for what the call spent. Always with no cancellation: the money is spent when the call
+    /// returns, so a caller who cancelled meanwhile must neither keep a hold nor lose the ledger line. A hold is
+    /// reconciled ONCE; anything after that, or on the soft path, is recorded. Null records nothing, so a
+    /// <c>finally</c> calling this after the usage was settled is a no-op.</summary>
+    public ValueTask SettleAsync(ProviderUsage? usage)
     {
         if (held is not null && Interlocked.Exchange(ref _settled, 1) == 0)
             return ledger!.ReconcileAsync(held, usage, CancellationToken.None);
-        return usage is null ? ValueTask.CompletedTask : tracker.RecordAsync(consumer, usage, ct);
+        return usage is null ? ValueTask.CompletedTask : tracker.RecordAsync(consumer, usage, CancellationToken.None);
     }
 }

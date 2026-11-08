@@ -17,6 +17,28 @@ internal static class ProviderPoolGuard
                 $"candidates on Id, so this instance could never be routed to.", nameof(key));
     }
 
+    /// <summary><see cref="EnsureIdMatchesSlot"/> for an instance a pool JUST built: nothing else holds it, so a
+    /// mismatch disposes it before the throw, where the pool's never-dispose rule (which protects in-flight
+    /// callers) does not apply. A dispose that itself throws is dropped, so the mismatch is what surfaces.</summary>
+    internal static void EnsureBuiltIdMatchesSlot<TProvider>(TProvider instance, ProviderKey key)
+        where TProvider : class, IProviderIdentity
+    {
+        try
+        {
+            EnsureIdMatchesSlot(instance, key);
+        }
+        catch (ArgumentException)
+        {
+            try
+            {
+                if (instance is IDisposable disposable) disposable.Dispose();
+                else if (instance is IAsyncDisposable async) async.DisposeAsync().AsTask().GetAwaiter().GetResult();
+            }
+            catch (Exception) { /* the id mismatch is the failure to report */ }
+            throw;
+        }
+    }
+
     /// <summary>Two registrations sharing a slot in ONE router-factory call are a silent half-working
     /// router, which is the worst available outcome.
     ///

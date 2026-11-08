@@ -106,6 +106,15 @@ public class EmbeddingRoutingTests
         Assert.Equal(EmbeddingRole.Query, vectorProvider.SawRole);
     }
 
+    [Fact] // "order is the contract" holds only for one vector per text, so a short answer is named here, not indexed past
+    public async Task A_backend_answering_fewer_vectors_than_texts_is_refused_by_name()
+    {
+        var error = await Assert.ThrowsAsync<InvalidOperationException>(
+            () => EmbeddingRouting.EmbedAsync(Router(new StubVectorProvider("short")), ["x", "y"]));
+
+        Assert.Contains("1 vectors for 2 texts", error.Message, StringComparison.Ordinal);
+    }
+
     [Fact]
     public async Task Says_what_is_MISSING_when_nothing_declares_embed()
     {

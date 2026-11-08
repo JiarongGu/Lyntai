@@ -7,6 +7,20 @@ to `.agents/knowledge/pitfalls.md`; the release-facing line goes to `CHANGELOG.m
 
 ---
 
+## 2026-11-09 — a never-idle pool threw or evicted everything, an empty stream "completed", a cancel after a render lost its spend, and five smaller faults
+
+**Symptom.** None reported; found by the 2026-11-09 review of the provider pools and the media and embedding routing (`docs/task-archive.md` Part 508) and read against the code. `IdleTimeout = TimeSpan.MaxValue` made every `GetOrAdd` throw and `Timeout.InfiniteTimeSpan` retired every entry on every access; a media backend whose only chunk was a terminal one was a successful empty stream; a caller's cancel landing after a hosted render returned left the spend off a ledger that honours its token; a stated recovery date at the calendar's edge threw out of the failure classifier; a backend answering fewer vectors than texts was indexed past; an empty `Uri` string defeated the attachment's neither-data-nor-uri check; a refused pool instance was built and never disposed; a null or `Ok`-with-no-artifacts media response was accepted or threw a `NullReferenceException`.
+
+**Root cause.** Each trusted an input nothing pinned. The cutoff was `now - timeout` with no reading of a span that means never; the stream's terminal branch tested only that a chunk was terminal; `BudgetAdmission.SettleAsync` handed the caller's token to a write the call had already earned; `new DateTimeOffset(local, offset)` throws where the date is representable and its UTC instant is not; the embedding helper returned the response's list without comparing counts; `Uri ?? …` treats `""` as present; `EnsureIdMatchesSlot` threw with the built instance still referenced by nobody; and `MediaResponse.Success`'s refusal binds only a backend that calls it.
+
+**Fix.** `BoundedProviderPool` reads `TimeSpan.MaxValue` and `Timeout.InfiniteTimeSpan` as never. `MediaRouter` reads a pre-commit terminal chunk with no data as a failure to fall over, and a null or empty `Ok` response as `Failed`. `BudgetAdmission.SettleAsync` records with no token (its `ct` parameter is gone). `StatedRecovery` returns null for an out-of-range instant. `EmbeddingRouting.EmbedAsync` throws when the counts differ (`GraphVectorProjection`'s own copy of the check goes). `TextAttachment.Url` treats an empty `Uri` as none. Both pools dispose an instance they refuse for its id.
+
+**Verify.** Each new test failed with its source change reversed and passes with it: `An_idle_timeout_that_says_never_never_retires_and_never_throws` (two spans), `A_terminal_chunk_BEFORE_any_data_falls_over_like_any_pre_commit_failure`, `A_cancel_after_the_render_does_not_lose_what_it_spent`, `A_stated_date_outside_the_calendar_reads_as_an_unknown_recovery` (two rows), `A_backend_answering_fewer_vectors_than_texts_is_refused_by_name`, `An_empty_uri_is_no_uri_so_the_inline_bytes_are_sent_or_the_attachment_throws`, `A_refused_instance_is_disposed_because_nothing_else_holds_it` and `A_response_that_is_null_or_an_Ok_with_nothing_produced_is_a_failure_to_fall_over` (two rows).
+
+**Introduced by.** Not traced to a commit for each.
+
+---
+
 ## 2026-11-09 — a memory walk hid a caller's mistake after step 1, a blend's view recall had no per-view fail-open, a graph import read a wrong-typed optional field as absent, and three smaller faults
 
 **Symptom.** None reported; found by the 2026-11-09 review (`docs/task-archive.md` Part 506) and read against the code. A walk whose expansion raised an `ArgumentException` ended quietly as if nothing more could be discovered; one throwing member view lost the whole blend's view recall; a link `kind` of 5, an `endedReason` of 5 or an object `recheck` imported as absent; a blend's refusal named a line of a re-joined sub-file; a trace step could carry a negative `OffsetMs`; a rejected version-store template was reported under a key-value key.

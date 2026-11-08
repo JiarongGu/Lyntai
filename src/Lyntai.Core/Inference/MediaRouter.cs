@@ -284,6 +284,14 @@ public sealed class MediaRouter(
             if (chunk.Final)
             {
                 closed = true;
+                if (!committed && chunk.Data is not { Length: > 0 })
+                {
+                    // nothing was produced: the buffered door refuses an Ok without artifacts, and so does this one
+                    failure = MediaChunk.Failure(ProviderVerdict.Failed,
+                        $"{streamer.Id}: the stream ended with a terminal chunk and no data");
+                    break;
+                }
+
                 deadHosts?.RecordSuccess(_bookkeeping.Key(streamer));
                 attempt.Done = true;
                 yield return chunk;
@@ -416,9 +424,14 @@ public sealed class MediaRouter(
             // Failed here would hammer a rate-limited host instead of cooling it.
             result = MediaResponse.Failure(ProviderVerdictClassifier.FromThrown(ex), $"{provider.Id}: {ex.Message}");
         }
+        // the record's constructor is public and a reference can be null, so MediaResponse.Success's refusal of an
+        // empty Ok binds only the backends that call it: this is where an Ok with nothing produced stops being one
+        if (result is null || (result.IsOk && result.Artifacts is not { Count: > 0 }))
+            result = MediaResponse.Failure(ProviderVerdict.Failed,
+                $"{provider.Id}: returned {(result is null ? "no response" : "Ok with no artifacts")}");
         result = result with { ProviderId = provider.Id };   // the router's word, whatever the backend set
         LyntaiDiagnostics.RecordGeneration(span, provider.Id, request.Kind, result.Verdict,
-            // an Ok result always has artifacts (MediaResponse.Success enforces it), so the count is
+            // an Ok result always has artifacts (checked above), so the count is
             // reported even by a backend that returns no usage of its own
             result.IsOk ? result.Usage ?? new MediaUsage(Count: result.Artifacts.Count) : result.Usage,
             Stopwatch.GetElapsedTime(started).TotalSeconds, result.Detail);

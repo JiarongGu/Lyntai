@@ -88,6 +88,19 @@ public class MediaRouterStreamTests
         Assert.Equal(1, healthy.StreamCalls);
     }
 
+    [Fact] // the text door reads the same stream as a failure; a "completed" with nothing produced is not a render
+    public async Task A_terminal_chunk_BEFORE_any_data_falls_over_like_any_pre_commit_failure()
+    {
+        var empty = new ScriptedStreamProvider { Id = "empty", Script = [MediaChunk.Completed()] };
+        var healthy = new ScriptedStreamProvider { Id = "healthy", Script = [MediaChunk.Content([9]), MediaChunk.Completed()] };
+
+        var chunks = await Router(empty, healthy).StreamAsync(Candidates(empty, healthy), Speech()).ToListAsync();
+
+        Assert.True(AssertOneTerminal(chunks).Final);
+        Assert.Equal([9], chunks.Where(c => c.Data is not null).SelectMany(c => c.Data!).ToArray());
+        Assert.Equal(1, healthy.StreamCalls);
+    }
+
     [Fact]
     public async Task A_caller_cancel_that_tears_the_transport_down_does_not_fall_over()
     {

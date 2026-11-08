@@ -51,12 +51,12 @@ public sealed class BudgetedMediaRouter(
         try
         {
             var result = await inner.GenerateAsync(candidates, request, ct).ConfigureAwait(false);
-            await admission.SettleAsync(Spent(result.Usage), ct).ConfigureAwait(false);
+            await admission.SettleAsync(Spent(result.Usage)).ConfigureAwait(false);
             return result;
         }
         finally
         {
-            await admission.SettleAsync(null, ct).ConfigureAwait(false);
+            await admission.SettleAsync(null).ConfigureAwait(false);
         }
     }
 
@@ -103,13 +103,13 @@ public sealed class BudgetedMediaRouter(
             await foreach (var chunk in inner.StreamAsync(candidates, request, ct).ConfigureAwait(false))
             {
                 if (Spent(chunk.Usage) is { } spent)
-                    await admission.SettleAsync(spent, ct).ConfigureAwait(false);
+                    await admission.SettleAsync(spent).ConfigureAwait(false);
                 yield return chunk;
             }
         }
         finally
         {
-            await admission.SettleAsync(null, ct).ConfigureAwait(false);
+            await admission.SettleAsync(null).ConfigureAwait(false);
         }
     }
 

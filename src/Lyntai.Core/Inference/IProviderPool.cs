@@ -92,7 +92,8 @@ public sealed class ProviderPoolOptions
     /// NOT mean "hold nothing".)</summary>
     public int? MaxEntries { get; set; } = 64;
 
-    /// <summary>Retire an entry unused for this long, evaluated on access. Null = never on idle.
+    /// <summary>Retire an entry unused for this long, evaluated on access. Null — or
+    /// <see cref="Timeout.InfiniteTimeSpan"/>, or <see cref="TimeSpan.MaxValue"/> — = never on idle.
     ///
     /// <para>A long-idle entry is a credential sitting in memory for no reason, which is the same argument
     /// a connection pool makes for its idle timeout.</para></summary>

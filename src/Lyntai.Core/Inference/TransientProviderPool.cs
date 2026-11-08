@@ -41,7 +41,7 @@ public sealed class TransientProviderPool<TProvider> : IProviderPool<TProvider>
         ArgumentNullException.ThrowIfNull(factory);
         var instance = factory() ?? throw new InvalidOperationException(
             $"the factory for '{key}' returned null");
-        ProviderPoolGuard.EnsureIdMatchesSlot(instance, key);
+        ProviderPoolGuard.EnsureBuiltIdMatchesSlot(instance, key);
 
         _keys.AddOrUpdate(instance, new StrongBox<ProviderKey>(key));
         Interlocked.Increment(ref _created);

@@ -41,12 +41,17 @@ public sealed class FakeGenerationProvider : IModelProvider
     /// here, so the throw that follows is a transport torn down by the caller.</summary>
     public Action? OnGenerate { get; set; }
 
+    /// <summary>When set, <see cref="GenerateAsync"/> returns exactly this — a response a backend can build
+    /// without <see cref="MediaResponse.Success"/>, null included, which the type system does not forbid a BYO one.</summary>
+    public Func<MediaResponse?>? Reply { get; set; }
+
     public Task<MediaResponse> GenerateAsync(MediaRequest request, CancellationToken ct = default)
     {
         GenerateCalls++;
         Requests.Add(request);
         OnGenerate?.Invoke();
         if (Throws is not null) throw Throws;
+        if (Reply is not null) return Task.FromResult(Reply()!);
         var verdict = Verdicts.Count > 1 ? Verdicts.Dequeue()
             : Verdicts.Count == 1 ? Verdicts.Peek()
             : ProviderVerdict.Ok;

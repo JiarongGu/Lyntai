@@ -102,15 +102,8 @@ internal sealed class GraphVectorProjection(
     }
 
     /// <summary>Embed a re-embed's batch as documents. NOT best-effort: the caller counts a failure.</summary>
-    internal async Task<IReadOnlyList<float[]>> EmbedBatchAsync(IReadOnlyList<string> texts, CancellationToken ct)
-    {
-        var embedded = await EmbeddingRouting.EmbedAsync(
-            providers, texts, EmbeddingRole.Document, logger, routing, ProviderConsumers.Memory, ct).ConfigureAwait(false);
-        return embedded.Count == texts.Count
-            ? embedded
-            : throw new InvalidOperationException(
-                $"the embedding backend returned {embedded.Count} vectors for {texts.Count} texts");
-    }
+    internal Task<IReadOnlyList<float[]>> EmbedBatchAsync(IReadOnlyList<string> texts, CancellationToken ct) =>
+        EmbeddingRouting.EmbedAsync(providers, texts, EmbeddingRole.Document, logger, routing, ProviderConsumers.Memory, ct);
 
     /// <summary>Write a re-embedded vector at the node's existing address. NOT best-effort: a broken index is the
     /// re-embed's failure to report, and a rerun resumes it.</summary>

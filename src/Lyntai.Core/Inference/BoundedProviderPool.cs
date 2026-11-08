@@ -13,7 +13,8 @@ namespace Lyntai.Inference;
 /// knowing, is that a pool nobody calls stops evicting — acceptable, because an idle process is not holding
 /// anything contended and the next call cleans up before doing anything else.</para>
 ///
-/// <para><b>Nothing is ever disposed</b> — see <see cref="IProviderPool{TProvider}.Retire"/> for why that
+/// <para><b>Nothing pooled is ever disposed</b> (an instance the pool refused for its id is, being held by
+/// no one) — see <see cref="IProviderPool{TProvider}.Retire"/> for why that
 /// follows from refusing to break in-flight work.</para></summary>
 /// <typeparam name="TProvider">The provider seam being pooled.</typeparam>
 /// <param name="options">Bounds. Null = the <see cref="ProviderPoolOptions"/> defaults.</param>
@@ -76,7 +77,7 @@ public sealed class BoundedProviderPool<TProvider>(
 
             var instance = factory() ?? throw new InvalidOperationException(
                 $"the factory for '{key}' returned null");
-            ProviderPoolGuard.EnsureIdMatchesSlot(instance, key);
+            ProviderPoolGuard.EnsureBuiltIdMatchesSlot(instance, key);
 
             _entries[key] = new Entry(instance, _clock(), ++_ticket);
             _keys.AddOrUpdate(instance, new StrongBox<ProviderKey>(key));
@@ -144,9 +145,12 @@ public sealed class BoundedProviderPool<TProvider>(
     /// keys have to be collected before they are removed.</para></summary>
     private void EvictIdle()
     {
-        if (_options.IdleTimeout is not { } timeout) return;
+        if (_options.IdleTimeout is not { } timeout || timeout == Timeout.InfiniteTimeSpan) return;
 
-        var cutoff = _clock() - timeout;
+        var now = _clock();
+        // a timeout reaching back past the clock's first instant has nothing idle, and the subtraction would throw
+        if (timeout >= now - DateTimeOffset.MinValue) return;
+        var cutoff = now - timeout;
 
         var anyIdle = false;
         foreach (var entry in _entries)
