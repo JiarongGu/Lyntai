@@ -194,12 +194,14 @@ public sealed class LlmMemoryVerificationPolicy(
         }
 
         int[] ordinals;
+        int elements;
         using (doc)
         {
             if (!doc.RootElement.TryGetProperty("relevant", out var array)
                 || array.ValueKind != JsonValueKind.Array)
                 return MemoryVerification.NoOpinion;
 
+            elements = array.GetArrayLength();
             ordinals = [.. array.EnumerateArray()
                 .Where(e => e.ValueKind == JsonValueKind.Number)
                 .Select(e => e.TryGetInt32(out var n) ? n : -1)];
@@ -215,8 +217,8 @@ public sealed class LlmMemoryVerificationPolicy(
             ids.Add(request.Candidates[n - 1].Id);
         }
 
-        return ids.Count == 0 && ordinals.Length > 0
-            ? MemoryVerification.NoOpinion   // every ordinal was junk — that is a broken reply, not a verdict
+        return ids.Count == 0 && elements > 0
+            ? MemoryVerification.NoOpinion   // every element was junk — that is a broken reply, not a verdict
             : new MemoryVerification(ids);
     }
 }

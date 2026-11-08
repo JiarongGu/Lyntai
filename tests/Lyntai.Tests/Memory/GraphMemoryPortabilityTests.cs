@@ -275,6 +275,8 @@ public class GraphMemoryPortabilityTests
     {
         { Second.Replace("\"stability\":5", "\"stability\":\"x\"", StringComparison.Ordinal), "stability" },
         { Second.Replace("\"grade\":\"Associative\"", "\"grade\":\"Inherit\"", StringComparison.Ordinal), "grade" },
+        { Second.Replace("\"createdAt\":\"2026-10-24T00:00:00+00:00\"", "\"createdAt\":5", StringComparison.Ordinal), "createdAt" },
+        { Second.Replace("\"createdAt\":\"2026-10-24T00:00:00+00:00\"", "\"createdAt\":null", StringComparison.Ordinal), "createdAt" },
         { Second.Replace("\"age\":1", "\"age\":null", StringComparison.Ordinal), "age" },
         { Second.Replace("\"age\":1", "\"age\":-3", StringComparison.Ordinal), "\"age\"" },
         { Second.Replace("\"volumeAge\":1", "\"volumeAge\":-1", StringComparison.Ordinal), "volumeAge" },

@@ -6,7 +6,7 @@ namespace Lyntai.Cortex;
 /// Pearson correlation.</summary>
 /// <param name="Count">Number of paired items compared.</param>
 /// <param name="ExactAgreementRate">Fraction of items where both sides gave the same discretized
-/// verdict (score rounded to <c>buckets</c> bins). 1.0 = identical, 0.0 = never agree.</param>
+/// verdict (score placed in one of <c>buckets</c> equal bins). 1.0 = identical, 0.0 = never agree.</param>
 /// <param name="MeanAbsoluteError">Average |a − b| over the raw scores — how far apart, on average.</param>
 /// <param name="PearsonCorrelation">Linear correlation of the two score series in [−1, 1]; null when
 /// undefined (fewer than 2 items, or either side is constant).</param>
@@ -16,12 +16,13 @@ public static class JudgeAgreement
 {
     /// <summary>Compare two aligned score series (index i is the same item). Scores are assumed to be
     /// comparable (e.g. both 0..1). <paramref name="buckets"/> discretizes for the exact-agreement rate
-    /// (default 2 → agree iff both land on the same side of 0.5).</summary>
+    /// (default 2 → agree iff both land on the same side of 0.5); below 1 throws, since a single bin would
+    /// report every pair as agreeing.</summary>
     public static AgreementReport Compare(IReadOnlyList<double> a, IReadOnlyList<double> b, int buckets = 2)
     {
         if (a.Count != b.Count)
             throw new ArgumentException($"score series must be the same length ({a.Count} vs {b.Count})");
-        if (buckets < 1) buckets = 1;
+        ArgumentOutOfRangeException.ThrowIfLessThan(buckets, 1);
         var n = a.Count;
         if (n == 0) return new AgreementReport(0, 1.0, 0.0, null);
 

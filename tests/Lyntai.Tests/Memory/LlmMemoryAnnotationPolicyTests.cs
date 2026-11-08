@@ -63,6 +63,8 @@ public class LlmMemoryAnnotationPolicyTests : MemoryAnnotationPolicyContractFact
     [InlineData("spouse, Alice")]                 // plausible, and not what was asked for
     [InlineData("""{"subjects":"spouse"}""")]     // right key, wrong shape
     [InlineData("""{"topics":["spouse"]}""")]     // wrong key
+    [InlineData("""{"subjects":[{"name":"Alice"}]}""")]   // elements, none a string: not "about nothing"
+    [InlineData("""{"subjects":[1,2]}""")]
     [InlineData("{ this is not json")]
     [InlineData("")]
     public async Task An_unparseable_reply_yields_no_opinion(string reply)

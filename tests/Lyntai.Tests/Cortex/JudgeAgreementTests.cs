@@ -78,6 +78,19 @@ public class JudgeAgreementTests
         Assert.Throws<ArgumentException>(() => JudgeAgreement.Compare([0.1], [0.1, 0.2]));
     }
 
+    [Theory]
+    [InlineData(0)]
+    [InlineData(-3)]
+    public void A_bucket_count_below_one_is_refused_not_read_as_perfect_agreement(int buckets)
+    {
+        // clamped to one bin, every pair lands together: two judges that never agree would report 1.0
+        var ex = Assert.Throws<ArgumentOutOfRangeException>(
+            () => JudgeAgreement.Compare([0.1, 0.2], [0.9, 0.8], buckets));
+        Assert.Equal("buckets", ex.ParamName);
+        // the control: one bucket is a legal (if uninformative) granularity
+        Assert.Equal(1.0, JudgeAgreement.Compare([0.1], [0.9], buckets: 1).ExactAgreementRate);
+    }
+
     [Fact]
     public void Bucket_granularity_is_configurable()
     {

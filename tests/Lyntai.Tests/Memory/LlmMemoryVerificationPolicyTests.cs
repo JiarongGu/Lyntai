@@ -120,6 +120,9 @@ public class LlmMemoryVerificationPolicyTests : MemoryVerificationPolicyContract
     /// relevant", or a model that has started answering in prose rewrites the review log on every recall.</summary>
     [Theory]
     [InlineData("""{"relevant":[99,100]}""")]   // every ordinal junk
+    [InlineData("""{"relevant":["1","3"]}""")]  // every element the wrong type: nothing parsed, not "nothing relevant"
+    [InlineData("""{"relevant":[null]}""")]
+    [InlineData("""{"relevant":[{"note":1}]}""")]
     [InlineData("""{"relevant":"n1"}""")]       // right key, wrong shape
     [InlineData("""{"answers":[1]}""")]         // wrong key
     [InlineData("notes 1 and 3 are relevant")]  // plausible prose, and not what was asked for
