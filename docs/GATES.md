@@ -583,7 +583,8 @@ file holding 17 open items. **The file had RECORDED deleting a 49-line tally for
 It checks FIVE things. Two are LENGTH: the preamble's non-blank line count against **40**
 (`backlogPreambleAllowance` raises it, reported as slack; no escape token), and that **no `HANDOVER` block
 survives anywhere** — a handover describes work that is DONE, so its home is `docs/task-archive.md`, one Part
-per task. The generated roster is excluded from the budget by sitting above the `## Active backlog` heading,
+per task. A handover is matched with emphasis and a leading `>` blockquote marker, and an open item with
+leading whitespace (**D297**), so a nested `- [ ]` is counted, marked and rostered and one with no marker fails. The generated roster is excluded from the budget by sitting above the `## Active backlog` heading,
 which is placement rather than a carve-out.
 
 The other two are the **open-item MANIFEST** (`docs/DECISIONS.md` **D111**): every open `- [ ]` carries a
@@ -656,6 +657,9 @@ refused on measurement: **53** options have exactly one line and most are correc
 measured at a **0% defect rate**, and withdrew; a hit here is a defect by construction, which is the bar a
 vocabulary gate has to clear before it ships. The one-line count is REPORTED on a passing run so the softer
 tier stays visible without being enforced.
+
+**A `*Options` type is a class, a record or a struct** (`struct`, `record struct`, `readonly struct`; **D296**):
+none of the last is in `src/` today, and the pattern reads it so that the day one appears it is checked.
 
 **What counts as an option was widened once, on a measured miss**: an accessor block on the line after the
 property's name, an expression-bodied accessor and a positional record's parameters were all invisible to
@@ -886,8 +890,10 @@ one first so a stale record cannot stand in for this run, and reduces it (`devto
 to a `summary.json` in the gitignored `RESULTS_DIR` it names: the trio, every skip bucketed by REASON with
 its count and classes, and whether the run declared a Postgres skip. It prints the
 trio on one line — the figures to re-measure by hand (§Which numbers a gate holds) — and **FAILS when a
-Postgres fact skipped** unless the run sets `LYNTAI_ALLOW_POSTGRES_SKIP=1`, and when the trx is missing
-or records nothing.
+Postgres fact skipped** unless the run sets `LYNTAI_ALLOW_POSTGRES_SKIP=1`, when the trx is missing
+or records nothing, and **when any result ended outside passed, failed and skipped** (`Inconclusive`,
+`NotRunnable`; **D295**): the summary's `other` count, printed with the outcome names, which no declaration
+excuses.
 
 **The leg is identified by its skip REASON**: `PostgresFixture.InitError` and every site's fallback start
 `Postgres/Docker unavailable`, and a guard test reads the test sources to hold that, because a reworded

@@ -11,8 +11,9 @@ import { fileURLToPath } from 'node:url';
 
 import { repoFiles } from './_repo-files.mjs';
 
-/** A public `*Options` type declaration. Records and classes both, sealed or not. */
-const TYPE = /^\s*public\s+(?:sealed\s+|abstract\s+)?(?:partial\s+)?(?:class|record|record\s+class)\s+(\w*Options)\b/;
+/** A public `*Options` type declaration: a class, record or struct (`record struct`, `readonly struct`),
+ * sealed or not. `record struct` precedes `record` because alternation is ordered. */
+const TYPE = /^\s*public\s+(?:(?:sealed|abstract|readonly)\s+)*(?:partial\s+)?(?:record\s+(?:class|struct)|record|class|struct)\s+(\w*Options)\b/;
 
 /** A public property HEADER — a name, then its accessor block on this line or the next. Never a method, a
  * field or a nested type. */

@@ -41,7 +41,7 @@ const classOf = (testName) => {
  *   `skips` in descending count, ties in first-seen order
  */
 export function reduceTrx(xml) {
-  const summary = { total: 0, passed: 0, failed: 0, skipped: 0, other: 0, postgresSkipped: 0, skips: [] };
+  const summary = { total: 0, passed: 0, failed: 0, skipped: 0, other: 0, otherOutcomes: [], postgresSkipped: 0, skips: [] };
   const buckets = new Map();
   // An attribute value may hold `>` in principle, so the opening tag is quoted strings or non-`>` runs.
   const results = /<UnitTestResult\b((?:"[^"]*"|[^>"])*?)(?:\/>|>([\s\S]*?)<\/UnitTestResult>)/g;
@@ -50,7 +50,11 @@ export function reduceTrx(xml) {
     const outcome = attr(attrs, 'outcome');
     if (outcome === 'Passed') { summary.passed++; continue; }
     if (['Failed', 'Error', 'Timeout', 'Aborted'].includes(outcome)) { summary.failed++; continue; }
-    if (outcome !== 'NotExecuted') { summary.other++; continue; }
+    if (outcome !== 'NotExecuted') {
+      summary.other++;
+      if (!summary.otherOutcomes.includes(outcome)) summary.otherOutcomes.push(outcome);
+      continue;
+    }
 
     summary.skipped++;
     const reason = decode((/<Message>([\s\S]*?)<\/Message>/.exec(body) ?? [])[1] ?? '(no reason given)').trim();
@@ -67,17 +71,23 @@ export function reduceTrx(xml) {
 }
 
 /**
- * The verdict on a reduced run: 1 when it executed nothing, or when a Postgres fact skipped and the run did
- * not declare it; 0 otherwise. Always prints the trio, so the by-hand re-measure reads it off one line.
+ * The verdict on a reduced run: 1 when it executed nothing, when any result ended outside passed, failed
+ * and skipped (`Inconclusive`, `NotRunnable`; no declaration excuses it), or when a Postgres fact skipped and
+ * the run did not declare it; 0 otherwise. Always prints the trio, so the by-hand re-measure reads it off one line.
  * @param {ReturnType<typeof reduceTrx>} summary
  * @param {{ allowPostgresSkip: boolean }} declared
  * @param {(s: string) => void} log
  */
 export function checkTestEvidence(summary, { allowPostgresSkip }, log = console.log) {
-  const { total, passed, skipped, postgresSkipped } = summary;
+  const { total, passed, skipped, other, otherOutcomes, postgresSkipped } = summary;
   log(`test: ${passed} passed / ${total} total, ${skipped} skipped (Postgres leg: ${postgresSkipped} skipped)`);
   if (total === 0) {
     log('test: ✗ the trx records NO test results — a run that executed nothing is not evidence of anything');
+    return 1;
+  }
+  if (other > 0) {
+    log(`test: ✗ ${other} result(s) ended neither passed, failed nor skipped (${(otherOutcomes ?? []).join(', ') || 'unnamed outcome'})`);
+    log('  — a test that never reached a verdict is not a pass, and no declaration excuses it.');
     return 1;
   }
   if (!postgresSkipped) return 0;

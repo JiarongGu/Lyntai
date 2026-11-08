@@ -92,6 +92,29 @@ describe('check-backlog', () => {
     assert.equal(code, 1);
   });
 
+  it('sees a handover inside a blockquote, nested or not', () => {
+    for (const line of ['> **HANDOVER (2026-01-01), kept for the reasoning.**', '> > _**HANDOVER (2026-01-01).**_']) {
+      const { code, out } = run(backlog({ handovers: [line] }));
+      assert.equal(code, 1, line);
+      assert.match(out, /1 HANDOVER block\(s\) remain/);
+    }
+  });
+
+  it('counts an INDENTED open item, and fails it closed when it carries no marker', () => {
+    const base = backlog();
+    const unmarked = run(`${base}\n  - [ ] **nested item.** Some prose, no marker.\n`);
+    assert.equal(unmarked.code, 1, unmarked.out);
+    assert.match(unmarked.out, /1 open item\(s\) carry no `item:` marker/);
+
+    const untitled = run(`${base}\n  - [ ] no bold title ${marker()}\n`);
+    assert.equal(untitled.code, 1, untitled.out);
+    assert.match(untitled.out, /no bolded title/);
+
+    const marked = run(`${base}\n  - [ ] **nested item.** Some prose. ${marker()}\n`);
+    assert.equal(marked.code, 1, 'a marked indented item is in the roster, which the fixture never regenerated');
+    assert.match(marked.out, /manifest .* is STALE/);
+  });
+
   it('an allowance raises the budget and is REPORTED, so slack is never invisible', () => {
     const long = Array.from({ length: MAX_PREAMBLE + 5 }, (_, i) => `line ${i}.`);
     const { code, out } = run(backlog({ preamble: long }), { backlogPreambleAllowance: MAX_PREAMBLE + 5 });

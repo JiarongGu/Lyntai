@@ -374,8 +374,11 @@ new decision overturns an old one, rewrite the old entry as a stub pointing here
 **295 live decisions.** The rest are stubs — `D<n>` is a permanent identifier, so a number is never reused or renumbered (5): [D36](#d36--a-translation-between-two-verdict-taxonomies-gets-one-arm-per-member-gated-by-a-test-2026-08-05) → D136 · [D80](#d80--merged-into-d77-2026-08-16-folded-2026-08-17) → D77 · [D131](#d131--a-backends-produces-is-derived-from-its-configuration-so-a-modality-is-a-field-2026-09-14) → D133 · [D134](#d134--a-registration-names-the-backend-the-provider-suffix-is-gone-from-all-seventeen-2026-09-14) → D137 · [D145](#d145--the-microsoftextensionsai-module-is-a-bridge-not-a-provider-2026-09-15) → D146
 | [D293](#d293--a-tracked-file-deleted-from-disk-is-not-in-the-gates-file-list-2026-11-09) | 2026-11-09 | a tracked file deleted from disk is not in the gates' file list |
 | [D294](#d294--the-prose-gates-read-block-comment-lines-and-stop-at-a-trailing-comment-2026-11-09) | 2026-11-09 | the prose gates read block-comment lines, and stop at a trailing comment |
+| [D295](#d295--a-trx-result-outside-passed-failed-and-skipped-fails-the-test-run-2026-11-09) | 2026-11-09 | a trx result outside passed, failed and skipped fails the `test` run |
+| [D296](#d296--check-options-scans-structs-as-well-as-classes-and-records-2026-11-09) | 2026-11-09 | `check-options` scans structs as well as classes and records |
+| [D297](#d297--check-backlog-reads-a-blockquoted-handover-and-an-indented-open-item-failing-closed-2026-11-09) | 2026-11-09 | `check-backlog` reads a blockquoted handover and an indented open item, failing closed |
 
-**289 live decisions.** The rest are stubs — `D<n>` is a permanent identifier, so a number is never reused or renumbered (5): [D36](#d36--a-translation-between-two-verdict-taxonomies-gets-one-arm-per-member-gated-by-a-test-2026-08-05) → D136 · [D80](#d80--merged-into-d77-2026-08-16-folded-2026-08-17) → D77 · [D131](#d131--a-backends-produces-is-derived-from-its-configuration-so-a-modality-is-a-field-2026-09-14) → D133 · [D134](#d134--a-registration-names-the-backend-the-provider-suffix-is-gone-from-all-seventeen-2026-09-14) → D137 · [D145](#d145--the-microsoftextensionsai-module-is-a-bridge-not-a-provider-2026-09-15) → D146
+**292 live decisions.** The rest are stubs — `D<n>` is a permanent identifier, so a number is never reused or renumbered (5): [D36](#d36--a-translation-between-two-verdict-taxonomies-gets-one-arm-per-member-gated-by-a-test-2026-08-05) → D136 · [D80](#d80--merged-into-d77-2026-08-16-folded-2026-08-17) → D77 · [D131](#d131--a-backends-produces-is-derived-from-its-configuration-so-a-modality-is-a-field-2026-09-14) → D133 · [D134](#d134--a-registration-names-the-backend-the-provider-suffix-is-gone-from-all-seventeen-2026-09-14) → D137 · [D145](#d145--the-microsoftextensionsai-module-is-a-bridge-not-a-provider-2026-09-15) → D146
 
 <!-- index:end -->
 
@@ -8057,3 +8060,39 @@ recall and its write-back is already a silent skip).
 **Rejected.** Stating the limit and widening nothing (a JSDoc block is where a `.mjs` author writes the claim a reader believes); scanning trailing comments (a line that is code is the unit every code tier blanks, and no measured hit sits there).
 
 **Re-opens** when a retired claim is found in a trailing comment.
+
+## D295 — a trx result outside passed, failed and skipped fails the `test` run (2026-11-09)
+
+**Standing.** A ruling on `TASKS.md` Part 497's third row, filed as `docs/task-archive.md` Part 514, **the steward's under the owner's delegation, which the owner may reverse** — not the owner's words. Built.
+
+**Decided.** `checkTestEvidence` fails, printing the count and the outcome names (`Inconclusive`, `NotRunnable`), when `other` is above 0, and no `LYNTAI_ALLOW_POSTGRES_SKIP` declaration excuses it. The summary gains `otherOutcomes`. The run measured at this change had `other` = 0, so the gate fails nothing today.
+
+**Why.** A result that reached no verdict was counted and ignored, so a run with one and exit 0 read green.
+
+**Rejected.** Reporting `other` without failing (the same green line the count already printed).
+
+**Re-opens** when a legitimate outcome outside the three is found in a green run.
+
+## D296 — `check-options` scans structs as well as classes and records (2026-11-09)
+
+**Standing.** A ruling on `TASKS.md` Part 497's fourth row, filed as `docs/task-archive.md` Part 514, **the steward's under the owner's delegation, which the owner may reverse** — not the owner's words. Built.
+
+**Decided.** `TYPE` takes `struct`, `record struct`, `readonly struct` and `readonly record struct` beside `class` and `record`, so an option declared as a struct without an XML doc fails. None exists in `src/` today, so the real run is unchanged.
+
+**Why.** An options type is whatever a consumer assigns, and the gate's job does not depend on the type being a reference type.
+
+**Rejected.** Stating that options are reference types (a convention nothing holds, where the scan costs one alternation).
+
+**Re-opens** never on its own: a shape the pattern misses is a defect in the pattern.
+
+## D297 — `check-backlog` reads a blockquoted handover and an indented open item, failing closed (2026-11-09)
+
+**Standing.** A ruling on `TASKS.md` Part 497's fifth row, filed as `docs/task-archive.md` Part 514, **the steward's under the owner's delegation, which the owner may reverse** — not the owner's words. Built.
+
+**Decided.** `HANDOVER` takes a leading `>` (nested too) and `OPEN_ITEM` and `TITLE` take leading whitespace, so `> **HANDOVER` fails the run and an indented `- [ ]` is counted and must carry its marker and bolded title. The real backlog has neither shape, so its roster is unchanged.
+
+**Why.** Both spellings escaped the gate and every count behind it, and a nested item the roster never held is the false pass the manifest exists to stop.
+
+**Rejected.** Leaving the column-0 rule and stating it (a nested checkbox is how a list is naturally written, so the stated limit would be met by accident).
+
+**Re-opens** when an indented `- [ ]` that is not an open item (a template inside prose) is found outside a fence.
