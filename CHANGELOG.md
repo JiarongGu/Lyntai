@@ -37,6 +37,10 @@ every addition.
 
 ### Changed
 
+- **A memory walk rethrows a caller's mistake at every step, a blend's view recall fails open per view, and a graph import refuses an optional field of the wrong type.**
+  A walk whose expansion threw an `ArgumentException` or `KeyNotFoundException` ended quietly; it now propagates as it does on step 1. One throwing member view no longer loses the
+  whole blend's view recall. A link `kind`, an `endedReason` or a `recheck` that is not a string is refused rather than read as absent, and a blend's import refusal names the line
+  the file's own editor shows. A trace step's `OffsetMs` is never negative after a wall-clock step back, and a rejected version-store prompt is named as a version rather than a key.
 - **A composed retention factor is held to what the policies declared, a throwing salience composition no longer fails a write, and a traced stream records under the scope ambient when it was called.**
   `ModulatedRetrievability` now clamps the factor a BYO `IMemoryRetentionCompositionPolicy` returns to `[1, the product of the declared maxima]` (non-finite as 1), as it already did each policy's.
   A salience composition that throws stores the write with no signals instead of throwing from `RememberAsync`. A stream made inside `TextCallTracing.Into` records on that recorder wherever it is read,

@@ -37,7 +37,8 @@ public sealed class InMemoryConversationStore : IConversationStore
 {
     private readonly Lock _lock = new();
     private readonly Dictionary<string, ChatThread> _threads = [];
-    private readonly List<ChatMessage> _messages = [];
+    // per thread, in Seq order: an append only ever adds the next Seq, so the last element is the MAX
+    private readonly Dictionary<string, List<ChatMessage>> _messages = [];
 
     public Task<ChatThread> CreateThreadAsync(string id, string? title = null, string? metadata = null, CancellationToken ct = default)
     {
@@ -80,9 +81,10 @@ public sealed class InMemoryConversationStore : IConversationStore
                 throw new InvalidOperationException($"there is no thread '{threadId}' to append to");
             // Id is a GUID handle; Seq is the 1-based per-thread order = MAX(seq)+1 (mirrors the SQL backends'
             // COALESCE(MAX(seq),0)+1 — NOT Count+1, which would reuse a seq if a message were ever deleted).
-            var seq = _messages.Where(m => m.ThreadId == threadId).Select(m => m.Seq).DefaultIfEmpty(0L).Max() + 1;
+            if (!_messages.TryGetValue(threadId, out var mine)) _messages[threadId] = mine = [];
+            var seq = (mine.Count == 0 ? 0L : mine[^1].Seq) + 1;
             var msg = new ChatMessage(Guid.NewGuid().ToString(), threadId, seq, kind, payload, metadata, DateTimeOffset.UtcNow);
-            _messages.Add(msg);
+            mine.Add(msg);
             return Task.FromResult(msg);
         }
     }
@@ -91,7 +93,7 @@ public sealed class InMemoryConversationStore : IConversationStore
     {
         lock (_lock)
         {
-            IReadOnlyList<ChatMessage> result = [.. _messages.Where(m => m.ThreadId == threadId).OrderBy(m => m.Seq)];
+            IReadOnlyList<ChatMessage> result = _messages.TryGetValue(threadId, out var mine) ? [.. mine] : [];
             return Task.FromResult(result);
         }
     }
@@ -101,7 +103,7 @@ public sealed class InMemoryConversationStore : IConversationStore
         lock (_lock)
         {
             _threads.Remove(id);
-            _messages.RemoveAll(m => m.ThreadId == id); // cascade
+            _messages.Remove(id); // cascade
         }
         return Task.CompletedTask;
     }

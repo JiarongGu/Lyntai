@@ -7,6 +7,20 @@ to `.agents/knowledge/pitfalls.md`; the release-facing line goes to `CHANGELOG.m
 
 ---
 
+## 2026-11-09 — a memory walk hid a caller's mistake after step 1, a blend's view recall had no per-view fail-open, a graph import read a wrong-typed optional field as absent, and three smaller faults
+
+**Symptom.** None reported; found by the 2026-11-09 review (`docs/task-archive.md` Part 506) and read against the code. A walk whose expansion raised an `ArgumentException` ended quietly as if nothing more could be discovered; one throwing member view lost the whole blend's view recall; a link `kind` of 5, an `endedReason` of 5 or an object `recheck` imported as absent; a blend's refusal named a line of a re-joined sub-file; a trace step could carry a negative `OffsetMs`; a rejected version-store template was reported under a key-value key.
+
+**Root cause.** Each fault was a guard written on one path and not its sibling: the expansion loop's bare `catch` where step 1's filter rethrows a caller mistake (`MemoryCallerMistake`), a per-member catch in the blend's engine and none in its view, `String` returning null for any non-string where `Instant` refuses one, a member's lines joined and renumbered from 1 with the blanks dropped, an offset taken as a clock difference with no floor, and one warning template for two sources.
+
+**Fix.** `MemoryWalk` rethrows a caller mistake at every step and ends on any other fault. `CompositeMemoryView.RecallAsync` fails open per view and rethrows the caller's cancel and mistakes. `MemoryPortableFormat.OptionalString` refuses a present non-string and reads `kind`, `endedReason` and `recheck`. The blend pads each member's lines to their own numbers. `TraceService` floors the offset at 0. `PromptRegistry` names the source it read (`version N of <name>` or the key).
+
+**Verify.** Each new test failed with its source change reversed and passes with it: `MemoryWalkLaterStepFaultTests`, `A_member_view_that_throws_in_a_recall_loses_only_its_own_share_of_the_blend`, three rows of `GraphMemoryPortabilityTests.Refused`, `A_blend_s_refusal_names_the_line_of_the_file_the_editor_shows`, `Recorder_floors_the_offset_at_zero_when_the_clock_steps_back` and `A_rejected_version_is_named_as_a_version_not_as_a_key_value_key`.
+
+**Introduced by.** Not traced to a commit for each.
+
+---
+
 ## 2026-11-09 — a non-finite score reached the store, an agreement rate read perfect from a bad bin count, a reply of the wrong element type read as "nothing relevant", and a few Unicode and JSON corners
 
 **Symptom.** None reported; found by reading the scoring service, the judge-agreement metric, the verification, annotation and portable-import code, the WordPiece tokenizer, `JsonExtract` and `MemorySubject`. A scorer's NaN went straight to `SaveAsync`; `JudgeAgreement.Compare` with `buckets` of 0 or less reported 1.0 for two judges that never agree; a verifier reply `{"relevant":["1","3"]}` and an annotator reply `{"subjects":[1,2]}` were recorded as a real "nothing relevant" and "about nothing"; a graph line with `"createdAt":5` threw `InvalidOperationException` instead of the documented refusal; U+2028 and U+2029 did not split a WordPiece word; a reply holding a lone surrogate threw `ArgumentException` out of `JsonExtract`; and a handle touching a letter outside the basic plane matched as a whole word.
