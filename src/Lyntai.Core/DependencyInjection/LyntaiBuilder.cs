@@ -696,6 +696,11 @@ public sealed class LyntaiBuilder
     /// silently absent. Intent only — the registrations themselves are unchanged.</summary>
     internal bool SemanticMemoryRequested { get; private set; }
 
+    /// <summary>Set by <c>AddVectorToolSelector</c> when it registers the selector (a consumer's own wins and sets
+    /// nothing): the selector embeds, so <c>AddLyntai</c> refuses it with no embedding backend, as for
+    /// <see cref="SemanticMemoryRequested"/>.</summary>
+    internal bool VectorToolSelectorRequested { get; set; }
+
     /// <summary>Turn on semantic (meaning-based) recall — <see cref="ISemanticMemory"/>, composed from any
     /// registered backend that produces <see cref="ProviderKinds.Vector"/> and an
     /// <see cref="IVectorStore"/>. It registers no BACKEND: bring one with

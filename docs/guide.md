@@ -1613,6 +1613,11 @@ await ctx.ReportStageAsync(3, 10, new JobMessage("Copying 3 of 10")
 - **Guards** (`Lyntai.Guards`) — `IGuard`s inspect requests and responses and answer Allow/Block/Replace;
   `AddGuard<T>()` registers them, `GuardedTextClient` gates any completion, and the chat orchestrator applies them
   as gates. The tool loop and the hosted MCP endpoint put each tool call and each observation through them too.
+  **A stream is gated on its request only.** Text a host reads as it streams (`GuardedTextClient.StreamAsync`,
+  `ToolLoop.StreamAsync`'s `TextDelta`) reaches it before any response guard could see the whole of it, so a host
+  with an output guard that streams to a user must gate the assembled text itself, or call the non-streaming door.
+  A guard that refuses a tool call inside the loop ends the turn `Refused` with its reason in `Detail`;
+  `ChatResult.Blocked` is the input and output gates alone.
 - **Two-gate chat** (`IChatOrchestrator`) — one call runs: input gate → memory recall → model → output gate →
   remember. Recall and remember run only when the `ChatTurn` carries a `TaskKey` (remember also needs `Remember`,
   on by default), and the model goes through the tool loop only when `UseTools` (on by default) is set and a tool

@@ -6906,3 +6906,11 @@ lines the doors' own tests pin. Landed in `08b41270`; the row stayed open in `TA
 - the approver's tool name, the null result, the vector-space registration, the JSON retry's usage and the curated kind
 - the abstention signal, the seed sources' fetch and the buried count
 - SQLite's id lists, the subject replace and the anchored age
+
+## Part 495 — the rulings on `TASKS.md` Parts 492 to 494's rows that could be built: the memory core's nine, two of the stores', three of the tool loop's (2026-11-08)
+
+✅ done 2026-11-08 — **Outcome:** the four blockers were re-checked first (no `hf_` token, no aggregator, no labels, the nine tests unrecurred; the roadmap holds nothing startable), so the piece taken was the seventeen `decision-only` rows the review filed. Fourteen got a ruling written as **D255** and built test-first: the whole of `TASKS.md` Part 492, a spaced term's floor in code points, an all-non-finite signal bag read as no opinion on the in-memory store, `AddVectorToolSelector` refused without an embedder, a thrown turn closing the loop span with an error status, and two documentation rulings (`ChatResult.Blocked`, a streamed text's gate). Three stay open and name why: a vector collection emptied keeps its space stamp (`IVectorStore` has no count to tell it is empty), a keyed link across engines (SQL both SQL stores share, wanting the Postgres suite, Docker was down) and a per-turn call cap (a new public option). **Behaviour changes a host can see:** a blend now throws a member's `KeyNotFoundException` or `ArgumentException`; the graph engine refuses a blank write, a prune floor outside 0 to 1 and a negative span; a zero character budget keeps the first item; `AddLyntai` refuses `AddVectorToolSelector` with no embedder. Lanes `memory`, `storage` and `platform`.
+
+- the nine memory-core rows (D255)
+- the term floor and the signal bag
+- the selector's registration, the loop span and the two documented limits

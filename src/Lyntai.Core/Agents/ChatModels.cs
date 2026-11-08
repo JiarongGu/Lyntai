@@ -27,9 +27,12 @@ public sealed record ChatTurn
 }
 
 /// <summary>The result of a chat turn: the <paramref name="Answer"/> (empty when blocked/failed), whether
-/// a guard <paramref name="Blocked"/> it (input or output gate), and any tool steps.
+/// a guard <paramref name="Blocked"/> it at the input or output gate, and any tool steps.
 /// <paramref name="Detail"/> carries the guard's block reason when <see cref="Blocked"/>, else the LLM
-/// failure detail on a non-Ok verdict (timeout text, provider error); null on a clean success.</summary>
+/// failure detail on a non-Ok verdict (timeout text, provider error); null on a clean success.
+/// <para><b>A guard that refuses a tool call inside the loop is not <see cref="Blocked"/>.</b> That turn ends
+/// <see cref="ProviderVerdict.Refused"/> with the guard's reason in <paramref name="Detail"/> and the steps taken
+/// before it; <see cref="Ok"/> is false either way.</para></summary>
 public sealed record ChatResult(
     string Answer,
     ProviderVerdict Verdict,

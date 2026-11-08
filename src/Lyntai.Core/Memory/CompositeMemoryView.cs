@@ -27,7 +27,7 @@ internal sealed class CompositeMemoryView(string taskKey, IReadOnlyList<IMemoryV
         if (query.Limit is { } limit && limit > 0 && items.Count > limit)
             items = [.. items.OrderByDescending(i => i.Item.Grade == MemoryGrade.Authoritative)
                 .ThenByDescending(i => i.Item.Relevance).Take(limit)];
-        if (query.CharBudget is { } budget && budget > 0)
+        if (query.CharBudget is { } budget)
         {
             var kept = MemoryBudget.Cut([.. items.Select(i => i.Item)], budget).Select(i => i.Reference).ToHashSet();
             items = [.. items.Where(i => kept.Contains(i.Item.Reference))];

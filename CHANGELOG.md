@@ -26,8 +26,22 @@ every addition.
   asks the engine through the new optional `ITaskExpandableMemory`, which `GraphMemoryEngine` and the blend implement, and a
   reference of another task reads as a missing one. **A host whose own `IMemoryEngine` implements only `IExpandableMemory` must
   also implement `ITaskExpandableMemory`, or its expand tool answers an error rather than expanding.**
+- **A mistake the caller made now fails where it was made, in six places that used to hide it** (**D255**). Through 3.5.3 a blend or
+  `MemoryWalk` logged and swallowed a member's `KeyNotFoundException` or `ArgumentException`, so an unknown `RankingPolicyName` or an
+  incoherent validity read as an empty recall; `GraphMemoryEngine.PruneAsync` with a floor above 1 removed everything or nothing by
+  age policy and one with a negative `olderThan` removed everything; `RememberAsync` stored a blank claim; a portable import took a
+  negative age or link weight; `AddVectorToolSelector` with no embedding backend failed quietly on every run; `CoActivationCap` took any
+  count. **A host that named a ranking policy only some of a blend's graph members hold must register it on each; one that passed a
+  floor outside 0 to 1, a negative span, a blank claim or a negative age must pass a legal value; one that registered the vector
+  tool selector must give `AddLyntai` a vector backend or drop the call; and a cap above 100 must come down.**
 
 ### Changed
+
+- **A recall reinforces only what it returned, a zero character budget keeps the first item, and a history recall links no ended entry** (**D255**).
+  An entry the budget cut was reinforced and logged as if returned; a budget of zero meant unbounded on a recall and the entry alone on
+  an expansion; a history recall paired ended entries into co-activation edges. A spaced search term is now measured in code points,
+  as the trigram index counts it, an all-non-finite signal bag keeps the stored one on the in-memory store as it does on SQL, and a
+  tool-loop turn that throws closes its span with an error status.
 
 - **A call a caller cancelled does not fall over, and a response cache that fails does not fail the call.** A provider torn down by the caller's cancel can
   throw something other than the cancel; the text router now rethrows the cancel instead of striking the host and calling the next candidate. A cache whose store throws on

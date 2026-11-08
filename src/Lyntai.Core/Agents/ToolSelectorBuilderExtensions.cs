@@ -19,6 +19,8 @@ public static class ToolSelectorBuilderExtensions
     /// <para><b>Needs a backend that produces <see cref="ProviderKinds.Vector"/></b>; see
     /// <see cref="VectorToolSelector"/>.</para>
     /// </summary>
+    /// <exception cref="InvalidOperationException">Thrown by <c>AddLyntai</c>, not here, when this registers the
+    /// selector and no backend produces vectors.</exception>
     /// <param name="builder">The Lyntai builder.</param>
     /// <param name="configure">Knobs; null takes the defaults.</param>
     public static LyntaiBuilder AddVectorToolSelector(this LyntaiBuilder builder,
@@ -31,6 +33,7 @@ public static class ToolSelectorBuilderExtensions
 
         // TryAdd, so a consumer's own IToolSelector registered before this call wins outright — the same
         // BYO story every other seam in this library has.
+        if (!builder.Services.Any(d => d.ServiceType == typeof(IToolSelector))) builder.VectorToolSelectorRequested = true;
         builder.Services.TryAddSingleton<IToolSelector>(sp =>
             new VectorToolSelector(sp.GetServices<IModelProvider>(), options,
                 sp.GetService<IProviderRouterFactory>()));

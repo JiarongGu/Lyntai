@@ -11,10 +11,10 @@ public sealed record GraphMemoryOptions
 
     /// <summary>The character budget an expansion falls back to when the caller passes none — the "engine's
     /// configured budget" <see cref="IExpandableMemory.ExpandAsync(MemoryRef, int, int?, MemoryDetail, CancellationToken)"/> has always promised.
-    /// <para>Null (the default) means UNBOUNDED. It bounds the NEIGHBOURS only: the expanded entry's own
+    /// <para>Null (the default) means UNBOUNDED; zero keeps the entry alone. It bounds the NEIGHBOURS only: the expanded entry's own
     /// content is always returned whole, because that is what expansion is for.</para></summary>
     /// <exception cref="ArgumentOutOfRangeException">Set below zero.</exception>
-    public int? ExpandCharBudget { get; init => field = MemoryOption.Require(value, 0, nameof(GraphMemoryOptions), ZeroIsOff); }
+    public int? ExpandCharBudget { get; init => field = MemoryOption.Require(value, 0, nameof(GraphMemoryOptions), ZeroIsEntryAlone); }
 
     /// <summary>The retrievability below which <c>PruneAsync</c> may REMOVE an entry — "forgotten enough to
     /// delete".
@@ -42,9 +42,25 @@ public sealed record GraphMemoryOptions
     } = 120;
 
     /// <summary>How many of the returned nodes get co-activation edges. A ten-item recall would otherwise
-    /// write forty-five edges every turn. Reasoned, not measured. Zero writes none.</summary>
-    /// <exception cref="ArgumentOutOfRangeException">Set below zero.</exception>
-    public int CoActivationCap { get; init => field = MemoryOption.Require(value, 0, nameof(GraphMemoryOptions), ZeroIsOff); } = 5;
+    /// write forty-five edges every turn. Reasoned, not measured. Zero writes none. An entry that states an
+    /// end takes no edge, so it neither counts toward the cap nor is linked.</summary>
+    /// <exception cref="ArgumentOutOfRangeException">Set below zero or above 100, which is 4,950 edges a recall:
+    /// the edges are every pair, so their number grows with the square of the cap.</exception>
+    public int CoActivationCap
+    {
+        get;
+        init
+        {
+            MemoryOption.Require(value, 0, nameof(GraphMemoryOptions), ZeroIsOff);
+            if (value > MaxCoActivationCap)
+                throw new ArgumentOutOfRangeException(nameof(CoActivationCap), value,
+                    $"{nameof(GraphMemoryOptions)}.{nameof(CoActivationCap)} must be at most {MaxCoActivationCap} — " +
+                    "every pair of the returned entries is an edge, so the count grows with the square.");
+            field = value;
+        }
+    } = 5;
+
+    private const int MaxCoActivationCap = 100;
 
     /// <summary>
     /// How many of a recall's slots <see cref="MemoryGrade.Authoritative"/> material may take. <c>null</c>
@@ -427,5 +443,8 @@ public sealed record GraphMemoryOptions
 
     /// <summary>Why a count whose zero already means "none" refuses a negative: it can only be a mistake,
     /// and reading it as zero would hide that.</summary>
-    private const string ZeroIsOff = "zero already means none, so a negative count can only be a mistake.";
+    private const string ZeroIsEntryAlone =
+        "zero already keeps the expanded entry alone, so a negative budget can only be a mistake.";
+
+    private const string ZeroIsOff ="zero already means none, so a negative count can only be a mistake.";
 }

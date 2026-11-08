@@ -588,8 +588,10 @@ var recall = await engine.RecallAsync(
 ```
 
 The name is scoped to the engine that registered it, and **an unknown name throws `KeyNotFoundException`**
-rather than falling back, so a typo fails where it was made. Engines with no ranking concept (lexical,
-semantic, curated) ignore the field.
+rather than falling back, so a typo fails where it was made, **through a blend and `MemoryWalk` too**: a
+member's `KeyNotFoundException` or `ArgumentException` is the caller's mistake and propagates, where any other
+member failure is logged and the blend goes on. A name is therefore registered on every graph member of a blend
+that is asked for it. Engines with no ranking concept (lexical, semantic, curated) ignore the field.
 
 ## 7. Things that will surprise you
 

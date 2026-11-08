@@ -123,6 +123,17 @@ public class ToolSelectorTests
     }
 
     [Fact]
+    public void AddVectorToolSelector_with_no_embedding_backend_is_refused_at_composition()
+    {
+        var services = new ServiceCollection();
+
+        var ex = Assert.Throws<InvalidOperationException>(() =>
+            services.AddLyntai(b => b.AddProvider(_ => new FakeTextProvider("p")).AddVectorToolSelector()));
+
+        Assert.Contains("AddVectorToolSelector", ex.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void A_selector_registered_BEFORE_AddVectorToolSelector_wins()
     {
         var mine = new FixedSelector(Stocks);

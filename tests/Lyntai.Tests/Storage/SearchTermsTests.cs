@@ -435,4 +435,13 @@ public class SearchTermsTests
             $"[{script}] {colliding}/{pairs} unrelated word pairs share a term ({collisionRate:P0}) — a " +
             "3-gram is not discriminating in this script");
     }
+
+    /// <summary>The floor counts code points, as the trigram index does: two emoji are four UTF-16 units and still
+    /// below it, where a unit count let the term through to a backend that could not match it.</summary>
+    [Fact]
+    public void A_spaced_term_is_measured_in_code_points_not_utf16_units()
+    {
+        Assert.Empty(SearchTerms.Extract("\U0001F600\U0001F600"));
+        Assert.Equal(["\U0001F600\U0001F600\U0001F600"], SearchTerms.Extract("\U0001F600\U0001F600\U0001F600"));
+    }
 }
