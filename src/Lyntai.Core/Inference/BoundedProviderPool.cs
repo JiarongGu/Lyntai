@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.Runtime.CompilerServices;
 
 namespace Lyntai.Inference;
@@ -15,16 +16,23 @@ namespace Lyntai.Inference;
 ///
 /// <para><b>Nothing pooled is ever disposed</b> (an instance the pool refused for its id is, being held by
 /// no one) — see <see cref="IProviderPool{TProvider}.Retire"/> for why that
-/// follows from refusing to break in-flight work.</para></summary>
+/// follows from refusing to break in-flight work.</para>
+///
+/// <para><b>An entry is stamped when <see cref="GetOrAdd"/> is CALLED, not when the call that holds it ends</b>, so
+/// a use longer than <see cref="ProviderPoolOptions.IdleTimeout"/> can have its entry retired by the next call for
+/// the key, which then builds a second live instance. The pool promises no single live instance per key past
+/// the idle timeout; bound concurrent use of a configuration with <see cref="ProviderAdmission"/>, which is
+/// keyed on the configuration and not on the instance.</para></summary>
 /// <typeparam name="TProvider">The provider seam being pooled.</typeparam>
 /// <param name="options">Bounds. Null = the <see cref="ProviderPoolOptions"/> defaults.</param>
-/// <param name="clock">Time source, injected so idle eviction is testable. Null = UTC now.</param>
+/// <param name="clock">Time source, injected so idle eviction is testable. Null = a MONOTONIC reading, so a
+/// step of the system clock neither keeps entries past the timeout nor retires every one at once.</param>
 public sealed class BoundedProviderPool<TProvider>(
     ProviderPoolOptions? options = null, Func<DateTimeOffset>? clock = null) : IProviderPool<TProvider>
     where TProvider : class, IProviderIdentity
 {
     private readonly ProviderPoolOptions _options = options ?? new ProviderPoolOptions();
-    private readonly Func<DateTimeOffset> _clock = clock ?? (() => DateTimeOffset.UtcNow);
+    private readonly Func<DateTimeOffset> _clock = clock ?? Monotonic();
 
     private readonly Dictionary<ProviderKey, Entry> _entries = [];
     private readonly ConditionalWeakTable<TProvider, StrongBox<ProviderKey>> _keys = [];
@@ -34,6 +42,14 @@ public sealed class BoundedProviderPool<TProvider>(
     private long _reused;
     private long _retired;
     private long _ticket;   // monotonic recency stamp: cheaper and clearer than reordering a list
+
+    // an origin read once plus the elapsed stopwatch time: only DIFFERENCES between readings are ever used
+    private static Func<DateTimeOffset> Monotonic()
+    {
+        var origin = DateTimeOffset.UtcNow;
+        var started = Stopwatch.GetTimestamp();
+        return () => origin + Stopwatch.GetElapsedTime(started);
+    }
 
     private sealed class Entry(TProvider instance, DateTimeOffset lastUsed, long ticket)
     {

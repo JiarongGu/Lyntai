@@ -204,6 +204,46 @@ public class ProviderPoolWiringTests
         }
     }
 
+    // A host that registered the options BY FACTORY (or by type) before AddLyntai: its registration is the
+    // earlier call's, so every ConfigureProviderAdmission composes onto what it builds instead of each adding an
+    // instance the container never reads past.
+    [Fact]
+    public void Admission_configuration_composes_onto_a_factory_registration_the_host_made_first()
+    {
+        var services = new ServiceCollection();
+        services.AddSingleton(_ => new ProviderAdmissionOptions { Default = 3 });
+        services.AddLyntai(b => b
+            .ConfigureProviderAdmission(o => o.BySlot["local-diffusion"] = 1)
+            .ConfigureProviderAdmission(o => o.BySlot["sd-cli"] = 2));
+        using var sp = services.BuildServiceProvider();
+
+        var options = sp.GetRequiredService<ProviderAdmissionOptions>();
+
+        Assert.Equal(3, options.Default);
+        Assert.Equal(1, options.BySlot["local-diffusion"]);
+        Assert.Equal(2, options.BySlot["sd-cli"]);
+        Assert.Same(options, sp.GetRequiredService<ProviderAdmissionOptions>());   // still ONE singleton
+    }
+
+    [Fact]
+    public void Admission_configuration_composes_onto_a_type_registration_and_an_instance_in_place()
+    {
+        var byType = new ServiceCollection();
+        byType.AddSingleton<ProviderAdmissionOptions>();
+        byType.AddLyntai(b => b.ConfigureProviderAdmission(o => o.Default = 4));
+        using var typed = byType.BuildServiceProvider();
+        Assert.Equal(4, typed.GetRequiredService<ProviderAdmissionOptions>().Default);
+
+        var hostOwned = new ProviderAdmissionOptions { Default = 5 };
+        var byInstance = new ServiceCollection();
+        byInstance.AddSingleton(hostOwned);
+        byInstance.AddLyntai(b => b.ConfigureProviderAdmission(o => o.BySlot["a1111"] = 1));
+        using var inPlace = byInstance.BuildServiceProvider();
+
+        Assert.Same(hostOwned, inPlace.GetRequiredService<ProviderAdmissionOptions>());
+        Assert.Equal(1, hostOwned.BySlot["a1111"]);
+    }
+
     // Admission left unconfigured must stay unlimited — the default table is registered for everyone.
     [Fact]
     public async Task Unconfigured_admission_admits_everyone()

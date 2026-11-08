@@ -53,7 +53,12 @@ public sealed record QueuedOperation(
     /// backend (a refused connection, a name that did not resolve, a TLS handshake that never completed, or
     /// <paramref name="sent"/> false), when it is a plain failure with the throw's classified verdict, which the
     /// router may advance past. A backend that catches its own exceptions reports this rather than a conclusive
-    /// failure.</summary>
+    /// failure.
+    ///
+    /// <para><b>Precondition: the caller's own cancellation is not handed here.</b> An
+    /// <see cref="OperationCanceledException"/> reads as a throw that may have been delivered
+    /// (<see cref="Inconclusive"/>), because the helper cannot tell the caller's cancel from a backend's own
+    /// timeout. Rethrow it first: <c>catch (OperationCanceledException) when (ct.IsCancellationRequested) { throw; }</c>.</para></summary>
     /// <param name="error">What was thrown.</param>
     /// <param name="sent">Whether the request may have left this process: false while the submission was still
     /// being built, true once sending began.</param>
