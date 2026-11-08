@@ -27,6 +27,17 @@ public static class CuratedMemoryStoreContract
         Assert.Null(await store.GetAsync(-1)); // missing → null (ids are positive on every backend)
     }
 
+    /// <summary>A lone surrogate in an entry's content or metadata is stored as U+FFFD on every backend, never refused
+    /// and never returned verbatim (the steward's ruling, <c>docs/DECISIONS.md</c> D262).</summary>
+    public static async Task A_lone_surrogate_is_stored_as_U_FFFD(ICuratedMemoryStore store, string kind = "persona")
+    {
+        var id = await store.AddAsync(kind, "cut \uD83D", metadata: Meta(("note", "half \uDE00")));
+
+        var got = await store.GetAsync(id);
+        Assert.Equal("cut \uFFFD", got!.Content);
+        Assert.Equal("half \uFFFD", got.Metadata!["note"]);
+    }
+
     public static async Task Update_changes_only_the_provided_fields(ICuratedMemoryStore store)
     {
         var id = await store.AddAsync("style", "original");

@@ -286,16 +286,18 @@ public class FileSystemRestartTests : IDisposable
     }
 
     [Fact]
-    public async Task A_message_that_cannot_be_encoded_leaves_no_temporary_file_behind()
+    public async Task A_message_with_a_lone_surrogate_is_stored_as_U_FFFD_and_survives_a_restart()
     {
         var store = new FileSystemConversationStore(_temp.Root);
         await store.CreateThreadAsync("t1");
 
-        // a lone surrogate, as a reply cut in the middle of a pair would carry
-        await Assert.ThrowsAnyAsync<Exception>(() => store.AppendMessageAsync("t1", "assistant", "cut \uD83D"));
+        // a lone surrogate, as a reply cut in the middle of a pair would carry: replaced, as SQLite stores it
+        await store.AppendMessageAsync("t1", "assistant", "cut \uD83D");
 
         var directory = Path.Combine(_temp.Directory, "conversations", RecordName.For("t1"));
         Assert.Empty(Directory.GetFiles(directory, "*.tmp"));
+        var after = new FileSystemConversationStore(_temp.Reopen());
+        Assert.Equal(["cut \uFFFD"], (await after.GetMessagesAsync("t1")).Select(m => m.Payload));
     }
 
     [Fact]

@@ -9,22 +9,23 @@ public sealed class InMemoryKeyValueStore : IKeyValueStore
     private readonly ConcurrentDictionary<string, string> _data = new();
 
     public Task<string?> GetAsync(string key, CancellationToken ct = default) =>
-        Task.FromResult(_data.TryGetValue(key, out var v) ? v : null);
+        Task.FromResult(_data.TryGetValue(Utf8Text.Scrub(key)!, out var v) ? v : null);
 
     public Task SetAsync(string key, string value, CancellationToken ct = default)
     {
-        _data[key] = value;
+        _data[Utf8Text.Scrub(key)!] = Utf8Text.Scrub(value)!;
         return Task.CompletedTask;
     }
 
     public Task DeleteAsync(string key, CancellationToken ct = default)
     {
-        _data.TryRemove(key, out _);
+        _data.TryRemove(Utf8Text.Scrub(key)!, out _);
         return Task.CompletedTask;
     }
 
     public Task<IReadOnlyList<string>> ListKeysAsync(string? prefix = null, CancellationToken ct = default)
     {
+        prefix = Utf8Text.Scrub(prefix);
         IReadOnlyList<string> keys = [.. _data.Keys
             .Where(k => prefix is null || k.StartsWith(prefix, StringComparison.Ordinal))
             .OrderBy(k => k, Utf8Ordinal.Instance)];
@@ -42,6 +43,7 @@ public sealed class InMemoryConversationStore : IConversationStore
 
     public Task<ChatThread> CreateThreadAsync(string id, string? title = null, string? metadata = null, CancellationToken ct = default)
     {
+        (id, title, metadata) = (Utf8Text.Scrub(id)!, Utf8Text.Scrub(title), Utf8Text.Scrub(metadata));
         var thread = new ChatThread(id, title, DateTimeOffset.UtcNow, metadata);
         // Add, not indexer: a duplicate id must THROW like the SQL backends' primary-key violation —
         // silently overwriting (while keeping the old thread's messages) is the classic
@@ -52,11 +54,12 @@ public sealed class InMemoryConversationStore : IConversationStore
 
     public Task<ChatThread?> GetThreadAsync(string id, CancellationToken ct = default)
     {
-        lock (_lock) return Task.FromResult(_threads.GetValueOrDefault(id));
+        lock (_lock) return Task.FromResult(_threads.GetValueOrDefault(Utf8Text.Scrub(id)!));
     }
 
     public Task SetThreadMetadataAsync(string id, string? metadata, CancellationToken ct = default)
     {
+        (id, metadata) = (Utf8Text.Scrub(id)!, Utf8Text.Scrub(metadata));
         lock (_lock)
             if (_threads.TryGetValue(id, out var t)) _threads[id] = t with { Metadata = metadata };
         return Task.CompletedTask;
@@ -74,6 +77,8 @@ public sealed class InMemoryConversationStore : IConversationStore
 
     public Task<ChatMessage> AppendMessageAsync(string threadId, string kind, string payload, string? metadata = null, CancellationToken ct = default)
     {
+        (threadId, kind, payload, metadata) = (Utf8Text.Scrub(threadId)!, Utf8Text.Scrub(kind)!, Utf8Text.Scrub(payload)!,
+            Utf8Text.Scrub(metadata));
         lock (_lock)
         {
             // an event needs its thread, as the SQL backends' foreign key and the file store require
@@ -91,6 +96,7 @@ public sealed class InMemoryConversationStore : IConversationStore
 
     public Task<IReadOnlyList<ChatMessage>> GetMessagesAsync(string threadId, CancellationToken ct = default)
     {
+        threadId = Utf8Text.Scrub(threadId)!;
         lock (_lock)
         {
             IReadOnlyList<ChatMessage> result = _messages.TryGetValue(threadId, out var mine) ? [.. mine] : [];
@@ -100,6 +106,7 @@ public sealed class InMemoryConversationStore : IConversationStore
 
     public Task DeleteThreadAsync(string id, CancellationToken ct = default)
     {
+        id = Utf8Text.Scrub(id)!;
         lock (_lock)
         {
             _threads.Remove(id);
@@ -194,12 +201,14 @@ public sealed class InMemoryPromptVersionStore : IPromptVersionStore
 
     public Task<PromptVersion?> GetActiveAsync(string name, CancellationToken ct = default)
     {
+        name = Utf8Text.Scrub(name)!;
         lock (_lock)
             return Task.FromResult(_byName.TryGetValue(name, out var list) ? list.FirstOrDefault(v => v.IsActive) : null);
     }
 
     public Task<PromptVersion> SaveAsync(string name, string template, string? author = null, CancellationToken ct = default)
     {
+        (name, template, author) = (Utf8Text.Scrub(name)!, Utf8Text.Scrub(template)!, Utf8Text.Scrub(author));
         lock (_lock)
         {
             if (!_byName.TryGetValue(name, out var list)) _byName[name] = list = [];
@@ -213,6 +222,7 @@ public sealed class InMemoryPromptVersionStore : IPromptVersionStore
 
     public Task<IReadOnlyList<PromptVersion>> HistoryAsync(string name, CancellationToken ct = default)
     {
+        name = Utf8Text.Scrub(name)!;
         lock (_lock)
         {
             IReadOnlyList<PromptVersion> result = _byName.TryGetValue(name, out var list)
@@ -224,6 +234,7 @@ public sealed class InMemoryPromptVersionStore : IPromptVersionStore
 
     public Task<PromptVersion?> RollbackAsync(string name, int version, CancellationToken ct = default)
     {
+        name = Utf8Text.Scrub(name)!;
         lock (_lock)
         {
             if (!_byName.TryGetValue(name, out var list)) return Task.FromResult<PromptVersion?>(null);

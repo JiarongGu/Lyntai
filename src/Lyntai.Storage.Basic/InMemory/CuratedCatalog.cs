@@ -30,6 +30,8 @@ internal sealed class CuratedCatalog
     public (CuratedMemory Entry, bool IsNew) PlanAdd(string kind, string content, bool enabled, string? taskKey,
         string? scope, bool dedup, IReadOnlyDictionary<string, string>? metadata, DateTimeOffset now)
     {
+        (kind, content, taskKey, scope, metadata) = (Utf8Text.Scrub(kind), Utf8Text.Scrub(content), Utf8Text.Scrub(taskKey),
+            Utf8Text.Scrub(scope), Utf8Text.Scrub(metadata));
         // Metadata is display/payload: OUT of the identity, and the matched row is kept as it is.
         if (dedup && _entries.FirstOrDefault(e => e.Kind == kind && e.Content == content
                 && e.TaskKey == taskKey && e.Scope == scope) is { } hit)
@@ -45,6 +47,8 @@ internal sealed class CuratedCatalog
         string? content, bool? enabled, string? kind, string? taskKey, string? scope,
         IReadOnlyDictionary<string, string>? metadata, DateTimeOffset now)
     {
+        (content, kind, taskKey, scope, metadata) = (Utf8Text.Scrub(content), Utf8Text.Scrub(kind), Utf8Text.Scrub(taskKey),
+            Utf8Text.Scrub(scope), Utf8Text.Scrub(metadata));
         if (Get(id) is not { } e) return (CuratedUpdateOutcome.NotFound, null);
         if (expectedRevision is { } expected && e.Revision != expected) return (CuratedUpdateOutcome.Stale, null);
         var newKind = kind ?? e.Kind;
@@ -85,6 +89,8 @@ internal sealed class CuratedCatalog
     public IReadOnlyList<CuratedMemory> List(string? kind, bool enabledOnly, string? taskKey, string? scope,
         int? limit, IReadOnlyDictionary<string, string>? metadataMatch)
     {
+        (kind, taskKey, scope, metadataMatch) = (Utf8Text.Scrub(kind), Utf8Text.Scrub(taskKey), Utf8Text.Scrub(scope),
+            Utf8Text.Scrub(metadataMatch));
         var q = Filter(_entries, kind, enabledOnly, taskKey, scope, metadataMatch)
             .OrderBy(e => e.Kind, Utf8Ordinal.Instance).ThenBy(e => e.CreatedAt).ThenBy(e => e.Id);
         return [.. limit is { } n ? q.Take(n) : q];
@@ -93,7 +99,9 @@ internal sealed class CuratedCatalog
     public IReadOnlyList<CuratedMemory> Search(string query, string? kind, bool enabledOnly, string? taskKey,
         string? scope, int? limit, IReadOnlyDictionary<string, string>? metadataMatch)
     {
-        var needle = query.Trim();
+        (kind, taskKey, scope, metadataMatch) = (Utf8Text.Scrub(kind), Utf8Text.Scrub(taskKey), Utf8Text.Scrub(scope),
+            Utf8Text.Scrub(metadataMatch));
+        var needle = Utf8Text.Scrub(query)!.Trim();
         var terms = SearchTerms.SubstringTerms(needle);
         // the matched-term count filters and then leads the order, as the SQL stores' LIKE count does
         var q = Filter(_entries, kind, enabledOnly, taskKey, scope, metadataMatch)
@@ -105,6 +113,9 @@ internal sealed class CuratedCatalog
     }
 
     public IReadOnlyList<CuratedMemory> ForComposition(string taskKey, IReadOnlyCollection<string> scopes, bool enabledOnly) =>
+        ForScrubbed(Utf8Text.Scrub(taskKey), [.. scopes.Select(s => Utf8Text.Scrub(s)!)], enabledOnly);
+
+    private IReadOnlyList<CuratedMemory> ForScrubbed(string taskKey, IReadOnlyCollection<string> scopes, bool enabledOnly) =>
         [.. _entries
             .Where(e => !enabledOnly || e.Enabled)
             .Where(e => CuratedMemorySections.AppliesTo(e, taskKey, scopes))

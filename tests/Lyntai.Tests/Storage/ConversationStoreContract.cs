@@ -20,6 +20,18 @@ public static class ConversationStoreContract
             $"expected a refusal, got {error?.GetType().Name ?? "no exception"}");
     }
 
+    /// <summary>A lone surrogate in a title or an event's payload is stored as U+FFFD on every backend, never refused
+    /// and never returned verbatim (the steward's ruling, <c>docs/DECISIONS.md</c> D262).</summary>
+    public static async Task A_lone_surrogate_is_stored_as_U_FFFD(IConversationStore store, string key)
+    {
+        var t = key + "-t1";
+        await store.CreateThreadAsync(t, "title \uD83D");
+        await store.AppendMessageAsync(t, "assistant", "cut \uD83D");
+
+        Assert.Equal("title \uFFFD", (await store.GetThreadAsync(t))!.Title);
+        Assert.Equal(["cut \uFFFD"], (await store.GetMessagesAsync(t)).Select(m => m.Payload));
+    }
+
     public static async Task Create_and_get_thread(IConversationStore store, string key)
     {
         var t = key + "-t1";

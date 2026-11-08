@@ -52,6 +52,18 @@ public static class KeyValueStoreContract
         Assert.Empty(await store.ListKeysAsync(ns + "/A"));
     }
 
+    /// <summary>A lone surrogate, which a reply cut inside a pair carries, has no UTF-8 spelling: every backend stores
+    /// U+FFFD for it, in a key and in a value, rather than refusing it or returning it verbatim (the steward's
+    /// ruling, <c>docs/DECISIONS.md</c> D262). The key written with one is found again by that same key.</summary>
+    public static async Task A_lone_surrogate_is_stored_as_U_FFFD(IKeyValueStore store, string ns)
+    {
+        var key = ns + "/cut \uD83D";
+        await store.SetAsync(key, "value \uDE00 cut");
+
+        Assert.Equal("value \uFFFD cut", await store.GetAsync(key));
+        Assert.Equal([ns + "/cut \uFFFD"], await store.ListKeysAsync(ns));
+    }
+
     /// <summary>"Ordinal" is the key's UTF-8 BYTES, as SQLite's BINARY and Postgres's <c>COLLATE "C"</c> sort: a code
     /// point past U+FFFF comes AFTER U+E000 to U+FFFF (UTF-16 units put it before), and an empty remainder, the
     /// prefix on its own, comes before either (the steward's ruling, <c>docs/DECISIONS.md</c> D263).</summary>
