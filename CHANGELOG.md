@@ -187,6 +187,9 @@ every addition.
 
 ### Added
 
+- **`LyntaiOptions.ToolLoopMaxCallsPerTurn`** (default 32, `LYNTAI_TOOL_LOOP_MAX_CALLS_PER_TURN`) bounds the calls one native tool-loop turn runs (**D256**).
+  Through 3.5.3 a turn of N calls ran all N. A call past the cap is not run and is answered with an `error:` observation, so the transcript
+  keeps a result per call id; below 1 means no cap, and the prompt protocol, which makes one call a turn, is unchanged.
 - **`MemoryWriteToolOptions.MaxRefs`** bounds how many refs one call of the remember tool may list in each of `supersedes`,
   `disputes` and `amends` (default 20), each costing the engine a store read.
 - **A task's patched status is the new `AgentTaskUpdated(TaskId, Status)` event, and a backgrounded command's output file is named

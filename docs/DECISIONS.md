@@ -325,8 +325,9 @@ new decision overturns an old one, rewrite the old entry as a stub pointing here
 | [D253](#d253--a-childs-start-and-end-carry-the-lineage-on-the-task-events-and-a-tasks-output-file-is-an-event-no-child-event-2026-11-07) | 2026-11-07 | a child's start and end carry the lineage on the task events, and a task's output file is an even… |
 | [D254](#d254--a-tasks-patched-status-is-its-own-event-and-a-backgrounded-commands-output-file-is-read-from-its-results-one-sentence-2026-11-07) | 2026-11-07 | a task's patched status is its own event, and a backgrounded command's output file is read from i… |
 | [D255](#d255--a-blend-lets-a-callers-mistake-through-a-prune-refuses-a-floor-or-span-it-cannot-honour-and-a-budget-of-zero-keeps-the-first-item-2026-11-08) | 2026-11-08 | a blend lets a caller's mistake through, a prune refuses a floor or span it cannot honour, and a… |
+| [D256](#d256--a-native-tool-loop-turn-executes-at-most-toolloopmaxcallsperturn-calls-and-answers-the-rest-with-an-error-2026-11-08) | 2026-11-08 | a native tool-loop turn executes at most `ToolLoopMaxCallsPerTurn` calls and answers the rest wit… |
 
-**250 live decisions.** The rest are stubs — `D<n>` is a permanent identifier, so a number is never reused or renumbered (5): [D36](#d36--a-translation-between-two-verdict-taxonomies-gets-one-arm-per-member-gated-by-a-test-2026-08-05) → D136 · [D80](#d80--merged-into-d77-2026-08-16-folded-2026-08-17) → D77 · [D131](#d131--a-backends-produces-is-derived-from-its-configuration-so-a-modality-is-a-field-2026-09-14) → D133 · [D134](#d134--a-registration-names-the-backend-the-provider-suffix-is-gone-from-all-seventeen-2026-09-14) → D137 · [D145](#d145--the-microsoftextensionsai-module-is-a-bridge-not-a-provider-2026-09-15) → D146
+**251 live decisions.** The rest are stubs — `D<n>` is a permanent identifier, so a number is never reused or renumbered (5): [D36](#d36--a-translation-between-two-verdict-taxonomies-gets-one-arm-per-member-gated-by-a-test-2026-08-05) → D136 · [D80](#d80--merged-into-d77-2026-08-16-folded-2026-08-17) → D77 · [D131](#d131--a-backends-produces-is-derived-from-its-configuration-so-a-modality-is-a-field-2026-09-14) → D133 · [D134](#d134--a-registration-names-the-backend-the-provider-suffix-is-gone-from-all-seventeen-2026-09-14) → D137 · [D145](#d145--the-microsoftextensionsai-module-is-a-bridge-not-a-provider-2026-09-15) → D146
 
 <!-- index:end -->
 
@@ -7398,3 +7399,24 @@ member knows would then work and another's would not, silently).
 
 **Re-opens** when a blend's members legitimately hold different names for one call, or when a host needs a guard block distinguishable from
 a provider's refusal.
+
+## D256 — a native tool-loop turn executes at most `ToolLoopMaxCallsPerTurn` calls and answers the rest with an error (2026-11-08)
+
+**Standing.** Rules on the last open row of the tool loop's review (`docs/task-archive.md` Part 498). Built, and frozen from release (**D70**).
+
+**Decided.** `LyntaiOptions.ToolLoopMaxCallsPerTurn` (default 32; below 1 means no cap; `LYNTAI_TOOL_LOOP_MAX_CALLS_PER_TURN`) bounds the
+calls one native turn runs. A call past it is not invoked and is no `ToolStep`; it still gets a `ToolResult` event and a tool-role message,
+an `error: not run: …` observation naming the cap, so the transcript keeps a result per call id and the model can ask for fewer. The
+prompt protocol makes one call a turn and is unchanged. The iteration budget stays the bound on turns.
+
+**Why.** A turn of N calls ran all N and grew the message list by N with nothing to stop it, so one reply could spend an unbounded number
+of tool invocations inside a budget meant to be eight turns. The first N run because the model ordered them, and an error observation is
+the loop's existing way to say a call did not happen.
+
+**Rejected.** Refusing the whole turn (a model that sent 33 calls loses the 32 that were fine, and the loop already has no terminal for
+"the request was too big"). Dropping the extra calls without a result (a provider rejects a call id that has none). A per-call override
+on `RunAsync` (the iteration override exists for a caller who knows the run; this bound protects against a model, which no caller sees
+coming). A default of no cap (the row exists because that is the unbounded case).
+
+**Re-opens** when a host runs a model that legitimately batches past 32 calls, which its own cap or the environment variable already
+answers, or when a refused turn needs to be a terminal a host can tell.

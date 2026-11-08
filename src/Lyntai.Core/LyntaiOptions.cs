@@ -90,6 +90,13 @@ public sealed class LyntaiOptions
     /// round-trips before it gives up). Per-call override on <c>RunAsync</c>.</summary>
     public int ToolLoopMaxIterations { get; set; } = 8;
 
+    /// <summary>The most tool calls one NATIVE turn of an <see cref="Lyntai.Agents.IToolLoop"/> run executes
+    /// (default 32; below 1 means no cap). Calls past it are not run: each is answered with an
+    /// <c>error: …</c> observation, so the transcript keeps one result per call id and the model can retry
+    /// fewer next turn. The prompt protocol makes one call per turn and is unaffected. Env:
+    /// <c>LYNTAI_TOOL_LOOP_MAX_CALLS_PER_TURN</c>.</summary>
+    public int ToolLoopMaxCallsPerTurn { get; set; } = 32;
+
     /// <summary>The INSTRUCTION half of the prompt-protocol system message an
     /// <see cref="Lyntai.Agents.IToolLoop"/> sends on its fallback path — how the model is told to reply.
     /// Null (the default) sends <see cref="Lyntai.Agents.ToolLoop.DefaultProtocolPreamble"/>.
@@ -177,6 +184,9 @@ public sealed class LyntaiOptions
 
         if (TryEnvInt(getEnv, "LYNTAI_TOOL_LOOP_MAX_ITERATIONS", out var mi) && mi > 0)
             ToolLoopMaxIterations = mi;
+
+        if (TryEnvInt(getEnv, "LYNTAI_TOOL_LOOP_MAX_CALLS_PER_TURN", out var mc) && mc > 0)
+            ToolLoopMaxCallsPerTurn = mc;
 
         // durable-job knobs
         if (TryEnvSeconds(getEnv, "LYNTAI_JOBS_LEASE_SECONDS", allowZero: false, out var jl))

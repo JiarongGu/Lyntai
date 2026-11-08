@@ -248,9 +248,20 @@ public sealed class ToolLoop(
             // then one tool-result per call (a missing tool_call_id makes providers reject the next request)
             if (!streaming && !string.IsNullOrEmpty(turn.Text)) yield return new TextDelta(turn.Text);
             messages.Add(TextMessage.AssistantToolCalls(turn.Calls, turn.Text));
+            var executed = 0;
             foreach (var call in turn.Calls)
             {
                 yield return new ToolCall(call.Name, call.ArgumentsJson, call.Id);
+                if (options.ToolLoopMaxCallsPerTurn > 0 && executed >= options.ToolLoopMaxCallsPerTurn)
+                {
+                    // not run, not a step; still answered, because a provider rejects a call id with no result
+                    var over = ToolObservations.Error(
+                        $"not run: this turn exceeded the per-turn cap of {options.ToolLoopMaxCallsPerTurn} tool calls");
+                    yield return new ToolResult(call.Id, over, true);
+                    messages.Add(TextMessage.ToolResult(call.Id, over));
+                    continue;
+                }
+                executed++;
                 enter();
                 var gated = await GatedInvokeAsync(call.Name, call.ArgumentsJson, req.Consumer, call.Id, ct).ConfigureAwait(false);
                 if (gated.Blocked)

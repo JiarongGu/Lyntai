@@ -933,7 +933,8 @@ foreach (var step in result.Steps)         // every tool call it made, for traci
     Console.WriteLine($"{step.Tool}({step.ArgumentsJson}) -> {step.Result}");
 ```
 
-The loop runs up to `ToolLoopMaxIterations` (default 8), using **native** function-calling where the backend
+The loop runs up to `ToolLoopMaxIterations` (default 8) and a native turn runs at most `ToolLoopMaxCallsPerTurn` calls (default 32; the rest
+answer `error: not run`), using **native** function-calling where the backend
 that would serve has it and a **prompt protocol** over the text contract elsewhere — same `ITool`s either way.
 An unknown or throwing tool becomes a recoverable `error: …` observation; a refusal or all-providers-down
 verdict surfaces on `result.Verdict`.

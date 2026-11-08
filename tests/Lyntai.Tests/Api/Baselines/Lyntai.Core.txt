@@ -2847,6 +2847,7 @@ sealed class Lyntai.LyntaiOptions
     RouteKeyPrefix : String { get; set; }
     Routing : RoutingPolicy { get; }
     TimeoutByConsumer : Dictionary<String,TimeSpan> { get; }
+    ToolLoopMaxCallsPerTurn : Int32 { get; set; }
     ToolLoopMaxIterations : Int32 { get; set; }
     ToolProtocolPreamble : String { get; set; }
 sealed class Lyntai.MediaOptions
