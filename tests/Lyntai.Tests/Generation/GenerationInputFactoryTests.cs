@@ -69,6 +69,24 @@ public class GenerationInputFactoryTests
     }
 
     [Fact]
+    public void A_uri_input_keeps_the_wire_form_so_an_escaped_character_survives()
+    {
+        // Uri.ToString() unescapes (a%20b.png -> "a b.png"); the backend reads the location, so it gets AbsoluteUri
+        var input = MediaInput.From("mask", new Uri("https://example.invalid/a%20b.png"), "image/png");
+
+        Assert.Equal("https://example.invalid/a%20b.png", input.Uri);
+    }
+
+    [Fact]
+    public void A_relative_uri_input_falls_back_to_the_string_it_was_written_as()
+    {
+        // AbsoluteUri throws on a relative Uri, so the original string is the only form there is
+        var input = MediaInput.From("mask", new Uri("masks/a%20b.png", UriKind.Relative), "image/png");
+
+        Assert.Equal("masks/a%20b.png", input.Uri);
+    }
+
+    [Fact]
     public void A_factory_refuses_what_the_backend_could_only_fail_on_later()
     {
         // an empty media type or a null payload reaches the backend as a malformed multipart part or an

@@ -424,6 +424,35 @@ public class GenerationGovernanceTests
     }
 
     [Fact]
+    public async Task A_stream_attempt_gets_a_span_so_a_failed_one_that_fell_over_is_visible()
+    {
+        var spans = new List<Activity>();
+        using var listener = SpanListener(spans);
+        ActivitySource.AddActivityListener(listener);
+        var failing = new ScriptedStreamProvider
+        {
+            Id = "tel-stream-fail",
+            Script = [MediaChunk.Failure(ProviderVerdict.Timeout, "no first byte")],
+        };
+        var backup = new ScriptedStreamProvider
+        {
+            Id = "tel-stream-ok",
+            Script = [MediaChunk.Content([1]), MediaChunk.Completed(new MediaUsage(Seconds: 1.5))],
+        };
+
+        await Router([failing, backup]).StreamAsync(Order("tel-stream-fail", "tel-stream-ok"), Speech).ToListAsync();
+
+        var failed = Assert.Single(SpansWith(spans, "gen_ai.system", "tel-stream-fail"));
+        Assert.Equal("stream audio", failed.DisplayName);
+        Assert.Equal("stream", failed.GetTagItem("lyntai.generation.operation"));
+        Assert.Equal("Timeout", failed.GetTagItem("error.type"));
+        Assert.Equal(ActivityStatusCode.Error, failed.Status);
+        var served = Assert.Single(SpansWith(spans, "gen_ai.system", "tel-stream-ok"));
+        Assert.Equal(ActivityStatusCode.Unset, served.Status);
+        Assert.Equal(1.5, served.GetTagItem("lyntai.generation.media_seconds"));
+    }
+
+    [Fact]
     public async Task What_a_render_cost_is_recorded_as_a_metric_because_that_is_the_number_hosts_watch()
     {
         var costs = new List<(double Value, string? Backend, string? Kind)>();
@@ -539,6 +568,30 @@ public class GenerationGovernanceTests
         await router.StreamAsync(Order("tts"), Speech).ToListAsync();
 
         Assert.Equal(0.25, (await tracker.TotalAsync()).CostUsd);
+    }
+
+    [Fact]
+    public async Task A_stream_whose_progress_chunks_carry_a_cost_writes_one_ledger_line_from_the_terminal_chunk()
+    {
+        // MediaChunk.Usage says the cost is reported ON COMPLETION: a backend repeating a cumulative figure on
+        // progress chunks must be counted once, as the text door counts its Final chunk.
+        var backend = new ScriptedStreamProvider
+        {
+            Id = "tts",
+            Script =
+            [
+                new MediaChunk([1], Usage: new MediaUsage(CostUsd: 0.10)),
+                new MediaChunk([2], Usage: new MediaUsage(CostUsd: 0.20)),
+                MediaChunk.Completed(new MediaUsage(CostUsd: 0.25)),
+            ],
+        };
+        var (router, tracker) = Budgeted(backend, o => o.Budget.MaxCostUsd = 10.0);
+
+        await router.StreamAsync(Order("tts"), Speech).ToListAsync();
+
+        var total = await tracker.TotalAsync();
+        Assert.Equal(1, total.Calls);
+        Assert.Equal(0.25, total.CostUsd);
     }
 
     [Fact]

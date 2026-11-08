@@ -51,6 +51,17 @@ public class SubmitThrowClassificationTests
     }
 
     [Fact]
+    public void A_cancellation_handed_to_the_helper_is_inconclusive_so_the_caller_rethrows_it_first()
+    {
+        // The helper cannot tell the caller's own cancel from a backend's: a submit that was cancelled MAY have
+        // been delivered, and the caller's `catch (OperationCanceledException) { throw; }` must come before it.
+        var op = QueuedOperation.FromThrownSubmit(new TaskCanceledException("the caller left"));
+
+        Assert.True(op.Inconclusive);
+        Assert.Null(op.Verdict);
+    }
+
+    [Fact]
     public void A_thrown_exception_is_never_Refused()
     {
         var ex = new InvalidOperationException("proxy error page: content policy violation");

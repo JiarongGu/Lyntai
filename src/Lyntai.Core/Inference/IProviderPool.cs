@@ -93,7 +93,10 @@ public sealed class ProviderPoolOptions
     public int? MaxEntries { get; set; } = 64;
 
     /// <summary>Retire an entry unused for this long, evaluated on access. Null — or
-    /// <see cref="Timeout.InfiniteTimeSpan"/>, or <see cref="TimeSpan.MaxValue"/> — = never on idle.
+    /// <see cref="Timeout.InfiniteTimeSpan"/>, or <see cref="TimeSpan.MaxValue"/> — = never on idle. Zero, or any
+    /// other negative value, = no reuse: an entry is idle the moment it is stamped, so every call builds anew. The
+    /// stamp is taken when <see cref="IProviderPool{TProvider}.GetOrAdd"/> is called, so a use longer than this is
+    /// not kept to one instance — bound concurrent use with <see cref="ProviderAdmission"/>.
     ///
     /// <para>A long-idle entry is a credential sitting in memory for no reason, which is the same argument
     /// a connection pool makes for its idle timeout.</para></summary>

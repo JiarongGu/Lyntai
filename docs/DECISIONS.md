@@ -340,8 +340,18 @@ new decision overturns an old one, rewrite the old entry as a stub pointing here
 | [D268](#d268--the-agent-doors-arm-a-15-minute-inactivity-window-where-a-text-call-keeps-two-2026-11-09) | 2026-11-09 | the agent doors arm a 15 minute inactivity window where a text call keeps two |
 | [D269](#d269--the-onnx-reader-refuses-an-export-it-cannot-run-reads-a-roberta-exports-padding-offset-and-caps-a-pass-at-128-rows-2026-11-09) | 2026-11-09 | the Onnx reader refuses an export it cannot run, reads a RoBERTa export's padding offset, and cap… |
 | [D270](#d270--model2vec-divides-by-the-rows-it-read-and-a-contextsize-the-machine-cannot-hold-is-the-hosts-to-bound-2026-11-09) | 2026-11-09 | Model2Vec divides by the rows it read, and a `ContextSize` the machine cannot hold is the host's… |
+| [D271](#d271--a-media-submit-throw-that-never-reached-the-backend-advances-and-is-rethrown-only-when-no-candidate-accepted-2026-11-09) | 2026-11-09 | a media submit throw that never reached the backend advances, and is rethrown only when no candid… |
+| [D272](#d272--the-media-stream-door-opens-a-span-per-attempt-as-the-class-says-2026-11-09) | 2026-11-09 | the media stream door opens a span per attempt, as the class says |
+| [D273](#d273--a-media-streams-failure-after-data-strikes-the-host-2026-11-09) | 2026-11-09 | a media stream's failure after data strikes the host |
+| [D274](#d274--budgetedmediarouter-settles-a-streams-spend-on-the-terminal-chunk-only-2026-11-09) | 2026-11-09 | `BudgetedMediaRouter` settles a stream's spend on the terminal chunk only |
+| [D275](#d275--a-mediainput-location-is-stored-as-absoluteuri-2026-11-09) | 2026-11-09 | a `MediaInput` location is stored as `AbsoluteUri` |
+| [D276](#d276--the-pool-promises-no-single-live-instance-per-key-past-idletimeout-and-bounding-a-use-is-admissions-2026-11-09) | 2026-11-09 | the pool promises no single live instance per key past `IdleTimeout`, and bounding a use is admis… |
+| [D277](#d277--the-pools-default-clock-is-monotonic-and-an-idletimeout-of-0-or-less-means-no-reuse-2026-11-09) | 2026-11-09 | the pool's default clock is monotonic, and an `IdleTimeout` of 0 or less means no reuse |
+| [D278](#d278--configureprovideradmission-counts-the-hosts-first-descriptor-as-the-earlier-calls-2026-11-09) | 2026-11-09 | `ConfigureProviderAdmission` counts the host's first descriptor as the earlier call's |
+| [D279](#d279--fromthrownsubmit-has-a-precondition-about-cancellation-and-a-cancellation-handed-to-it-is-inconclusive-2026-11-09) | 2026-11-09 | `FromThrownSubmit` has a precondition about cancellation, and a cancellation handed to it is Inco… |
+| [D280](#d280--an-inactivitypause-subscribers-fault-is-swallowed-each-subscriber-isolated-2026-11-09) | 2026-11-09 | an `InactivityPause` subscriber's fault is swallowed, each subscriber isolated |
 
-**265 live decisions.** The rest are stubs — `D<n>` is a permanent identifier, so a number is never reused or renumbered (5): [D36](#d36--a-translation-between-two-verdict-taxonomies-gets-one-arm-per-member-gated-by-a-test-2026-08-05) → D136 · [D80](#d80--merged-into-d77-2026-08-16-folded-2026-08-17) → D77 · [D131](#d131--a-backends-produces-is-derived-from-its-configuration-so-a-modality-is-a-field-2026-09-14) → D133 · [D134](#d134--a-registration-names-the-backend-the-provider-suffix-is-gone-from-all-seventeen-2026-09-14) → D137 · [D145](#d145--the-microsoftextensionsai-module-is-a-bridge-not-a-provider-2026-09-15) → D146
+**275 live decisions.** The rest are stubs — `D<n>` is a permanent identifier, so a number is never reused or renumbered (5): [D36](#d36--a-translation-between-two-verdict-taxonomies-gets-one-arm-per-member-gated-by-a-test-2026-08-05) → D136 · [D80](#d80--merged-into-d77-2026-08-16-folded-2026-08-17) → D77 · [D131](#d131--a-backends-produces-is-derived-from-its-configuration-so-a-modality-is-a-field-2026-09-14) → D133 · [D134](#d134--a-registration-names-the-backend-the-provider-suffix-is-gone-from-all-seventeen-2026-09-14) → D137 · [D145](#d145--the-microsoftextensionsai-module-is-a-bridge-not-a-provider-2026-09-15) → D146
 
 <!-- index:end -->
 
@@ -7638,5 +7648,125 @@ recall and its write-back is already a silent skip).
 **Why.** A vocabulary id past the table added no row but was still a divisor. The abort cannot be caught, so a verdict cannot answer it.
 
 **Rejected.** Refusing a vocabulary longer than the table at load (a tokenizer and a table legitimately disagree at the edges, as `AccumulateInto` already says). Refusing a `ContextSize` past the trained context: it narrows a published option and stays the owner's (`TASKS.md` Part 490).
+
+## D271 — a media submit throw that never reached the backend advances, and is rethrown only when no candidate accepted (2026-11-09)
+
+**Standing.** A ruling on `docs/task-archive.md` Part 512's first row, **the steward's under the owner's delegation to develop while away, which the owner may reverse** — not the owner's words. Built, and frozen from release (**D70**).
+
+**Decided.** `MediaRouter.SubmitAsync` no longer filters a throw by `NeverReachedTheBackend`. Every throw becomes `QueuedOperation.FromThrownSubmit`; one that may have been delivered stays `Inconclusive` and surfaces (**D64**), and one that provably never left the process is a plain failure with its classified verdict: the host takes that verdict's strike, the router advances, and the first such throw is rethrown (stack kept) only when no candidate accepted, so the durable job's retry still runs. A policy that surfaces the verdict rethrows at once. The generate and stream doors already advance on a failure before data.
+
+**Why.** With `[A, B]` where A refuses the connection, B was never tried and A took no strike, so a dead host was asked first on every job.
+
+**Rejected.** Propagating it, as before (a healthy second candidate never serves, and the dead host is never benched). **The closest call:** another host may now bill for a render the first would have accepted had the retry reached it, so a deployment pricing one backend far above another sees the dearer one used while the cheap one is down; the candidate order is the host's lever.
+
+**Re-opens** when a host needs the first refused connection to stop the run, which wants a policy action for it.
+
+## D272 — the media stream door opens a span per attempt, as the class says (2026-11-09)
+
+**Standing.** A ruling on `docs/task-archive.md` Part 512's second row, **the steward's under the owner's delegation, which the owner may reverse** — not the owner's words. Built, and frozen from release (**D70**).
+
+**Decided.** `MediaRouter.StreamAsync` opens `StartGeneration("stream", …)` per backend attempt and `RecordGeneration` closes it in a `finally`, with the verdict and, on a terminal chunk, its usage. A caller's cancel records nothing, as on the inline door. `stream` is a new value of `lyntai.generation.operation`.
+
+**Why.** Only the generate and submit doors called `StartGeneration`, so a stream attempt that failed before data and fell over was invisible, against the class's own promise of a span per attempt.
+
+**Rejected.** Rewording the class to say the stream door has none (a trace of a fallback run must show the attempt that failed, the reason the other two doors have one).
+
+**Re-opens** when a backend wants a first-chunk latency, which the text door records and this door does not.
+
+## D273 — a media stream's failure after data strikes the host (2026-11-09)
+
+**Standing.** A ruling on `docs/task-archive.md` Part 512's third row, **the steward's under the owner's delegation, which the owner may reverse** — not the owner's words. Built, and frozen from release (**D70**).
+
+**Decided.** At the two exits after data (an error chunk, and a throw or a stop with a failure) `MediaRouter.StreamAsync` calls `Penalize` with the policy's action for the verdict, as it does before data. No fallback follows, as before. A terminal success still clears the strikes.
+
+**Why.** A backend that always sent a byte and then errored was never struck, so it was chosen every time.
+
+**Rejected.** Stating the omission as deliberate because the text door's commit clears strikes (it clears them on the first token, where a media stream's success is its terminal chunk, so a commit proves nothing about health here).
+
+**Re-opens** when a stream's first data should clear strikes as the text door's does, which would make a post-data failure free again.
+
+## D274 — `BudgetedMediaRouter` settles a stream's spend on the terminal chunk only (2026-11-09)
+
+**Standing.** A ruling on `docs/task-archive.md` Part 512's fourth row, **the steward's under the owner's delegation, which the owner may reverse** — not the owner's words. Built, and frozen from release (**D70**).
+
+**Decided.** `BudgetedMediaRouter.StreamAsync` settles on a chunk with `Final` set and a positive cost, as `BudgetedTextClient` does on its `Final` chunk. A cost on any earlier chunk is never read.
+
+**Why.** It settled on every chunk carrying a cost, so a backend repeating a cumulative figure on progress chunks wrote one ledger line for each, and with a hold the second and later lines were recorded on top of the reconciled one.
+
+**Rejected.** Stating that each chunk reports its own cost (`MediaChunk.Usage` says the cost is reported on completion, and the one shipped streaming backend reports its seconds on the terminal chunk, never a cost before it).
+
+**Re-opens** when a streaming backend reports a per-chunk cost that is not cumulative, which needs a flag on the chunk to say so.
+
+## D275 — a `MediaInput` location is stored as `AbsoluteUri` (2026-11-09)
+
+**Standing.** A ruling on `docs/task-archive.md` Part 512's fifth row, **the steward's under the owner's delegation, which the owner may reverse** — not the owner's words. Built, and frozen from release (**D70**).
+
+**Decided.** `MediaInput.From(role, Uri, mediaType)`, and so every named factory over it, stores `Uri.AbsoluteUri`, falling back to `OriginalString` for a relative URI, which has none. `a%20b.png` stays escaped.
+
+**Why.** `Uri.ToString()` unescapes it to `a b.png`, which is not the form a backend sends or a file-URI reader opens.
+
+**Rejected.** `OriginalString` alone (it keeps whatever the caller wrote, escaped or not, so two equal URIs store two strings).
+
+**Re-opens** when a backend wants the unescaped display form, which it can derive with `Uri.UnescapeDataString`.
+
+## D276 — the pool promises no single live instance per key past `IdleTimeout`, and bounding a use is admission's (2026-11-09)
+
+**Standing.** A ruling on `docs/task-archive.md` Part 512's sixth row, **the steward's under the owner's delegation, which the owner may reverse** — not the owner's words. Built as documentation; no member is added.
+
+**Decided.** `BoundedProviderPool` and `ProviderPoolOptions.IdleTimeout` say that an entry is stamped when `GetOrAdd` is called, so a use longer than the timeout can have its entry retired by the next call for the key, which builds a second live instance; they point to `ProviderAdmission`, which is keyed on the configuration.
+
+**Why.** A render outlasting ten minutes is ordinary, and the pool never knew when a call ended.
+
+**Rejected.** A lease or in-use notion on `IProviderPool` (a new public member on a frozen interface, which stays the owner's).
+
+**Re-opens** when a provider that serializes one generation is shown built twice by the pool, which then wants the lease.
+
+## D277 — the pool's default clock is monotonic, and an `IdleTimeout` of 0 or less means no reuse (2026-11-09)
+
+**Standing.** A ruling on `docs/task-archive.md` Part 512's seventh row, **the steward's under the owner's delegation, which the owner may reverse** — not the owner's words. Built, and frozen from release (**D70**).
+
+**Decided.** The default `Func<DateTimeOffset>` behind `BoundedProviderPool` is an origin read once plus `Stopwatch` elapsed time, so a step of the system clock changes nothing. An `IdleTimeout` of 0 or less is documented as no reuse, which the eviction already did; a test pins it with the default clock and an injected one.
+
+**Why.** A clock stepped back kept entries past the timeout and one stepped forward retired every entry at once.
+
+**Rejected.** A `TimeProvider` constructor (a new public overload; the existing `Func` seam already injects a clock, and the owner's). Clamping a negative timeout to zero (it already behaves the same, and a clamp is a second place to keep true).
+
+**Re-opens** when a `TimeProvider` is wanted across the library, where this pool's constructor joins the rest.
+
+## D278 — `ConfigureProviderAdmission` counts the host's first descriptor as the earlier call's (2026-11-09)
+
+**Standing.** A ruling on `docs/task-archive.md` Part 512's eighth row, **the steward's under the owner's delegation, which the owner may reverse** — not the owner's words. Built, and frozen from release (**D70**).
+
+**Decided.** The first non-keyed `ProviderAdmissionOptions` descriptor is the earlier call's. An instance is configured in place. A type or factory registration is replaced by a factory descriptor of the same lifetime that builds the original and then applies the action, so every call's action applies in call order and the container still resolves one options object.
+
+**Why.** It found only an instance, so a host that registered the options by type or factory made each call add a new instance and the last one win, while its own never saw an action. `AddLyntai`'s own text says a host registration made first always wins.
+
+**Rejected.** Registering over it (the host's own settings would be lost). Throwing on a non-instance registration (a new failure for a registration `AddLyntai` otherwise respects).
+
+**Re-opens** when a host registers the options twice, where the first descriptor is not the one the container resolves.
+
+## D279 — `FromThrownSubmit` has a precondition about cancellation, and a cancellation handed to it is Inconclusive (2026-11-09)
+
+**Standing.** A ruling on `docs/task-archive.md` Part 512's ninth row, **the steward's under the owner's delegation, which the owner may reverse** — not the owner's words. Built as documentation and a pinning test.
+
+**Decided.** `QueuedOperation.FromThrownSubmit` documents that the caller rethrows its own cancellation before calling (`catch (OperationCanceledException) when ct.IsCancellationRequested`), as the router, `FalProvider` and `ComfyUiProvider` do. The helper cannot tell the caller's cancel from a backend's, and treats an `OperationCanceledException` as a throw that may have been delivered.
+
+**Why.** No in-tree caller passes one; a backend of the host's own might.
+
+**Rejected.** Rethrowing inside the helper (it returns a value, and a cancel that is not the caller's, such as a backend's own timeout, is rightly Inconclusive).
+
+**Re-opens** when a caller is found handing the helper a cancel, which then wants the check inside it.
+
+## D280 — an `InactivityPause` subscriber's fault is swallowed, each subscriber isolated (2026-11-09)
+
+**Standing.** A ruling on `docs/task-archive.md` Part 512's last row, **the steward's under the owner's delegation, which the owner may reverse** — not the owner's words. Built, and frozen from release (**D70**).
+
+**Decided.** `InactivityPause` notifies each subscriber in its own `try`, and a throw is swallowed. `Hold` returns its handle and a release clears the count whatever a subscriber does, and the subscribers after a faulty one still run.
+
+**Why.** A subscriber that threw (the runner's re-arm on a disposed timeout) failed a `Hold` whose count was taken, with no handle to release it, leaving `IsPaused` true for good and skipping the subscribers after it.
+
+**Rejected.** Rolling the count back and rethrowing (the runner's own state would still diverge from the count, and a hold would fail for a fault in the observer). Logging (the type has no logger, and a library should not grow one for this).
+
+**Re-opens** when a swallowed fault is wanted visible, which wants a diagnostic event rather than a throw.
 
 **Re-opens** when the owner rules on the `ContextSize` refusal, or on `[UNK]` averaging (`TASKS.md` Part 490), which moves stored vectors.

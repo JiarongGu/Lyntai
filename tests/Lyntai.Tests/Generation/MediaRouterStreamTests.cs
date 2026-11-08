@@ -144,6 +144,39 @@ public class MediaRouterStreamTests
     }
 
     [Fact]
+    public async Task A_failure_AFTER_data_strikes_the_host_though_the_stream_has_no_fallback_to_make()
+    {
+        // A backend that always sends a byte and errors must not be chosen every time: the commit forbids
+        // falling over, not blaming. The strike is the verdict's own, so the threshold decides when it benches.
+        var half = new ScriptedStreamProvider
+        {
+            Id = "half",
+            Script = [MediaChunk.Content([1]), MediaChunk.Failure(ProviderVerdict.Failed, "died mid-render")],
+        };
+        var tracker = new DeadHostTracker(threshold: 1, cooldown: TimeSpan.FromMinutes(5));
+
+        await new MediaRouter([half], null, tracker).StreamAsync(Candidates(half), Speech()).ToListAsync();
+
+        Assert.True(tracker.IsDead("generation::half"));
+    }
+
+    [Fact]
+    public async Task A_THROW_after_data_strikes_the_host_too()
+    {
+        var half = new ScriptedStreamProvider
+        {
+            Id = "half",
+            Script = [MediaChunk.Content([1])],
+            Throws = new InvalidOperationException("socket died mid-stream"),
+        };
+        var tracker = new DeadHostTracker(threshold: 1, cooldown: TimeSpan.FromMinutes(5));
+
+        await new MediaRouter([half], null, tracker).StreamAsync(Candidates(half), Speech()).ToListAsync();
+
+        Assert.True(tracker.IsDead("generation::half"));
+    }
+
+    [Fact]
     public async Task A_THROW_after_data_is_also_final_rather_than_falling_over()
     {
         var half = new ScriptedStreamProvider

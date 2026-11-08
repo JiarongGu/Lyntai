@@ -56,6 +56,15 @@ every addition.
 - **A run ends when a grandchild holds the pipes after the child exited, and a throwing stdin producer ends the exchange with its own fault** (**D266**). The runner waits
   2 s of silence, kills the tree and returns what it read; a producer's exception closes stdin, kills the child and is rethrown.
 - **Local inference: a RoBERTa-family export reads 512 where it declared 514, a forward pass is at most 128 rows, and a Model2Vec vocabulary longer than its table no longer dilutes the mean** (**D269**, **D270**).
+- **The media router advances past a submit that never reached its backend, and its stream door is traced, struck and billed like the others** (**D271**–**D275**).
+  A `SubmitAsync` throw that provably never left the process (a refused connection, a failed name lookup) used to escape the router and skip the remaining candidates; it now strikes the host,
+  advances, and is rethrown only when no candidate accepted, so a durable job still retries. `MediaRouter.StreamAsync` opens a `stream` span per attempt, and a failure after data strikes the
+  host as one before it does. `BudgetedMediaRouter` settles a stream's cost on the terminal chunk only, not on every progress chunk that carries one. `MediaInput.From(role, Uri, …)` stores the
+  URI's wire form (`a%20b.png` stays escaped) where it stored the unescaped one; a relative URI keeps the string it was written as.
+- **Provider pool and admission edges** (**D276**–**D280**). `BoundedProviderPool` reads a monotonic clock by default, so a system clock step no longer keeps entries past `IdleTimeout` or retires them all;
+  an `IdleTimeout` of 0 or less is documented as no reuse, and the pool's docs say it keeps no single instance per key past that timeout (bound use with admission). `ConfigureProviderAdmission` composes onto a
+  `ProviderAdmissionOptions` the host registered by type or factory before `AddLyntai`, where each call used to add an instance the container never read. An `InactivityPause` subscriber that throws no longer
+  fails the `Hold` or leaves it paused for good. `QueuedOperation.FromThrownSubmit` documents that a caller rethrows its own cancellation first.
 
 - **A pool's never-idle timeout, an empty media stream, a cancel after a render and four smaller edges no longer misbehave.**
   `ProviderPoolOptions.IdleTimeout` of `TimeSpan.MaxValue` or `Timeout.InfiniteTimeSpan` now means never; the first threw on every access and the second retired every entry on every access.

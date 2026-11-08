@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using System.Runtime.CompilerServices;
+using System.Runtime.ExceptionServices;
 using Lyntai.Diagnostics;
 
 namespace Lyntai.Inference;
@@ -16,8 +17,8 @@ namespace Lyntai.Inference;
 /// <c>TextRouter.CompleteAsync</c> holds the same two slots, so change one and check the other.</para>
 ///
 /// <para><b>Submission has one rule of its own:</b> a failed submission marked
-/// <see cref="QueuedOperation.Inconclusive"/> SURFACES rather than advancing, because a backend that
-/// never answered may already hold a billable render and the next candidate would buy it twice.</para>
+/// <see cref="QueuedOperation.Inconclusive"/> SURFACES rather than advancing, since advancing may buy one billable
+/// render twice. A throw that never left the process advances, rethrown only when none accepted (D271).</para>
 ///
 /// <para><b>The policy governs submission too, at one remove.</b> A submission carries a
 /// <see cref="QueuedOperationStatus"/>, so a rejection takes the backend's own
@@ -112,6 +113,7 @@ public sealed class MediaRouter(
         // caller can act on, and the synthesized message is otherwise a list of ids
         var failures = new FirstFailures<Rejection>();
         var attempted = 0;
+        ExceptionDispatchInfo? undelivered = null;   // the first throw that provably never left this process
 
         foreach (var (provider, resolved) in capable)
         {
@@ -127,6 +129,7 @@ public sealed class MediaRouter(
                 var started = Stopwatch.GetTimestamp();
                 using var span = LyntaiDiagnostics.StartGeneration("submit", provider.Id, resolved.Kind, resolved.Model);
                 QueuedOperation operation;
+                ExceptionDispatchInfo? thrown = null;
                 try
                 {
                     operation = await job.SubmitAsync(resolved, ct).ConfigureAwait(false);
@@ -135,15 +138,20 @@ public sealed class MediaRouter(
                 {
                     throw; // caller-initiated cancel is not a backend failure
                 }
-                catch (Exception ex) when (!ProviderVerdictClassifier.NeverReachedTheBackend(ex))
+                catch (Exception ex)
                 {
                     ct.ThrowIfCancellationRequested();   // the caller leaving, not an inconclusive submission
                     // A throw during SUBMIT that MAY have been delivered is INCONCLUSIVE — the backend may
                     // already hold a billable render, so advancing to the next candidate would buy the same
-                    // generation twice. One that provably never left this process is NOT caught (the filter):
-                    // it committed nothing, so it propagates and the durable-job runner applies its ordinary
-                    // retry — treating it as ambiguous would dead-letter a transient blip instead.
+                    // generation twice. One that provably never left this process committed nothing: it is a
+                    // plain classified failure, advanced past like a rejection, and only when no candidate
+                    // accepted is it rethrown (below) so the durable-job runner's ordinary retry still runs.
                     operation = QueuedOperation.FromThrownSubmit(ex, detail: $"{provider.Id}: {ex.Message}");
+                    if (!operation.Inconclusive)
+                    {
+                        thrown = ExceptionDispatchInfo.Capture(ex);
+                        undelivered ??= thrown;
+                    }
                 }
                 LyntaiDiagnostics.RecordSubmission(span, provider.Id, resolved.Kind, operation.Id, operation.Status,
                     Stopwatch.GetElapsedTime(started).TotalSeconds, operation.Inconclusive);
@@ -172,10 +180,16 @@ public sealed class MediaRouter(
                 // a content refusal is the backend judging the PROMPT, and re-submitting it to the next vendor is
                 // not a library's decision — the inline rule, overridable the same way (On(Refused, Advance)).
                 // ProviderId stays empty: it means "no candidate accepted", and a refusal is not an acceptance.
-                if (action == FallbackAction.Surface) return new MediaSubmission("", operation with { Verdict = verdict });
+                if (action == FallbackAction.Surface)
+                {
+                    thrown?.Throw();   // a policy that surfaces what a throw classified to surfaces the throw itself
+                    return new MediaSubmission("", operation with { Verdict = verdict });
+                }
                 _bookkeeping.Penalize(_bookkeeping.Key(provider), action);
             }
         }
+
+        undelivered?.Throw();   // nobody accepted, and a throw that committed nothing is the durable job's to retry
 
         // the verdict is chosen as GenerateAsync chooses the one it reports, so "nobody could serve it" says why
         var reported = failures.Reported;
@@ -236,11 +250,33 @@ public sealed class MediaRouter(
         yield return MediaChunk.Failure(synthesized, detail);
     }
 
+    /// <summary>ONE backend's stream under its own span, like an inline attempt's: per ATTEMPT, so a stream
+    /// that failed before data and fell over is in the trace beside the one that served. A caller's cancel
+    /// records nothing — it is the caller leaving, not an outcome.</summary>
+    private async IAsyncEnumerable<MediaChunk> StreamAttemptAsync(
+        IModelProvider streamer, MediaRequest resolved, StreamAttempt attempt,
+        [EnumeratorCancellation] CancellationToken ct)
+    {
+        var started = Stopwatch.GetTimestamp();
+        using var span = LyntaiDiagnostics.StartGeneration("stream", streamer.Id, resolved.Kind, resolved.Model);
+        try
+        {
+            await foreach (var chunk in PumpAsync(streamer, resolved, attempt, ct).ConfigureAwait(false))
+                yield return chunk;
+        }
+        finally
+        {
+            if (!ct.IsCancellationRequested)
+                LyntaiDiagnostics.RecordGeneration(span, streamer.Id, resolved.Kind, attempt.Outcome, attempt.Usage,
+                    Stopwatch.GetElapsedTime(started).TotalSeconds, attempt.OutcomeDetail);
+        }
+    }
+
     /// <summary>ONE backend's stream, pumped to a terminal chunk. Sets <see cref="StreamAttempt.Done"/> where
     /// the router's own stream is over — a terminal reached the caller, or data committed and invariant 1
     /// forbids falling over — and otherwise leaves the pre-commit <see cref="StreamAttempt.Failure"/> for the
-    /// caller's fallback decision.</summary>
-    private async IAsyncEnumerable<MediaChunk> StreamAttemptAsync(
+    /// caller's fallback decision. A failure AFTER data cannot fall over, but it still strikes the host.</summary>
+    private async IAsyncEnumerable<MediaChunk> PumpAsync(
         IModelProvider streamer, MediaRequest resolved, StreamAttempt attempt,
         [EnumeratorCancellation] CancellationToken ct)
     {
@@ -267,16 +303,26 @@ public sealed class MediaRouter(
                 // Here nothing is charged by the act of asking, so a refused connection before the first
                 // byte is the ordinary pre-commit failure the contract says advances.
                 failure = MediaChunk.Failure(ProviderVerdictClassifier.FromThrown(ex), $"{streamer.Id}: {ex.Message}");
+                attempt.Report(failure);
                 break;
             }
 
             if (!moved) break;
             var chunk = chunks.Current;
 
-            if (chunk.Error is not null)
+            if (chunk.Error is { } error)
             {
                 closed = true;
-                if (committed) { attempt.Done = true; yield return chunk; yield break; }   // invariant 1: no fallback after commit
+                attempt.Report(chunk);
+                if (committed)
+                {
+                    // invariant 1: no fallback after commit — the strike is what keeps a backend that always
+                    // sends a byte and errors from being chosen every time
+                    _bookkeeping.Penalize(_bookkeeping.Key(streamer), _policy.ActionFor(error));
+                    attempt.Done = true;
+                    yield return chunk;
+                    yield break;
+                }
                 failure = chunk;
                 break;
             }
@@ -289,10 +335,12 @@ public sealed class MediaRouter(
                     // nothing was produced: the buffered door refuses an Ok without artifacts, and so does this one
                     failure = MediaChunk.Failure(ProviderVerdict.Failed,
                         $"{streamer.Id}: the stream ended with a terminal chunk and no data");
+                    attempt.Report(failure);
                     break;
                 }
 
                 deadHosts?.RecordSuccess(_bookkeeping.Key(streamer));
+                attempt.Usage = chunk.Usage;
                 attempt.Done = true;
                 yield return chunk;
                 yield break;
@@ -315,11 +363,18 @@ public sealed class MediaRouter(
             }
             failure = MediaChunk.Failure(ProviderVerdict.Failed,
                 $"{streamer.Id}: the stream ended without producing data or a terminal chunk");
+            attempt.Report(failure);
         }
 
         // Committed and then failed: the caller already holds bytes, so this is the answer whatever the
-        // fallback policy says about the verdict.
-        if (committed) { attempt.Done = true; yield return failure!; yield break; }
+        // fallback policy says about the verdict — and the host is struck all the same.
+        if (committed)
+        {
+            _bookkeeping.Penalize(_bookkeeping.Key(streamer), _policy.ActionFor(failure!.Error ?? ProviderVerdict.Failed));
+            attempt.Done = true;
+            yield return failure;
+            yield break;
+        }
         attempt.Failure = failure;
     }
 
@@ -334,6 +389,22 @@ public sealed class MediaRouter(
         /// <summary>The PRE-COMMIT failure the caller weighs against the fallback policy — non-null wherever
         /// <see cref="Done"/> is false.</summary>
         public MediaChunk? Failure { get; set; }
+
+        /// <summary>What the span records: Ok until a failure is <see cref="Report"/>ed.</summary>
+        public ProviderVerdict Outcome { get; private set; } = ProviderVerdict.Ok;
+
+        /// <summary>The failure's words, for the span's status.</summary>
+        public string? OutcomeDetail { get; private set; }
+
+        /// <summary>What the backend reported on its terminal chunk, for the span.</summary>
+        public MediaUsage? Usage { get; set; }
+
+        /// <summary>Note a failure chunk as the attempt's outcome.</summary>
+        public void Report(MediaChunk failure)
+        {
+            Outcome = failure.Error ?? ProviderVerdict.Failed;
+            OutcomeDetail = failure.Detail;
+        }
     }
 
     /// <summary>The verdict and sentence for a run in which no backend answered for itself — reached only when

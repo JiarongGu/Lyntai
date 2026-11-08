@@ -120,7 +120,7 @@ public class MediaRouterTests
     }
 
     [Fact]
-    public async Task A_submit_throw_that_never_left_the_process_PROPAGATES_so_the_job_runner_retries_it()
+    public async Task A_submit_throw_that_never_left_the_process_PROPAGATES_when_no_candidate_accepted_so_the_job_runner_retries_it()
     {
         // The submit catch must not swallow EVERY throw into an Inconclusive result: GenerationRenderJobHandler
         // turns a failed submission into JobOutcome.Fail, so a connection-refused blip during a deploy would
@@ -135,6 +135,39 @@ public class MediaRouterTests
 
         await Assert.ThrowsAsync<HttpRequestException>(() =>
             Router(broken).SubmitAsync([new ProviderCandidate("byo-video")], Video()));
+    }
+
+    private static HttpRequestException Refused() =>
+        new(HttpRequestError.ConnectionError, "connection refused");
+
+    [Fact]
+    public async Task A_submit_throw_that_never_left_the_process_advances_to_the_next_candidate()
+    {
+        var refused = new FakeGenerationJobProvider { Id = "down-video", SubmitThrows = Refused() };
+        var healthy = new FakeGenerationJobProvider { Id = "up-video" };
+        var tracker = new DeadHostTracker(threshold: 1, cooldown: TimeSpan.FromMinutes(5));
+
+        var submission = await new MediaRouter([refused, healthy], null, tracker).SubmitAsync(
+            [new ProviderCandidate("down-video"), new ProviderCandidate("up-video")], Video());
+
+        Assert.Equal("up-video", submission.ProviderId);
+        Assert.Equal(1, healthy.SubmitCalls);
+        // the refused host takes the strike its classified verdict carries, which the propagated throw never did
+        Assert.True(tracker.IsDead("generation::down-video"));
+    }
+
+    [Fact]
+    public async Task Every_candidate_refusing_the_connection_still_throws_so_the_durable_job_retries()
+    {
+        var first = new FakeGenerationJobProvider { Id = "down-a", SubmitThrows = Refused() };
+        var second = new FakeGenerationJobProvider { Id = "down-b", SubmitThrows = Refused() };
+        var tracker = new DeadHostTracker(threshold: 1, cooldown: TimeSpan.FromMinutes(5));
+
+        await Assert.ThrowsAsync<HttpRequestException>(() => new MediaRouter([first, second], null, tracker).SubmitAsync(
+            [new ProviderCandidate("down-a"), new ProviderCandidate("down-b")], Video()));
+
+        Assert.True(tracker.IsDead("generation::down-a"));
+        Assert.True(tracker.IsDead("generation::down-b"));
     }
 
     [Fact]
