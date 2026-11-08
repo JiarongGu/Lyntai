@@ -1,6 +1,6 @@
 using System.Text;
 
-namespace Lyntai.Storage.InMemory;
+namespace Lyntai.Storage;
 
 /// <summary>
 /// Orders strings the way SQLite's BINARY and Postgres's <c>COLLATE "C"</c> do over UTF-8: by code point.

@@ -23,6 +23,11 @@
     <ProjectReference Include="..\Lyntai.Core\Lyntai.Core.csproj" />
   </ItemGroup>
 
+  <!-- Linked source, not a reference: the one UTF-8 byte order Core's ChatThreads.Page sorts by too. -->
+  <ItemGroup>
+    <Compile Include="..\Shared\Text\*.cs" LinkBase="Shared\Text" />
+  </ItemGroup>
+
   <!-- Every package here grants this: internals are implementation detail, and their tests reach them.
        Omitting it breaks the build the moment a moved/new type has an internal member under test — which is
        exactly how this line came to be in the template. -->

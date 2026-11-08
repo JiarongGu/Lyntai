@@ -11,6 +11,11 @@
     <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" />
   </ItemGroup>
 
+  <!-- Linked source, as in the storage packages: the one UTF-8 byte order the in-process stores sort by. -->
+  <ItemGroup>
+    <Compile Include="..\Shared\Text\*.cs" LinkBase="Shared\Text" />
+  </ItemGroup>
+
   <ItemGroup>
     <!-- The ONE internals door on this published assembly, and deliberately so. `Lyntai.Core` is not
          strong-named, so InternalsVisibleTo is matched on NAME alone and ships inside the nupkg — anything

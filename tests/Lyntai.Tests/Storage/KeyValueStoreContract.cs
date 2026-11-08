@@ -52,6 +52,18 @@ public static class KeyValueStoreContract
         Assert.Empty(await store.ListKeysAsync(ns + "/A"));
     }
 
+    /// <summary>"Ordinal" is the key's UTF-8 BYTES, as SQLite's BINARY and Postgres's <c>COLLATE "C"</c> sort: a code
+    /// point past U+FFFF comes AFTER U+E000 to U+FFFF (UTF-16 units put it before), and an empty remainder, the
+    /// prefix on its own, comes before either (the steward's ruling, <c>docs/DECISIONS.md</c> D263).</summary>
+    public static async Task List_keys_orders_past_U_FFFF_by_utf8_bytes(IKeyValueStore store, string ns)
+    {
+        await store.SetAsync(ns + "/\U0001F600", "1");
+        await store.SetAsync(ns + "/", "2");
+        await store.SetAsync(ns + "/", "3");
+
+        Assert.Equal([ns + "/", ns + "/", ns + "/\U0001F600"], await store.ListKeysAsync(ns));
+    }
+
     public static async Task List_keys_treats_like_wildcards_as_literals(IKeyValueStore store, string ns)
     {
         await store.SetAsync(ns + "a_b", "1");

@@ -27,7 +27,7 @@ public sealed class InMemoryKeyValueStore : IKeyValueStore
     {
         IReadOnlyList<string> keys = [.. _data.Keys
             .Where(k => prefix is null || k.StartsWith(prefix, StringComparison.Ordinal))
-            .OrderBy(k => k, StringComparer.Ordinal)];
+            .OrderBy(k => k, Utf8Ordinal.Instance)];
         return Task.FromResult(keys);
     }
 }

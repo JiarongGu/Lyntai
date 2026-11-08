@@ -65,7 +65,7 @@ internal sealed class FileSystemKeyValueStore(FileSystemRoot root) : IKeyValueSt
         {
             IReadOnlyList<string> keys = [.. Entries().Keys
                 .Where(k => prefix is null || k.StartsWith(prefix, StringComparison.Ordinal))
-                .Order(StringComparer.Ordinal)];
+                .Order(Utf8Ordinal.Instance)];
             return Task.FromResult(keys);
         }
     }
