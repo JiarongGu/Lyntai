@@ -36,6 +36,30 @@ public class ScoringServiceTests
         Assert.Equal("ok", Assert.Single(await store.GetAsync("s1")).ScorerId);
     }
 
+    [Theory]
+    [InlineData(1.7)]
+    [InlineData(-0.2)]
+    public async Task A_score_outside_zero_to_one_is_skipped_and_never_reaches_the_store(double outside)
+    {
+        var store = new InMemoryScoreStore();
+        var service = new ScoringService([new FakeScorer("wild", score: _ => new ScoreResult(outside))], store);
+
+        var results = await service.EvaluateAsync(Ctx);
+
+        Assert.Empty(results);
+        Assert.Empty(await store.GetAsync("s1"));
+    }
+
+    [Theory]
+    [InlineData(0.0)]
+    [InlineData(1.0)]
+    public async Task The_bounds_themselves_are_kept(double bound)
+    {
+        var service = new ScoringService([new FakeScorer("edge", score: _ => new ScoreResult(bound))]);
+
+        Assert.Equal(bound, Assert.Single(await service.EvaluateAsync(Ctx)).Score);
+    }
+
     [Fact]
     public async Task A_scorers_OWN_timeout_is_skipped_like_any_other_fault()
     {

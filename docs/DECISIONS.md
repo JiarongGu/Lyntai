@@ -340,8 +340,9 @@ new decision overturns an old one, rewrite the old entry as a stub pointing here
 | [D268](#d268--the-agent-doors-arm-a-15-minute-inactivity-window-where-a-text-call-keeps-two-2026-11-09) | 2026-11-09 | the agent doors arm a 15 minute inactivity window where a text call keeps two |
 | [D269](#d269--the-onnx-reader-refuses-an-export-it-cannot-run-reads-a-roberta-exports-padding-offset-and-caps-a-pass-at-128-rows-2026-11-09) | 2026-11-09 | the Onnx reader refuses an export it cannot run, reads a RoBERTa export's padding offset, and cap… |
 | [D270](#d270--model2vec-divides-by-the-rows-it-read-and-a-contextsize-the-machine-cannot-hold-is-the-hosts-to-bound-2026-11-09) | 2026-11-09 | Model2Vec divides by the rows it read, and a `ContextSize` the machine cannot hold is the host's… |
+| [D271](#d271--a-score-outside-0-to-1-is-skipped-with-a-warning-as-a-non-finite-one-is-2026-11-09) | 2026-11-09 | a score outside 0 to 1 is skipped with a warning, as a non-finite one is |
 
-**265 live decisions.** The rest are stubs — `D<n>` is a permanent identifier, so a number is never reused or renumbered (5): [D36](#d36--a-translation-between-two-verdict-taxonomies-gets-one-arm-per-member-gated-by-a-test-2026-08-05) → D136 · [D80](#d80--merged-into-d77-2026-08-16-folded-2026-08-17) → D77 · [D131](#d131--a-backends-produces-is-derived-from-its-configuration-so-a-modality-is-a-field-2026-09-14) → D133 · [D134](#d134--a-registration-names-the-backend-the-provider-suffix-is-gone-from-all-seventeen-2026-09-14) → D137 · [D145](#d145--the-microsoftextensionsai-module-is-a-bridge-not-a-provider-2026-09-15) → D146
+**266 live decisions.** The rest are stubs — `D<n>` is a permanent identifier, so a number is never reused or renumbered (5): [D36](#d36--a-translation-between-two-verdict-taxonomies-gets-one-arm-per-member-gated-by-a-test-2026-08-05) → D136 · [D80](#d80--merged-into-d77-2026-08-16-folded-2026-08-17) → D77 · [D131](#d131--a-backends-produces-is-derived-from-its-configuration-so-a-modality-is-a-field-2026-09-14) → D133 · [D134](#d134--a-registration-names-the-backend-the-provider-suffix-is-gone-from-all-seventeen-2026-09-14) → D137 · [D145](#d145--the-microsoftextensionsai-module-is-a-bridge-not-a-provider-2026-09-15) → D146
 
 <!-- index:end -->
 
@@ -7640,3 +7641,15 @@ recall and its write-back is already a silent skip).
 **Rejected.** Refusing a vocabulary longer than the table at load (a tokenizer and a table legitimately disagree at the edges, as `AccumulateInto` already says). Refusing a `ContextSize` past the trained context: it narrows a published option and stays the owner's (`TASKS.md` Part 490).
 
 **Re-opens** when the owner rules on the `ContextSize` refusal, or on `[UNK]` averaging (`TASKS.md` Part 490), which moves stored vectors.
+
+## D271 — a score outside 0 to 1 is skipped with a warning, as a non-finite one is (2026-11-09)
+
+**Standing.** A ruling on `TASKS.md` Part 499's first row, **the steward's under the owner's delegation, which the owner may reverse** — not the owner's words. Built, and frozen from release (**D70**).
+
+**Decided.** `ScoringService` skips a score below 0 or above 1 with a warning and stores nothing for it; 0 and 1 are kept. The type doc says so.
+
+**Why.** An aggregate on a dashboard is the mean of a 0 to 1 score, and `LlmScorerBase` already holds its own judge to that range, so a BYO scorer returning 1.7 moved every aggregate it touched.
+
+**Rejected.** Clamping (it invents a score the scorer never gave). Storing as given (the aggregate stops meaning anything).
+
+**Re-opens** when a scorer's scale is declared per scorer, which would move the range into `IScorer`.
