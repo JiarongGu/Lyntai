@@ -109,6 +109,38 @@ public class FileSystemRestartTests : IDisposable
         Assert.Equal(id + 1, await after.AddAsync("style", "another"));
     }
 
+    [Fact]
+    public async Task A_removed_curated_id_is_not_handed_out_again_after_a_restart()
+    {
+        var before = new FileSystemCuratedMemoryStore(_temp.Root);
+        await before.AddAsync("style", "one");
+        await before.AddAsync("style", "two");
+        var last = await before.AddAsync("style", "three");
+        await before.RemoveAsync(last);
+
+        var after = new FileSystemCuratedMemoryStore(_temp.Reopen());
+
+        Assert.Equal(last + 1, await after.AddAsync("style", "four"));
+        // the mark is on disk, so it holds across a second restart of a store that wrote nothing new
+        Assert.Equal(last + 2, await new FileSystemCuratedMemoryStore(_temp.Reopen()).AddAsync("style", "five"));
+    }
+
+    [Fact]
+    public async Task A_removed_memory_id_is_not_handed_out_again_after_a_restart()
+    {
+        var options = new LyntaiOptions();
+        var before = new FileSystemMemoryStore(_temp.Root, options);
+        await before.RememberAsync("task", "scope", "one");
+        await before.RememberAsync("task", "scope", "two");
+        await before.RememberAsync("task", "scope", "three");
+        await before.ForgetAsync("task", "scope");
+
+        var after = new FileSystemMemoryStore(_temp.Reopen(), options);
+        await after.RememberAsync("task", "scope", "four");
+
+        Assert.Equal(4, (await after.RecallAsync("task")).Single().Id);
+    }
+
     // ---- a file a person touched: skipped when broken, never written over, and followed when renamed ------
 
     private const string Broken = "a person's half-finished edit";

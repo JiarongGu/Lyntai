@@ -21,6 +21,7 @@ internal sealed class FileSystemRoot : IDisposable
 {
     public const string LockName = ".lyntai.lock";
     private const string Temporary = ".tmp";
+    private const string HighWaterName = "next-id";
     private static readonly UTF8Encoding Utf8 = new(encoderShouldEmitUTF8Identifier: false, throwOnInvalidBytes: true);
 
     private readonly FileStream _lock;
@@ -198,6 +199,25 @@ internal sealed class FileSystemRoot : IDisposable
     /// parse, so a new record never lands on the name of a file that was skipped.</summary>
     public static long MaxId(string directory, SearchOption search = SearchOption.TopDirectoryOnly, string prefix = "") =>
         NumberedIds(directory, search, prefix).DefaultIfEmpty(0).Max();
+
+    /// <summary>The highest id a numbered store has ever handed out, kept as <c>next-id</c> directly in
+    /// <paramref name="directory"/> — no <c>.md</c> extension, so no loader reads it as a record. Removing the
+    /// highest entry deletes its file, so the files alone would hand the id out again after a restart.
+    /// Absent or unreadable is 0: the files still bound the next id from below.</summary>
+    public long ReadHighWater(string directory)
+    {
+        var file = System.IO.Path.Combine(directory, HighWaterName);
+        if (!File.Exists(file)) return 0;
+        if (long.TryParse(File.ReadAllText(file, Utf8).Trim(), NumberStyles.None, CultureInfo.InvariantCulture, out var id))
+            return id;
+        Logger.LogWarning("ignoring {File}: it does not hold an id", file);
+        return 0;
+    }
+
+    /// <summary>Records <paramref name="id"/> as handed out — atomically, as every write is, so a crash leaves the
+    /// old mark or the new one.</summary>
+    public void WriteHighWater(string directory, long id) =>
+        Write(System.IO.Path.Combine(directory, HighWaterName), id.ToString(CultureInfo.InvariantCulture));
 
     public void Dispose() => _lock.Dispose();
 }

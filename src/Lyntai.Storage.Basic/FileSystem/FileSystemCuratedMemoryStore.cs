@@ -36,8 +36,9 @@ internal sealed class FileSystemCuratedMemoryStore(FileSystemRoot root, Func<Dat
             entries.Add(held.Last().Entry);
         }
         var catalog = new CuratedCatalog();
-        // past every numbered FILE too — one that did not parse still holds its number
-        catalog.Load(entries, FileSystemRoot.MaxId(_directory));
+        // past every numbered FILE too — one that did not parse still holds its number — and past the mark
+        // a removed entry leaves behind
+        catalog.Load(entries, Math.Max(FileSystemRoot.MaxId(_directory), root.ReadHighWater(_directory)));
         return _catalog = catalog;
     }
 
@@ -48,6 +49,8 @@ internal sealed class FileSystemCuratedMemoryStore(FileSystemRoot root, Func<Dat
     // Written, then applied: a write that fails leaves the catalog as it was.
     private void WriteThenApply(CuratedCatalog catalog, CuratedMemory e)
     {
+        // a new id is marked first: a failed write after it burns the number, never reissues one
+        if (e.Id >= catalog.NextId) root.WriteHighWater(_directory, e.Id);
         root.Write(FileOf(e.Id), RecordFile.Write(new RecordHeader().Add("id", e.Id).Add("kind", e.Kind)
             .Add("enabled", e.Enabled).Add("task", e.TaskKey).Add("scope", e.Scope).Add("created", e.CreatedAt)
             .Add("updated", e.UpdatedAt).Add("revision", e.Revision).Add("metadata", e.Metadata), e.Content));
