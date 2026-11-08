@@ -207,8 +207,11 @@ internal sealed class GraphVectorProjection(
     /// <summary>Delete the vectors of nodes a PRUNE removed, each under its own task and scope.
     /// <para><b>BEST-EFFORT, unlike <see cref="ForgetAsync"/></b>: a prune clears the index AFTER the store, so
     /// throwing here would lose the COUNT of a prune that in fact succeeded. The honest degradation is an orphaned
-    /// vector, and pruning is best-effort capacity management by contract.</para></summary>
-    internal async Task RemoveAsync(IReadOnlyList<GraphNode> removed, CancellationToken ct)
+    /// vector, and pruning is best-effort capacity management by contract.</para>
+    /// <para>A collection none of <paramref name="surviving"/> lives in is dropped whole, so a scope a prune emptied
+    /// also releases the vector space that stamped it (<b>D259</b>); any vector left in it was an orphan.</para></summary>
+    internal async Task RemoveAsync(IReadOnlyList<GraphNode> removed, IReadOnlyCollection<GraphNode> surviving,
+        CancellationToken ct)
     {
         if (vectors is null || removed.Count == 0) return;
 
@@ -220,6 +223,13 @@ internal sealed class GraphVectorProjection(
                 await vectors
                     .DeleteAsync(Collection(node.TaskKey, node.Scope), node.Id.ToString(CultureInfo.InvariantCulture), ct)
                     .ConfigureAwait(false);
+            }
+
+            var held = CollectionsOf(surviving).ToHashSet(StringComparer.Ordinal);
+            foreach (var collection in CollectionsOf(removed).Where(c => !held.Contains(c)))
+            {
+                ct.ThrowIfCancellationRequested();
+                await vectors.RemoveCollectionAsync(collection, ct).ConfigureAwait(false);
             }
         }
         catch (OperationCanceledException) when (ct.IsCancellationRequested) { throw; }

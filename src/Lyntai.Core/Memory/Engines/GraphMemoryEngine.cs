@@ -1788,7 +1788,8 @@ public sealed class GraphMemoryEngine(
         if (doomed.Count == 0) return 0;
 
         var count = await store.DeleteAsync(Name, [.. doomed.Select(n => n.Id)], ct).ConfigureAwait(false);
-        await _vectors.RemoveAsync(doomed, ct).ConfigureAwait(false);
+        var doomedIds = doomed.Select(n => n.Id).ToHashSet();
+        await _vectors.RemoveAsync(doomed, [.. candidates.Where(n => !doomedIds.Contains(n.Id))], ct).ConfigureAwait(false);
         return count;
     }
 
@@ -1819,10 +1820,12 @@ public sealed class GraphMemoryEngine(
         var count = await store.PruneAsync(Name, taskKey, scope, cutoff, olderThan, ct).ConfigureAwait(false);
         if (count == 0) return 0;
 
-        var surviving = (await store.SeedAsync(Name, taskKey, scope, query: null, limit: int.MaxValue, ct)
-            .ConfigureAwait(false)).Select(n => n.Id).ToHashSet();
+        var surviving = await store.SeedAsync(Name, taskKey, scope, query: null, limit: int.MaxValue, ct)
+            .ConfigureAwait(false);
+        var survivingIds = surviving.Select(n => n.Id).ToHashSet();
 
-        await _vectors.RemoveAsync([.. before.Where(n => !surviving.Contains(n.Id))], ct).ConfigureAwait(false);
+        await _vectors.RemoveAsync([.. before.Where(n => !survivingIds.Contains(n.Id))], [.. surviving], ct)
+            .ConfigureAwait(false);
         return count;
     }
 
