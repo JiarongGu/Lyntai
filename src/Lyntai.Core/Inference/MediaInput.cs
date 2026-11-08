@@ -88,7 +88,9 @@ public sealed record MediaInput(
 
     /// <summary>An input in a backend-documented role, at a location the BACKEND reads. Takes a
     /// <see cref="System.Uri"/> rather than a string so the media-type/location pair cannot be transposed —
-    /// two adjacent strings would reintroduce exactly the misbinding these factories exist to prevent.</summary>
+    /// two adjacent strings would reintroduce exactly the misbinding these factories exist to prevent.
+    /// The location is stored in its wire form (<see cref="System.Uri.AbsoluteUri"/>, so <c>%20</c> stays escaped);
+    /// a relative URI, which has none, keeps the string it was written as.</summary>
     /// <param name="role">What this input IS to the generation.</param>
     /// <param name="uri">Where the media lives.</param>
     /// <param name="mediaType">Its MIME type.</param>
@@ -97,6 +99,6 @@ public sealed record MediaInput(
         ArgumentException.ThrowIfNullOrWhiteSpace(role);
         ArgumentNullException.ThrowIfNull(uri);
         ArgumentException.ThrowIfNullOrWhiteSpace(mediaType);
-        return new MediaInput(mediaType, Uri: uri.ToString(), Role: role);
+        return new MediaInput(mediaType, Uri: uri.IsAbsoluteUri ? uri.AbsoluteUri : uri.OriginalString, Role: role);
     }
 }

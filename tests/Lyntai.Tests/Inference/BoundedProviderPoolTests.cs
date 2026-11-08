@@ -25,6 +25,23 @@ public class BoundedProviderPoolTests
         Assert.Equal(1, pool.Statistics.Reused);
     }
 
+    // 0 or less means "no reuse": the entry is idle the moment its call ends, whatever the clock says
+    [Theory]
+    [InlineData(0, false)]
+    [InlineData(-5, false)]
+    [InlineData(0, true)]
+    public void An_idle_timeout_of_zero_or_less_builds_a_new_instance_on_every_call(int seconds, bool defaultClock)
+    {
+        var pool = Pool(idleTimeout: TimeSpan.FromSeconds(seconds), clock: defaultClock ? null : new MutableClock());
+
+        var first = pool.GetOrAdd(Key("a"), () => new FakeGenerationProvider());
+        var second = pool.GetOrAdd(Key("a"), () => new FakeGenerationProvider());
+
+        Assert.NotSame(first, second);
+        Assert.Equal(2, pool.Statistics.Created);
+        Assert.Equal(0, pool.Statistics.Reused);
+    }
+
     // The multi-configuration requirement: one backend id, several credentials, all live at once.
     [Fact]
     public void Several_configurations_of_one_backend_are_live_simultaneously()

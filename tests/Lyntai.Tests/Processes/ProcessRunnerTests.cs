@@ -938,6 +938,28 @@ public class ProcessRunnerTests
     }
 
     [Fact]
+    public void A_subscriber_that_throws_neither_fails_the_hold_nor_stops_the_ones_after_it()
+    {
+        // the runner's own subscriber re-arms a timeout that may already be disposed: its fault must not leave
+        // IsPaused true for good with no handle returned to release it
+        var pause = new InactivityPause();
+        var ran = 0;
+        using var faulty = pause.Subscribe(() => throw new ObjectDisposedException("timeout"));
+        using var healthy = pause.Subscribe(() => Interlocked.Increment(ref ran));
+
+        var hold = pause.Hold();
+
+        Assert.NotNull(hold);
+        Assert.True(pause.IsPaused);
+        Assert.Equal(1, ran);
+
+        hold.Dispose();
+
+        Assert.False(pause.IsPaused);
+        Assert.Equal(2, ran);   // the release told the second subscriber too
+    }
+
+    [Fact]
     public void A_runner_is_unable_to_pause_unless_it_says_so_and_the_shipped_one_says_so()
     {
         IProcessRunner legacy = new LinesOnlyRunner();

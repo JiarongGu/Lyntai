@@ -50,13 +50,13 @@ every addition.
   `ChatThreads.Page` order by UTF-8 bytes in process, so a character past U+FFFF sorts after U+E000 to U+FFFF as in SQLite. Every vector store's
   `UpsertAsync` throws `ArgumentException` for a NaN or infinite component and stores nothing; `IVectorStore` now says an implementation must.
   A response cache with `CacheOptions.MaxEntries` of 0 or less stores nothing on every backend, where the SQL caches kept one entry.
-- **Eight places in scoring, memory and tokenizing now refuse or isolate what they used to take wrongly** (**D271**, **D273**, **D275**, **D277**, **D278**, **D281**, **D282**).
+- **Eight places in scoring, memory and tokenizing now refuse or isolate what they used to take wrongly** (**D281**, **D283**, **D285**, **D287**, **D288**, **D291**, **D292**).
   `ScoringService` skips, with a warning, a score below 0 or above 1; `JudgeAgreement.Compare` throws `ArgumentException` for a NaN or infinite score, and two empty series keep an
   exact agreement of 1.0 with a `Count` of 0. `EnrichingConversationStore` runs every `IConversationEnricher` and then rethrows the fault (an `AggregateException` when several threw),
   where a throwing first enricher skipped the rest. A graph export throws `InvalidDataException` before its first line for a non-finite number, an import accepts an empty scope or headline,
   `ScoringVerificationPolicy` with an `EndorseCount` of 0 or less reports no opinion without calling the backend and warns once, and `SemanticSeedSource` returns the live seeds a limit
   allows past a stale top match. A `tokenizer_config.json` whose root is not an object keeps the defaults, and a corrupt `tokenizer.json` (an invalid regex, a null piece or replacement) throws `InvalidDataException`.
-- **Five behaviours are now stated and pinned** (**D272**, **D274**, **D276**, **D279**, **D280**): a throwing `IScorer.Applies` surfaces, a failing prompt override renders the default and not the next layer,
+- **Five behaviours are now stated and pinned** (**D282**, **D284**, **D286**, **D289**, **D290**): a throwing `IScorer.Applies` surfaces, a failing prompt override renders the default and not the next layer,
   `TraceOrdinals.Stored` decides per step, `MemoryContentKey` hashes UTF-8 with a lone surrogate as U+FFFD, and a blend's explicit `Limit` wins over the authoritative tier.
 - **A stdio MCP server's variables no longer travel in Codex's argv, the agent doors wait 15 minutes of silence, and a rate limit on stderr holds the account** (**D267**, **D268**).
   `env` is passed to codex by name (`env_vars`) with the values in its environment, and the bearer variable is now `LYNTAI_MCP_TOKEN_<NAME>`. `LyntaiOptions.AgentTimeout`
@@ -64,6 +64,15 @@ every addition.
 - **A run ends when a grandchild holds the pipes after the child exited, and a throwing stdin producer ends the exchange with its own fault** (**D266**). The runner waits
   2 s of silence, kills the tree and returns what it read; a producer's exception closes stdin, kills the child and is rethrown.
 - **Local inference: a RoBERTa-family export reads 512 where it declared 514, a forward pass is at most 128 rows, and a Model2Vec vocabulary longer than its table no longer dilutes the mean** (**D269**, **D270**).
+- **The media router advances past a submit that never reached its backend, and its stream door is traced, struck and billed like the others** (**D271**–**D275**).
+  A `SubmitAsync` throw that provably never left the process (a refused connection, a failed name lookup) used to escape the router and skip the remaining candidates; it now strikes the host,
+  advances, and is rethrown only when no candidate accepted, so a durable job still retries. `MediaRouter.StreamAsync` opens a `stream` span per attempt, and a failure after data strikes the
+  host as one before it does. `BudgetedMediaRouter` settles a stream's cost on the terminal chunk only, not on every progress chunk that carries one. `MediaInput.From(role, Uri, …)` stores the
+  URI's wire form (`a%20b.png` stays escaped) where it stored the unescaped one; a relative URI keeps the string it was written as.
+- **Provider pool and admission edges** (**D276**–**D280**). `BoundedProviderPool` reads a monotonic clock by default, so a system clock step no longer keeps entries past `IdleTimeout` or retires them all;
+  an `IdleTimeout` of 0 or less is documented as no reuse, and the pool's docs say it keeps no single instance per key past that timeout (bound use with admission). `ConfigureProviderAdmission` composes onto a
+  `ProviderAdmissionOptions` the host registered by type or factory before `AddLyntai`, where each call used to add an instance the container never read. An `InactivityPause` subscriber that throws no longer
+  fails the `Hold` or leaves it paused for good. `QueuedOperation.FromThrownSubmit` documents that a caller rethrows its own cancellation first.
 
 - **A pool's never-idle timeout, an empty media stream, a cancel after a render and four smaller edges no longer misbehave.**
   `ProviderPoolOptions.IdleTimeout` of `TimeSpan.MaxValue` or `Timeout.InfiniteTimeSpan` now means never; the first threw on every access and the second retired every entry on every access.

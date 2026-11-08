@@ -67,7 +67,9 @@ public static class ProviderPoolBuilderExtensions
     /// applied by the router factories' POOLED overloads, which are the only ones that know a caller's
     /// configuration. Calling this more than once composes onto one
     /// <see cref="ProviderAdmissionOptions"/>, so a later call adds to the earlier one instead of replacing
-    /// it.</para></summary>
+    /// it. A host's own registration of the options, made before <c>AddLyntai</c>, is the earlier call: an
+    /// instance is configured in place, and a type or factory registration is wrapped so every call's action
+    /// applies to what it builds.</para></summary>
     /// <param name="builder">The builder.</param>
     /// <param name="configure">Sets <see cref="ProviderAdmissionOptions.Default"/> or a per-slot limit.</param>
     public static LyntaiBuilder ConfigureProviderAdmission(
@@ -76,19 +78,37 @@ public static class ProviderPoolBuilderExtensions
         ArgumentNullException.ThrowIfNull(builder);
         ArgumentNullException.ThrowIfNull(configure);
 
-        // The singleton INSTANCE (not a factory) is what lets configure-time mutation be visible to the
-        // resolved ProviderAdmission — the same immediate-mutation model MediaOptions uses.
-        var options = builder.Services
-            .FirstOrDefault(d => d.ServiceType == typeof(ProviderAdmissionOptions) && !d.IsKeyedService)
-            ?.ImplementationInstance as ProviderAdmissionOptions;
+        // The host's first descriptor counts as the earlier call's. An INSTANCE is configured in place, which is what
+        // makes configure-time mutation visible to the resolved ProviderAdmission (the immediate-mutation model
+        // MediaOptions uses). A type or factory registration is wrapped instead, so each call's action applies to
+        // what it builds, in call order, and the container keeps resolving one singleton.
+        var services = builder.Services;
+        var index = -1;
+        for (var i = 0; i < services.Count && index < 0; i++)
+            if (services[i].ServiceType == typeof(ProviderAdmissionOptions) && !services[i].IsKeyedService) index = i;
 
-        if (options is null)
+        if (index < 0)
         {
-            options = new ProviderAdmissionOptions();
-            builder.Services.AddSingleton(options);
+            var added = new ProviderAdmissionOptions();
+            services.AddSingleton(added);
+            configure(added);
+            return builder;
         }
 
-        configure(options);
+        var existing = services[index];
+        if (existing.ImplementationInstance is ProviderAdmissionOptions instance)
+        {
+            configure(instance);
+            return builder;
+        }
+
+        services[index] = ServiceDescriptor.Describe(typeof(ProviderAdmissionOptions), sp =>
+        {
+            var built = (ProviderAdmissionOptions)(existing.ImplementationFactory?.Invoke(sp)
+                ?? ActivatorUtilities.CreateInstance(sp, existing.ImplementationType!));
+            configure(built);
+            return built;
+        }, existing.Lifetime);
         return builder;
     }
 

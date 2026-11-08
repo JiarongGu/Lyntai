@@ -15,101 +15,91 @@ LLM-ops layer (prompt registry, scoring, traces, memory). `AddLyntai(...)` and g
 
 <!-- open-items:begin — GENERATED. Edit the per-item `item:` markers, never this table. -->
 
-## Open items — 88 across 20 Parts: 4 blocked, 1 watch, 83 decision-only
+## Open items — 78 across 19 Parts: 4 blocked, 1 watch, 73 decision-only
 
 _Generated from the per-item `<!-- item: … -->` markers by `node devtools/dev.mjs check-backlog --write`._
 _Edit a marker, never this table — `verify` fails the moment the two disagree._
 
 | line | Part | item | state | waiting on |
 | ---: | ---: | --- | --- | --- |
-| 189 | 33 | GEN-VERIFY-FAL, the last line — the Hugging Face route | blocked · env | an hf_ token for the router route |
-| 230 | 75 | Decide what an aggregator's in-band `code` means | blocked · env+data | two or three real aggregators to measure an in-band code against |
-| 257 | 99 | `verify`'s test step intermittently fails EXACTLY 9 tests, and once aborted… | watch · data | the same nine tests to recur — the fix is unconfirmed as the cure, and a gr… |
-| 331 | 417 | MC8 — run the wrong-end instrument on an adjudicated corpus, with a bar wri… | blocked · decision+data | two reviewers' independent labels on a sample of the pairs, and a bar a per… |
-| 353 | 475 | Kept-run edges that need a ruling before a change | decision-only | a ruling for each: refuse a word after a stop or document the order, `Dispo… |
-| 365 | 479 | The write tools let a model end, revive or demote an entry the approver nev… | decision-only | a ruling: whether the tool may state validity and a grade at all, or the re… |
-| 371 | 479 | A supersession whose successor is an entry that already ended leaves nothin… | decision-only | a ruling: may a restated claim revive an ended entry, or does the supersess… |
-| 375 | 479 | What the approver is shown is not all that is applied | decision-only | a ruling: which of by, at, validity and scope the request must carry, or a … |
-| 378 | 479 | A keyed end or confirmation's file is written before its receipt, so a cras… | decision-only | a ruling: accept and document the window (a guarded repeat then reads Chang… |
-| 382 | 479 | A host's `IMemoryViewCheck` is asked about an expansion's root only, not th… | decision-only | a ruling: whether the check also filters each neighbour an expansion return… |
-| 385 | 479 | A future `at` on an end or a confirmation sets `EndedReason` while recall s… | decision-only | a ruling: may an end or a failed check state an instant after now, or does … |
-| 387 | 479 | A receipt expires by the caller's clock and the purge runs on it | decision-only | a ruling: whether a receipt expires by the store's clock or the caller's (D… |
-| 398 | 481 | An HTTP agent turn can spend a second billed request the retry budget never… | decision-only | a ruling: whether the agent door turns the engine's resend off (the budget … |
-| 401 | 481 | A rejected limit is never cleared inside a turn | decision-only | a ruling: whether an allowed report clears an earlier rejection, which need… |
-| 404 | 481 | A wrapped agent session registration is never disposed | decision-only | a ruling: whether RetryingAgentSession becomes IAsyncDisposable and forward… |
-| 407 | 481 | A `Taken` resume repeats the system prompt | decision-only | a ruling: whether a resume drops SystemPrompt, which needs a measurement of… |
-| 410 | 481 | Codex's `FinalText` joins every agent message with no separator, and the re… | decision-only | a ruling: whether FinalText is the last message or all of them, since a tes… |
-| 419 | 483 | A retried or polled job leaves its partition's FIFO | decision-only | a ruling: whether a retrying or polling head blocks its partition, or the d… |
-| 422 | 483 | A missing handler fails the job for good | decision-only | a ruling: a terminal Failed (pinned by Unknown_type_fails_the_job), or a re… |
-| 424 | 483 | An interval schedule drifts by its own lateness | decision-only | a ruling: anchor to the previous slot, or since the last fire (the class do… |
-| 426 | 483 | A cancel the handler honoured with a different exception ends in a retry or… | decision-only | a ruling: whether a cancel request seen plus any thrown exception finalises… |
-| 428 | 483 | A cron that never occurs is accepted at registration | decision-only | a ruling: whether Validate refuses an expression with no occurrence, which … |
-| 430 | 483 | Removing a stored schedule resets the next run of a build-time schedule of … | decision-only | a ruling: which side owns the next-run and trigger keys when a build-time s… |
-| 439 | 485 | How long a quiet Codex step runs is unmeasured | decision-only | the owner's go-ahead to spend one real Codex turn on an account, then a run… |
-| 447 | 486 | A cache hit replays the original `Usage` | decision-only | a ruling: zero or strip Usage on a hit, or keep it and mark the reply as a … |
-| 449 | 486 | A stream's billed usage is dropped when the router turns an empty `Final` i… | decision-only | a ruling: carry the dropped usage onto the failure, or state that a failed … |
-| 457 | 487 | A blob resource and an image or audio block in an MCP tool result are descr… | decision-only | a ruling: pass the block's media type and size, or its bytes, or a link a h… |
-| 459 | 487 | The hosted MCP accept loop ends on any exception that is not a shutdown | decision-only | a ruling: log and keep accepting on a transient listener fault, or stop and… |
-| 461 | 487 | A judge answering on the wrong scale reads as a perfect score | decision-only | a ruling: clamp (today), refuse the dimension as unscored, or rescale; and … |
-| 463 | 487 | `JsonExtract.ExtractObject` commits to the first `{` | decision-only | a ruling: retry later braces, with a bound on how many, or document the fir… |
-| 465 | 487 | A secret's ciphertext is not bound to its name | decision-only | a ruling on the threat model: bind the name as associated data (a stored-fo… |
-| 467 | 487 | Two processes over one store can each generate a master key | decision-only | a ruling: a compare-and-set on IKeyValueStore (an interface change) or a do… |
-| 475 | 488 | A trace step's `seq` is `INTEGER` on Postgres and 64-bit on SQLite | decision-only | a ruling: widen the column with a migration, which rewrites and locks the t… |
-| 477 | 488 | SQLite's fallback `LIKE` folds ASCII case only | decision-only | a ruling: a Unicode-aware LIKE or lower on the connection, an in-process sc… |
-| 479 | 488 | Postgres retries a conversation append four times, so eight concurrent appe… | decision-only | a ruling: a per-thread advisory lock, or an unbounded retry bounded by the … |
-| 480 | 488 | An empty vector is refused on Postgres and accepted elsewhere, and a NUL in… | decision-only | a ruling for each: refuse an empty vector on every backend or score it 0, a… |
-| 488 | 489 | An OpenAI `refusal` is retried and reported `Failed` | decision-only | a ruling: map a non-empty refusal to Refused (no fallback, no dead-host str… |
-| 490 | 489 | A stream that errors after content, or never reaches its terminator, is a c… | decision-only | a ruling: end Error(classified) when content streamed, an error line was se… |
-| 492 | 489 | `max_tokens` and a non-default `temperature` are sent to every OpenAI-shape… | decision-only | a ruling: a MaxTokensField option, a per-model rule, or documented as the h… |
-| 494 | 489 | A non-finite request number escapes the provider as an exception | decision-only | a ruling: validate a request's numbers up front (throw to the caller) or an… |
-| 496 | 489 | A server that ignores `stream:true` and answers one JSON body is dropped | decision-only | a ruling: fall back to buffered extraction when the first payload carries m… |
-| 498 | 489 | A base URL ending in a version other than `/v1` gets `/v1` appended | decision-only | a ruling: a flag to use the base verbatim, a pattern for any trailing versi… |
-| 505 | 490 | `Model2VecProvider` embeds and counts an unknown token | decision-only | a ruling: skip the unknown id, which changes every vector already stored fr… |
-| 507 | 490 | A `ContextSize` past the model's trained context is not refused | decision-only | a ruling: refuse a ContextSize past the model's trained context (read from … |
-| 515 | 491 | A transient fetch failure fails a durable job for good | decision-only | a ruling: which verdicts are transient and whether a transient fetch polls … |
-| 517 | 491 | A ComfyUI run lost to a server restart polls for ever | decision-only | a ruling: consult /queue and fail or call it inconclusive when the id is in… |
-| 519 | 491 | Cancelling a durable generation job does not cancel the backend render | decision-only | a ruling: a best-effort CancelAsync when a cancel is seen with an operation… |
-| 520 | 491 | `generate_fetch` bills and delivers again on every call, and the job engine… | decision-only | a ruling: whether the spend ledger or the tool owns de-duplication per (bac… |
-| 522 | 491 | `generate_backends` lists and probes every registered `IModelProvider` | decision-only | a ruling: filter to providers that produce image, video, audio or 3d, or ke… |
-| 524 | 491 | A ComfyUI output walk includes `type: "temp"` previews | decision-only | a ruling: drop temp outputs by default with an option to include them, or k… |
-| 531 | 495 | The streamed answer of a multi-turn call is not the buffered one | decision-only | a ruling: a separator, only the last assistant message, or defer to the res… |
-| 532 | 495 | A failed result's usage and cost are dropped | decision-only | a ruling: whether a Failed reply carries Usage, which the budget layer then… |
-| 533 | 495 | A result with a failing `subtype` and no `is_error: true` reads as an answer | decision-only | a measurement: run the real CLI with --max-turns 1 and see whether is_error… |
-| 534 | 495 | A non-zero exit with an empty stderr is `Failed` whatever stdout said | decision-only | a measurement and a ruling: whether the CLI prints such a line outside stre… |
-| 535 | 495 | A prompt sent as an argument can be read as a flag, and `CliPrompt.Flatten`… | decision-only | a ruling for each: insert `--` or refuse a flag-shaped prompt (no shipped b… |
-| 536 | 495 | A hand-over resumes the last turn that gave a session id and skips newer tu… | decision-only | a ruling: require the newest turn to carry the session and the same source … |
-| 537 | 495 | A second hand-over carries the first brief as the host's words | decision-only | a ruling: document that a host records the request before Apply, or mark th… |
-| 538 | 495 | The usage read's scratch folder is created with the default mode | blocked · env | a Unix run: the mode is not observable on Windows, so a test of the fix can… |
-| 546 | 496 | Two migrators starting at once can fail the second | decision-only | a ruling: a Postgres advisory lock and an SQLite named mutex or lock file, … |
-| 549 | 496 | Postgres refuses a curated metadata value over about 2.7 KB, which the othe… | decision-only | a ruling: index md5(value) in a new Postgres migration, refuse a large valu… |
-| 550 | 496 | The legacy memory stores find different entries when a longer term also hits | decision-only | a ruling: accept and document the staging (D55 chose it for speed) or give … |
-| 552 | 496 | A count-cap eviction can evict the row just written | decision-only | a ruling: whether a tie breaks toward the older id (Lru_recency_tie_broken_… |
-| 553 | 496 | `lyntai_memory_subject.node_id` has a cascading foreign key and no index le… | decision-only | a ruling: a new migration on both backends (a shipped one is never edited),… |
-| 554 | 496 | `UseSqliteStorage(":memory:")` is neither supported nor refused | decision-only | a ruling: an ArgumentException at wiring, or a shared-cache named database … |
-| 555 | 496 | The file backend's prompt save writes the revision and then the active poin… | decision-only | a ruling: journal the pair as the graph store does, or document the window |
-| 556 | 496 | SQLite `TEXT PRIMARY KEY` columns accept NULL where Postgres refuses | decision-only | a ruling: a table-rebuild migration, or a code guard and a documented gap; … |
-| 557 | 496 | `SqliteConnectionFactory.DbPath` is documented for backup while the factory… | decision-only | a ruling: reword the doc, or offer a checkpoint on demand |
-| 563 | 497 | Every gate that lists tracked files counts a file deleted from disk and not… | decision-only | a ruling: whether the listing drops a file absent from the working tree (ch… |
-| 565 | 497 | The prose gates read `//` comment lines only | decision-only | a ruling: widen the scan (which may surface hits to triage) or state the li… |
-| 567 | 497 | The trx verdict ignores outcomes outside passed, failed and skipped | decision-only | a ruling: whether a non-zero other count fails the run |
-| 569 | 497 | `check-options` scans classes and records only | decision-only | a ruling: scan structs as well, or state that options are reference types |
-| 570 | 497 | `check-backlog` recognises a handover only as a line starting ` | decision-only | a ruling: widen both spellings, which may count items the roster has never … |
-| 576 | 498 | `SearchTerms` keeps sentence punctuation on a spaced word | decision-only | a ruling: trim leading and trailing non-letter characters of a spaced run o… |
-| 578 | 498 | A stored stability of 0 or less is read two ways | decision-only | a ruling: clamp the encoding above zero where a BYO age policy returns it, … |
-| 580 | 498 | `BurstDampenedAgePolicy` measures its window from the last write, so a stea… | decision-only | a ruling: whether a burst is bounded in length, and whether the per-engine … |
-| 582 | 498 | A corrupt curated or node metadata cell fails a whole read | decision-only | a ruling: degrade a malformed cell to no metadata (as the job row does) or … |
-| 584 | 498 | A stream abandoned after its token was cancelled records with the cancelled… | decision-only | a ruling: record on dispose with a token of its own (a bounded one), or sta… |
-| 586 | 498 | `TokenBucketRateLimiter` reads `PerConsumer`, a plain `Dictionary`, on ever… | decision-only | a ruling: a copy-on-write map for PerConsumer, or state that it is set befo… |
-| 593 | 500 | A media backend's `SubmitAsync` throw that provably never reached the serve… | decision-only | a ruling: advance past an undelivered throw and rethrow only when no candid… |
-| 595 | 500 | The media stream door has no span or metric | decision-only | a ruling: add the span and the metric tags the generate and submit doors ca… |
-| 597 | 500 | A media stream's failure after its first data chunk never strikes the host, | decision-only | a ruling: strike a post-commit failure, or state that this is deliberate as… |
-| 598 | 500 | `BudgetedMediaRouter.StreamAsync` settles spend on every chunk that carries… | decision-only | a ruling: settle on the terminal chunk only, or state that a streaming back… |
-| 599 | 500 | `MediaInput.From(role, Uri, …)` stores `uri.ToString()`, | decision-only | a ruling: AbsoluteUri (changes what a file-URI reader and every stored inpu… |
-| 600 | 500 | `BoundedProviderPool` stamps an entry's `LastUsed` when `GetOrAdd` is calle… | decision-only | a ruling: a lease or an in-use notion on IProviderPool (a new public member… |
-| 602 | 500 | `BoundedProviderPool`'s idle clock is the wall clock (`Func<DateTimeOffset>… | decision-only | a ruling: a TimeProvider constructor (a public change) or a monotonic readi… |
-| 603 | 500 | `ConfigureProviderAdmission` finds the options only as an instance registra… | decision-only | a ruling: which descriptor counts as the earlier call's, since the registry… |
-| 605 | 500 | `QueuedOperation.FromThrownSubmit` turns an `OperationCanceledException` in… | decision-only | a ruling: rethrow inside the helper, or document the precondition for a bac… |
-| 606 | 500 | `InactivityPause.Hold` runs its subscribers after counting the hold, | decision-only | a ruling: isolate each subscriber's fault (swallowed, there is no logger) o… |
+| 179 | 33 | GEN-VERIFY-FAL, the last line — the Hugging Face route | blocked · env | an hf_ token for the router route |
+| 220 | 75 | Decide what an aggregator's in-band `code` means | blocked · env+data | two or three real aggregators to measure an in-band code against |
+| 247 | 99 | `verify`'s test step intermittently fails EXACTLY 9 tests, and once aborted… | watch · data | the same nine tests to recur — the fix is unconfirmed as the cure, and a gr… |
+| 321 | 417 | MC8 — run the wrong-end instrument on an adjudicated corpus, with a bar wri… | blocked · decision+data | two reviewers' independent labels on a sample of the pairs, and a bar a per… |
+| 343 | 475 | Kept-run edges that need a ruling before a change | decision-only | a ruling for each: refuse a word after a stop or document the order, `Dispo… |
+| 355 | 479 | The write tools let a model end, revive or demote an entry the approver nev… | decision-only | a ruling: whether the tool may state validity and a grade at all, or the re… |
+| 361 | 479 | A supersession whose successor is an entry that already ended leaves nothin… | decision-only | a ruling: may a restated claim revive an ended entry, or does the supersess… |
+| 365 | 479 | What the approver is shown is not all that is applied | decision-only | a ruling: which of by, at, validity and scope the request must carry, or a … |
+| 368 | 479 | A keyed end or confirmation's file is written before its receipt, so a cras… | decision-only | a ruling: accept and document the window (a guarded repeat then reads Chang… |
+| 372 | 479 | A host's `IMemoryViewCheck` is asked about an expansion's root only, not th… | decision-only | a ruling: whether the check also filters each neighbour an expansion return… |
+| 375 | 479 | A future `at` on an end or a confirmation sets `EndedReason` while recall s… | decision-only | a ruling: may an end or a failed check state an instant after now, or does … |
+| 377 | 479 | A receipt expires by the caller's clock and the purge runs on it | decision-only | a ruling: whether a receipt expires by the store's clock or the caller's (D… |
+| 388 | 481 | An HTTP agent turn can spend a second billed request the retry budget never… | decision-only | a ruling: whether the agent door turns the engine's resend off (the budget … |
+| 391 | 481 | A rejected limit is never cleared inside a turn | decision-only | a ruling: whether an allowed report clears an earlier rejection, which need… |
+| 394 | 481 | A wrapped agent session registration is never disposed | decision-only | a ruling: whether RetryingAgentSession becomes IAsyncDisposable and forward… |
+| 397 | 481 | A `Taken` resume repeats the system prompt | decision-only | a ruling: whether a resume drops SystemPrompt, which needs a measurement of… |
+| 400 | 481 | Codex's `FinalText` joins every agent message with no separator, and the re… | decision-only | a ruling: whether FinalText is the last message or all of them, since a tes… |
+| 409 | 483 | A retried or polled job leaves its partition's FIFO | decision-only | a ruling: whether a retrying or polling head blocks its partition, or the d… |
+| 412 | 483 | A missing handler fails the job for good | decision-only | a ruling: a terminal Failed (pinned by Unknown_type_fails_the_job), or a re… |
+| 414 | 483 | An interval schedule drifts by its own lateness | decision-only | a ruling: anchor to the previous slot, or since the last fire (the class do… |
+| 416 | 483 | A cancel the handler honoured with a different exception ends in a retry or… | decision-only | a ruling: whether a cancel request seen plus any thrown exception finalises… |
+| 418 | 483 | A cron that never occurs is accepted at registration | decision-only | a ruling: whether Validate refuses an expression with no occurrence, which … |
+| 420 | 483 | Removing a stored schedule resets the next run of a build-time schedule of … | decision-only | a ruling: which side owns the next-run and trigger keys when a build-time s… |
+| 429 | 485 | How long a quiet Codex step runs is unmeasured | decision-only | the owner's go-ahead to spend one real Codex turn on an account, then a run… |
+| 437 | 486 | A cache hit replays the original `Usage` | decision-only | a ruling: zero or strip Usage on a hit, or keep it and mark the reply as a … |
+| 439 | 486 | A stream's billed usage is dropped when the router turns an empty `Final` i… | decision-only | a ruling: carry the dropped usage onto the failure, or state that a failed … |
+| 447 | 487 | A blob resource and an image or audio block in an MCP tool result are descr… | decision-only | a ruling: pass the block's media type and size, or its bytes, or a link a h… |
+| 449 | 487 | The hosted MCP accept loop ends on any exception that is not a shutdown | decision-only | a ruling: log and keep accepting on a transient listener fault, or stop and… |
+| 451 | 487 | A judge answering on the wrong scale reads as a perfect score | decision-only | a ruling: clamp (today), refuse the dimension as unscored, or rescale; and … |
+| 453 | 487 | `JsonExtract.ExtractObject` commits to the first `{` | decision-only | a ruling: retry later braces, with a bound on how many, or document the fir… |
+| 455 | 487 | A secret's ciphertext is not bound to its name | decision-only | a ruling on the threat model: bind the name as associated data (a stored-fo… |
+| 457 | 487 | Two processes over one store can each generate a master key | decision-only | a ruling: a compare-and-set on IKeyValueStore (an interface change) or a do… |
+| 465 | 488 | A trace step's `seq` is `INTEGER` on Postgres and 64-bit on SQLite | decision-only | a ruling: widen the column with a migration, which rewrites and locks the t… |
+| 467 | 488 | SQLite's fallback `LIKE` folds ASCII case only | decision-only | a ruling: a Unicode-aware LIKE or lower on the connection, an in-process sc… |
+| 469 | 488 | Postgres retries a conversation append four times, so eight concurrent appe… | decision-only | a ruling: a per-thread advisory lock, or an unbounded retry bounded by the … |
+| 470 | 488 | An empty vector is refused on Postgres and accepted elsewhere, and a NUL in… | decision-only | a ruling for each: refuse an empty vector on every backend or score it 0, a… |
+| 478 | 489 | An OpenAI `refusal` is retried and reported `Failed` | decision-only | a ruling: map a non-empty refusal to Refused (no fallback, no dead-host str… |
+| 480 | 489 | A stream that errors after content, or never reaches its terminator, is a c… | decision-only | a ruling: end Error(classified) when content streamed, an error line was se… |
+| 482 | 489 | `max_tokens` and a non-default `temperature` are sent to every OpenAI-shape… | decision-only | a ruling: a MaxTokensField option, a per-model rule, or documented as the h… |
+| 484 | 489 | A non-finite request number escapes the provider as an exception | decision-only | a ruling: validate a request's numbers up front (throw to the caller) or an… |
+| 486 | 489 | A server that ignores `stream:true` and answers one JSON body is dropped | decision-only | a ruling: fall back to buffered extraction when the first payload carries m… |
+| 488 | 489 | A base URL ending in a version other than `/v1` gets `/v1` appended | decision-only | a ruling: a flag to use the base verbatim, a pattern for any trailing versi… |
+| 495 | 490 | `Model2VecProvider` embeds and counts an unknown token | decision-only | a ruling: skip the unknown id, which changes every vector already stored fr… |
+| 497 | 490 | A `ContextSize` past the model's trained context is not refused | decision-only | a ruling: refuse a ContextSize past the model's trained context (read from … |
+| 505 | 491 | A transient fetch failure fails a durable job for good | decision-only | a ruling: which verdicts are transient and whether a transient fetch polls … |
+| 507 | 491 | A ComfyUI run lost to a server restart polls for ever | decision-only | a ruling: consult /queue and fail or call it inconclusive when the id is in… |
+| 509 | 491 | Cancelling a durable generation job does not cancel the backend render | decision-only | a ruling: a best-effort CancelAsync when a cancel is seen with an operation… |
+| 510 | 491 | `generate_fetch` bills and delivers again on every call, and the job engine… | decision-only | a ruling: whether the spend ledger or the tool owns de-duplication per (bac… |
+| 512 | 491 | `generate_backends` lists and probes every registered `IModelProvider` | decision-only | a ruling: filter to providers that produce image, video, audio or 3d, or ke… |
+| 514 | 491 | A ComfyUI output walk includes `type: "temp"` previews | decision-only | a ruling: drop temp outputs by default with an option to include them, or k… |
+| 521 | 495 | The streamed answer of a multi-turn call is not the buffered one | decision-only | a ruling: a separator, only the last assistant message, or defer to the res… |
+| 522 | 495 | A failed result's usage and cost are dropped | decision-only | a ruling: whether a Failed reply carries Usage, which the budget layer then… |
+| 523 | 495 | A result with a failing `subtype` and no `is_error: true` reads as an answer | decision-only | a measurement: run the real CLI with --max-turns 1 and see whether is_error… |
+| 524 | 495 | A non-zero exit with an empty stderr is `Failed` whatever stdout said | decision-only | a measurement and a ruling: whether the CLI prints such a line outside stre… |
+| 525 | 495 | A prompt sent as an argument can be read as a flag, and `CliPrompt.Flatten`… | decision-only | a ruling for each: insert `--` or refuse a flag-shaped prompt (no shipped b… |
+| 526 | 495 | A hand-over resumes the last turn that gave a session id and skips newer tu… | decision-only | a ruling: require the newest turn to carry the session and the same source … |
+| 527 | 495 | A second hand-over carries the first brief as the host's words | decision-only | a ruling: document that a host records the request before Apply, or mark th… |
+| 528 | 495 | The usage read's scratch folder is created with the default mode | blocked · env | a Unix run: the mode is not observable on Windows, so a test of the fix can… |
+| 536 | 496 | Two migrators starting at once can fail the second | decision-only | a ruling: a Postgres advisory lock and an SQLite named mutex or lock file, … |
+| 539 | 496 | Postgres refuses a curated metadata value over about 2.7 KB, which the othe… | decision-only | a ruling: index md5(value) in a new Postgres migration, refuse a large valu… |
+| 540 | 496 | The legacy memory stores find different entries when a longer term also hits | decision-only | a ruling: accept and document the staging (D55 chose it for speed) or give … |
+| 542 | 496 | A count-cap eviction can evict the row just written | decision-only | a ruling: whether a tie breaks toward the older id (Lru_recency_tie_broken_… |
+| 543 | 496 | `lyntai_memory_subject.node_id` has a cascading foreign key and no index le… | decision-only | a ruling: a new migration on both backends (a shipped one is never edited),… |
+| 544 | 496 | `UseSqliteStorage(":memory:")` is neither supported nor refused | decision-only | a ruling: an ArgumentException at wiring, or a shared-cache named database … |
+| 545 | 496 | The file backend's prompt save writes the revision and then the active poin… | decision-only | a ruling: journal the pair as the graph store does, or document the window |
+| 546 | 496 | SQLite `TEXT PRIMARY KEY` columns accept NULL where Postgres refuses | decision-only | a ruling: a table-rebuild migration, or a code guard and a documented gap; … |
+| 547 | 496 | `SqliteConnectionFactory.DbPath` is documented for backup while the factory… | decision-only | a ruling: reword the doc, or offer a checkpoint on demand |
+| 553 | 497 | Every gate that lists tracked files counts a file deleted from disk and not… | decision-only | a ruling: whether the listing drops a file absent from the working tree (ch… |
+| 555 | 497 | The prose gates read `//` comment lines only | decision-only | a ruling: widen the scan (which may surface hits to triage) or state the li… |
+| 557 | 497 | The trx verdict ignores outcomes outside passed, failed and skipped | decision-only | a ruling: whether a non-zero other count fails the run |
+| 559 | 497 | `check-options` scans classes and records only | decision-only | a ruling: scan structs as well, or state that options are reference types |
+| 560 | 497 | `check-backlog` recognises a handover only as a line starting ` | decision-only | a ruling: widen both spellings, which may count items the roster has never … |
+| 566 | 498 | `SearchTerms` keeps sentence punctuation on a spaced word | decision-only | a ruling: trim leading and trailing non-letter characters of a spaced run o… |
+| 568 | 498 | A stored stability of 0 or less is read two ways | decision-only | a ruling: clamp the encoding above zero where a BYO age policy returns it, … |
+| 570 | 498 | `BurstDampenedAgePolicy` measures its window from the last write, so a stea… | decision-only | a ruling: whether a burst is bounded in length, and whether the per-engine … |
+| 572 | 498 | A corrupt curated or node metadata cell fails a whole read | decision-only | a ruling: degrade a malformed cell to no metadata (as the job row does) or … |
+| 574 | 498 | A stream abandoned after its token was cancelled records with the cancelled… | decision-only | a ruling: record on dispose with a token of its own (a bounded one), or sta… |
+| 576 | 498 | `TokenBucketRateLimiter` reads `PerConsumer`, a plain `Dictionary`, on ever… | decision-only | a ruling: a copy-on-write map for PerConsumer, or state that it is set befo… |
 
 <!-- open-items:end -->
 
@@ -585,26 +575,6 @@ _Opened by `docs/task-archive.md` **Part 504**: three read-only reviews, the str
   recorded on dispose.
 - [ ] **`TokenBucketRateLimiter` reads `PerConsumer`, a plain `Dictionary`, on every acquire** while the options doc promises live retunes, so a retune <!-- item: state=decision-only needs="a ruling: a copy-on-write map for PerConsumer, or state that it is set before the first call; a NaN or tiny rate is refused now" -->
   concurrent with a read is not safe. A NaN or tiny rate no longer throws (`docs/FIXES.md` 2026-11-08).
-
-## Part 500 — what the 2026-11-09 review of the provider pools, the media router and the embedding routing found and did not fix yet
-
-_Opened by `docs/task-archive.md` **Part 508**: two read-only reviews, the pools, admission and process helpers; and the structured-output extension, the media routers and the embedding routing. Each finding was read against the code; the certain and small ones were fixed in that Part, and every claim below is from reading, not run._
-
-- [ ] **A media backend's `SubmitAsync` throw that provably never reached the server escapes the router and skips the remaining candidates** (`MediaRouter.SubmitAsync`'s `NeverReachedTheBackend` filter), <!-- item: state=decision-only needs="a ruling: advance past an undelivered throw and rethrow only when no candidate accepted, or keep propagating it (a durable job retries it); the test pins one candidate only" -->
-  so with `[A, B]` where A refuses the connection, B is never tried and A takes no dead-host strike.
-- [ ] **The media stream door has no span or metric** although the class doc promises one per attempt: <!-- item: state=decision-only needs="a ruling: add the span and the metric tags the generate and submit doors carry (new tag values), or reword the doc" -->
-  only `GenerateAsync` and `SubmitAsync` call `StartGeneration`, so a failed stream attempt that fell over is invisible.
-- [ ] **A media stream's failure after its first data chunk never strikes the host,** so a backend that always sends a byte and errors is chosen every time. <!-- item: state=decision-only needs="a ruling: strike a post-commit failure, or state that this is deliberate as the text door's commit clears strikes" -->
-- [ ] **`BudgetedMediaRouter.StreamAsync` settles spend on every chunk that carries a cost,** not the terminal one as the text door does, so a backend reporting a cumulative cost on progress chunks is counted two or three times. <!-- item: state=decision-only needs="a ruling: settle on the terminal chunk only, or state that a streaming backend reports each chunk's own cost (MediaChunk.Usage says on completion)" -->
-- [ ] **`MediaInput.From(role, Uri, …)` stores `uri.ToString()`,** which unescapes (`a%20b.png` becomes `a b.png`) where `AbsoluteUri` is the wire form. <!-- item: state=decision-only needs="a ruling: AbsoluteUri (changes what a file-URI reader and every stored input see) or OriginalString, after reading each backend that consumes the string" -->
-- [ ] **`BoundedProviderPool` stamps an entry's `LastUsed` when `GetOrAdd` is called, not when the call ends,** so a render longer than the idle timeout has its entry retired by the next call for the key, <!-- item: state=decision-only needs="a ruling: a lease or an in-use notion on IProviderPool (a new public member), or state that the pool never promises one live instance per key past the idle timeout" -->
-  and a second live instance is built for a configuration whose provider serializes one generation at a time.
-- [ ] **`BoundedProviderPool`'s idle clock is the wall clock (`Func<DateTimeOffset>`),** so a step back keeps entries past the timeout and a step forward retires every entry at once. <!-- item: state=decision-only needs="a ruling: a TimeProvider constructor (a public change) or a monotonic reading; and what a zero or other negative IdleTimeout means, which today retires an entry on every access" -->
-- [ ] **`ConfigureProviderAdmission` finds the options only as an instance registration,** so a host that registered `ProviderAdmissionOptions` by type or factory before `AddLyntai` <!-- item: state=decision-only needs="a ruling: which descriptor counts as the earlier call's, since the registry says a host registration made first always wins" -->
-  has each call add a new instance and the last win.
-- [ ] **`QueuedOperation.FromThrownSubmit` turns an `OperationCanceledException` into an inconclusive failure** where the caller's own cancel should propagate; no in-tree caller passes one. <!-- item: state=decision-only needs="a ruling: rethrow inside the helper, or document the precondition for a backend of your own" -->
-- [ ] **`InactivityPause.Hold` runs its subscribers after counting the hold,** so a subscriber that throws (the runner's re-arm on a disposed timeout) fails the `Hold` with no handle returned and leaves `IsPaused` true for good, <!-- item: state=decision-only needs="a ruling: isolate each subscriber's fault (swallowed, there is no logger) or roll the count back and rethrow" -->
-  and skips the subscribers after it.
 
 ## Retired — five Parts that outlived their open work (2026-09-16)
 

@@ -340,20 +340,30 @@ new decision overturns an old one, rewrite the old entry as a stub pointing here
 | [D268](#d268--the-agent-doors-arm-a-15-minute-inactivity-window-where-a-text-call-keeps-two-2026-11-09) | 2026-11-09 | the agent doors arm a 15 minute inactivity window where a text call keeps two |
 | [D269](#d269--the-onnx-reader-refuses-an-export-it-cannot-run-reads-a-roberta-exports-padding-offset-and-caps-a-pass-at-128-rows-2026-11-09) | 2026-11-09 | the Onnx reader refuses an export it cannot run, reads a RoBERTa export's padding offset, and cap… |
 | [D270](#d270--model2vec-divides-by-the-rows-it-read-and-a-contextsize-the-machine-cannot-hold-is-the-hosts-to-bound-2026-11-09) | 2026-11-09 | Model2Vec divides by the rows it read, and a `ContextSize` the machine cannot hold is the host's… |
-| [D271](#d271--a-score-outside-0-to-1-is-skipped-with-a-warning-as-a-non-finite-one-is-2026-11-09) | 2026-11-09 | a score outside 0 to 1 is skipped with a warning, as a non-finite one is |
-| [D272](#d272--a-throwing-iscorerapplies-stays-surfaced-2026-11-09) | 2026-11-09 | a throwing `IScorer.Applies` stays surfaced |
-| [D273](#d273--judgeagreementcompare-keeps-10-for-two-empty-series-and-refuses-a-non-finite-score-2026-11-09) | 2026-11-09 | `JudgeAgreement.Compare` keeps 1.0 for two empty series and refuses a non-finite score |
-| [D274](#d274--a-prompt-override-that-fails-renders-the-default-never-the-next-layer-2026-11-09) | 2026-11-09 | a prompt override that fails renders the default, never the next layer |
-| [D275](#d275--every-conversation-enricher-runs-then-the-fault-is-rethrown-2026-11-09) | 2026-11-09 | every conversation enricher runs, then the fault is rethrown |
-| [D276](#d276--a-traces-ordinal-fallback-stays-per-step-and-the-doc-says-two-steps-can-share-one-2026-11-09) | 2026-11-09 | a trace's ordinal fallback stays per step, and the doc says two steps can share one |
-| [D277](#d277--a-corrupt-tokenizer_configjson-keeps-the-defaults-and-a-corrupt-tokenizerjson-is-invaliddataexception-2026-11-09) | 2026-11-09 | a corrupt `tokenizer_config.json` keeps the defaults, and a corrupt `tokenizer.json` is `InvalidD… |
-| [D278](#d278--a-graph-export-refuses-a-non-finite-number-before-it-writes-and-an-import-accepts-an-empty-scope-or-headline-2026-11-09) | 2026-11-09 | a graph export refuses a non-finite number before it writes, and an import accepts an empty scope… |
-| [D279](#d279--memorycontentkey-is-documented-as-a-hash-over-utf-8-with-a-lone-surrogate-as-ufffd-2026-11-09) | 2026-11-09 | `MemoryContentKey` is documented as a hash over UTF-8, with a lone surrogate as U+FFFD |
-| [D280](#d280--a-blends-explicit-limit-wins-over-more-authoritative-entries-than-it-allows-2026-11-09) | 2026-11-09 | a blend's explicit `Limit` wins over more authoritative entries than it allows |
-| [D281](#d281--a-scoring-verification-endorsecount-of-0-or-less-is-no-opinion-with-a-warning-at-composition-2026-11-09) | 2026-11-09 | a scoring verification `EndorseCount` of 0 or less is no opinion, with a warning at composition |
-| [D282](#d282--a-semantic-seed-filters-before-it-takes-2026-11-09) | 2026-11-09 | a semantic seed filters before it takes |
+| [D271](#d271--a-media-submit-throw-that-never-reached-the-backend-advances-and-is-rethrown-only-when-no-candidate-accepted-2026-11-09) | 2026-11-09 | a media submit throw that never reached the backend advances, and is rethrown only when no candid… |
+| [D272](#d272--the-media-stream-door-opens-a-span-per-attempt-as-the-class-says-2026-11-09) | 2026-11-09 | the media stream door opens a span per attempt, as the class says |
+| [D273](#d273--a-media-streams-failure-after-data-strikes-the-host-2026-11-09) | 2026-11-09 | a media stream's failure after data strikes the host |
+| [D274](#d274--budgetedmediarouter-settles-a-streams-spend-on-the-terminal-chunk-only-2026-11-09) | 2026-11-09 | `BudgetedMediaRouter` settles a stream's spend on the terminal chunk only |
+| [D275](#d275--a-mediainput-location-is-stored-as-absoluteuri-2026-11-09) | 2026-11-09 | a `MediaInput` location is stored as `AbsoluteUri` |
+| [D276](#d276--the-pool-promises-no-single-live-instance-per-key-past-idletimeout-and-bounding-a-use-is-admissions-2026-11-09) | 2026-11-09 | the pool promises no single live instance per key past `IdleTimeout`, and bounding a use is admis… |
+| [D277](#d277--the-pools-default-clock-is-monotonic-and-an-idletimeout-of-0-or-less-means-no-reuse-2026-11-09) | 2026-11-09 | the pool's default clock is monotonic, and an `IdleTimeout` of 0 or less means no reuse |
+| [D278](#d278--configureprovideradmission-counts-the-hosts-first-descriptor-as-the-earlier-calls-2026-11-09) | 2026-11-09 | `ConfigureProviderAdmission` counts the host's first descriptor as the earlier call's |
+| [D279](#d279--fromthrownsubmit-has-a-precondition-about-cancellation-and-a-cancellation-handed-to-it-is-inconclusive-2026-11-09) | 2026-11-09 | `FromThrownSubmit` has a precondition about cancellation, and a cancellation handed to it is Inco… |
+| [D280](#d280--an-inactivitypause-subscribers-fault-is-swallowed-each-subscriber-isolated-2026-11-09) | 2026-11-09 | an `InactivityPause` subscriber's fault is swallowed, each subscriber isolated |
+| [D281](#d281--a-score-outside-0-to-1-is-skipped-with-a-warning-as-a-non-finite-one-is-2026-11-09) | 2026-11-09 | a score outside 0 to 1 is skipped with a warning, as a non-finite one is |
+| [D282](#d282--a-throwing-iscorerapplies-stays-surfaced-2026-11-09) | 2026-11-09 | a throwing `IScorer.Applies` stays surfaced |
+| [D283](#d283--judgeagreementcompare-keeps-10-for-two-empty-series-and-refuses-a-non-finite-score-2026-11-09) | 2026-11-09 | `JudgeAgreement.Compare` keeps 1.0 for two empty series and refuses a non-finite score |
+| [D284](#d284--a-prompt-override-that-fails-renders-the-default-never-the-next-layer-2026-11-09) | 2026-11-09 | a prompt override that fails renders the default, never the next layer |
+| [D285](#d285--every-conversation-enricher-runs-then-the-fault-is-rethrown-2026-11-09) | 2026-11-09 | every conversation enricher runs, then the fault is rethrown |
+| [D286](#d286--a-traces-ordinal-fallback-stays-per-step-and-the-doc-says-two-steps-can-share-one-2026-11-09) | 2026-11-09 | a trace's ordinal fallback stays per step, and the doc says two steps can share one |
+| [D287](#d287--a-corrupt-tokenizer_configjson-keeps-the-defaults-and-a-corrupt-tokenizerjson-is-invaliddataexception-2026-11-09) | 2026-11-09 | a corrupt `tokenizer_config.json` keeps the defaults, and a corrupt `tokenizer.json` is `InvalidD… |
+| [D288](#d288--a-graph-export-refuses-a-non-finite-number-before-it-writes-and-an-import-accepts-an-empty-scope-or-headline-2026-11-09) | 2026-11-09 | a graph export refuses a non-finite number before it writes, and an import accepts an empty scope… |
+| [D289](#d289--memorycontentkey-is-documented-as-a-hash-over-utf-8-with-a-lone-surrogate-as-ufffd-2026-11-09) | 2026-11-09 | `MemoryContentKey` is documented as a hash over UTF-8, with a lone surrogate as U+FFFD |
+| [D290](#d290--a-blends-explicit-limit-wins-over-more-authoritative-entries-than-it-allows-2026-11-09) | 2026-11-09 | a blend's explicit `Limit` wins over more authoritative entries than it allows |
+| [D291](#d291--a-scoring-verification-endorsecount-of-0-or-less-is-no-opinion-with-a-warning-at-composition-2026-11-09) | 2026-11-09 | a scoring verification `EndorseCount` of 0 or less is no opinion, with a warning at composition |
+| [D292](#d292--a-semantic-seed-filters-before-it-takes-2026-11-09) | 2026-11-09 | a semantic seed filters before it takes |
 
-**277 live decisions.** The rest are stubs — `D<n>` is a permanent identifier, so a number is never reused or renumbered (5): [D36](#d36--a-translation-between-two-verdict-taxonomies-gets-one-arm-per-member-gated-by-a-test-2026-08-05) → D136 · [D80](#d80--merged-into-d77-2026-08-16-folded-2026-08-17) → D77 · [D131](#d131--a-backends-produces-is-derived-from-its-configuration-so-a-modality-is-a-field-2026-09-14) → D133 · [D134](#d134--a-registration-names-the-backend-the-provider-suffix-is-gone-from-all-seventeen-2026-09-14) → D137 · [D145](#d145--the-microsoftextensionsai-module-is-a-bridge-not-a-provider-2026-09-15) → D146
+**287 live decisions.** The rest are stubs — `D<n>` is a permanent identifier, so a number is never reused or renumbered (5): [D36](#d36--a-translation-between-two-verdict-taxonomies-gets-one-arm-per-member-gated-by-a-test-2026-08-05) → D136 · [D80](#d80--merged-into-d77-2026-08-16-folded-2026-08-17) → D77 · [D131](#d131--a-backends-produces-is-derived-from-its-configuration-so-a-modality-is-a-field-2026-09-14) → D133 · [D134](#d134--a-registration-names-the-backend-the-provider-suffix-is-gone-from-all-seventeen-2026-09-14) → D137 · [D145](#d145--the-microsoftextensionsai-module-is-a-bridge-not-a-provider-2026-09-15) → D146
 
 <!-- index:end -->
 
@@ -7546,7 +7556,7 @@ recall and its write-back is already a silent skip).
 
 **Rejected.** Refusing it everywhere (a cut reply would fail the turn that produced it, and the SQL stores would need a check SQLite never made). A different replacement (SQLite's is the one a restore from it would show).
 
-**Re-opens** when the Postgres leg shows its driver refusing one: the fact then fails there, and the store gets the same scrub. The graph, score, trace, job, cache, usage and vector stores still hold a lone surrogate as given (**D278** has the graph export's).
+**Re-opens** when the Postgres leg shows its driver refusing one: the fact then fails there, and the store gets the same scrub. The graph, score, trace, job, cache, usage and vector stores still hold a lone surrogate as given (**D288** has the graph export's).
 
 ## D263 — a key's order is its UTF-8 bytes, in process as in SQLite and Postgres (2026-11-09)
 
@@ -7651,11 +7661,131 @@ recall and its write-back is already a silent skip).
 
 **Rejected.** Refusing a vocabulary longer than the table at load (a tokenizer and a table legitimately disagree at the edges, as `AccumulateInto` already says). Refusing a `ContextSize` past the trained context: it narrows a published option and stays the owner's (`TASKS.md` Part 490).
 
+## D271 — a media submit throw that never reached the backend advances, and is rethrown only when no candidate accepted (2026-11-09)
+
+**Standing.** A ruling on `docs/task-archive.md` Part 512's first row, **the steward's under the owner's delegation to develop while away, which the owner may reverse** — not the owner's words. Built, and frozen from release (**D70**).
+
+**Decided.** `MediaRouter.SubmitAsync` no longer filters a throw by `NeverReachedTheBackend`. Every throw becomes `QueuedOperation.FromThrownSubmit`; one that may have been delivered stays `Inconclusive` and surfaces (**D64**), and one that provably never left the process is a plain failure with its classified verdict: the host takes that verdict's strike, the router advances, and the first such throw is rethrown (stack kept) only when no candidate accepted, so the durable job's retry still runs. A policy that surfaces the verdict rethrows at once. The generate and stream doors already advance on a failure before data.
+
+**Why.** With `[A, B]` where A refuses the connection, B was never tried and A took no strike, so a dead host was asked first on every job.
+
+**Rejected.** Propagating it, as before (a healthy second candidate never serves, and the dead host is never benched). **The closest call:** another host may now bill for a render the first would have accepted had the retry reached it, so a deployment pricing one backend far above another sees the dearer one used while the cheap one is down; the candidate order is the host's lever.
+
+**Re-opens** when a host needs the first refused connection to stop the run, which wants a policy action for it.
+
+## D272 — the media stream door opens a span per attempt, as the class says (2026-11-09)
+
+**Standing.** A ruling on `docs/task-archive.md` Part 512's second row, **the steward's under the owner's delegation, which the owner may reverse** — not the owner's words. Built, and frozen from release (**D70**).
+
+**Decided.** `MediaRouter.StreamAsync` opens `StartGeneration("stream", …)` per backend attempt and `RecordGeneration` closes it in a `finally`, with the verdict and, on a terminal chunk, its usage. A caller's cancel records nothing, as on the inline door. `stream` is a new value of `lyntai.generation.operation`.
+
+**Why.** Only the generate and submit doors called `StartGeneration`, so a stream attempt that failed before data and fell over was invisible, against the class's own promise of a span per attempt.
+
+**Rejected.** Rewording the class to say the stream door has none (a trace of a fallback run must show the attempt that failed, the reason the other two doors have one).
+
+**Re-opens** when a backend wants a first-chunk latency, which the text door records and this door does not.
+
+## D273 — a media stream's failure after data strikes the host (2026-11-09)
+
+**Standing.** A ruling on `docs/task-archive.md` Part 512's third row, **the steward's under the owner's delegation, which the owner may reverse** — not the owner's words. Built, and frozen from release (**D70**).
+
+**Decided.** At the two exits after data (an error chunk, and a throw or a stop with a failure) `MediaRouter.StreamAsync` calls `Penalize` with the policy's action for the verdict, as it does before data. No fallback follows, as before. A terminal success still clears the strikes.
+
+**Why.** A backend that always sent a byte and then errored was never struck, so it was chosen every time.
+
+**Rejected.** Stating the omission as deliberate because the text door's commit clears strikes (it clears them on the first token, where a media stream's success is its terminal chunk, so a commit proves nothing about health here).
+
+**Re-opens** when a stream's first data should clear strikes as the text door's does, which would make a post-data failure free again.
+
+## D274 — `BudgetedMediaRouter` settles a stream's spend on the terminal chunk only (2026-11-09)
+
+**Standing.** A ruling on `docs/task-archive.md` Part 512's fourth row, **the steward's under the owner's delegation, which the owner may reverse** — not the owner's words. Built, and frozen from release (**D70**).
+
+**Decided.** `BudgetedMediaRouter.StreamAsync` settles on a chunk with `Final` set and a positive cost, as `BudgetedTextClient` does on its `Final` chunk. A cost on any earlier chunk is never read.
+
+**Why.** It settled on every chunk carrying a cost, so a backend repeating a cumulative figure on progress chunks wrote one ledger line for each, and with a hold the second and later lines were recorded on top of the reconciled one.
+
+**Rejected.** Stating that each chunk reports its own cost (`MediaChunk.Usage` says the cost is reported on completion, and the one shipped streaming backend reports its seconds on the terminal chunk, never a cost before it).
+
+**Re-opens** when a streaming backend reports a per-chunk cost that is not cumulative, which needs a flag on the chunk to say so.
+
+## D275 — a `MediaInput` location is stored as `AbsoluteUri` (2026-11-09)
+
+**Standing.** A ruling on `docs/task-archive.md` Part 512's fifth row, **the steward's under the owner's delegation, which the owner may reverse** — not the owner's words. Built, and frozen from release (**D70**).
+
+**Decided.** `MediaInput.From(role, Uri, mediaType)`, and so every named factory over it, stores `Uri.AbsoluteUri`, falling back to `OriginalString` for a relative URI, which has none. `a%20b.png` stays escaped.
+
+**Why.** `Uri.ToString()` unescapes it to `a b.png`, which is not the form a backend sends or a file-URI reader opens.
+
+**Rejected.** `OriginalString` alone (it keeps whatever the caller wrote, escaped or not, so two equal URIs store two strings).
+
+**Re-opens** when a backend wants the unescaped display form, which it can derive with `Uri.UnescapeDataString`.
+
+## D276 — the pool promises no single live instance per key past `IdleTimeout`, and bounding a use is admission's (2026-11-09)
+
+**Standing.** A ruling on `docs/task-archive.md` Part 512's sixth row, **the steward's under the owner's delegation, which the owner may reverse** — not the owner's words. Built as documentation; no member is added.
+
+**Decided.** `BoundedProviderPool` and `ProviderPoolOptions.IdleTimeout` say that an entry is stamped when `GetOrAdd` is called, so a use longer than the timeout can have its entry retired by the next call for the key, which builds a second live instance; they point to `ProviderAdmission`, which is keyed on the configuration.
+
+**Why.** A render outlasting ten minutes is ordinary, and the pool never knew when a call ended.
+
+**Rejected.** A lease or in-use notion on `IProviderPool` (a new public member on a frozen interface, which stays the owner's).
+
+**Re-opens** when a provider that serializes one generation is shown built twice by the pool, which then wants the lease.
+
+## D277 — the pool's default clock is monotonic, and an `IdleTimeout` of 0 or less means no reuse (2026-11-09)
+
+**Standing.** A ruling on `docs/task-archive.md` Part 512's seventh row, **the steward's under the owner's delegation, which the owner may reverse** — not the owner's words. Built, and frozen from release (**D70**).
+
+**Decided.** The default `Func<DateTimeOffset>` behind `BoundedProviderPool` is an origin read once plus `Stopwatch` elapsed time, so a step of the system clock changes nothing. An `IdleTimeout` of 0 or less is documented as no reuse, which the eviction already did; a test pins it with the default clock and an injected one.
+
+**Why.** A clock stepped back kept entries past the timeout and one stepped forward retired every entry at once.
+
+**Rejected.** A `TimeProvider` constructor (a new public overload; the existing `Func` seam already injects a clock, and the owner's). Clamping a negative timeout to zero (it already behaves the same, and a clamp is a second place to keep true).
+
+**Re-opens** when a `TimeProvider` is wanted across the library, where this pool's constructor joins the rest.
+
+## D278 — `ConfigureProviderAdmission` counts the host's first descriptor as the earlier call's (2026-11-09)
+
+**Standing.** A ruling on `docs/task-archive.md` Part 512's eighth row, **the steward's under the owner's delegation, which the owner may reverse** — not the owner's words. Built, and frozen from release (**D70**).
+
+**Decided.** The first non-keyed `ProviderAdmissionOptions` descriptor is the earlier call's. An instance is configured in place. A type or factory registration is replaced by a factory descriptor of the same lifetime that builds the original and then applies the action, so every call's action applies in call order and the container still resolves one options object.
+
+**Why.** It found only an instance, so a host that registered the options by type or factory made each call add a new instance and the last one win, while its own never saw an action. `AddLyntai`'s own text says a host registration made first always wins.
+
+**Rejected.** Registering over it (the host's own settings would be lost). Throwing on a non-instance registration (a new failure for a registration `AddLyntai` otherwise respects).
+
+**Re-opens** when a host registers the options twice, where the first descriptor is not the one the container resolves.
+
+## D279 — `FromThrownSubmit` has a precondition about cancellation, and a cancellation handed to it is Inconclusive (2026-11-09)
+
+**Standing.** A ruling on `docs/task-archive.md` Part 512's ninth row, **the steward's under the owner's delegation, which the owner may reverse** — not the owner's words. Built as documentation and a pinning test.
+
+**Decided.** `QueuedOperation.FromThrownSubmit` documents that the caller rethrows its own cancellation before calling (`catch (OperationCanceledException) when ct.IsCancellationRequested`), as the router, `FalProvider` and `ComfyUiProvider` do. The helper cannot tell the caller's cancel from a backend's, and treats an `OperationCanceledException` as a throw that may have been delivered.
+
+**Why.** No in-tree caller passes one; a backend of the host's own might.
+
+**Rejected.** Rethrowing inside the helper (it returns a value, and a cancel that is not the caller's, such as a backend's own timeout, is rightly Inconclusive).
+
+**Re-opens** when a caller is found handing the helper a cancel, which then wants the check inside it.
+
+## D280 — an `InactivityPause` subscriber's fault is swallowed, each subscriber isolated (2026-11-09)
+
+**Standing.** A ruling on `docs/task-archive.md` Part 512's last row, **the steward's under the owner's delegation, which the owner may reverse** — not the owner's words. Built, and frozen from release (**D70**).
+
+**Decided.** `InactivityPause` notifies each subscriber in its own `try`, and a throw is swallowed. `Hold` returns its handle and a release clears the count whatever a subscriber does, and the subscribers after a faulty one still run.
+
+**Why.** A subscriber that threw (the runner's re-arm on a disposed timeout) failed a `Hold` whose count was taken, with no handle to release it, leaving `IsPaused` true for good and skipping the subscribers after it.
+
+**Rejected.** Rolling the count back and rethrowing (the runner's own state would still diverge from the count, and a hold would fail for a fault in the observer). Logging (the type has no logger, and a library should not grow one for this).
+
+**Re-opens** when a swallowed fault is wanted visible, which wants a diagnostic event rather than a throw.
+
 **Re-opens** when the owner rules on the `ContextSize` refusal, or on `[UNK]` averaging (`TASKS.md` Part 490), which moves stored vectors.
 
-## D271 — a score outside 0 to 1 is skipped with a warning, as a non-finite one is (2026-11-09)
+## D281 — a score outside 0 to 1 is skipped with a warning, as a non-finite one is (2026-11-09)
 
-**Standing.** A ruling on `docs/task-archive.md` Part 512's first row, **the steward's under the owner's delegation, which the owner may reverse** — not the owner's words. Built, and frozen from release (**D70**).
+**Standing.** A ruling on `docs/task-archive.md` Part 513's first row, **the steward's under the owner's delegation, which the owner may reverse** — not the owner's words. Built, and frozen from release (**D70**).
 
 **Decided.** `ScoringService` skips a score below 0 or above 1 with a warning and stores nothing for it; 0 and 1 are kept. The type doc says so.
 
@@ -7665,9 +7795,9 @@ recall and its write-back is already a silent skip).
 
 **Re-opens** when a scorer's scale is declared per scorer, which would move the range into `IScorer`.
 
-## D272 — a throwing `IScorer.Applies` stays surfaced (2026-11-09)
+## D282 — a throwing `IScorer.Applies` stays surfaced (2026-11-09)
 
-**Standing.** A ruling on `docs/task-archive.md` Part 512's second row, **the steward's under the owner's delegation, which the owner may reverse** — not the owner's words. No code moves.
+**Standing.** A ruling on `docs/task-archive.md` Part 513's second row, **the steward's under the owner's delegation, which the owner may reverse** — not the owner's words. No code moves.
 
 **Decided.** An exception from `Applies` propagates out of `ScoringService.EvaluateAsync` and discards the scores already computed, as `ScorerAppliesTests` pins and the type doc says.
 
@@ -7677,9 +7807,9 @@ recall and its write-back is already a silent skip).
 
 **Re-opens** when a predicate may legitimately consult something that fails, such as a store.
 
-## D273 — `JudgeAgreement.Compare` keeps 1.0 for two empty series and refuses a non-finite score (2026-11-09)
+## D283 — `JudgeAgreement.Compare` keeps 1.0 for two empty series and refuses a non-finite score (2026-11-09)
 
-**Standing.** A ruling on `docs/task-archive.md` Part 512's third row, **the steward's under the owner's delegation, which the owner may reverse** — not the owner's words. Built, and frozen from release (**D70**).
+**Standing.** A ruling on `docs/task-archive.md` Part 513's third row, **the steward's under the owner's delegation, which the owner may reverse** — not the owner's words. Built, and frozen from release (**D70**).
 
 **Decided.** `Compare([], [])` keeps an exact agreement of 1.0 with a `Count` of 0, and the doc says to read `Count` first. A NaN or infinite score on either side throws `ArgumentException` before any metric is computed.
 
@@ -7689,9 +7819,9 @@ recall and its write-back is already a silent skip).
 
 **Re-opens** when a dashboard needs "no data" distinguished from "perfect" without reading `Count`, which needs the nullable rate.
 
-## D274 — a prompt override that fails renders the default, never the next layer (2026-11-09)
+## D284 — a prompt override that fails renders the default, never the next layer (2026-11-09)
 
-**Standing.** A ruling on `docs/task-archive.md` Part 512's fourth row, **the steward's under the owner's delegation, which the owner may reverse** — not the owner's words. Behaviour unchanged; the type doc says it and a test pins it.
+**Standing.** A ruling on `docs/task-archive.md` Part 513's fourth row, **the steward's under the owner's delegation, which the owner may reverse** — not the owner's words. Behaviour unchanged; the type doc says it and a test pins it.
 
 **Decided.** The active `IPromptVersionStore` revision, when present, is the only override considered: if it is rejected for a dropped placeholder, or the version store fails, `PromptRegistry` renders the default and does not fall through to the key-value override.
 
@@ -7701,9 +7831,9 @@ recall and its write-back is already a silent skip).
 
 **Re-opens** when an application wants a versioned override to fall back to its key-value one, which is a per-registry option.
 
-## D275 — every conversation enricher runs, then the fault is rethrown (2026-11-09)
+## D285 — every conversation enricher runs, then the fault is rethrown (2026-11-09)
 
-**Standing.** A ruling on `docs/task-archive.md` Part 512's fifth row, **the steward's under the owner's delegation, which the owner may reverse** — not the owner's words. Built, and frozen from release (**D70**).
+**Standing.** A ruling on `docs/task-archive.md` Part 513's fifth row, **the steward's under the owner's delegation, which the owner may reverse** — not the owner's words. Built, and frozen from release (**D70**).
 
 **Decided.** `EnrichingConversationStore` runs every enricher after a create and after an append, then rethrows the one fault, or an `AggregateException` of several. A caller's own cancel ends the pass at once. The docs say "after a create and an append", since a delete and a metadata change reach no enricher.
 
@@ -7713,9 +7843,9 @@ recall and its write-back is already a silent skip).
 
 **Re-opens** when an application needs to enrich a delete or a metadata change.
 
-## D276 — a trace's ordinal fallback stays per step, and the doc says two steps can share one (2026-11-09)
+## D286 — a trace's ordinal fallback stays per step, and the doc says two steps can share one (2026-11-09)
 
-**Standing.** A ruling on `docs/task-archive.md` Part 512's sixth row, **the steward's under the owner's delegation, which the owner may reverse** — not the owner's words. Behaviour unchanged; the doc is softened and a test pins it.
+**Standing.** A ruling on `docs/task-archive.md` Part 513's sixth row, **the steward's under the owner's delegation, which the owner may reverse** — not the owner's words. Behaviour unchanged; the doc is softened and a test pins it.
 
 **Decided.** `TraceOrdinals.Stored` keeps deciding each step on its own: a step with `Sequence` 0 takes its list position, so `[1, unset]` stores `[1, 1]` in list order. `ITraceStore` no longer calls the stored order "distinct" for a mixed trace.
 
@@ -7725,9 +7855,9 @@ recall and its write-back is already a silent skip).
 
 **Re-opens** when a recorder is shown to emit a partial set.
 
-## D277 — a corrupt `tokenizer_config.json` keeps the defaults, and a corrupt `tokenizer.json` is `InvalidDataException` (2026-11-09)
+## D287 — a corrupt `tokenizer_config.json` keeps the defaults, and a corrupt `tokenizer.json` is `InvalidDataException` (2026-11-09)
 
-**Standing.** A ruling on `docs/task-archive.md` Part 512's seventh row, **the steward's under the owner's delegation, which the owner may reverse** — not the owner's words. Built, and frozen from release (**D70**).
+**Standing.** A ruling on `docs/task-archive.md` Part 513's seventh row, **the steward's under the owner's delegation, which the owner may reverse** — not the owner's words. Built, and frozen from release (**D70**).
 
 **Decided.** `TokenizerRules` keeps the reference defaults for a `tokenizer_config.json` that is not JSON or whose root is not an object, as **D269** keeps a default for an absent or unreadable file. `TokenizerJson.Read` raises `InvalidDataException`, as its doc promises, for an invalid regex (an `ArgumentException`), a null vocabulary piece and a null Metaspace `replacement`, which were `RegexParseException` and `NullReferenceException` before.
 
@@ -7737,9 +7867,9 @@ recall and its write-back is already a silent skip).
 
 **Re-opens** when a corrupt config is shown to produce wrong vectors on a model that needs a non-default rule.
 
-## D278 — a graph export refuses a non-finite number before it writes, and an import accepts an empty scope or headline (2026-11-09)
+## D288 — a graph export refuses a non-finite number before it writes, and an import accepts an empty scope or headline (2026-11-09)
 
-**Standing.** A ruling on `docs/task-archive.md` Part 512's eighth row, **the steward's under the owner's delegation, which the owner may reverse** — not the owner's words. Built, and frozen from release (**D70**).
+**Standing.** A ruling on `docs/task-archive.md` Part 513's eighth row, **the steward's under the owner's delegation, which the owner may reverse** — not the owner's words. Built, and frozen from release (**D70**).
 
 **Decided.** `GraphPortableLines.WriteAsync` checks every number of every entry and link first and throws `InvalidDataException` ("Nothing was written") for a non-finite one; a non-finite signal still travels as absent. A lone surrogate is written as U+FFFD, as **D262** stores it, in every text field and key: the JSON writer already did, and a test now pins it. An import takes a `scope` or `headline` that is present and empty, and still refuses one that is absent; `content` stays required non-empty.
 
@@ -7749,9 +7879,9 @@ recall and its write-back is already a silent skip).
 
 **Re-opens** when a store is found that yields a non-finite age on export, which would be a defect in that store rather than a reason to export it.
 
-## D279 — `MemoryContentKey` is documented as a hash over UTF-8, with a lone surrogate as U+FFFD (2026-11-09)
+## D289 — `MemoryContentKey` is documented as a hash over UTF-8, with a lone surrogate as U+FFFD (2026-11-09)
 
-**Standing.** A ruling on `docs/task-archive.md` Part 512's ninth row, **the steward's under the owner's delegation, which the owner may reverse** — not the owner's words. Behaviour unchanged; the doc is reworded and a test pins it.
+**Standing.** A ruling on `docs/task-archive.md` Part 513's ninth row, **the steward's under the owner's delegation, which the owner may reverse** — not the owner's words. Behaviour unchanged; the doc is reworded and a test pins it.
 
 **Decided.** `MemoryContentKey.Of` hashes the UTF-8 bytes of the content, so every lone surrogate is U+FFFD to it and `"a\uD800"` and `"a"` plus a real U+FFFD share a key. The doc no longer says "byte-for-byte", which read as the UTF-16 units.
 
@@ -7761,9 +7891,9 @@ recall and its write-back is already a silent skip).
 
 **Re-opens** when a store is introduced that keeps a lone surrogate distinct.
 
-## D280 — a blend's explicit `Limit` wins over more authoritative entries than it allows (2026-11-09)
+## D290 — a blend's explicit `Limit` wins over more authoritative entries than it allows (2026-11-09)
 
-**Standing.** A ruling on `docs/task-archive.md` Part 512's tenth row, **the steward's under the owner's delegation, which the owner may reverse** — not the owner's words. Behaviour unchanged; the doc says it and a test pins it.
+**Standing.** A ruling on `docs/task-archive.md` Part 513's tenth row, **the steward's under the owner's delegation, which the owner may reverse** — not the owner's words. Behaviour unchanged; the doc says it and a test pins it.
 
 **Decided.** `CompositeMemoryEngine` cuts to an explicit `MemoryQuery.Limit` after ordering authoritative before associative and by relevance within each, so with three authoritative entries and a `Limit` of 2 it returns two. The grade tier decides what a cut keeps first; it exempts nothing from the cut.
 
@@ -7773,9 +7903,9 @@ recall and its write-back is already a silent skip).
 
 **Re-opens** when a caller needs a reserve for exact facts inside a limit, which is what a graph engine's own authoritative reserve already is.
 
-## D281 — a scoring verification `EndorseCount` of 0 or less is no opinion, with a warning at composition (2026-11-09)
+## D291 — a scoring verification `EndorseCount` of 0 or less is no opinion, with a warning at composition (2026-11-09)
 
-**Standing.** A ruling on `docs/task-archive.md` Part 512's eleventh row, **the steward's under the owner's delegation, which the owner may reverse** — not the owner's words. Built, and frozen from release (**D70**).
+**Standing.** A ruling on `docs/task-archive.md` Part 513's eleventh row, **the steward's under the owner's delegation, which the owner may reverse** — not the owner's words. Built, and frozen from release (**D70**).
 
 **Decided.** `ScoringVerificationPolicy` reports `NoOpinion` without calling the backend when `ScoringVerificationOptions.EndorseCount` is 0 or less, and logs one warning when the policy is composed. The option's accepted range does not move: no value throws.
 
@@ -7785,9 +7915,9 @@ recall and its write-back is already a silent skip).
 
 **Re-opens** when a caller needs "score but endorse nothing" to read the scores alone, which a count of 0 does not give: it skips the call.
 
-## D282 — a semantic seed filters before it takes (2026-11-09)
+## D292 — a semantic seed filters before it takes (2026-11-09)
 
-**Standing.** A ruling on `docs/task-archive.md` Part 512's last row, **the steward's under the owner's delegation, which the owner may reverse** — not the owner's words. Built, and frozen from release (**D70**).
+**Standing.** A ruling on `docs/task-archive.md` Part 513's last row, **the steward's under the owner's delegation, which the owner may reverse** — not the owner's words. Built, and frozen from release (**D70**).
 
 **Decided.** `SemanticSeedSource` walks the ordered matches and stops at `min(K, Limit)` live nodes, skipping a match whose id does not parse, repeats, or names an entry that no longer exists. A stale top match and a `Limit` of 1 now return the second.
 
