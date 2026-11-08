@@ -21,11 +21,15 @@ The design, the node mapping and the recipe format are `docs/generation.md` §12
 ## Run it
 
 ```
-LYNTAI_COMFYUI_URL=http://127.0.0.1:8188
-LYNTAI_COMFYUI_SDXL_CHECKPOINT=sd_xl_base_1.0.safetensors
+export LYNTAI_COMFYUI_URL=http://127.0.0.1:8188
+export LYNTAI_COMFYUI_SDXL_CHECKPOINT=sd_xl_base_1.0.safetensors
 dotnet run --project samples/Lyntai.ImagePipeline -- --optional --out devtools/_image-pipeline/run
 ```
 
+(In PowerShell, set both with `$env:NAME = "value"` first.)
+
+`--checkpoint <file>` replaces `LYNTAI_COMFYUI_SDXL_CHECKPOINT`, and `--replay <step folder>` runs one recorded step again from its
+`recipe.json`, exiting 0 only when the pixels match.
 `--pose-control` also composes with the pose ControlNet at strength 0, the control the pose is measured against.
 `--out` defaults to a timestamped folder under `devtools/_image-pipeline/` (gitignored). Two optional variables make
 the recipes carry each model file's sha256: `LYNTAI_COMFYUI_MODELS` (the server's `models` folder) and
