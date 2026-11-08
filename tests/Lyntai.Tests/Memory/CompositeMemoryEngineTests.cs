@@ -195,6 +195,23 @@ public class CompositeMemoryEngineTests
     }
 
     [Fact]
+    public async Task An_explicit_limit_wins_over_more_authoritative_facts_than_it_allows()
+    {
+        // the grade tier orders the cut, it does not exempt from it: three exact facts and a Limit of 2 return 2,
+        // the two that score highest, and the loud associative item is cut before either
+        var loud = new RecordingEngine("project/loud", MemoryGrades.Associative)
+            .Returning("loud", MemoryGrade.Associative, 0.99);
+        var glossary = new RecordingEngine("project/glossary", MemoryGrades.Authoritative)
+            .Returning("exact1", MemoryGrade.Authoritative, 0.30)
+            .Returning("exact2", MemoryGrade.Authoritative, 0.20)
+            .Returning("exact3", MemoryGrade.Authoritative, 0.10);
+
+        var recall = await Composite(loud, glossary).RecallAsync(new MemoryQuery("t", "s", "q", Limit: 2));
+
+        Assert.Equal(["exact1", "exact2"], recall.Items.Select(i => i.Headline));
+    }
+
+    [Fact]
     public async Task Expansion_routes_THROUGH_the_composite_to_the_owning_member()
     {
         // THE CAPABILITY-FORWARDING TEST. A wrapper that does not forward an optional interface erases it

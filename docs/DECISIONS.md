@@ -349,8 +349,9 @@ new decision overturns an old one, rewrite the old entry as a stub pointing here
 | [D277](#d277--a-corrupt-tokenizer_configjson-keeps-the-defaults-and-a-corrupt-tokenizerjson-is-invaliddataexception-2026-11-09) | 2026-11-09 | a corrupt `tokenizer_config.json` keeps the defaults, and a corrupt `tokenizer.json` is `InvalidD… |
 | [D278](#d278--a-graph-export-refuses-a-non-finite-number-before-it-writes-and-an-import-accepts-an-empty-scope-or-headline-2026-11-09) | 2026-11-09 | a graph export refuses a non-finite number before it writes, and an import accepts an empty scope… |
 | [D279](#d279--memorycontentkey-is-documented-as-a-hash-over-utf-8-with-a-lone-surrogate-as-ufffd-2026-11-09) | 2026-11-09 | `MemoryContentKey` is documented as a hash over UTF-8, with a lone surrogate as U+FFFD |
+| [D280](#d280--a-blends-explicit-limit-wins-over-more-authoritative-entries-than-it-allows-2026-11-09) | 2026-11-09 | a blend's explicit `Limit` wins over more authoritative entries than it allows |
 
-**274 live decisions.** The rest are stubs — `D<n>` is a permanent identifier, so a number is never reused or renumbered (5): [D36](#d36--a-translation-between-two-verdict-taxonomies-gets-one-arm-per-member-gated-by-a-test-2026-08-05) → D136 · [D80](#d80--merged-into-d77-2026-08-16-folded-2026-08-17) → D77 · [D131](#d131--a-backends-produces-is-derived-from-its-configuration-so-a-modality-is-a-field-2026-09-14) → D133 · [D134](#d134--a-registration-names-the-backend-the-provider-suffix-is-gone-from-all-seventeen-2026-09-14) → D137 · [D145](#d145--the-microsoftextensionsai-module-is-a-bridge-not-a-provider-2026-09-15) → D146
+**275 live decisions.** The rest are stubs — `D<n>` is a permanent identifier, so a number is never reused or renumbered (5): [D36](#d36--a-translation-between-two-verdict-taxonomies-gets-one-arm-per-member-gated-by-a-test-2026-08-05) → D136 · [D80](#d80--merged-into-d77-2026-08-16-folded-2026-08-17) → D77 · [D131](#d131--a-backends-produces-is-derived-from-its-configuration-so-a-modality-is-a-field-2026-09-14) → D133 · [D134](#d134--a-registration-names-the-backend-the-provider-suffix-is-gone-from-all-seventeen-2026-09-14) → D137 · [D145](#d145--the-microsoftextensionsai-module-is-a-bridge-not-a-provider-2026-09-15) → D146
 
 <!-- index:end -->
 
@@ -7757,3 +7758,15 @@ recall and its write-back is already a silent skip).
 **Rejected.** Refusing content with a lone surrogate (a reply cut inside a pair is one, and writes of it succeed on every store today).
 
 **Re-opens** when a store is introduced that keeps a lone surrogate distinct.
+
+## D280 — a blend's explicit `Limit` wins over more authoritative entries than it allows (2026-11-09)
+
+**Standing.** A ruling on `TASKS.md` Part 499's tenth row, **the steward's under the owner's delegation, which the owner may reverse** — not the owner's words. Behaviour unchanged; the doc says it and a test pins it.
+
+**Decided.** `CompositeMemoryEngine` cuts to an explicit `MemoryQuery.Limit` after ordering authoritative before associative and by relevance within each, so with three authoritative entries and a `Limit` of 2 it returns two. The grade tier decides what a cut keeps first; it exempts nothing from the cut.
+
+**Why.** A `Limit` is the caller's bound on what a prompt can hold, and a blend that exceeded it by the number of exact facts would break every caller that sized a budget on it. A caller that must never lose one passes no limit, or a larger one.
+
+**Rejected.** Letting the authoritative tier overrun `Limit` (a bound that sometimes does not bound).
+
+**Re-opens** when a caller needs a reserve for exact facts inside a limit, which is what a graph engine's own authoritative reserve already is.
