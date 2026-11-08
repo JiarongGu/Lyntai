@@ -10,7 +10,8 @@ public interface IKeyValueStore
     Task DeleteAsync(string key, CancellationToken ct = default);
 
     /// <summary>Every key, or only those starting with <paramref name="prefix"/> (case-sensitive
-    /// starts-with; null = all), in ordinal order. This is what lets a namespaced consumer (a vault, a
+    /// starts-with; null = all), in ordinal order — the keys' UTF-8 bytes, so a character past U+FFFF sorts after
+    /// U+E000 to U+FFFF, and a key that is only the prefix sorts before any longer one. This is what lets a namespaced consumer (a vault, a
     /// prompt registry, a settings page) enumerate its own <c>ns.*</c> slice without maintaining a
     /// separate index.</summary>
     Task<IReadOnlyList<string>> ListKeysAsync(string? prefix = null, CancellationToken ct = default);

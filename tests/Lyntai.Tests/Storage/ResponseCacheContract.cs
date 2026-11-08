@@ -10,7 +10,8 @@ namespace Lyntai.Tests.Storage;
 /// is set at CONSTRUCTION (<c>CacheOptions.MaxEntries</c>) rather than exercised on a built cache, and on
 /// the shared Postgres container it needs a far-future clock so this test's rows outrank every other
 /// test's. A portable fact cannot express either. It stays per-backend, where each suite can say what its
-/// own container requires.</para></summary>
+/// own container requires. What it pins is a contract fact all the same: a <c>MaxEntries</c> of 0 or less stores
+/// nothing, as a non-positive TTL does (the steward's ruling, <c>docs/DECISIONS.md</c> D265).</para></summary>
 public static class ResponseCacheContract
 {
     private static TextResponse Reply(string text) =>

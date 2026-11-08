@@ -37,6 +37,13 @@ every addition.
 
 ### Changed
 
+- **Five places where the file, in-memory and SQL stores disagreed now agree** (**D261**–**D265**). The file backend keeps a `next-id` file beside
+  its curated and memory records, so a removed id is never handed out again after a restart (through 3.5.3 removing the highest freed it, and a stale
+  `UpdateAsync(id, expectedRevision)` could land on another entry). The in-memory and file stores replace a lone surrogate with U+FFFD in the key-value,
+  conversation, prompt, curated and memory domains, as SQLite stores it, where the file backend threw and the in-memory one kept it. `ListKeysAsync` and
+  `ChatThreads.Page` order by UTF-8 bytes in process, so a character past U+FFFF sorts after U+E000 to U+FFFF as in SQLite. Every vector store's
+  `UpsertAsync` throws `ArgumentException` for a NaN or infinite component and stores nothing; `IVectorStore` now says an implementation must.
+  A response cache with `CacheOptions.MaxEntries` of 0 or less stores nothing on every backend, where the SQL caches kept one entry.
 - **A pool's never-idle timeout, an empty media stream, a cancel after a render and four smaller edges no longer misbehave.**
   `ProviderPoolOptions.IdleTimeout` of `TimeSpan.MaxValue` or `Timeout.InfiniteTimeSpan` now means never; the first threw on every access and the second retired every entry on every access.
   A media stream whose only chunk is a terminal one falls over to the next candidate instead of completing empty, and a null or `Ok`-with-no-artifacts response from a backend of your own is a failure

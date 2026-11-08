@@ -22,6 +22,7 @@ internal sealed class FileSystemKeyValueStore(FileSystemRoot root) : IKeyValueSt
 
     public Task<string?> GetAsync(string key, CancellationToken ct = default)
     {
+        key = Utf8Text.Scrub(key)!;
         lock (_lock) return Task.FromResult(Entries().TryGetValue(key, out var e) ? e.Value : null);
     }
 
@@ -29,6 +30,7 @@ internal sealed class FileSystemKeyValueStore(FileSystemRoot root) : IKeyValueSt
     {
         ArgumentNullException.ThrowIfNull(key);
         ArgumentNullException.ThrowIfNull(value);
+        (key, value) = (Utf8Text.Scrub(key)!, Utf8Text.Scrub(value)!);
         lock (_lock)
         {
             var entries = Entries();
@@ -47,6 +49,7 @@ internal sealed class FileSystemKeyValueStore(FileSystemRoot root) : IKeyValueSt
 
     public Task DeleteAsync(string key, CancellationToken ct = default)
     {
+        key = Utf8Text.Scrub(key)!;
         lock (_lock)
         {
             // the file first: a delete that fails must leave the key visible, not gone until the next start
@@ -61,11 +64,12 @@ internal sealed class FileSystemKeyValueStore(FileSystemRoot root) : IKeyValueSt
 
     public Task<IReadOnlyList<string>> ListKeysAsync(string? prefix = null, CancellationToken ct = default)
     {
+        prefix = Utf8Text.Scrub(prefix);
         lock (_lock)
         {
             IReadOnlyList<string> keys = [.. Entries().Keys
                 .Where(k => prefix is null || k.StartsWith(prefix, StringComparison.Ordinal))
-                .Order(StringComparer.Ordinal)];
+                .Order(Utf8Ordinal.Instance)];
             return Task.FromResult(keys);
         }
     }

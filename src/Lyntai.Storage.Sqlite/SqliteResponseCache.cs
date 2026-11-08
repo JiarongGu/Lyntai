@@ -28,6 +28,7 @@ public sealed class SqliteResponseCache(IDbConnectionFactory factory, LyntaiOpti
     {
         var window = ttl ?? options.Cache.Ttl;
         if (window <= TimeSpan.Zero) return; // non-positive TTL disables caching
+        if (options.Cache.MaxEntries <= 0) return; // so does a non-positive cap
         var now = _clock();
         await using var conn = await factory.OpenAsync(ct).ConfigureAwait(false);
         await conn.ExecuteAsync(new CommandDefinition(ResponseCacheSql.Set, new { key, json = ReflectionJson.Serialize(reply), expiresAt = window > DateTimeOffset.MaxValue - now ? DateTimeOffset.MaxValue : now + window, now }, cancellationToken: ct)).ConfigureAwait(false);
@@ -38,7 +39,7 @@ public sealed class SqliteResponseCache(IDbConnectionFactory factory, LyntaiOpti
         await conn.ExecuteAsync(new CommandDefinition("""
             DELETE FROM lyntai_response_cache WHERE cache_key IN (
                 SELECT cache_key FROM lyntai_response_cache ORDER BY created_at DESC, cache_key LIMIT -1 OFFSET @max)
-            """, new { max = Math.Max(1, options.Cache.MaxEntries) }, cancellationToken: ct)).ConfigureAwait(false);
+            """, new { max = options.Cache.MaxEntries }, cancellationToken: ct)).ConfigureAwait(false);
     }
 
     public async Task RemoveAsync(string key, CancellationToken ct = default)

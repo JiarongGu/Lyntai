@@ -52,6 +52,7 @@ internal sealed class FileSystemConversationStore(FileSystemRoot root, Func<Date
     public Task<ChatThread> CreateThreadAsync(string id, string? title = null, string? metadata = null, CancellationToken ct = default)
     {
         ArgumentNullException.ThrowIfNull(id);
+        (id, title, metadata) = (Utf8Text.Scrub(id)!, Utf8Text.Scrub(title), Utf8Text.Scrub(metadata));
         lock (_lock)
         {
             var threads = Threads();
@@ -75,6 +76,7 @@ internal sealed class FileSystemConversationStore(FileSystemRoot root, Func<Date
 
     public Task<ChatThread?> GetThreadAsync(string id, CancellationToken ct = default)
     {
+        id = Utf8Text.Scrub(id)!;
         lock (_lock) return Task.FromResult(Threads().TryGetValue(id, out var t) ? t.Value : null);
     }
 
@@ -90,6 +92,7 @@ internal sealed class FileSystemConversationStore(FileSystemRoot root, Func<Date
 
     public Task SetThreadMetadataAsync(string id, string? metadata, CancellationToken ct = default)
     {
+        (id, metadata) = (Utf8Text.Scrub(id)!, Utf8Text.Scrub(metadata));
         lock (_lock)
         {
             if (!Threads().TryGetValue(id, out var t)) return Task.CompletedTask;
@@ -105,6 +108,8 @@ internal sealed class FileSystemConversationStore(FileSystemRoot root, Func<Date
     {
         ArgumentNullException.ThrowIfNull(kind);
         ArgumentNullException.ThrowIfNull(payload);
+        (threadId, kind, payload, metadata) = (Utf8Text.Scrub(threadId)!, Utf8Text.Scrub(kind)!, Utf8Text.Scrub(payload)!,
+            Utf8Text.Scrub(metadata));
         lock (_lock)
         {
             // An event needs its thread, as the SQL backends' foreign key requires.
@@ -124,6 +129,7 @@ internal sealed class FileSystemConversationStore(FileSystemRoot root, Func<Date
 
     public Task<IReadOnlyList<ChatMessage>> GetMessagesAsync(string threadId, CancellationToken ct = default)
     {
+        threadId = Utf8Text.Scrub(threadId)!;
         lock (_lock)
         {
             IReadOnlyList<ChatMessage> messages = Threads().TryGetValue(threadId, out var t) ? [.. Messages(t)] : [];
@@ -133,6 +139,7 @@ internal sealed class FileSystemConversationStore(FileSystemRoot root, Func<Date
 
     public Task DeleteThreadAsync(string id, CancellationToken ct = default)
     {
+        id = Utf8Text.Scrub(id)!;
         lock (_lock)
         {
             if (Threads().TryGetValue(id, out var t))

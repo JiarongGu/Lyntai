@@ -10,7 +10,8 @@ public sealed class CacheOptions
     public TimeSpan Ttl { get; set; } = TimeSpan.FromHours(1);
 
     /// <summary>Soft cap on entries kept by the built-in in-memory cache — expired entries are evicted
-    /// first, then the oldest-inserted, once the count exceeds this. Default 1000.</summary>
+    /// first, then the oldest-inserted, once the count exceeds this. A non-positive value disables storing, as a
+    /// non-positive <see cref="Ttl"/> does, on every backend. Default 1000.</summary>
     public int MaxEntries { get; set; } = 1000;
 
     /// <summary>Isolate entries per <see cref="Lyntai.Inference.TextRequest.Consumer"/>: when true, the front door

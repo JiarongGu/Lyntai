@@ -73,7 +73,7 @@ public interface IConversationStore
 /// same way.</summary>
 public static class ChatThreads
 {
-    /// <summary>One page: newest first (created_at DESC, then id DESC byte-ordinally), strictly after
+    /// <summary>One page: newest first (created_at DESC, then id DESC by its UTF-8 bytes), strictly after
     /// <paramref name="after"/> when given, at most <paramref name="limit"/> — none for a non-positive one.</summary>
     /// <param name="threads">Every thread, in any order.</param>
     /// <param name="limit">The most to return.</param>
@@ -82,11 +82,11 @@ public static class ChatThreads
     {
         ArgumentNullException.ThrowIfNull(threads);
         if (limit <= 0) return [];
-        var q = threads.OrderByDescending(t => t.CreatedAt).ThenByDescending(t => t.Id, StringComparer.Ordinal)
+        var q = threads.OrderByDescending(t => t.CreatedAt).ThenByDescending(t => t.Id, Utf8Ordinal.Instance)
             .AsEnumerable();
         if (after is not null)
             q = q.Where(t => t.CreatedAt < after.CreatedAt
-                || (t.CreatedAt == after.CreatedAt && string.CompareOrdinal(t.Id, after.Id) < 0));
+                || (t.CreatedAt == after.CreatedAt && Utf8Ordinal.Instance.Compare(t.Id, after.Id) < 0));
         return [.. q.Take(limit)];
     }
 }

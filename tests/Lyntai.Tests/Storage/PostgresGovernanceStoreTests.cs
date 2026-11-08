@@ -63,6 +63,21 @@ public sealed class PostgresGovernanceStoreTests(PostgresFixture pg)
         await cache.RemoveAsync(c);
     }
 
+    [SkippableTheory]
+    [InlineData(0)]
+    [InlineData(-1)]
+    public async Task ResponseCache_with_a_non_positive_max_entries_caches_nothing(int cap)
+    {
+        Skip.IfNot(pg.Available, pg.InitError ?? "Postgres/Docker unavailable");
+        var options = new LyntaiOptions();
+        options.Cache.MaxEntries = cap;
+        var cache = new PostgresResponseCache(pg.Factory, options);
+        var key = Uid();
+        await cache.SetAsync(key, new TextResponse("a", ProviderVerdict.Ok));
+
+        Assert.Null(await cache.GetAsync(key));
+    }
+
     [SkippableFact]
     public async Task Semantic_memory_works_over_the_pgvector_store()
     {

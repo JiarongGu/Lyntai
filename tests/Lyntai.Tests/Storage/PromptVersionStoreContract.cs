@@ -8,6 +8,17 @@ namespace Lyntai.Tests.Storage;
 /// caller-supplied <paramref name="key"/> so the methods are safe on the shared Postgres container.</summary>
 public static class PromptVersionStoreContract
 {
+    /// <summary>A lone surrogate in a template is stored as U+FFFD on every backend, never refused and never returned
+    /// verbatim (the steward's ruling, <c>docs/DECISIONS.md</c> D262).</summary>
+    public static async Task A_lone_surrogate_is_stored_as_U_FFFD(IPromptVersionStore store, string key)
+    {
+        var name = key + "-cut";
+        await store.SaveAsync(name, "cut \uD83D", author: "al\uDE00");
+
+        var active = await store.GetActiveAsync(name);
+        Assert.Equal(("cut \uFFFD", "al\uFFFD"), (active!.Template, active.Author));
+    }
+
     public static async Task No_version_yet_returns_null_active_and_empty_history(IPromptVersionStore store, string key)
     {
         Assert.Null(await store.GetActiveAsync(key + "-greeting"));

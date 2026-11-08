@@ -40,8 +40,9 @@ internal sealed class FileSystemMemoryStore(FileSystemRoot root, LyntaiOptions o
             loaded.Add(held.Last().Entry);
         }
         var log = new MemoryEntryLog(options);
-        // past every numbered FILE too — one that did not parse still holds its number
-        log.Load(loaded, FileSystemRoot.MaxId(_directory, SearchOption.AllDirectories));
+        // past every numbered FILE too — one that did not parse still holds its number — and past the mark
+        // a removed entry leaves behind
+        log.Load(loaded, Math.Max(FileSystemRoot.MaxId(_directory, SearchOption.AllDirectories), root.ReadHighWater(_directory)));
         return _log = log;
     }
 
@@ -51,6 +52,8 @@ internal sealed class FileSystemMemoryStore(FileSystemRoot root, LyntaiOptions o
     // Written, then applied: a write that fails leaves the log as it was.
     private void WriteThenApply(MemoryEntryLog log, MemoryLogEntry e)
     {
+        // a new id is marked first: a failed write after it burns the number, never reissues one
+        if (e.Id >= log.NextId) root.WriteHighWater(_directory, e.Id);
         root.Write(FileOf(e), RecordFile.Write(new RecordHeader()
             .Add("id", e.Id).Add("task", e.TaskKey).Add("scope", e.Scope).Add("created", e.CreatedAt)
             .Add("accessed", e.LastAccessedAt).Add("expires", e.ExpiresAt), e.Content));

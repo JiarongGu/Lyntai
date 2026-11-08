@@ -16,6 +16,15 @@ namespace Lyntai.Tests.Storage;
 /// the shared Postgres container.</summary>
 public static class MemoryStoreContract
 {
+    /// <summary>A lone surrogate in a fact is stored as U+FFFD on every backend, never refused and never returned
+    /// verbatim (the steward's ruling, <c>docs/DECISIONS.md</c> D262).</summary>
+    public static async Task A_lone_surrogate_is_stored_as_U_FFFD(IMemoryStore store, string key)
+    {
+        await store.RememberAsync(key, "notes", "cut \uD83D");
+
+        Assert.Equal(["cut \uFFFD"], (await store.RecallAsync(key)).Select(m => m.Content));
+    }
+
     public static async Task Remember_then_recall_by_single_token_substring(IMemoryStore store, string key)
     {
         await store.RememberAsync(key, "prod", "the deploy pipeline requires manual approval");

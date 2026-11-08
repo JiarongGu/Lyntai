@@ -49,6 +49,7 @@ internal sealed class FileSystemPromptVersionStore(FileSystemRoot root, Func<Dat
 
     public Task<PromptVersion?> GetActiveAsync(string name, CancellationToken ct = default)
     {
+        name = Utf8Text.Scrub(name)!;
         lock (_lock)
         {
             var hit = Prompts().TryGetValue(name, out var p) ? p.Versions.FirstOrDefault(v => v.Version == p.Active) : null;
@@ -60,6 +61,7 @@ internal sealed class FileSystemPromptVersionStore(FileSystemRoot root, Func<Dat
     {
         ArgumentNullException.ThrowIfNull(name);
         ArgumentNullException.ThrowIfNull(template);
+        (name, template, author) = (Utf8Text.Scrub(name)!, Utf8Text.Scrub(template)!, Utf8Text.Scrub(author));
         lock (_lock)
         {
             var prompts = Prompts();
@@ -90,6 +92,7 @@ internal sealed class FileSystemPromptVersionStore(FileSystemRoot root, Func<Dat
 
     public Task<IReadOnlyList<PromptVersion>> HistoryAsync(string name, CancellationToken ct = default)
     {
+        name = Utf8Text.Scrub(name)!;
         lock (_lock)
         {
             IReadOnlyList<PromptVersion> history = Prompts().TryGetValue(name, out var p)
@@ -101,6 +104,7 @@ internal sealed class FileSystemPromptVersionStore(FileSystemRoot root, Func<Dat
 
     public Task<PromptVersion?> RollbackAsync(string name, int version, CancellationToken ct = default)
     {
+        name = Utf8Text.Scrub(name)!;
         lock (_lock)
         {
             if (!Prompts().TryGetValue(name, out var p)) return Task.FromResult<PromptVersion?>(null);

@@ -36,6 +36,7 @@ internal sealed class MemoryEntryLog(LyntaiOptions options)
     public (MemoryLogEntry Write, IReadOnlyList<long> Evicted) PlanRemember(string taskKey, string scope,
         string content, TimeSpan? ttl, DateTimeOffset now)
     {
+        (taskKey, scope, content) = (Utf8Text.Scrub(taskKey), Utf8Text.Scrub(scope), Utf8Text.Scrub(content));
         var policy = options.MemoryEviction;
         var effectiveTtl = ttl ?? policy.DefaultTtl; // a per-call ttl wins over the policy default
         var expiresAt = effectiveTtl is null ? (DateTimeOffset?)null : now + effectiveTtl.Value;
@@ -70,6 +71,7 @@ internal sealed class MemoryEntryLog(LyntaiOptions options)
     /// is 0 and it collapses to most recent first.</summary>
     public IReadOnlyList<MemoryLogEntry> Recall(string taskKey, string? scope, string? query, int? limit, DateTimeOffset now)
     {
+        (taskKey, scope, query) = (Utf8Text.Scrub(taskKey), Utf8Text.Scrub(scope), Utf8Text.Scrub(query));
         var asked = !string.IsNullOrWhiteSpace(query);
         var terms = asked ? SearchTerms.SubstringTerms(query) : [];
         return [.. _entries
@@ -87,11 +89,15 @@ internal sealed class MemoryEntryLog(LyntaiOptions options)
     public bool Touches(string? query) => options.MemoryEviction.TracksAccess && !string.IsNullOrWhiteSpace(query);
 
     public IReadOnlyList<long> ForgetIds(string taskKey, string? scope) =>
+        ForgetScrubbed(Utf8Text.Scrub(taskKey), Utf8Text.Scrub(scope));
+
+    private IReadOnlyList<long> ForgetScrubbed(string taskKey, string? scope) =>
         [.. _entries.Where(e => e.TaskKey == taskKey && (scope is null || e.Scope == scope)).Select(e => e.Id)];
 
     /// <summary>Expired entries, and those older than <paramref name="olderThan"/> — in one task, or all.</summary>
     public IReadOnlyList<long> PruneIds(string? taskKey, TimeSpan? olderThan, DateTimeOffset now)
     {
+        taskKey = Utf8Text.Scrub(taskKey);
         var cutoff = olderThan is null ? (DateTimeOffset?)null : now - olderThan.Value;
         return [.. _entries
             .Where(e => (taskKey is null || e.TaskKey == taskKey)

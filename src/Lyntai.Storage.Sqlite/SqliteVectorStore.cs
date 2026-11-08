@@ -19,6 +19,7 @@ public sealed class SqliteVectorStore(IDbConnectionFactory factory) : IListableV
 {
     public async Task UpsertAsync(string collection, string id, float[] vector, string payload, CancellationToken ct = default)
     {
+        FiniteVector.Require(vector);
         await using var conn = await factory.OpenAsync(ct).ConfigureAwait(false);
         await conn.ExecuteAsync(new CommandDefinition("""
             INSERT INTO lyntai_vector (collection, vec_id, vector, vector_blob, payload)
