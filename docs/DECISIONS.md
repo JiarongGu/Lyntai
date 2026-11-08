@@ -346,8 +346,9 @@ new decision overturns an old one, rewrite the old entry as a stub pointing here
 | [D274](#d274--a-prompt-override-that-fails-renders-the-default-never-the-next-layer-2026-11-09) | 2026-11-09 | a prompt override that fails renders the default, never the next layer |
 | [D275](#d275--every-conversation-enricher-runs-then-the-fault-is-rethrown-2026-11-09) | 2026-11-09 | every conversation enricher runs, then the fault is rethrown |
 | [D276](#d276--a-traces-ordinal-fallback-stays-per-step-and-the-doc-says-two-steps-can-share-one-2026-11-09) | 2026-11-09 | a trace's ordinal fallback stays per step, and the doc says two steps can share one |
+| [D277](#d277--a-corrupt-tokenizer_configjson-keeps-the-defaults-and-a-corrupt-tokenizerjson-is-invaliddataexception-2026-11-09) | 2026-11-09 | a corrupt `tokenizer_config.json` keeps the defaults, and a corrupt `tokenizer.json` is `InvalidD… |
 
-**271 live decisions.** The rest are stubs — `D<n>` is a permanent identifier, so a number is never reused or renumbered (5): [D36](#d36--a-translation-between-two-verdict-taxonomies-gets-one-arm-per-member-gated-by-a-test-2026-08-05) → D136 · [D80](#d80--merged-into-d77-2026-08-16-folded-2026-08-17) → D77 · [D131](#d131--a-backends-produces-is-derived-from-its-configuration-so-a-modality-is-a-field-2026-09-14) → D133 · [D134](#d134--a-registration-names-the-backend-the-provider-suffix-is-gone-from-all-seventeen-2026-09-14) → D137 · [D145](#d145--the-microsoftextensionsai-module-is-a-bridge-not-a-provider-2026-09-15) → D146
+**272 live decisions.** The rest are stubs — `D<n>` is a permanent identifier, so a number is never reused or renumbered (5): [D36](#d36--a-translation-between-two-verdict-taxonomies-gets-one-arm-per-member-gated-by-a-test-2026-08-05) → D136 · [D80](#d80--merged-into-d77-2026-08-16-folded-2026-08-17) → D77 · [D131](#d131--a-backends-produces-is-derived-from-its-configuration-so-a-modality-is-a-field-2026-09-14) → D133 · [D134](#d134--a-registration-names-the-backend-the-provider-suffix-is-gone-from-all-seventeen-2026-09-14) → D137 · [D145](#d145--the-microsoftextensionsai-module-is-a-bridge-not-a-provider-2026-09-15) → D146
 
 <!-- index:end -->
 
@@ -7718,3 +7719,15 @@ recall and its write-back is already a silent skip).
 **Rejected.** All-or-nothing per trace (a recorded `Sequence` of 0 for the first step would turn the whole trace into positions).
 
 **Re-opens** when a recorder is shown to emit a partial set.
+
+## D277 — a corrupt `tokenizer_config.json` keeps the defaults, and a corrupt `tokenizer.json` is `InvalidDataException` (2026-11-09)
+
+**Standing.** A ruling on `TASKS.md` Part 499's seventh row, **the steward's under the owner's delegation, which the owner may reverse** — not the owner's words. Built, and frozen from release (**D70**).
+
+**Decided.** `TokenizerRules` keeps the reference defaults for a `tokenizer_config.json` that is not JSON or whose root is not an object, as **D269** keeps a default for an absent or unreadable file. `TokenizerJson.Read` raises `InvalidDataException`, as its doc promises, for an invalid regex (an `ArgumentException`), a null vocabulary piece and a null Metaspace `replacement`, which were `RegexParseException` and `NullReferenceException` before.
+
+**Why.** The config is optional and a hand-assembled directory often has none, so a corrupt one reads as an absent one. A `tokenizer.json` carries the ids a model was built against, so a corrupt one must fail, and as the one type a caller catches.
+
+**Rejected.** Refusing a corrupt `tokenizer_config.json` (it would refuse a model that loads today, on a file the loader treats as optional). Catching `NullReferenceException` (a null guard names the fault).
+
+**Re-opens** when a corrupt config is shown to produce wrong vectors on a model that needs a non-default rule.

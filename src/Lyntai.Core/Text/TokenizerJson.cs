@@ -33,7 +33,7 @@ internal static class TokenizerJson
             throw new InvalidDataException($"The tokenizer.json is not valid JSON: {e.Message}", e);
         }
         catch (Exception e) when (e is InvalidOperationException or KeyNotFoundException or FormatException
-                                      or IndexOutOfRangeException)
+                                      or IndexOutOfRangeException or ArgumentException)
         {
             throw new InvalidDataException($"The tokenizer.json is not shaped as one: {e.Message}", e);
         }
@@ -80,7 +80,7 @@ internal static class TokenizerJson
         var vocabulary = node.GetProperty("vocab");
         var entries = new List<(string Piece, double Score)>(vocabulary.GetArrayLength());
         foreach (var entry in vocabulary.EnumerateArray())
-            entries.Add((entry[0].GetString()!, entry[1].GetDouble()));
+            entries.Add((RequiredPiece(entry[0]), entry[1].GetDouble()));
 
         // without one, a character no piece covers has no id, and the text would silently vanish
         if (!node.TryGetProperty("unk_id", out var unknown) || unknown.ValueKind != JsonValueKind.Number
@@ -151,6 +151,11 @@ internal static class TokenizerJson
             ? value.GetString()!
             : throw new InvalidDataException($"The tokenizer.json has no string '{name}' where one is required.");
 
+    private static string RequiredPiece(JsonElement piece) =>
+        piece.ValueKind == JsonValueKind.String
+            ? piece.GetString()!
+            : throw new InvalidDataException("The tokenizer.json's vocabulary holds a piece that is not a string.");
+
     private static SentencePiecePreTokenizer PreTokenizer(JsonElement? node) =>
         node is { } pre ? SentencePiecePreTokenizer.Of(Steps(pre)) : SentencePiecePreTokenizer.None;
 
@@ -173,7 +178,7 @@ internal static class TokenizerJson
     /// <c>add_prefix_space: false</c> is valid only beside <c>never</c>, and <c>split</c> defaults to true.</summary>
     private static Func<string, IEnumerable<string>> Metaspace(JsonElement node)
     {
-        var replacement = node.GetProperty("replacement").GetString()!;
+        var replacement = RequiredString(node, "replacement");
         if (replacement.Length != 1) throw Unsupported($"a Metaspace replacement '{replacement}'", "needs one UTF-16 character");
 
         var scheme = node.TryGetProperty("prepend_scheme", out var declared) ? declared.GetString()! : "always";

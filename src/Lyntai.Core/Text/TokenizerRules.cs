@@ -26,8 +26,8 @@ internal sealed record TokenizerRules(
     private static readonly TokenizerRules Defaults = new(true, null, true, "[UNK]", "[CLS]", "[SEP]");
 
     /// <summary>Read <c>tokenizer_config.json</c> from <paramref name="directory"/>, falling back to
-    /// <see cref="Defaults"/> when it is absent or unreadable — a missing config is the common case for a
-    /// hand-assembled model directory and is not worth refusing to load over.</summary>
+    /// <see cref="Defaults"/> when it is absent, not JSON, or not a JSON object — a missing config is the
+    /// common case for a hand-assembled model directory and is not worth refusing to load over.</summary>
     public static TokenizerRules FromDirectory(string directory)
     {
         var path = Path.Combine(directory, "tokenizer_config.json");
@@ -37,6 +37,7 @@ internal sealed record TokenizerRules(
         {
             using var config = JsonDocument.Parse(File.ReadAllBytes(path));
             var root = config.RootElement;
+            if (root.ValueKind != JsonValueKind.Object) return Defaults;
             return new TokenizerRules(
                 Flag(root, "do_lower_case") ?? Defaults.Lowercase,
                 Flag(root, "strip_accents"),
