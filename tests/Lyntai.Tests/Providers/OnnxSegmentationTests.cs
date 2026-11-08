@@ -597,6 +597,19 @@ public class OnnxWindowedHeadTests
     }
 
     [Fact]
+    public void A_segmented_vector_is_unit_length_whatever_the_head_would_have_left_it_when_normalize_is_false()
+    {
+        // the head here is given raw rows far from unit length (the pooling head with normalize: false leaves
+        // them so): a segmented text's vector is a direction, a short text's keeps its scale
+        var vectors = OnnxPoolingHead.Embed(WindowedTokenizerTests.Windows(16, WindowedTokenizerTests.Segment),
+            [WindowedTokenizerTests.River(9), "the city is old."],
+            rows => [.. rows.Select((_, r) => new float[] { 30f + r, 40f, 0f })]);
+
+        Assert.Equal(1.0, Math.Sqrt(vectors[0].Sum(x => (double)x * x)), 1e-6);
+        Assert.True(Math.Sqrt(vectors[1].Sum(x => (double)x * x)) > 40.0);
+    }
+
+    [Fact]
     public void A_text_within_the_window_keeps_its_vector_EXACTLY_as_the_head_computed_it()
     {
         var vectors = OnnxPoolingHead.Embed(WindowedTokenizerTests.Windows(16, WindowedTokenizerTests.Segment),
@@ -628,19 +641,41 @@ public class OnnxWindowedHeadTests
     [Theory]
     [InlineData(false)]
     [InlineData(true)]
-    public void An_unsegmented_call_is_ONE_pass_however_many_inputs_it_holds(bool segment)
+    public void An_unsegmented_call_runs_in_passes_of_at_most_the_ceiling_and_pairs_every_row(bool segment)
     {
-        var texts = Enumerable.Repeat("the city is old.", 3 * WindowedBatch.MinPassRows).ToArray();
+        // the graph's output for a pass is rows x tokens x hidden floats, copied once: an unbounded pass is
+        // a call's own size in memory
+        string[] shapes = ["the city is old.", "the city.", "the old city is old and old."];
+        var texts = Enumerable.Range(0, (2 * WindowedBatch.MaxPassRows) + 5).Select(i => shapes[i % shapes.Length]).ToArray();
         var embedPasses = new List<int>();
         var scorePasses = new List<int>();
         var windows = WindowedTokenizerTests.Windows(32, segment ? WindowedTokenizerTests.Segment : null);
 
-        OnnxPoolingHead.Embed(windows, texts, rows => { embedPasses.Add(rows.Length); return ByContent(rows); });
-        OnnxCrossEncoderHead.Score(windows, WindowedTokenizerTests.Query, texts,
-            rows => { scorePasses.Add(rows.Length); return new double[rows.Length]; });
+        var vectors = OnnxPoolingHead.Embed(windows, texts, rows => { embedPasses.Add(rows.Length); return ByContent(rows); });
+        var scores = OnnxCrossEncoderHead.Score(windows, WindowedTokenizerTests.Query, texts,
+            rows => { scorePasses.Add(rows.Length); return [.. rows.Select(r => (double)r.Ids.Length)]; });
 
-        Assert.Equal([texts.Length], embedPasses);
-        Assert.Equal([texts.Length], scorePasses);
+        Assert.Equal(texts.Length, embedPasses.Sum());
+        Assert.Equal(texts.Length, scorePasses.Sum());
+        Assert.All(embedPasses, rows => Assert.InRange(rows, 1, WindowedBatch.MaxPassRows));
+        Assert.All(scorePasses, rows => Assert.InRange(rows, 1, WindowedBatch.MaxPassRows));
+        Assert.True(embedPasses.Count >= 3 && scorePasses.Count >= 3);
+        for (var i = 0; i < texts.Length; i++)
+        {
+            Assert.Equal(ByContent([WindowedTokenizerTests.Tokenizer.Encode(texts[i], 32)])[0], vectors[i]);
+            Assert.Equal(WindowedTokenizerTests.Tokenizer.Encode(WindowedTokenizerTests.Query, texts[i], 32).Ids.Length, scores[i]);
+        }
+    }
+
+    [Fact]
+    public void A_call_within_the_ceiling_is_one_pass()
+    {
+        var texts = Enumerable.Repeat("the city is old.", 3 * WindowedBatch.MinPassRows).ToArray();
+        var passes = new List<int>();
+
+        OnnxPoolingHead.Embed(WindowedTokenizerTests.Windows(32, null), texts, rows => { passes.Add(rows.Length); return ByContent(rows); });
+
+        Assert.Equal([texts.Length], passes);
     }
 
     [Fact]

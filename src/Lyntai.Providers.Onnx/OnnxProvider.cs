@@ -79,7 +79,10 @@ public sealed class OnnxProvider : IVectorProvider, IScoreProvider, IDisposable
     /// <exception cref="FileNotFoundException">No ONNX graph, or no tokenizer file — named individually,
     /// because a partial download is the common case and its unguarded symptom is far away.</exception>
     /// <exception cref="InvalidDataException">The <c>tokenizer.json</c> declares a pipeline
-    /// <see cref="SentencePieceTokenizer"/> does not run — the message names the component.</exception>
+    /// <see cref="SentencePieceTokenizer"/> does not run — the message names the component; or, for an
+    /// embedder with no explicit <see cref="OnnxProviderOptions.Pooling"/>, <c>1_Pooling/config.json</c> declares
+    /// a last-token, max or weighted-mean pooling or <c>modules.json</c> lists a module past the pooling other
+    /// than <c>Normalize</c> (a <c>Dense</c> layer), which would otherwise be mean-pooled.</exception>
     /// <exception cref="InvalidOperationException">The graph has no output the configured head can
     /// read — for a cross-encoder, one that cannot carry one score per pair.</exception>
     public static OnnxProvider FromDirectory(string directory, OnnxProviderOptions? options = null)
@@ -95,7 +98,8 @@ public sealed class OnnxProvider : IVectorProvider, IScoreProvider, IDisposable
 
         // One reader for both heads: a cross-encoder wants only the position limit, but
         // `max_position_embeddings` lives in the same config.json and one reader cannot drift.
-        var config = SentenceTransformerConfig.FromDirectory(directory);
+        // an unsupported pooling or module is refused unless the caller states the pooling, or no pooling runs
+        var config = SentenceTransformerConfig.FromDirectory(directory, refuseUnsupported: !scores && options.Pooling is null);
 
         var windows = new WindowedTokenizer(
             tokenizer, boundaries, options.MaxTokens ?? config.MaxTokens, options.Segmentation);

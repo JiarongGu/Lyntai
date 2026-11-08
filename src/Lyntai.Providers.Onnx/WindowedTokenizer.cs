@@ -13,17 +13,22 @@ internal sealed record WindowedBatch(TokenEncoding[] Rows, int[] First, int[] We
     /// <summary>The most rows a forward pass holds when a call has fewer inputs than this.</summary>
     public const int MinPassRows = 8;
 
+    /// <summary>The most rows any forward pass holds, whatever a call's size: a pass's output is
+    /// rows × tokens × hidden floats, copied once, so 128 rows of 512 tokens at hidden size 1024 is about a
+    /// gigabyte at most.</summary>
+    public const int MaxPassRows = 128;
+
     /// <summary>Whether input <paramref name="i"/> ran past the window, and so took several rows.</summary>
     public bool IsSegmented(int i) => First[i + 1] - First[i] > 1;
 
     /// <summary>Every row through <paramref name="forward"/>, in passes of at most
-    /// <c>max(<see cref="MinPassRows"/>, inputs)</c> rows, the answers concatenated in row order. A call with
-    /// no segmented input is therefore ONE pass, the one it would be unsegmented, and segmenting never makes a
-    /// pass larger than that bound.</summary>
+    /// <c>min(<see cref="MaxPassRows"/>, max(<see cref="MinPassRows"/>, inputs))</c> rows, the answers concatenated in
+    /// row order. A call with no segmented input and no more inputs than the ceiling is therefore ONE pass, and
+    /// no pass is larger than the ceiling.</summary>
     /// <param name="forward">The graph: one answer per row it is fed, in order.</param>
     public T[] Forward<T>(Func<TokenEncoding[], T[]> forward)
     {
-        var size = Math.Max(MinPassRows, First.Length - 1);
+        var size = Math.Min(MaxPassRows, Math.Max(MinPassRows, First.Length - 1));
         if (Rows.Length <= size) return forward(Rows);
         var answers = new List<T>(Rows.Length);
         for (var at = 0; at < Rows.Length; at += size)

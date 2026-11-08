@@ -22,12 +22,17 @@ public sealed class OnnxProviderOptions
     public string Id { get; set; } = "onnx";
 
     /// <summary>Pooling mode. Null reads <c>1_Pooling/config.json</c>, defaulting to
-    /// <see cref="OnnxPooling.Mean"/> when the model ships none.</summary>
+    /// <see cref="OnnxPooling.Mean"/> when the model ships none, and REFUSES an export that declares a pooling
+    /// (last-token, max, weighted mean) or a module (<c>Dense</c>) this reader does not run — set it to run such
+    /// an export with the pooling you choose.</summary>
     public OnnxPooling? Pooling { get; set; }
 
     /// <summary>Whether to L2-normalize each vector. Null reads <c>modules.json</c> for a <c>Normalize</c>
     /// module. <b>It does not change cosine RANKING</b>, which is scale-invariant — it matters when a
-    /// consumer compares by dot product or stores vectors for something that assumes unit length.</summary>
+    /// consumer compares by dot product or stores vectors for something that assumes unit length.
+    /// <para><b>A text that <see cref="Segmentation"/> split is a direction only</b>: its vector is always unit
+    /// length, as the weighted mean of its windows' directions, so with this false a long text and a short one
+    /// differ in scale. Cosine is unaffected; a dot-product or L2 consumer should set this to true.</para></summary>
     public bool? Normalize { get; set; }
 
     /// <summary>Maximum sequence length INCLUDING the special tokens (<c>[CLS]</c>/<c>[SEP]</c>, or XLM-R's
@@ -53,7 +58,7 @@ public sealed class OnnxProviderOptions
     /// scores a document as its BEST window, and an embedder returns its windows' unit vectors averaged by
     /// token count and re-normalised. A text that fits is answered exactly as without the record; a longer
     /// one is a row per window, and rows run in passes of at most eight or the call's input count, whichever
-    /// is more.</item>
+    /// is more, and never more than 128 — which bounds a call that is not segmented too.</item>
     /// <item><see cref="InputOverflow.Truncate"/> cuts it at the window, as null does.</item>
     /// </list>
     /// <para><b>With a record in either mode, a cross-encoder query keeps at most
