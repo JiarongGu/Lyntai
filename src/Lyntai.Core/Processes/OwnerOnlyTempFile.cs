@@ -1,3 +1,5 @@
+using System.Text;
+
 namespace Lyntai.Processes;
 
 /// <summary>A temp file for a spawned CLI's configuration that may carry a credential — a bearer token, a
@@ -9,12 +11,15 @@ public static class OwnerOnlyTempFile
 {
     /// <summary>Write <paramref name="content"/> to a fresh file, <c>lyntai-{kind}-{guid}.json</c> in the
     /// temp directory, and return its path. The caller deletes it (<see cref="TryDelete"/>) when the spawn
-    /// that reads it ends.</summary>
+    /// that reads it ends. A write that fails (a full disk) removes the partial file and rethrows, so no path
+    /// is left for a caller that never received it.</summary>
     /// <param name="kind">A short tag for the file name, e.g. <c>mcp</c>.</param>
     /// <param name="content">The file's full content.</param>
     /// <exception cref="ArgumentException"><paramref name="kind"/> is empty or is not a plain file-name
     /// fragment.</exception>
-    public static string Write(string kind, string content)
+    public static string Write(string kind, string content) => Write(kind, content, new UTF8Encoding(false));
+
+    internal static string Write(string kind, string content, Encoding encoding)
     {
         ArgumentException.ThrowIfNullOrEmpty(kind);
         ArgumentNullException.ThrowIfNull(content);
@@ -25,15 +30,24 @@ public static class OwnerOnlyTempFile
         var options = new FileStreamOptions { Mode = FileMode.CreateNew, Access = FileAccess.Write };
         if (!OperatingSystem.IsWindows())
             options.UnixCreateMode = UnixFileMode.UserRead | UnixFileMode.UserWrite;
-        using var writer = new StreamWriter(new FileStream(path, options));
-        writer.Write(content);
+        try
+        {
+            using var writer = new StreamWriter(new FileStream(path, options), encoding);
+            writer.Write(content);
+        }
+        catch
+        {
+            // The path never reaches the caller, so nobody else can delete the partial file.
+            TryDelete(path);
+            throw;
+        }
         return path;
     }
 
-    /// <summary>Delete a file <see cref="Write"/> produced, never throwing for an IO or access failure:
+    /// <summary>Delete a file <see cref="Write(string, string)"/> produced, never throwing for an IO or access failure:
     /// cleanup runs on the way out of a spawn, including a failed one, and a lingering temp file must not
     /// replace the caller's result with an exception.</summary>
-    /// <param name="path">The path <see cref="Write"/> returned.</param>
+    /// <param name="path">The path <see cref="Write(string, string)"/> returned.</param>
     public static void TryDelete(string path)
     {
         try

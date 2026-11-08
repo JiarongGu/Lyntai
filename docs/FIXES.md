@@ -7,6 +7,20 @@ to `.agents/knowledge/pitfalls.md`; the release-facing line goes to `CHANGELOG.m
 
 ---
 
+## 2026-11-09 — a credential temp file survived a failed write
+
+**Symptom.** None reported; filed by the 2026-11-09 pools review (`docs/task-archive.md` Part 508) as `TASKS.md` Part 500's one startable row. `OwnerOnlyTempFile.Write` created the owner-only file, then a write failing past that point (a full disk) threw with the half-written credential file on disk.
+
+**Root cause.** The file is created before the content is written, and the path is returned only after, so a throw in between left a file no caller knew the name of, the one party that deletes it.
+
+**Fix.** The write sits in a `try`; a `catch` calls `TryDelete` on the path and rethrows. An internal overload takes the encoding so a test can make the write fail without an OS-specific trick.
+
+**Verify.** `A_write_that_fails_leaves_no_file_behind` (a strict UTF-8 encoding refusing a lone surrogate) failed with the `catch` removed, leaving `lyntai-fail…` in the temp directory, and passes with it; the other `OwnerOnlyTempFileTests`, the API surface and the two callers' tests pass.
+
+**Introduced by.** Not traced to a commit.
+
+---
+
 ## 2026-11-09 — a never-idle pool threw or evicted everything, an empty stream "completed", a cancel after a render lost its spend, and five smaller faults
 
 **Symptom.** None reported; found by the 2026-11-09 review of the provider pools and the media and embedding routing (`docs/task-archive.md` Part 508) and read against the code. `IdleTimeout = TimeSpan.MaxValue` made every `GetOrAdd` throw and `Timeout.InfiniteTimeSpan` retired every entry on every access; a media backend whose only chunk was a terminal one was a successful empty stream; a caller's cancel landing after a hosted render returned left the spend off a ledger that honours its token; a stated recovery date at the calendar's edge threw out of the failure classifier; a backend answering fewer vectors than texts was indexed past; an empty `Uri` string defeated the attachment's neither-data-nor-uri check; a refused pool instance was built and never disposed; a null or `Ok`-with-no-artifacts media response was accepted or threw a `NullReferenceException`.

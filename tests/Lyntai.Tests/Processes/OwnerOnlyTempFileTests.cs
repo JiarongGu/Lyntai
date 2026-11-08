@@ -1,3 +1,4 @@
+using System.Text;
 using Lyntai.Processes;
 
 namespace Lyntai.Tests.Processes;
@@ -23,6 +24,17 @@ public class OwnerOnlyTempFileTests
             OwnerOnlyTempFile.TryDelete(path);
         }
         Assert.False(File.Exists(path));
+    }
+
+    [Fact]
+    public void A_write_that_fails_leaves_no_file_behind()
+    {
+        var kind = $"fail{Guid.NewGuid():N}";
+        var strict = new UTF8Encoding(encoderShouldEmitUTF8Identifier: false, throwOnInvalidBytes: true);
+
+        Assert.ThrowsAny<EncoderFallbackException>(() => OwnerOnlyTempFile.Write(kind, "\ud800", strict));
+
+        Assert.Empty(Directory.GetFiles(Path.GetTempPath(), $"lyntai-{kind}-*"));
     }
 
     [Fact]
