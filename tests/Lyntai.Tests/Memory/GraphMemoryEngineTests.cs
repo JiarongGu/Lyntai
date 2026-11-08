@@ -186,16 +186,26 @@ public class GraphMemoryEngineTests
     {
         // a rarely-used engine must not decay like a busy one — the reason the position is per engine and
         // advances only on writes
-        var quiet = Engine();
+        // both engines share ONE store and hold the same fact, so the only thing that can differ is each
+        // engine's own write position
+        var store = new InMemoryMemoryGraphStore();
+        GraphMemoryEngine Named(string name) =>
+            new(name, store, seams: new GraphMemorySeams { AgePolicies = [new PerWriteAgePolicy()] });
+        var quiet = Named("quiet/graph");
+        var busy = Named("busy/graph");
         await quiet.RememberAsync(new MemoryWrite("t", "s", "an undisturbed fact"));
+        await busy.RememberAsync(new MemoryWrite("t", "s", "an undisturbed fact"));
 
-        var busy = Engine();
         await Crowd(busy, 500);
 
-        var recall = await quiet.RecallAsync(new MemoryQuery("t", "s", "undisturbed"));
+        var quietRecall = await quiet.RecallAsync(new MemoryQuery("t", "s", "undisturbed"));
+        var busyRecall = await busy.RecallAsync(new MemoryQuery("t", "s", "undisturbed"));
 
-        Assert.Single(recall.Items);
-        Assert.Equal(1.0, recall.Items[0].Retrievability, precision: 6);
+        Assert.Single(quietRecall.Items);
+        Assert.Equal(1.0, quietRecall.Items[0].Retrievability, precision: 6);
+        // control: the written-to engine DID age the same fact, so the quiet one's 1.0 is its own position
+        Assert.Single(busyRecall.Items);
+        Assert.True(busyRecall.Items[0].Retrievability < 0.5, $"busy retrievability {busyRecall.Items[0].Retrievability:F4}");
     }
 
     [Fact]

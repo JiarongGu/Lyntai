@@ -42,12 +42,18 @@ public class ProviderKeyTests
     }
 
     [Fact]
-    public void The_secret_never_appears_in_the_key()
+    public void The_key_is_a_digest_that_carries_no_input_text_a_secret_included()
     {
+        // The whole fingerprint is hashed, so this holds for EVERY contribution, not for the secret alone:
+        // WithSecret's own hashing is what keeps the secret out of the builder, which no key reveals.
         var key = Key("https://api.example.invalid/v1", "sk-super-secret");
 
-        Assert.DoesNotContain("sk-super-secret", key.Fingerprint, StringComparison.Ordinal);
-        Assert.DoesNotContain("sk-super-secret", key.ToString(), StringComparison.Ordinal);
+        Assert.Matches("^[0-9A-F]{64}$", key.Fingerprint);
+        foreach (var input in new[] { "sk-super-secret", "https://api.example.invalid/v1", "dall-e-3" })
+        {
+            Assert.DoesNotContain(input, key.Fingerprint, StringComparison.Ordinal);
+            Assert.DoesNotContain(input, key.ToString(), StringComparison.Ordinal);
+        }
     }
 
     [Fact]

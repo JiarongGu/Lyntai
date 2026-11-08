@@ -126,6 +126,19 @@ public class OutcomeSignalTests
         // real rows. The zeroed curve columns are a legal state too, for a review of a brand-new entry.
         // Every candidate discriminator is a convention the schema does not carry.
         Assert.All(rows, r => Assert.False(r.Verified));
-        Assert.Equal(rows[0].Verified, rows[1].Verified);
+        Assert.NotEqual(rows[0].ReviewGrade, rows[1].ReviewGrade);   // the rows differ, so equal Verified is not two copies of one row
+
+        // and the claim that Verified is the ONLY column left to carry it: every other column of a review row is
+        // identity, provenance or curve state
+        string[] curveOrIdentity =
+        [
+            nameof(MemoryReview.Id), nameof(MemoryReview.Engine), nameof(MemoryReview.NodeId), nameof(MemoryReview.BatchId),
+            nameof(MemoryReview.CreatedAt), nameof(MemoryReview.ProvenanceRetrievability), nameof(MemoryReview.ReviewGrade),
+        ];
+        var rest = typeof(MemoryReview).GetProperties().Select(x => x.Name)
+            .Where(n => !curveOrIdentity.Contains(n) && !n.StartsWith("Pre", StringComparison.Ordinal)
+                && !n.StartsWith("Post", StringComparison.Ordinal))
+            .Where(n => n != "EqualityContract");
+        Assert.Equal([nameof(MemoryReview.Verified)], rest);
     }
 }

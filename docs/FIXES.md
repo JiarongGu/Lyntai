@@ -7,6 +7,20 @@ to `.agents/knowledge/pitfalls.md`; the release-facing line goes to `CHANGELOG.m
 
 ---
 
+## 2026-11-08 — a composition's answer was applied unclamped, a throwing salience composition failed the write, and a traced stream recorded under the scope ambient when it was read
+
+**Symptom.** None reported; found by reading the retention modulation, the write path and the call-tracing decorator. `ModulatedRetrievability` clamped each retention policy's factor and not the one the composition returned, so a BYO `IMemoryRetentionCompositionPolicy` answering NaN, below 1 or above the declared product was applied as it stood (a NaN `CandidateCutoff` empties every candidate set; an excess breaks the cutoff's superset claim the deleting prune relies on). `GraphMemoryEngine.CollectSignals` isolated a throwing salience policy and not a throwing composition, so one threw out of `RememberAsync`. `TracingTextClient` read `TextCallTracing.Current` in its iterator, so a stream made inside `Into` and read after the scope ended traced under a fresh recorder, and one made outside a scope and read inside one landed on that scope's recorder.
+
+**Root cause.** A seam's own output was trusted where its inputs were not; and an async iterator's body, the ambient read included, runs at the first `MoveNext`, not at the call. The outermost layer, `CallSpanTextClient`, was itself an iterator, so even a decorator that read the scope in its own `StreamAsync` was first called at the first read.
+
+**Fix.** The composed factor is held to `[1, the declared product]`, a non-finite answer as 1, in the constructor and per entry. A throwing salience composition logs and stores the write with no signals. `TracingTextClient.StreamAsync` reads the scope when called and passes it down; `CallSpanTextClient.StreamAsync` calls the inner stream when it is called and wraps the result in its iterator.
+
+**Verify.** `A_composed_factor_that_is_not_finite_or_is_below_one_widens_and_applies_nothing` (four values), `A_composed_factor_above_the_declared_product_is_held_to_it` and `A_composition_that_throws_costs_the_signals_and_never_the_write` failed with the two memory sources reverted and pass with them; the two stream-scope facts in `TextCallTracingTests` failed before the tracing and call-span change.
+
+**Introduced by.** Not traced to a commit for each.
+
+---
+
 ## 2026-11-08 — an emoji in a CJK query was cut in half, a NaN salience erased a real one, a tiny rate limit threw after taking a permit, and one failed resolution turned tracing off
 
 **Symptom.** None reported; found by reading the streaming, rate-limit, tracing and memory-policy code. `SearchTerms` slid its window by UTF-16 unit, so `我今天很开心😀你好吗` produced grams ending or starting inside the emoji, a lone surrogate that a store never matches (SQLite) or refuses (Npgsql, believed, not run). `MaximalSalienceCompositionPolicy` took `Math.Max`, so one policy's NaN beat another's 3.0 and the write stored a salience that reads as 1. `TokenBucketRateLimiter` threw `OverflowException` or `ArgumentException` from `TimeSpan.FromSeconds` for a rate below about 1e-13 or a NaN rate, after the permit was taken, and a NaN rate left the bucket's count NaN for good. `TracingTextClient` kept the first failed resolution of the trace service in its `Lazy` and traced nothing afterwards.

@@ -171,15 +171,21 @@ public class MemoryConfirmationTests
     }
 
     [Fact]
-    public void The_confirmation_code_runs_no_process_and_opens_no_connection()
+    public void The_two_confirmation_source_files_name_no_process_or_network_type()
     {
-        // the library stores text and an instant and ends nothing by age; running the check is the host's
+        // a WORD scan of these two files, not a proof about what the code does: the library stores text and an
+        // instant and ends nothing by age; running the check is the host's
+        string[] forbidden = ["Process", "HttpClient", "Socket", "WebRequest"];
+        static bool Names(string source, string[] words) => words.Any(w => source.Contains(w, StringComparison.Ordinal));
+        Assert.True(Names("var p = System.Diagnostics.Process.Start(command);", forbidden));   // the scan can fail
+        Assert.False(Names("var verdict = await check(text);", forbidden));
+
         var root = RepoRoot();
         foreach (var file in new[] { "src/Lyntai.Core/Memory/MemoryConfirmation.cs", "src/Lyntai.Core/Memory/MemoryChangeGate.cs" })
         {
             var source = File.ReadAllText(Path.Combine(root, file));
-            foreach (var forbidden in new[] { "Process", "HttpClient", "Socket", "WebRequest" })
-                Assert.DoesNotContain(forbidden, source, StringComparison.Ordinal);
+            Assert.True(source.Length > 1000, $"{file} is missing or empty, so there was nothing to scan");
+            Assert.False(Names(source, forbidden), $"{file} names one of: {string.Join(", ", forbidden)}");
         }
     }
 

@@ -37,6 +37,10 @@ every addition.
 
 ### Changed
 
+- **A composed retention factor is held to what the policies declared, a throwing salience composition no longer fails a write, and a traced stream records under the scope ambient when it was called.**
+  `ModulatedRetrievability` now clamps the factor a BYO `IMemoryRetentionCompositionPolicy` returns to `[1, the product of the declared maxima]` (non-finite as 1), as it already did each policy's.
+  A salience composition that throws stores the write with no signals instead of throwing from `RememberAsync`. A stream made inside `TextCallTracing.Into` records on that recorder wherever it is read,
+  and one made outside a scope never lands on a recorder the reader happens to have open.
 - **Curated memory: kinds order by UTF-8 byte on the in-memory and file stores, a Postgres curated update no longer writes back a stale field, and a Postgres recall of two-character words finds every row holding one.**
   `ICuratedMemoryStore` documents a byte-ordinal kind order, which SQLite and Postgres kept and the in-memory and file stores broke for a kind past U+FFFF. An unchecked Postgres
   `UpdateAsync` now locks the row it reads, so a concurrent edit of another field is not overwritten. A Postgres `RecallAsync`, `SearchAsync` or graph `SeedAsync` whose query has no index-friendly

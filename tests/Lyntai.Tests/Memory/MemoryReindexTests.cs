@@ -89,8 +89,12 @@ public class MemoryReindexTests
         rig.Provider.Model = 2;
         Assert.Equal(new MemoryReindexResult(2, 0), await rig.Engine.ReindexAsync("t", "s1"));
 
-        Assert.All(await VectorsAsync(rig, "t", "s1"), v => Assert.Equal(2f, v.Vector[0]));
-        Assert.All(await VectorsAsync(rig, "t", "s2"), v => Assert.Equal(1f, v.Vector[0]));
+        var reindexed = (await VectorsAsync(rig, "t", "s1")).ToList();
+        var untouched = (await VectorsAsync(rig, "t", "s2")).ToList();
+        Assert.Equal(2, reindexed.Count);                                              // an empty list would pass Assert.All
+        Assert.Equal(2, untouched.Count);
+        Assert.All(reindexed, v => Assert.Equal(2f, v.Vector[0]));
+        Assert.All(untouched, v => Assert.Equal(1f, v.Vector[0]));
     }
 
     [Fact]

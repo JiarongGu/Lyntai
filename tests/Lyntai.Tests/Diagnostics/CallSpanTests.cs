@@ -171,24 +171,38 @@ public class CallSpanTests
         Assert.NotNull(call.GetTagItem("error.type"));
     }
 
-    [Fact]
-    public async Task No_span_records_the_body()
+    // every field a span carries, tags and events and status, as text
+    private static IEnumerable<string> Carried(Activity span) =>
+        span.TagObjects.Select(t => t.Value?.ToString() ?? "")
+            .Concat(span.Events.SelectMany(e => e.Tags.Select(t => t.Value?.ToString() ?? "").Append(e.Name)))
+            .Append(span.DisplayName).Append(span.StatusDescription ?? "");
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task No_span_records_the_body(bool streamed)
     {
+        var consumer = streamed ? "span-body-stream" : "span-body";
         var spans = new List<Activity>();
         using var listener = SpanListener(spans);
         ActivitySource.AddActivityListener(listener);
 
-        var p = new FakeTextProvider("cs-body");
+        var p = new FakeTextProvider(streamed ? "cs-body-stream" : "cs-body");
         p.Replies.Enqueue(new TextResponse(Answer, ProviderVerdict.Ok));
+        p.StreamScript = _ => [TextChunk.Content(Answer), TextChunk.Final()];
         using var sp = FrontDoor(p);
+        var client = sp.GetRequiredService<ITextClient>();
 
-        await sp.GetRequiredService<ITextClient>().CompleteAsync(Req("span-body"));
+        if (streamed) await foreach (var _ in client.StreamAsync(Req(consumer))) { }
+        else await client.CompleteAsync(Req(consumer));
 
-        var call = CallSpan(spans, "span-body");
-        foreach (var span in AttemptsUnder(spans, call).Append(call))
-            Assert.All(span.TagObjects, tag =>
+        var call = CallSpan(spans, consumer);
+        var attempts = AttemptsUnder(spans, call);
+        Assert.NotEmpty(attempts);                                                     // the scan below reaches the attempt spans
+        Assert.NotEmpty(Carried(call));
+        foreach (var span in attempts.Append(call))
+            Assert.All(Carried(span), value =>
             {
-                var value = tag.Value?.ToString() ?? "";
                 Assert.DoesNotContain(Prompt, value);
                 Assert.DoesNotContain(Answer, value);
             });

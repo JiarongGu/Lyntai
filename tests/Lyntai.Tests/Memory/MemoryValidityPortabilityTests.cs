@@ -46,12 +46,13 @@ public class MemoryValidityPortabilityTests
 
     /// <summary>Paris from January superseded by Berlin from March; Lyon, February to March, written last; and one
     /// untimed fact.</summary>
-    private static async Task SeedAsync(GraphMemoryEngine engine)
+    private static async Task<(MemoryRef Paris, MemoryRef Bicycle)> SeedAsync(GraphMemoryEngine engine)
     {
         var paris = (await engine.RememberAsync(Fact("s", "lives in Paris", from: Jan))).Reference;
         await engine.RememberAsync(Fact("s", "lives in Berlin", from: Mar, supersedes: paris));
         await engine.RememberAsync(Fact("s", "lives in Lyon", from: Feb, to: Mar));
-        await engine.RememberAsync(new MemoryWrite("t", "s", "owns a bicycle"));
+        var bicycle = (await engine.RememberAsync(new MemoryWrite("t", "s", "owns a bicycle"))).Reference;
+        return (paris, bicycle);
     }
 
     private static async Task<string> ExportAsync(IPortableMemory engine, string? scope = "s")
@@ -112,7 +113,8 @@ public class MemoryValidityPortabilityTests
     public async Task Only_a_line_that_carries_valid_time_is_written_at_the_newer_format_version()
     {
         var engine = Engine(new InMemoryMemoryGraphStore());
-        await SeedAsync(engine);
+        var (paris, bicycle) = await SeedAsync(engine);
+        await engine.LinkAsync(paris, bicycle, weight: 2);
 
         var lines = Lines(await ExportAsync(engine));
 
@@ -130,7 +132,9 @@ public class MemoryValidityPortabilityTests
         Assert.Equal(Mar, byContent["lives in Lyon"].GetProperty("validTo").GetDateTimeOffset());
         var berlinId = byContent["lives in Berlin"].GetProperty("id").GetInt64();
         Assert.Equal(berlinId, byContent["lives in Paris"].GetProperty("supersededBy").GetInt64());
-        Assert.All(lines.Where(l => l.GetProperty("record").GetString() == "link"), l => Assert.Equal(1, l.GetProperty("v").GetInt32()));
+        var links = lines.Where(l => l.GetProperty("record").GetString() == "link").ToList();
+        Assert.NotEmpty(links);                                                        // the check below is not vacuous
+        Assert.All(links, l => Assert.Equal(1, l.GetProperty("v").GetInt32()));
     }
 
     [Fact]
@@ -142,6 +146,7 @@ public class MemoryValidityPortabilityTests
 
         var lines = Lines(await ExportAsync(engine));
 
+        Assert.Equal(2, lines.Count(l => l.GetProperty("record").GetString() == "graph"));   // both entries were exported
         Assert.All(lines, l => Assert.Equal(1, l.GetProperty("v").GetInt32()));
         string[] added = ["validFrom", "validTo", "supersededAt", "supersededBy"];
         Assert.All(lines, l => Assert.All(added, name => Assert.False(l.TryGetProperty(name, out _), name)));

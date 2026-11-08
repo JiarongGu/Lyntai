@@ -148,10 +148,16 @@ public class MemoryProvenanceTests
     /// (to reuse it, or by an unrelated enum edit that shifted it onto <c>Dsr</c>'s own bit) without anyone
     /// reading the retirement comment on the member itself.</summary>
     [Fact]
-    public void Every_shipped_and_retired_bit_remains_individually_valid() =>
+    public void Every_shipped_and_retired_bit_remains_individually_valid()
+    {
+        long[] bits = [(long)MemoryRetrievabilityProvenance.HalfLife, (long)MemoryRetrievabilityProvenance.Dsr];
+
+        // stated here rather than left to the validator, whose own refusals are pinned beside this fact
+        Assert.All(bits, bit => Assert.Equal(1, System.Numerics.BitOperations.PopCount((ulong)bit)));
+        Assert.NotEqual(bits[0], bits[1]);
         MemoryProvenance.ValidateProvenanceBits(
-            [(long)MemoryRetrievabilityProvenance.HalfLife, (long)MemoryRetrievabilityProvenance.Dsr],
-            i => i == 0 ? "HalfLifeRetrievability (retired)" : "DsrRetrievability");
+            bits, i => i == 0 ? "HalfLifeRetrievability (retired)" : "DsrRetrievability");
+    }
 
     [Fact]
     public void A_bit_of_zero_None_is_rejected()
