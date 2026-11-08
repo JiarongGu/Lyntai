@@ -51,6 +51,19 @@ public class SqliteGovernanceStoreTests : IDisposable
         Assert.NotNull(await cache.GetAsync("c"));
     }
 
+    [Theory]
+    [InlineData(0)]
+    [InlineData(-1)]
+    public async Task ResponseCache_with_a_non_positive_max_entries_caches_nothing(int cap)
+    {
+        var options = new LyntaiOptions();
+        options.Cache.MaxEntries = cap;
+        var cache = new SqliteResponseCache(_db.Factory, options);
+        await cache.SetAsync("a", new TextResponse("a", ProviderVerdict.Ok));
+
+        Assert.Null(await cache.GetAsync("a"));
+    }
+
     // ---- usage tracker -------------------------------------------------------------------------------
 
     // ---- vector store --------------------------------------------------------------------------------

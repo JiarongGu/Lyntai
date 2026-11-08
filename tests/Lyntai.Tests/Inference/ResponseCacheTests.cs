@@ -214,6 +214,16 @@ public class ResponseCacheTests
         Assert.NotNull(await cache.GetAsync("c"));
     }
 
+    [Theory]
+    [InlineData(0)]
+    [InlineData(-1)]
+    public async Task A_non_positive_size_cap_means_no_cache(int cap)
+    {
+        var (cache, _) = NewCache(c => c.MaxEntries = cap);
+        await cache.SetAsync("a", new TextResponse("a", ProviderVerdict.Ok));
+        Assert.Null(await cache.GetAsync("a"));
+    }
+
     // ---- decorator -----------------------------------------------------------------------------------
 
     private static (CachingTextClient client, FakeTextClient inner) Decorated()
