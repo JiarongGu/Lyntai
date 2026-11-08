@@ -343,8 +343,9 @@ new decision overturns an old one, rewrite the old entry as a stub pointing here
 | [D271](#d271--a-score-outside-0-to-1-is-skipped-with-a-warning-as-a-non-finite-one-is-2026-11-09) | 2026-11-09 | a score outside 0 to 1 is skipped with a warning, as a non-finite one is |
 | [D272](#d272--a-throwing-iscorerapplies-stays-surfaced-2026-11-09) | 2026-11-09 | a throwing `IScorer.Applies` stays surfaced |
 | [D273](#d273--judgeagreementcompare-keeps-10-for-two-empty-series-and-refuses-a-non-finite-score-2026-11-09) | 2026-11-09 | `JudgeAgreement.Compare` keeps 1.0 for two empty series and refuses a non-finite score |
+| [D274](#d274--a-prompt-override-that-fails-renders-the-default-never-the-next-layer-2026-11-09) | 2026-11-09 | a prompt override that fails renders the default, never the next layer |
 
-**268 live decisions.** The rest are stubs — `D<n>` is a permanent identifier, so a number is never reused or renumbered (5): [D36](#d36--a-translation-between-two-verdict-taxonomies-gets-one-arm-per-member-gated-by-a-test-2026-08-05) → D136 · [D80](#d80--merged-into-d77-2026-08-16-folded-2026-08-17) → D77 · [D131](#d131--a-backends-produces-is-derived-from-its-configuration-so-a-modality-is-a-field-2026-09-14) → D133 · [D134](#d134--a-registration-names-the-backend-the-provider-suffix-is-gone-from-all-seventeen-2026-09-14) → D137 · [D145](#d145--the-microsoftextensionsai-module-is-a-bridge-not-a-provider-2026-09-15) → D146
+**269 live decisions.** The rest are stubs — `D<n>` is a permanent identifier, so a number is never reused or renumbered (5): [D36](#d36--a-translation-between-two-verdict-taxonomies-gets-one-arm-per-member-gated-by-a-test-2026-08-05) → D136 · [D80](#d80--merged-into-d77-2026-08-16-folded-2026-08-17) → D77 · [D131](#d131--a-backends-produces-is-derived-from-its-configuration-so-a-modality-is-a-field-2026-09-14) → D133 · [D134](#d134--a-registration-names-the-backend-the-provider-suffix-is-gone-from-all-seventeen-2026-09-14) → D137 · [D145](#d145--the-microsoftextensionsai-module-is-a-bridge-not-a-provider-2026-09-15) → D146
 
 <!-- index:end -->
 
@@ -7679,3 +7680,15 @@ recall and its write-back is already a silent skip).
 **Rejected.** NaN for the empty rate (it poisons an average over reports). A nullable rate: `ExactAgreementRate` is a public record's type, so changing it stays the owner's.
 
 **Re-opens** when a dashboard needs "no data" distinguished from "perfect" without reading `Count`, which needs the nullable rate.
+
+## D274 — a prompt override that fails renders the default, never the next layer (2026-11-09)
+
+**Standing.** A ruling on `TASKS.md` Part 499's fourth row, **the steward's under the owner's delegation, which the owner may reverse** — not the owner's words. Behaviour unchanged; the type doc says it and a test pins it.
+
+**Decided.** The active `IPromptVersionStore` revision, when present, is the only override considered: if it is rejected for a dropped placeholder, or the version store fails, `PromptRegistry` renders the default and does not fall through to the key-value override.
+
+**Why.** A rejected version is an author's intent that failed validation, and rendering an older key-value text in its place would show a prompt nobody chose last; a store outage already means "the default".
+
+**Rejected.** Trying each layer on its own (a stale key-value text could silently replace a rolled-forward version).
+
+**Re-opens** when an application wants a versioned override to fall back to its key-value one, which is a per-registry option.

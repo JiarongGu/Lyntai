@@ -59,6 +59,21 @@ public class PromptRegistryVersioningTests : IDisposable
     }
 
     [Fact]
+    public async Task A_rejected_active_version_renders_the_default_not_the_key_value_override()
+    {
+        var versions = new SqlitePromptVersionStore(_db.Factory);
+        var kv = new InMemoryKeyValueStore();
+        await kv.SetAsync(PromptRegistry.DefaultKeyPrefix + "summary", "KV: {input} in {lang}");
+        var registry = new PromptRegistry(kv, versions);
+        await versions.SaveAsync("summary", "TL;DR of {input}");   // drops {lang}: rejected
+
+        var rendered = await registry.RenderAsync("summary", "Summarize {input} in {lang}.",
+            new Dictionary<string, string> { ["input"] = "x", ["lang"] = "en" });
+
+        Assert.Equal("Summarize x in en.", rendered);
+    }
+
+    [Fact]
     public async Task A_rejected_version_is_named_as_a_version_not_as_a_key_value_key()
     {
         var versions = new SqlitePromptVersionStore(_db.Factory);
