@@ -328,8 +328,9 @@ new decision overturns an old one, rewrite the old entry as a stub pointing here
 | [D256](#d256--a-native-tool-loop-turn-executes-at-most-toolloopmaxcallsperturn-calls-and-answers-the-rest-with-an-error-2026-11-08) | 2026-11-08 | a native tool-loop turn executes at most `ToolLoopMaxCallsPerTurn` calls and answers the rest wit… |
 | [D257](#d257--a-stream-does-not-deliver-a-clis-own-error-line-as-content-a-failure-with-no-message-is-still-a-failure-and-an-mcp-servers-url-is-http-or-https-2026-11-08) | 2026-11-08 | a stream does not deliver a CLI's own error line as content, a failure with no message is still a… |
 | [D258](#d258--a-negative-count-or-cost-on-a-backends-wire-reads-as-no-figure-2026-11-08) | 2026-11-08 | a negative count or cost on a backend's wire reads as no figure |
+| [D259](#d259--a-prune-that-empties-a-scope-drops-its-vector-collection-which-releases-the-vector-space-that-stamped-it-2026-11-08) | 2026-11-08 | a prune that empties a scope drops its vector collection, which releases the vector space that st… |
 
-**253 live decisions.** The rest are stubs — `D<n>` is a permanent identifier, so a number is never reused or renumbered (5): [D36](#d36--a-translation-between-two-verdict-taxonomies-gets-one-arm-per-member-gated-by-a-test-2026-08-05) → D136 · [D80](#d80--merged-into-d77-2026-08-16-folded-2026-08-17) → D77 · [D131](#d131--a-backends-produces-is-derived-from-its-configuration-so-a-modality-is-a-field-2026-09-14) → D133 · [D134](#d134--a-registration-names-the-backend-the-provider-suffix-is-gone-from-all-seventeen-2026-09-14) → D137 · [D145](#d145--the-microsoftextensionsai-module-is-a-bridge-not-a-provider-2026-09-15) → D146
+**254 live decisions.** The rest are stubs — `D<n>` is a permanent identifier, so a number is never reused or renumbered (5): [D36](#d36--a-translation-between-two-verdict-taxonomies-gets-one-arm-per-member-gated-by-a-test-2026-08-05) → D136 · [D80](#d80--merged-into-d77-2026-08-16-folded-2026-08-17) → D77 · [D131](#d131--a-backends-produces-is-derived-from-its-configuration-so-a-modality-is-a-field-2026-09-14) → D133 · [D134](#d134--a-registration-names-the-backend-the-provider-suffix-is-gone-from-all-seventeen-2026-09-14) → D137 · [D145](#d145--the-microsoftextensionsai-module-is-a-bridge-not-a-provider-2026-09-15) → D146
 
 <!-- index:end -->
 
@@ -7463,3 +7464,22 @@ host set. A usage figure is telemetry on an answer already paid for, so the repl
 `UsageFinal` event is a fact other layers read before any tracker does).
 
 **Re-opens** when a backend is measured sending a negative count that means something, such as a correction to an earlier tick.
+
+## D259 — a prune that empties a scope drops its vector collection, which releases the vector space that stamped it (2026-11-08)
+
+**Standing.** Rules on the first row of the memory graph and vector stores review (`docs/task-archive.md` Part 489). Built, and frozen from release (**D70**).
+
+**Decided.** After `GraphMemoryEngine.PruneAsync` has deleted the pruned entries' vectors, each collection no surviving entry of the pruned set lives in is removed whole, on
+both prune paths. The engine already holds the scope's survivors (the store path reads them to find what was removed, the derivable path to choose it), so no new read is paid.
+The removal goes through `IVectorStore.RemoveCollectionAsync`, which **D199**'s wrapper already answers by deleting the stamp, so a host's own store needs nothing new.
+
+**Why.** A stamp outlived the vectors it described. After a prune emptied a scope and the declared space changed, the next write was refused by the stamp, and the engine's
+index step swallowed the refusal, so every entry of the scope was stored with no vector until a re-embed. An empty scope has no node a vector could belong to, so anything in the
+collection is an orphan and dropping it loses nothing.
+
+**Rejected.** A count on `IVectorStore` so `DeleteAsync` can release an emptied stamp (a frozen public interface gains a member for one caller, **D70**). A probe search in the
+wrapper's `DeleteAsync` (a query vector of one dimension against a collection of another is not portable, and the wrapper cannot build one that is). Releasing the stamp and keeping
+the collection (an orphan of the old space would then be read as the new one, since an unstamped collection is adopted, **D199**).
+
+**Re-opens** when a write racing a prune must not lose its vector: one landing between the survivor read and the removal is stored with no vector until a re-embed, the same
+degradation an orphan gets.

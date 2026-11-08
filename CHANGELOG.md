@@ -38,10 +38,13 @@ every addition.
 ### Changed
 
 - **A CLI's own error line is no longer streamed as the answer, a failure with no message is still a failure, and an MCP server's URL must be http or https** (**D257**).
-- **A negative token count on a backend's wire reads as 0 and a negative cost as absent** (**D258**), so a usage tracker's recorded spend never goes down.
   A Claude assistant line carrying `error` (the login prompt) was delivered as content before the `is_error` result ended the stream, so the router could not fall back; it now
   waits for the result. A backend `Failure` event with an empty message returned the partial text `Ok` buffered and `Error` streamed; both paths now fail it. A non-zero exit
   with an empty stderr quotes the stdout tail. An `Http` agent MCP server whose URL parses as a file URI (a path) ends the turn `mcp-server-invalid` instead of registering nothing.
+- **A negative token count on a backend's wire reads as 0 and a negative cost as absent** (**D258**), so a usage tracker's recorded spend never goes down.
+- **A prune that empties a scope releases its vector collection, so a changed vector space can index the scope again** (**D259**). A graph engine's prune removed each
+  pruned entry's vector but left the collection and its space stamp, so after the declared space changed, the next write into the emptied scope was refused by the stamp and
+  stored with no vector. The collection is now dropped whole when no entry of the scope survives the prune.
 
 - **A recall reinforces only what it returned, a zero character budget keeps the first item, and a history recall links no ended entry** (**D255**).
   An entry the budget cut was reinforced and logged as if returned; a budget of zero meant unbounded on a recall and the entry alone on

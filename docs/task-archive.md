@@ -6949,3 +6949,10 @@ lines the doors' own tests pin. Landed in `08b41270`; the row stayed open in `TA
 
 - `WireJson.Long`, `Int64` and `Finite` (D258)
 - the five tests in `WireNumberToleranceTests`: HTTP, Claude result, agent final usage, Codex envelope, a nullable count
+
+## Part 501 — `TASKS.md` Part 493's emptied vector collection (2026-11-08)
+
+✅ done 2026-11-08 — **Outcome:** the four `TASKS.md` blockers were re-checked first and none had cleared (no `hf_` token, no aggregator, no labels, the nine tests unrecurred; Docker down), Parts 492 and 494 were already closed and the roadmap holds nothing startable. Part 493's first row was filed as wanting an `IVectorStore` member; it needs none: the engine's prune already holds the scope's survivors, so it drops a collection no survivor lives in, which also removes the stamp. Ruled and built test-first as **D259**. **A host sees:** after a prune empties a scope, a changed declared vector space indexes that scope again instead of storing its entries with no vector. Part 493's keyed-link row stays open: it wants the Postgres suite. Not run: the Postgres leg (Docker down). Lane `memory`.
+
+- `GraphVectorProjection.RemoveAsync` and both prune paths of `GraphMemoryEngine` (D259)
+- the four cases in `VectorSpaceTests`: an emptied scope releases its space, and a scope left an entry keeps it, each on the derivable and the store path

@@ -121,6 +121,48 @@ public class VectorSpaceTests
             .UpsertAsync(MemoryVectorCollection.For("project/graph", "t", "s"), "99", Probe, "stale"));
     }
 
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task A_prune_that_empties_a_scope_releases_its_space_so_a_new_space_can_write_it(bool derivable)
+    {
+        var now = DateTimeOffset.UtcNow;
+        var store = new InMemoryMemoryGraphStore(() => now);
+        var inner = new InMemoryVectorStore();
+        var before = GraphOver(store, Guard(inner, "model-a"), () => now, derivable);
+        await before.RememberAsync(new MemoryWrite("t", "s", "the recovery key is written on the blue card"));
+
+        now += TimeSpan.FromDays(2);
+        var after = GraphOver(store, Guard(inner, "model-b"), () => now, derivable);
+        Assert.Equal(1, await after.PruneAsync("t", "s", olderThan: TimeSpan.FromDays(1)));
+
+        var written = await after.RememberAsync(new MemoryWrite("t", "s", "the door code is four digits"));
+        Assert.True(written.Ran.HasFlag(MemorySources.Similarity));   // the new space indexes it, rather than a mismatch swallowed
+        var collection = MemoryVectorCollection.For("project/graph", "t", "s");
+        Assert.Single(await Guard(inner, "model-b").SearchAsync(collection, Probe, 10));
+    }
+
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task A_prune_that_leaves_a_scope_an_entry_keeps_its_space(bool derivable)
+    {
+        var now = DateTimeOffset.UtcNow;
+        var store = new InMemoryMemoryGraphStore(() => now);
+        var inner = new InMemoryVectorStore();
+        var engine = GraphOver(store, Guard(inner, "model-a"), () => now, derivable);
+        await engine.RememberAsync(new MemoryWrite("t", "s", "the recovery key is written on the blue card"));
+        now += TimeSpan.FromDays(2);
+        await engine.RememberAsync(new MemoryWrite("t", "s", "the door code is four digits"));
+
+        Assert.Equal(1, await engine.PruneAsync("t", "s", olderThan: TimeSpan.FromDays(1)));
+
+        var collection = MemoryVectorCollection.For("project/graph", "t", "s");
+        Assert.Single(await Guard(inner, "model-a").SearchAsync(collection, Probe, 10));
+        await Assert.ThrowsAsync<InvalidOperationException>(
+            () => Guard(inner, "model-b").UpsertAsync(collection, "99", Probe, "other"));
+    }
+
     [Fact]
     public void UseVectorSpace_wraps_the_registered_store()
     {
@@ -173,6 +215,17 @@ public class VectorSpaceTests
             AgePolicies = [new PerWriteAgePolicy()],
             Providers = [new FakeVectorProvider()],
             Vectors = vectors,
+        });
+
+    // derivable: a PerWrite policy, so a prune evaluates ages in the engine; otherwise the store's own cheap path runs
+    private static GraphMemoryEngine GraphOver(IMemoryGraphStore store, IVectorStore vectors,
+        Func<DateTimeOffset> clock, bool derivable) =>
+        new("project/graph", store, seams: new GraphMemorySeams
+        {
+            AgePolicies = derivable ? [new PerWriteAgePolicy()] : [],
+            Providers = [new FakeVectorProvider()],
+            Vectors = vectors,
+            Clock = clock,
         });
 
     /// <summary>A store that can read back but cannot list its collections.</summary>
