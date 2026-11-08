@@ -247,7 +247,8 @@ public sealed class AgentBriefComposer
         var flat = sb.ToString();
         if (Characters(flat) <= limit) return flat;
         var cut = 0;
-        for (var n = 0; n < limit; n++) cut += char.IsHighSurrogate(flat[cut]) && cut + 1 < flat.Length ? 2 : 1;
+        for (var n = 0; n < limit; n++)
+            cut += char.IsHighSurrogate(flat[cut]) && cut + 1 < flat.Length && char.IsLowSurrogate(flat[cut + 1]) ? 2 : 1;
         return flat[..cut] + "…";
     }
 

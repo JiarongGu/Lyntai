@@ -55,6 +55,8 @@ internal static class StreamJsonParser
 
     private static StreamJsonEvent ParseAssistant(JsonElement root)
     {
+        // a subagent's line names the call that spawned it; its words are not this turn's answer
+        if (WireJson.String(root, "parent_tool_use_id") is not null) return new StreamJsonEvent(StreamJsonEventKind.Other);
         if (WireJson.Object(root, "message") is not { } msg || WireJson.Array(msg, "content") is not { } content)
             return new StreamJsonEvent(StreamJsonEventKind.Other);
 

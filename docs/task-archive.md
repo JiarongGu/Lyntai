@@ -6921,3 +6921,10 @@ lines the doors' own tests pin. Landed in `08b41270`; the row stayed open in `TA
 
 - the weights built into a local, `Dispose` on the gate, a disposed call's verdict
 - the live dispose-during-generation test and a model-free after-dispose test
+
+## Part 497 — a design review of the one-shot CLI providers, the usage source and the hand-over brief, and the faults of them that were certain and small (2026-11-08)
+
+✅ done 2026-11-08 — **Outcome:** the four `TASKS.md` blockers were re-checked first and none had cleared (no `hf_` token, no aggregator, no labels, the nine tests unrecurred; Docker down), every row of `TASKS.md` Parts 493 and 494 waits on a ruling that adds a public member or wants the Postgres suite, and the roadmap holds nothing startable, so the piece taken was a design review of the one area no earlier review read: two read-only reviews (`CliProviderEngine` with the Claude one-shot provider; the Codex one-shot provider with the usage source, the builders and the hand-over brief), each finding read against the code, and every fix written test-first with the test failing before. **Fixed:** a subagent's assistant text was a one-shot call's answer; `AgentBriefComposer.Brief` threw on a lone high surrogate; a negated `codex login status` sentence read as signed in; an offset-less Claude reset stamp read in the host's zone; a usage reading ignored the container's `TimeProvider`. The rest is `TASKS.md` Part 495: eleven rows, ten `decision-only` and one blocked on a Unix run. The review's claims for the rows are from reading, not run. `docs/FIXES.md` 2026-11-08 has the causes. No decision; no public member. Lanes `inference` and `platform`.
+
+- the two reviews; the eleven rows
+- the subagent line, the surrogate cut, the signed-in marker, the offset-less stamp and the usage clock

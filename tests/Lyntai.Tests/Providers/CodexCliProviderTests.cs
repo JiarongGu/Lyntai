@@ -314,6 +314,16 @@ public class CodexCliProviderTests
         Assert.Null(CodexAuthStatusText.Parse(line));
     }
 
+    // a negation the parser does not list must not read as signed in: "logged in" inside a sentence is not the line
+    [Theory]
+    [InlineData("You are not currently logged in")]
+    [InlineData("You aren't logged in")]
+    [InlineData("No longer logged in")]
+    public void An_unlisted_negation_never_reads_as_signed_in(string line)
+    {
+        Assert.NotEqual(true, CodexAuthStatusText.Parse(line)?.Authenticated);
+    }
+
     [Fact]
     public async Task Login_refuses_the_options_this_backend_does_not_have_without_spawning()
     {

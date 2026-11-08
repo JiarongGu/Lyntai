@@ -14,7 +14,8 @@ namespace Lyntai.Providers.CodexCli;
 /// JSON.
 ///
 /// Conservative by construction: an explicit negative marker means signed out, an explicit positive marker
-/// means signed in, and anything else returns <c>null</c> — "unknown". The engine then reports
+/// (one that STARTS a line, since "logged in" inside a sentence may be negated) means signed in, and anything
+/// else returns <c>null</c> — "unknown". The engine then reports
 /// <c>Authenticated: false</c> with the CLI's own words in the detail, so an unrecognized wording can never
 /// be mistaken for a signed-in state.</summary>
 internal static partial class CodexAuthStatusText
@@ -38,7 +39,7 @@ internal static partial class CodexAuthStatusText
     [GeneratedRegex(@"not\s+(?:logged\s+in|signed\s+in|authenticated)|logged\s+out|no\s+credentials", RegexOptions.IgnoreCase)]
     private static partial Regex SignedOutPattern();
 
-    [GeneratedRegex(@"logged\s+in|signed\s+in|authenticated\s+(?:as|with|using)", RegexOptions.IgnoreCase)]
+    [GeneratedRegex(@"^\s*(?:logged\s+in|signed\s+in|authenticated\s+(?:as|with|using))", RegexOptions.IgnoreCase | RegexOptions.Multiline)]
     private static partial Regex SignedInPattern();
 
     /// <summary>How it is signed in, when the line names a mechanism (an API key vs. an account).</summary>

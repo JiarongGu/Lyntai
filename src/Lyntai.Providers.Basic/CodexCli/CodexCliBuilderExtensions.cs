@@ -90,7 +90,7 @@ public static class CodexCliBuilderExtensions
             new AgentProvider(CodexAgentDoor.Describe(id, agent), _ => sp.GetRequiredKeyedService<IAgentSession>(id)),
             new CliUsageSource(new CodexUsageDialect(id), sp.GetRequiredService<IProcessRunner>(),
                 sp.GetService<AgentUsageReadingOptions>(), sp.GetService<ILogger<CliUsageSource>>(), command, environment,
-                agent: agent)));
+                sp.GetService<TimeProvider>(), agent)));
         builder.Services.AddSingleton<IAgentSession>(sp => CreateSession(sp, command, environment));
         builder.Services.AddKeyedSingleton<IAgentSession>(id, (sp, _) => CreateSession(sp, command, environment));
         return builder;

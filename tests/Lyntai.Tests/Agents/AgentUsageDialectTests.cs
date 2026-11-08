@@ -43,6 +43,18 @@ public class AgentUsageDialectTests
         Assert.False(reading.HasRoom);
     }
 
+    // a stamp with no offset is read as UTC, not as the host's local time (the captures all carry +00:00)
+    [Fact]
+    public void Claude_a_reset_with_no_offset_is_read_as_utc()
+    {
+        const string line = """{"type":"control_response","response":{"subtype":"success","request_id":"usage","response":{"rate_limits_available":true,"rate_limits":{"seven_day":{"utilization":79,"resets_at":"2026-10-15T09:30:00"}}}}}""";
+
+        var reading = Claude.Read([line], Now);
+
+        Assert.True(reading.IsKnown);
+        Assert.Equal(new DateTimeOffset(2026, 10, 15, 9, 30, 0, TimeSpan.Zero), reading.Windows[0].ResetsAt);
+    }
+
     [Fact]
     public void Claude_signed_out_real_capture_reads_unknown_not_reported()
     {

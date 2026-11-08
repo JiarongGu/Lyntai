@@ -204,7 +204,7 @@ internal sealed partial class ClaudeUsageDialect(string providerId) : IUsageDial
         value = null;
         if (!parent.TryGetProperty(name, out var el) || el.ValueKind == JsonValueKind.Null) return true;
         if (el.ValueKind != JsonValueKind.String
-            || !DateTimeOffset.TryParse(el.GetString(), CultureInfo.InvariantCulture, DateTimeStyles.None, out var moment))
+            || !DateTimeOffset.TryParse(el.GetString(), CultureInfo.InvariantCulture, DateTimeStyles.AssumeUniversal, out var moment))
             return false;
         value = moment;
         return true;

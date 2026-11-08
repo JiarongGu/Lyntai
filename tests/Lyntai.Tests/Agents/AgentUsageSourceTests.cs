@@ -624,6 +624,25 @@ public class AgentUsageSourceTests
         Assert.Equal(0, lifted); // nothing was held; the point is that the reading's two fields are the report's two inputs
     }
 
+    // the pool lifts a hold only for a reading measured after it, so both must read the container's clock
+    [Theory, MemberData(nameof(Doors))]
+    public async Task A_reading_is_stamped_by_the_clock_the_container_registers(Door door)
+    {
+        var clock = new ManualTimeProvider(new DateTimeOffset(2031, 1, 2, 3, 4, 5, TimeSpan.Zero));
+        var services = new ServiceCollection();
+        services.AddSingleton<IProcessRunner>(Runner(door));
+        services.AddSingleton<TimeProvider>(clock);
+        services.AddLyntai(b => b
+            .UseInMemoryStorage()
+            .AddClaudeCliAgentSession(command: "claude").AddCodexCliAgentSession(command: "codex")
+            .AddAgentUsageReading());
+        await using var sp = services.BuildServiceProvider();
+
+        var reading = await Source(sp, door).ReadAllowanceAsync(Account(door.ProviderId));
+
+        Assert.Equal(clock.GetUtcNow(), reading.MeasuredAt);
+    }
+
     [Theory, MemberData(nameof(Doors))]
     public void The_default_timeout_is_bounded_and_a_bad_one_is_refused_where_it_is_set(Door door)
     {

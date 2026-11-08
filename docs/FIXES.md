@@ -7,6 +7,20 @@ to `.agents/knowledge/pitfalls.md`; the release-facing line goes to `CHANGELOG.m
 
 ---
 
+## 2026-11-08 — a subagent's words were the one-shot answer, a lone surrogate threw out of a hand-over brief, a negated codex login read as signed in, and two clocks disagreed
+
+**Symptom.** None reported; found by reading the one-shot CLI providers and the brief composer, each reproduced here. A `claude` one-shot call whose model spawns a subagent took the subagent's assistant text as the streamed answer (and as the buffered text when `result` was empty). `AgentBriefComposer.Brief` threw `IndexOutOfRangeException` for a tool name of 31 lone high surrogates followed by `x`. `codex login status` text of `You are not currently logged in` read as `Authenticated: true`. A reset stamp with no offset shifted by the host's offset (+11 on this machine). A usage reading was stamped by the system clock where the pool beside it used the container's.
+
+**Root cause.** `StreamJsonParser.ParseAssistant` never read `parent_tool_use_id`, which `StreamJsonAgentReader` has read since the agent door met the same subagent; `Flatten` stepped two code units over any high surrogate while `Characters` counted a pair only when a low one follows, so the cut index ran past the string; `SignedInPattern` matched `logged in` anywhere and the negative list named only `not logged in`; `Moment` parsed with `DateTimeStyles.None`; the two builders passed `CliUsageSource` no `TimeProvider`.
+
+**Fix.** The parser reads a line with a named parent as `Other`; `Flatten` steps over a pair only when it is one; a signed-in marker must start a line, so any other wording is unknown and reports not authenticated; a stamp with no offset is read as UTC; both builders pass the container's `TimeProvider`.
+
+**Verify.** `A_subagents_assistant_text_is_not_the_answer`, `A_name_of_lone_surrogates_is_cut_without_throwing`, `An_unlisted_negation_never_reads_as_signed_in` (three cases), `Claude_a_reset_with_no_offset_is_read_as_utc` and `A_reading_is_stamped_by_the_clock_the_container_registers` (both doors) each failed before the change. The offset test fails only on a host whose zone is not UTC.
+
+**Introduced by.** Not traced to a commit for each.
+
+---
+
 ## 2026-11-08 — `LlamaSharpProvider` could leak its weights on a failed build, and `Dispose` freed the model under a running generation
 
 **Symptom.** None reported; found by reading the provider. A throw building the `StatelessExecutor` left the weights loaded on the field, so the next call loaded a second copy over it; `Dispose` freed the executor and weights while `InferAsync` ran, and the stream's `finally` then released a disposed semaphore.
