@@ -91,6 +91,13 @@ internal static class MemoryPortableFormat
     public static string? String(JsonElement body, string name) =>
         body.TryGetProperty(name, out var value) && value.ValueKind == JsonValueKind.String ? value.GetString() : null;
 
+    /// <summary>An optional string property: null when absent or JSON null, refused when present and not a string —
+    /// a wrong-typed field is never read as an absent one.</summary>
+    public static string? OptionalString(MemoryPortableLine line, string name) =>
+        !line.Body.TryGetProperty(name, out var value) || value.ValueKind == JsonValueKind.Null ? null
+        : value.ValueKind == JsonValueKind.String ? value.GetString()
+        : throw Refuse(line.Number, $"carries a \"{name}\" that is not a string");
+
     /// <summary>An optional string→string map, null when absent, JSON null or empty.</summary>
     public static Dictionary<string, string>? Map(MemoryPortableLine line, string name)
     {

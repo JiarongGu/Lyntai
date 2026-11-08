@@ -284,6 +284,9 @@ public class GraphMemoryPortabilityTests
         { Good.Replace("\"content\":\"c\"", "\"content\":\"d\"", StringComparison.Ordinal), "id" },
         { """{"v":1,"record":"link","engine":"g","from":1,"to":1,"kind":"","weight":"heavy","age":0,"ordinalAge":0,"volumeAge":0,"elapsedAge":0}""", "weight" },
         { """{"v":1,"record":"curated","engine":"g","kind":"memory","content":"c","enabled":true}""", "curated" },
+        { """{"v":1,"record":"link","engine":"g","from":1,"to":1,"kind":5,"weight":1,"age":0,"ordinalAge":0,"volumeAge":0,"elapsedAge":0}""", "\"kind\"" },
+        { Second.Replace("\"elapsedAge\":0}", "\"elapsedAge\":0,\"endedReason\":5}", StringComparison.Ordinal), "endedReason" },
+        { Second.Replace("\"elapsedAge\":0}", "\"elapsedAge\":0,\"recheck\":{\"on\":\"friday\"}}", StringComparison.Ordinal), "recheck" },
     };
 
     /// <summary>The whole file is checked before the first write, exactly as a curated import is.</summary>

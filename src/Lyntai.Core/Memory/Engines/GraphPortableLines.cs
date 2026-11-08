@@ -95,7 +95,7 @@ internal static class GraphPortableLines
             if (line.Record == MemoryPortableFormat.Link)
             {
                 links.Add(new GraphLink(MemoryPortableFormat.Whole(line, "from"), MemoryPortableFormat.Whole(line, "to"),
-                    MemoryPortableFormat.String(line.Body, "kind") ?? "", MemoryPortableFormat.Number(line, "weight", nonNegative: true),
+                    MemoryPortableFormat.OptionalString(line, "kind") ?? "",MemoryPortableFormat.Number(line, "weight", nonNegative: true),
                     MemoryPortableFormat.Number(line, "age", nonNegative: true), MemoryPortableFormat.Number(line, "ordinalAge", nonNegative: true),
                     MemoryPortableFormat.Number(line, "volumeAge", nonNegative: true), MemoryPortableFormat.Number(line, "elapsedAge")));
                 continue;
@@ -128,10 +128,8 @@ internal static class GraphPortableLines
             {
                 ValidFrom = Instant(line, "validFrom"), ValidTo = Instant(line, "validTo"),
                 SupersededAt = Instant(line, "supersededAt"),
-                EndedReason = line.Body.TryGetProperty("endedReason", out var ended) && ended.ValueKind == JsonValueKind.String
-                    ? ended.GetString() : null,
-                Recheck = line.Body.TryGetProperty("recheck", out var check) && check.ValueKind == JsonValueKind.String
-                    ? check.GetString() : null,
+                EndedReason = MemoryPortableFormat.OptionalString(line, "endedReason"),
+                Recheck = MemoryPortableFormat.OptionalString(line, "recheck"),
                 ConfirmedAt = Instant(line, "confirmedAt"),
             }, line.Body.TryGetProperty("supersededBy", out _) ? MemoryPortableFormat.Whole(line, "supersededBy") : null));
             // a successor with no instant would name who ended an entry and not when, which no reading can use
