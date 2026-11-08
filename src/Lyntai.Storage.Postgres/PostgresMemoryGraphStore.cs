@@ -279,7 +279,10 @@ public sealed class PostgresMemoryGraphStore(
         // the two-character terms of a spaceless script, which the index cannot serve — a sequential scan,
         // paid only when the fast pass MATCHED nothing (D55). Most Chinese content words are two characters,
         // so pass 2 is the reason a CJK consumer gets an answer at all.
-        var narrow = await SeedByTermsAsync(conn, query, args, totals, includeShortTerms: false, ct).ConfigureAwait(false);
+        // A query with no index-friendly term goes wide at once: pass 1 would match its whole text as one literal,
+        // and a node holding that phrase would hide the nodes holding one word.
+        var narrow = await SeedByTermsAsync(conn, query, args, totals,
+            includeShortTerms: SearchTerms.Extract(query).Count == 0, ct).ConfigureAwait(false);
 
         // a seed carrying only grade-admitted non-matches is exactly the miss pass 2 is for
         if (narrow.Any(n => n.Matched == true) || !SearchTerms.HasShortSpacelessTerms(query)) return narrow;

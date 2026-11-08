@@ -104,7 +104,9 @@ public sealed class PostgresMemoryStore(
                         .Select(r => r.ToRecord()).ToList();
                 }
 
-                var hits = await MatchAsync(includeShortTerms: false).ConfigureAwait(false);
+                // no index-friendly term: pass 1 would match the whole text as one literal and a row holding that
+                // phrase would hide the rows holding one word, so it goes wide at once
+                var hits = await MatchAsync(includeShortTerms: SearchTerms.Extract(query).Count == 0).ConfigureAwait(false);
                 if (hits.Count == 0 && SearchTerms.HasShortSpacelessTerms(query))
                     hits = await MatchAsync(includeShortTerms: true).ConfigureAwait(false);
                 return await TouchAsync(conn, hits, touch, now, ct).ConfigureAwait(false);

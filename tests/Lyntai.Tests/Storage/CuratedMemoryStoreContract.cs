@@ -278,6 +278,50 @@ public static class CuratedMemoryStoreContract
         Assert.DoesNotContain("term B", enabledAll.Where(e => e.Kind == kindA).Select(e => e.Content)); // …and drops disabled rows
     }
 
+    /// <summary>The interface orders kinds by UTF-8 byte, which is code-point order: a kind outside the Basic
+    /// Multilingual Plane sorts AFTER a full-width one, where UTF-16 unit order puts it before. The suffix a shared
+    /// container appends is the same on both, so the first character decides.</summary>
+    public static async Task List_and_composition_order_kinds_by_utf8_byte(ICuratedMemoryStore store,
+        string bmp = "Ａ", string astral = "\U0001F600")
+    {
+        var astralId = await store.AddAsync(astral, "from beyond the plane", taskKey: "order");
+        var bmpId = await store.AddAsync(bmp, "inside the plane", taskKey: "order");
+
+        var listed = (await store.ListAsync(taskKey: "order")).Select(e => e.Id).ToList();
+        Assert.True(listed.IndexOf(bmpId) < listed.IndexOf(astralId), "list: the BMP kind sorts first by byte");
+
+        var composed = (await store.ForCompositionAsync("order", [])).Select(e => e.Id).ToList();
+        Assert.True(composed.IndexOf(bmpId) < composed.IndexOf(astralId), "composition: the BMP kind sorts first by byte");
+    }
+
+    /// <summary>The same property as the memory store's: a short-word query matches a row holding one word, though
+    /// another row holds the whole phrase.</summary>
+    public static async Task Search_of_short_words_finds_a_row_holding_one_as_well_as_the_phrase(ICuratedMemoryStore store,
+        string task = "short-words")
+    {
+        await store.AddAsync("glossary", "配偶 客户 备注", taskKey: task);
+        await store.AddAsync("glossary", "客户资料", taskKey: task);
+
+        var hits = await store.SearchAsync("配偶 客户", taskKey: task);
+
+        Assert.Equal(2, hits.Count);
+    }
+
+    /// <summary>A composition over more scopes than SQLite binds variables for (32,766) still answers: the scope
+    /// list is a value, not one parameter per scope.</summary>
+    public static async Task Composition_accepts_a_very_long_scope_list(ICuratedMemoryStore store, string task = "wide")
+    {
+        var id = await store.AddAsync("note", "applies to the last scope", taskKey: task, scope: "scope-39999");
+        var elsewhere = await store.AddAsync("note", "applies to another scope", taskKey: task, scope: "elsewhere");
+
+        var scopes = Enumerable.Range(0, 40_000).Select(i => $"scope-{i}").ToList();
+        var composed = (await store.ForCompositionAsync(task, scopes)).Select(e => e.Id).ToList();
+
+        // containment: a shared container also holds other cases' task-less entries, which apply to every task
+        Assert.Contains(id, composed);
+        Assert.DoesNotContain(elsewhere, composed);
+    }
+
     /// <summary>Opt-in dedup on add: identical (kind, content, task, scope) returns the existing id
     /// (idempotent) instead of a second row; the default (dedup:false) keeps the deliberate-catalog behavior
     /// of always inserting. Parameterized task/scope so the Postgres shared container can run it isolated.</summary>

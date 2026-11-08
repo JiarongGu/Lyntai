@@ -102,6 +102,21 @@ public static class MemoryGraphStoreContract
         Assert.DoesNotContain(hits, h => h.Content == "回滚必须通知值班人员");
     }
 
+    /// <summary>A query of two-character words ("配偶 客户") has no index-friendly term, so a node that holds the
+    /// whole phrase must not hide the node that holds only one of its words.</summary>
+    public static async Task Seeding_a_query_of_short_words_finds_a_node_holding_one_as_well_as_the_phrase(
+        IMemoryGraphStore store, string key)
+    {
+        await store.UpsertAsync(Write("e", key, "配偶 客户 备注"));
+        await store.UpsertAsync(Write("e", key, "客户资料"));
+
+        var hits = await store.SeedAsync("e", key, "s", "配偶 客户", 10);
+
+        // MATCHED, not merely returned: a seed may also carry grade-admitted nodes that matched nothing
+        Assert.Contains(hits, h => h.Content == "配偶 客户 备注" && h.Matched == true);
+        Assert.Contains(hits, h => h.Content == "客户资料" && h.Matched == true);
+    }
+
     /// <summary>Subjects round-trip, and the lookup is scoped to one task — a subject recorded in another
     /// task must not link across the boundary that keeps consumers isolated.</summary>
     public static async Task Subjects_round_trip_and_are_scoped_to_their_task(IMemoryGraphStore store, string key)

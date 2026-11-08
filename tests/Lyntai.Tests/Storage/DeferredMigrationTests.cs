@@ -51,6 +51,30 @@ public class DeferredMigrationTests : IDisposable
     }
 
     [Fact]
+    public async Task A_failing_first_migration_faults_the_async_open_instead_of_throwing_out_of_the_call()
+    {
+        var factory = new LazyMigratingConnectionFactory(new SqliteConnectionFactory(_db.Path),
+            () => throw new IOException("the first migration failed"));
+
+        var open = factory.OpenAsync(); // the call itself must return: a caller composing tasks never sees a throw
+
+        await Assert.ThrowsAsync<IOException>(() => open);
+    }
+
+    [Fact]
+    public async Task A_cancelled_async_open_runs_no_migration()
+    {
+        var runs = 0;
+        var factory = new LazyMigratingConnectionFactory(new SqliteConnectionFactory(_db.Path), () => runs++);
+        using var cts = new CancellationTokenSource();
+        await cts.CancelAsync();
+
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => factory.OpenAsync(cts.Token));
+
+        Assert.Equal(0, runs);
+    }
+
+    [Fact]
     public async Task Migration_runs_exactly_once_under_concurrent_first_access()
     {
         // the factory UseSqliteStorage(path, SchemaMigration.OnFirstUse) builds. The migrator is COUNTED:

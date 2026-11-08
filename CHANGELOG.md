@@ -37,6 +37,13 @@ every addition.
 
 ### Changed
 
+- **Curated memory: kinds order by UTF-8 byte on the in-memory and file stores, a Postgres curated update no longer writes back a stale field, and a Postgres recall of two-character words finds every row holding one.**
+  `ICuratedMemoryStore` documents a byte-ordinal kind order, which SQLite and Postgres kept and the in-memory and file stores broke for a kind past U+FFFF. An unchecked Postgres
+  `UpdateAsync` now locks the row it reads, so a concurrent edit of another field is not overwritten. A Postgres `RecallAsync`, `SearchAsync` or graph `SeedAsync` whose query has no index-friendly
+  term (`配偶 客户`) matched only rows holding the whole phrase; it now matches rows holding any word, as the other backends do. SQLite's curated composition accepts more than
+  32,766 scopes.
+- **The file backend deletes only its own `.md.tmp` leftovers**, never a `.tmp` file a person put in a record directory; and `LazyMigratingConnectionFactory.OpenAsync` returns a
+  faulted task when the first migration fails, and migrates nothing for a cancelled token.
 - **A keyed link writes no edge between entries of two engines** (**D260**). `LinkKeyedAsync` documents that an endpoint the engine does not hold writes nothing and leaves
   no receipt, but SQLite and Postgres wrote the edge and an `Applied` receipt, and the in-memory and file stores wrote the edge while reporting `false`. Every store now skips it.
   The un-keyed `LinkAsync` is unchanged.

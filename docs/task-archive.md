@@ -6963,3 +6963,11 @@ lines the doors' own tests pin. Landed in `08b41270`; the row stayed open in `TA
 
 - `MemoryGraphSql.StrengthenEdgeWithinEngine`, both SQL `LinkKeyedAsync` paths, and `MemoryGraphState.PlanLinkKeyed` (D260)
 - the fact `A_keyed_link_across_engines_writes_no_edge_and_no_receipt`, run on all four backends
+
+## Part 503 — a design review of the curated and legacy memory stores, the migrations and the guard scripts, and the faults of them that were certain and small (2026-11-08)
+
+✅ done 2026-11-08 — **Outcome:** `TASKS.md` Parts 492 to 494 were already closed (archive Parts 495, 498, 501 and 502), the four blockers were re-checked first and none had cleared (no `hf_` token, no aggregator, no labels, the nine tests unrecurred) and every other open row waits on a ruling, so the piece taken was a design review of three areas no earlier review read: three read-only reviews (the curated and legacy memory stores with their search helpers across four backends; the migrations, connection factories and the file backend's write safety; the `devtools` guard scripts, for the false pass), each finding read against the code before it was fixed or filed, and every fix written test-first. **Guards:** six could pass without checking, and the hook was committed non-executable (`docs/FIXES.md` 2026-11-08 has the list). **Stores:** a Postgres curated update wrote a stale field back over a concurrent edit; a Postgres recall or search of two-character words returned only the row holding the phrase; the in-memory and file stores ordered curated kinds by UTF-16 unit; SQLite's curated composition threw past 32,766 scopes; the file backend deleted a person's `.tmp` file; `LazyMigratingConnectionFactory.OpenAsync` threw instead of faulting. The Postgres graph store's seed had the same pass-1 defect (found when `verify` ran its fact) and is fixed with the rest. The rest is `TASKS.md` Parts 496 and 497: fifteen rows, all `decision-only`. **Run with Docker up** (0 skipped). **Not run:** two migrators racing and the `:memory:` row, which are from reading. No decision; no public member. Lanes `storage` and `platform`.
+
+- the three reviews; the fifteen rows
+- the six guards and the hook mode
+- the Postgres row lock and wide first pass, the UTF-8 kind order, the SQLite scope array, the file stray filter and the faulting async open

@@ -75,8 +75,10 @@ public sealed class PostgresCuratedMemoryStore(IDbConnectionFactory factory,
 
         // read the current row inside the transaction to resolve the RESULTING dedup identity
         var cur = await conn.QuerySingleOrDefaultAsync<CuratedMemoryRow>(new CommandDefinition(
-            $"SELECT {Cols} FROM lyntai_curated_memory WHERE id = @id", new { id },
+            $"SELECT {Cols} FROM lyntai_curated_memory WHERE id = @id FOR UPDATE", new { id },
             transaction: tx, cancellationToken: ct)).ConfigureAwait(false);
+        // FOR UPDATE: the write below sets every column from this read, so a writer that commits between the two
+        // must not have its field written back stale (a revision guard only protects the checked path)
         if (cur is null) return CuratedUpdateOutcome.NotFound;     // (the tx rolls back on dispose)
         if (expectedRevision is { } expected && cur.Revision != expected) return CuratedUpdateOutcome.Stale;
         var newKind = kind ?? cur.Kind;
@@ -194,7 +196,9 @@ public sealed class PostgresCuratedMemoryStore(IDbConnectionFactory factory,
                 return [.. rows.Select(r => r.ToRecord())];
             }
 
-            var hits = await MatchAsync(includeShortTerms: false).ConfigureAwait(false);
+            // a query with no index-friendly term would match its whole text as one literal in pass 1, and a row
+            // holding that phrase would then hide every row holding only one word, so it goes wide at once
+            var hits = await MatchAsync(includeShortTerms: SearchTerms.Extract(query).Count == 0).ConfigureAwait(false);
             if (hits.Count == 0 && SearchTerms.HasShortSpacelessTerms(query))
                 hits = await MatchAsync(includeShortTerms: true).ConfigureAwait(false);
             return hits;
