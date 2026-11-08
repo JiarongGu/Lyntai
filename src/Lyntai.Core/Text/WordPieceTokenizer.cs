@@ -336,7 +336,8 @@ public sealed class WordPieceTokenizer
 
     private static bool IsWhitespace(Rune rune) =>
         rune.Value is ' ' or '\t' or '\n' or '\r'
-        || Rune.GetUnicodeCategory(rune) == UnicodeCategory.SpaceSeparator;
+        || Rune.GetUnicodeCategory(rune) is UnicodeCategory.SpaceSeparator or UnicodeCategory.LineSeparator
+            or UnicodeCategory.ParagraphSeparator;
 
     /// <summary>Tab, newline and carriage return are categorized as control characters and are deliberately
     /// treated as WHITESPACE instead — they separate words rather than being dropped.</summary>

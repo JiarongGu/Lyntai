@@ -32,7 +32,7 @@
     <!-- No assembly means no PDB, so the inherited IncludeSymbols would emit a symbol package containing
          nothing but a nuspec. The release pushes `*.nupkg` and `dotnet nuget push` sends each adjacent
          .snupkg automatically, so that empty one would be offered to nuget.org's symbol validation for no
-         benefit whatsoever — and this metapackage is new, so that push has never been exercised. -->
+         benefit whatsoever. -->
     <IncludeSymbols>false</IncludeSymbols>
   </PropertyGroup>
 

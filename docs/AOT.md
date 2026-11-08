@@ -15,7 +15,7 @@ packable project, which turns on the trim, single-file, and AOT analyzers. Per-p
 | `Lyntai.Tools.Mcp` | ⚠️ **opts out** | MCP argument/result marshaling is dynamic JSON (reflection), in both directions — consuming a server's tools and hosting ours through the SDK's server transport. Analyzer on for our code. |
 | `Lyntai.Generation` | ✅ compatible | The media backends: `HttpClient` + `JsonDocument`/`JsonObject`, and two subprocesses (`sd-cli`, piper) through `IProcessRunner`. Its only dependency is managed `Microsoft.Extensions.Http` (for the per-backend `Add*` shims' named clients). |
 | `Lyntai.Providers.Onnx` | ⚠️ **opts out** | `IsAotCompatible=false; IsTrimmable=false; EnableTrimAnalyzer=true`. ONNX Runtime loads a native library dynamically and resolves its execution provider by name; a native-interop package cannot honestly claim trim/AOT compatibility. Analyzer on for our code. **It references the MANAGED half only** — the app adds `Microsoft.ML.OnnxRuntime` (CPU), `.DirectML` or `.Gpu`, so this row is about our assembly and the app's backend choice governs the rest. |
-| `Lyntai` (the bundle) | n/a | Ships no assembly (`IncludeBuildOutput=false`) — its status is whatever its references are. |
+| `Lyntai` (the bundle) | n/a | Ships no assembly (`IncludeBuildOutput=false`) — its status is whatever its references are: `Lyntai.Core`, `Lyntai.Providers.Basic` and `Lyntai.Storage.Basic` are ✅, `Lyntai.Tools.Mcp` is ⚠️ (it opts out), so reference the ✅ packages one by one for a publish with no trim warning. |
 
 ## Keeping the ✅ rows honest
 

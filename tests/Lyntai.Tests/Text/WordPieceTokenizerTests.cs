@@ -133,6 +133,17 @@ public class WordPieceTokenizerTests
         Assert.Equal([5, 6], tokenizer.EncodeToIds("alpha\t\n\r beta"));
     }
 
+    [Theory]
+    [InlineData(0x2028)]   // line separator (Zl)
+    [InlineData(0x2029)]   // paragraph separator (Zp)
+    [InlineData(0x00A0)]   // no-break space (Zs), the control
+    public void A_unicode_line_or_paragraph_separator_splits_words_like_any_other_space(int separator)
+    {
+        var tokenizer = Tokenizer(Vocabulary("alpha", "beta"));
+
+        Assert.Equal([5, 6], tokenizer.EncodeToIds($"alpha{(char)separator}beta"));
+    }
+
     [Fact]
     public void An_empty_or_whitespace_text_yields_no_ids_at_all()
     {

@@ -29,6 +29,12 @@ public sealed class ScoringService(
             {
                 var r = await scorer.ScoreAsync(ctx, ct).ConfigureAwait(false);
                 if (r is null) continue; // ran, but not applicable to this context (no score)
+                if (!double.IsFinite(r.Score))
+                {
+                    // NaN is NULL to SQLite (the whole session's batch fails its NOT NULL) and poisons Postgres's AVG
+                    _logger.LogWarning("scorer {Scorer} returned a non-finite score; skipped (fail-open)", scorer.Id);
+                    continue;
+                }
                 results.Add(new ScoredResult(scorer.Id, scorer.Name, scorer.Group, scorer.IsLlm, r.Score, r.Reason));
             }
             // The CALLER's cancel propagates; a scorer's OWN deadline is a fault like any other. Both arrive

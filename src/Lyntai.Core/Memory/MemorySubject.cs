@@ -87,11 +87,19 @@ public static class MemorySubject
              i = text.IndexOf(handle, i + 1, StringComparison.Ordinal))
         {
             var end = i + handle.Length;
-            if ((i == 0 || !char.IsLetterOrDigit(text[i - 1])) &&
-                (end == text.Length || !char.IsLetterOrDigit(text[end])))
+            if (!WordRuneAt(text, i, before: true) && !WordRuneAt(text, end, before: false))
                 return true;
         }
 
         return false;
+    }
+
+    // a rune, not a UTF-16 unit: neither half of a supplementary-plane letter is a letter on its own
+    private static bool WordRuneAt(string text, int boundary, bool before)
+    {
+        var status = before
+            ? System.Text.Rune.DecodeLastFromUtf16(text.AsSpan(0, boundary), out var last, out _)
+            : System.Text.Rune.DecodeFromUtf16(text.AsSpan(boundary), out last, out _);
+        return status == System.Buffers.OperationStatus.Done && System.Text.Rune.IsLetterOrDigit(last);
     }
 }

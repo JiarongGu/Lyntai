@@ -14,6 +14,28 @@ public class ScoringServiceTests
     // own deadline sink the whole evaluation — discarding every score already computed, since `results` is a
     // method-local — against a type doc promising "skips null/faulted results".
 
+    // ---- a score that is not a number --------------------------------------------------------------
+    // NaN reaches a store as NULL on SQLite (the whole session's batch then fails its NOT NULL) and poisons
+    // the per-scorer AVG on Postgres, so one BYO scorer's non-finite score would cost every other scorer's.
+
+    [Theory]
+    [InlineData(double.NaN)]
+    [InlineData(double.PositiveInfinity)]
+    [InlineData(double.NegativeInfinity)]
+    public async Task A_non_finite_score_is_skipped_and_never_reaches_the_store(double bad)
+    {
+        var store = new InMemoryScoreStore();
+        var broken = new FakeScorer("broken", score: _ => new ScoreResult(bad));
+        var ok = new FakeScorer("ok", score: _ => new ScoreResult(0.8));
+        var service = new ScoringService([broken, ok], store);
+
+        var results = await service.EvaluateAsync(Ctx);
+
+        var kept = Assert.Single(results);
+        Assert.Equal("ok", kept.ScorerId);
+        Assert.Equal("ok", Assert.Single(await store.GetAsync("s1")).ScorerId);
+    }
+
     [Fact]
     public async Task A_scorers_OWN_timeout_is_skipped_like_any_other_fault()
     {

@@ -94,4 +94,16 @@ public class MemorySubjectTests
     [InlineData("what does my spouse do", "  ")]
     public void Nothing_matches_an_empty_query_or_an_unusable_handle(string? query, string? subject) =>
         Assert.False(MemorySubject.Matches(query, subject));
+
+    /// <summary>A letter outside the BMP is two UTF-16 units, and neither half is a letter on its own, so a
+    /// boundary tested per unit read "𝐀alice" as the word alice.</summary>
+    [Fact]
+    public void A_handle_touching_a_letter_outside_the_basic_plane_is_not_a_whole_word()
+    {
+        var mathBoldA = char.ConvertFromUtf32(0x1D400);
+
+        Assert.False(MemorySubject.Matches(mathBoldA + "alice and bob", "alice"));
+        Assert.False(MemorySubject.Matches("bob and alice" + mathBoldA, "alice"));
+        Assert.True(MemorySubject.Matches("bob and alice and bob", "alice"));   // the control
+    }
 }

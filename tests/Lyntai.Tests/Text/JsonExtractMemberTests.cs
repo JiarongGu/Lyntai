@@ -46,4 +46,19 @@ public class JsonExtractMemberTests
         Assert.Equal("""{"kind":"image","n":1}""", json);
         Assert.Equal("{}", JsonExtract.WriteObject(_ => { }));
     }
+
+    /// <summary>A reply holding a lone surrogate cannot be transcoded to UTF-8, which the BCL reports as an
+    /// <see cref="ArgumentException"/>, not a <see cref="JsonException"/>: each reader must answer false.</summary>
+    [Fact]
+    public void A_reply_with_a_lone_surrogate_is_unreadable_rather_than_an_exception()
+    {
+        var reply = "{\"a\":\"" + '\uD800' + "\"}";
+
+        Assert.False(JsonExtract.IsValid(reply));
+        Assert.False(JsonExtract.TryParseObject(reply, out var doc));
+        Assert.Null(doc);
+        Assert.False(JsonExtract.TryReadObject(reply, out var json));
+        Assert.Null(json);
+        Assert.True(JsonExtract.IsValid("{\"a\":\"ok\"}"));    // the control
+    }
 }

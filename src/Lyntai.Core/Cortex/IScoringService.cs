@@ -1,8 +1,9 @@
 namespace Lyntai.Cortex;
 
 /// <summary>Runs every registered <see cref="IScorer"/> over a context and aggregates the results
-/// (persisting them when a score store is wired). Fail-open: a scorer that returns null or throws
-/// is skipped, never sinks the evaluation.</summary>
+/// (persisting them when a score store is wired). Fail-open: a scorer that returns null, throws or returns a
+/// non-finite score is skipped, never sinks the evaluation. The one exception is <see cref="IScorer.Applies"/>,
+/// a pure predicate whose throw surfaces to the caller.</summary>
 public interface IScoringService
 {
     /// <summary>Score the context and persist when a store is wired.</summary>

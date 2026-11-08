@@ -13,7 +13,7 @@ const { status, out } = runPlayground({ dataDir });
 ok('playground exits 0', status === 0, `exit ${status}\n${out}`);
 ok('completion verdict Ok', out.includes('playground: verdict=Ok'));
 ok('stub reply came through', out.includes('playground: reply=stub reply:'));
-ok('scores computed (incl. judge)', /playground: scores=[1-9]/.test(out));
+ok('scores computed', /playground: scores=[1-9]/.test(out));
 ok('trace persisted with steps + tokens', /playground: trace steps=[1-9]\d* tokens=[1-9]/.test(out));
 ok('memory row recalled', /playground: memory recall=[1-9]/.test(out));
 ok('streaming delivered chunks', /playground: stream chunks=[1-9]/.test(out));

@@ -116,7 +116,8 @@ internal static class GraphPortableLines
             var recallCount = MemoryPortableFormat.Whole(line, "recallCount", nonNegative: true);
             nodes.Add(new CarriedNode(id, new GraphNodeImport(
                 scope ?? Required(line, "scope"), Required(line, "headline"), Required(line, "content"), grade,
-                (line.Body.TryGetProperty("createdAt", out var created) && created.TryGetDateTimeOffset(out var at)
+                (line.Body.TryGetProperty("createdAt", out var created) && created.ValueKind == JsonValueKind.String
+                    && created.TryGetDateTimeOffset(out var at)
                     ? at : throw MemoryPortableFormat.Refuse(line.Number, "carries no \"createdAt\" time")).ToUniversalTime(),
                 recallCount > int.MaxValue ? int.MaxValue : (int)recallCount,
                 MemoryPortableFormat.Number(line, "stability", nonNegative: true), MemoryPortableFormat.Number(line, "difficulty"),

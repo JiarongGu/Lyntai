@@ -124,7 +124,7 @@ public static class JsonExtract
         var json = ExtractObject(text);
         if (json is null) return false;
         try { doc = JsonDocument.Parse(json, Lenient); return true; }
-        catch (JsonException) { return false; }
+        catch (Exception e) when (e is JsonException or ArgumentException) { return false; }
     }
 
     /// <summary>The first balanced JSON object in <paramref name="text"/>, as STRICTLY valid JSON — read
@@ -156,7 +156,7 @@ public static class JsonExtract
             json = Encoding.UTF8.GetString(buffer.ToArray());
             return true;
         }
-        catch (JsonException)
+        catch (Exception e) when (e is JsonException or ArgumentException)   // a lone surrogate is the latter
         {
             json = null;
             return false;
@@ -169,6 +169,6 @@ public static class JsonExtract
     {
         if (string.IsNullOrWhiteSpace(text)) return false;
         try { using var _ = JsonDocument.Parse(text); return true; }
-        catch (JsonException) { return false; }
+        catch (Exception e) when (e is JsonException or ArgumentException) { return false; }
     }
 }

@@ -185,6 +185,11 @@ public sealed class LlmMemoryAnnotationPolicy(
                 || subjects.ValueKind != JsonValueKind.Array)
                 return MemoryAnnotation.Unanswered;
 
+            // elements that are all the wrong type are a broken reply; only a well-formed empty list says "about nothing"
+            if (subjects.GetArrayLength() > 0
+                && !subjects.EnumerateArray().Any(s => s.ValueKind == JsonValueKind.String))
+                return MemoryAnnotation.Unanswered;
+
             var handles = subjects.EnumerateArray()
                 .Where(s => s.ValueKind == JsonValueKind.String)
                 .Select(s => s.GetString()!.Trim())
