@@ -391,4 +391,18 @@ public static class VectorStoreContract
         Assert.Equal(["b", "d"], await FilteredAsync(store, c, 10, new() { Ids = [.. many, "b", "d"] }));
         Assert.Equal(["a", "b", "c", "d", "e"], await FilteredAsync(store, c, 10, new() { ExcludeIds = many }));
     }
+
+    /// <summary>A vector with a NaN or infinite component is refused with an <see cref="ArgumentException"/> and
+    /// stores nothing: the in-process store would score it NaN, which breaks the top-k tiebreak, and pgvector
+    /// refuses it on its own, so the one rule is to refuse it up front on every backend (the steward's ruling,
+    /// <c>docs/DECISIONS.md</c> D264).</summary>
+    public static async Task A_non_finite_component_is_refused_and_stores_nothing(IVectorStore store, string c)
+    {
+        await store.UpsertAsync(c, "ok", [1f, 0f], "OK");
+
+        foreach (var bad in new[] { float.NaN, float.PositiveInfinity, float.NegativeInfinity })
+            await Assert.ThrowsAsync<ArgumentException>(() => store.UpsertAsync(c, "bad", [1f, bad], "BAD"));
+
+        Assert.Equal(["OK"], (await store.SearchAsync(c, [1f, 0f], k: 5)).Select(m => m.Payload));
+    }
 }

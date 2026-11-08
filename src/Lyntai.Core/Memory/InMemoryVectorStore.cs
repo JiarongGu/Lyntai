@@ -20,6 +20,11 @@ public sealed class InMemoryVectorStore : IListableVectorStore, IReadableVectorS
 
     public Task UpsertAsync(string collection, string id, float[] vector, string payload, CancellationToken ct = default)
     {
+        ArgumentNullException.ThrowIfNull(vector);
+        // the same refusal the SQL stores make (Shared/Relational/FiniteVector): NaN would break the top-k tiebreak
+        foreach (var v in vector)
+            if (!float.IsFinite(v))
+                throw new ArgumentException("a vector component must be finite: NaN and infinity are refused", nameof(vector));
         var col = _collections.GetOrAdd(collection, _ => new ConcurrentDictionary<string, Item>());
         // a copy, so a caller reusing its buffer can neither change what is stored nor desync the cached norm
         var stored = (float[])vector.Clone();

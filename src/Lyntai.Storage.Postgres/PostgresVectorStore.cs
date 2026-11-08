@@ -1,6 +1,7 @@
 using System.Globalization;
 using Dapper;
 using Lyntai.Memory;
+using Lyntai.Storage.Relational;
 
 namespace Lyntai.Storage.Postgres;
 
@@ -27,6 +28,7 @@ public sealed class PostgresVectorStore(IDbConnectionFactory factory) : IListabl
     /// first use (see the type remarks). Vectors are dimension-agnostic (an unbounded <c>vector</c> column).</summary>
     public async Task UpsertAsync(string collection, string id, float[] vector, string payload, CancellationToken ct = default)
     {
+        FiniteVector.Require(vector);
         await EnsureSchemaAsync().ConfigureAwait(false);
         await using var conn = await factory.OpenAsync(ct).ConfigureAwait(false);
         await conn.ExecuteAsync(new CommandDefinition("""
