@@ -85,7 +85,8 @@ public sealed class BudgetedMediaRouter(
     /// thrown exception, because a caller writing <c>await foreach</c> should learn about a budget refusal
     /// the same way they learn about a backend refusal.</para>
     /// <para>Cost is recorded from the terminal chunk's <see cref="MediaChunk.Usage"/>, which is the
-    /// only place a streaming backend can report it — the total is not known until the stream ends. A backend
+    /// only place a streaming backend can report it — the total is not known until the stream ends, and a cost
+    /// on any earlier chunk is never read, so a cumulative figure repeated there is not counted twice. A backend
     /// that reports none records none, exactly as on the inline path.</para></remarks>
     public async IAsyncEnumerable<MediaChunk> StreamAsync(
         IReadOnlyList<ProviderCandidate> candidates, MediaRequest request,
@@ -102,7 +103,7 @@ public sealed class BudgetedMediaRouter(
         {
             await foreach (var chunk in inner.StreamAsync(candidates, request, ct).ConfigureAwait(false))
             {
-                if (Spent(chunk.Usage) is { } spent)
+                if (chunk.Final && Spent(chunk.Usage) is { } spent)
                     await admission.SettleAsync(spent).ConfigureAwait(false);
                 yield return chunk;
             }

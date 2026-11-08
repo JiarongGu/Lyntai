@@ -52,7 +52,9 @@ answer before the deadline, a connection dropped after the request was sent, or 
 operation id — comes back `Failed` **and `Inconclusive`**, and the router *surfaces* it rather than trying the
 next backend, because that queue may already hold a billable render and the next candidate would buy the same
 generation twice (**D64**). It is not counted against the backend's cooldown either. A submit that provably
-never left the process (a refused connection, a failed name lookup or TLS handshake) is conclusive and advances.
+never left the process (a refused connection, a failed name lookup or TLS handshake) is conclusive and advances,
+striking the host with its classified verdict; the router rethrows it only when no candidate accepted, so the
+durable job's retry still runs.
 
 ## 2. The shipped backends
 
