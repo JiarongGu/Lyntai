@@ -52,6 +52,17 @@ public class StreamJsonParserTests
     }
 
     [Fact]
+    public void An_assistant_line_carrying_an_error_is_not_the_answer()
+    {
+        // the CLI prints its login prompt as an assistant message flagged `error`, then ends with an is_error
+        // result; reading the prompt as content would commit the stream before the failure arrives
+        var evt = StreamJsonParser.Parse(
+            """{"type":"assistant","error":"authentication_failed","message":{"content":[{"type":"text","text":"Please run /login"}]}}""");
+
+        Assert.Equal(StreamJsonEventKind.Other, evt.Kind);
+    }
+
+    [Fact]
     public void A_cost_that_does_not_fit_a_double_is_no_cost_and_the_result_is_kept()
     {
         var evt = StreamJsonParser.Parse("""{"type":"result","result":"ok","usage":{"input_tokens":1,"output_tokens":2},"total_cost_usd":1e999}""");

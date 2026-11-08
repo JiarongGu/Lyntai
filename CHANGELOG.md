@@ -37,6 +37,11 @@ every addition.
 
 ### Changed
 
+- **A CLI's own error line is no longer streamed as the answer, a failure with no message is still a failure, and an MCP server's URL must be http or https** (**D257**).
+  A Claude assistant line carrying `error` (the login prompt) was delivered as content before the `is_error` result ended the stream, so the router could not fall back; it now
+  waits for the result. A backend `Failure` event with an empty message returned the partial text `Ok` buffered and `Error` streamed; both paths now fail it. A non-zero exit
+  with an empty stderr quotes the stdout tail. An `Http` agent MCP server whose URL parses as a file URI (a path) ends the turn `mcp-server-invalid` instead of registering nothing.
+
 - **A recall reinforces only what it returned, a zero character budget keeps the first item, and a history recall links no ended entry** (**D255**).
   An entry the budget cut was reinforced and logged as if returned; a budget of zero meant unbounded on a recall and the entry alone on
   an expansion; a history recall paired ended entries into co-activation edges. A spaced search term is now measured in code points,

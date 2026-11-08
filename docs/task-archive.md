@@ -6935,3 +6935,10 @@ lines the doors' own tests pin. Landed in `08b41270`; the row stayed open in `TA
 
 - the option, its environment variable and the loop's cap (D256)
 - the four tests: cap, steps, no cap below 1, default and environment
+
+## Part 499 — four of `TASKS.md` Part 495's rows: an error line, an empty failure, a stdout-only exit and a file-URI MCP server (2026-11-08)
+
+✅ done 2026-11-08 — **Outcome:** the four `TASKS.md` blockers were re-checked first and none had cleared (no `hf_` token, no aggregator, no labels, the nine tests unrecurred; Docker down), Parts 492 and 494 were already closed and the roadmap holds nothing startable, so the piece taken was the rows of Part 495 where the evidence leaned one way. Ruled and built test-first as **D257**: the Claude parser reads an assistant line carrying `error` as `Other`; the engine counts any `Failure` event as a failure on both paths; a non-zero exit with empty stderr quotes the stdout tail; `AgentMcpServers` refuses a URL that is not http or https. **A host sees:** an `Http` MCP server given a path now ends the turn `mcp-server-invalid`, and a login prompt is no longer streamed as an answer. The classification half of the stdout row stays open. Not run: the Postgres leg (Docker down), and no real CLI. Lanes `inference` and `platform`.
+
+- the parser, the engine's failure message and stdout tail, the URL scheme (D257)
+- the five tests: error line, empty failure on both paths, stdout tail, four refused URLs

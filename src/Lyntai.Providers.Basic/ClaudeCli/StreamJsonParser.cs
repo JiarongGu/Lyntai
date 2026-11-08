@@ -57,6 +57,10 @@ internal static class StreamJsonParser
     {
         // a subagent's line names the call that spawned it; its words are not this turn's answer
         if (WireJson.String(root, "parent_tool_use_id") is not null) return new StreamJsonEvent(StreamJsonEventKind.Other);
+        // an assistant line carrying a top-level `error` ("authentication_failed") holds the CLI's own error
+        // text, not the model's words; the is_error result that follows reports the failure, so streaming it
+        // as content would commit the router to a login prompt before the terminal says it failed
+        if (!string.IsNullOrEmpty(WireJson.String(root, "error"))) return new StreamJsonEvent(StreamJsonEventKind.Other);
         if (WireJson.Object(root, "message") is not { } msg || WireJson.Array(msg, "content") is not { } content)
             return new StreamJsonEvent(StreamJsonEventKind.Other);
 

@@ -245,6 +245,37 @@ public class CliProviderEngineTests
     }
 
     [Fact]
+    public async Task A_nonzero_exit_with_an_empty_stderr_quotes_the_stdout_tail()
+    {
+        // a child that printed its reason on stdout leaves "exit 1: " and nothing else to read
+        var runner = new FakeProcessRunner { RunResult = new ProcessResult(1, "Invalid API key - please log in", "") };
+
+        var reply = await Engine(runner, new FakeCliBackend()).CompleteAsync(Ask());
+
+        Assert.Equal(ProviderVerdict.Failed, reply.Verdict);
+        Assert.Contains("Invalid API key", reply.Detail);
+    }
+
+    [Fact]
+    public async Task A_reported_failure_with_an_empty_message_is_a_failure_on_both_paths()
+    {
+        // buffered it used to return the partial text Ok while the stream ended Error: a BYO backend can
+        // report a failure it has no words for
+        var runner = new FakeProcessRunner { RunResult = Ok("text:partial answer\nfail:") };
+        var buffered = await Engine(runner, new FakeCliBackend()).CompleteAsync(Ask());
+
+        var chunks = new List<TextChunk>();
+        await foreach (var c in Engine(new FakeProcessRunner(["text:partial answer", "fail:"]), new FakeCliBackend()).StreamAsync(Ask()))
+            chunks.Add(c);
+
+        Assert.Equal(ProviderVerdict.Failed, buffered.Verdict);
+        Assert.Equal("", buffered.Text);
+        Assert.NotEmpty(buffered.Detail!);
+        Assert.Equal(TextChunkKind.Error, chunks[^1].Kind);
+        Assert.Equal(buffered.Detail, chunks[^1].Detail);
+    }
+
+    [Fact]
     public async Task A_stream_that_fails_after_content_ends_in_an_error_chunk()
     {
         var runner = new FakeProcessRunner(["text:partial answer", "fail:rate limit exceeded"]);
