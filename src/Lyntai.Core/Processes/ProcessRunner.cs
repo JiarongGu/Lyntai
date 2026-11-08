@@ -97,7 +97,7 @@ public sealed class ProcessRunner : IProcessRunner
 
         // stderr is diagnostic — drain it concurrently to the end (it completes when the child exits)
         var stderr = new PipeCapture();
-        stderr.Start(process.StandardError);
+        _ = stderr.Start(process.StandardError);
         var exited = process.WaitForExitAsync(CancellationToken.None);
 
         using var killCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
@@ -287,7 +287,7 @@ public sealed class ProcessRunner : IProcessRunner
         // child spewing MBs of diagnostics while streaming can't grow the parent's memory with it.
         // (RunAsync's full-stderr buffer is contract — its ProcessResult returns the whole stream.)
         var stderr = new PipeCapture(StdErrTailChars);
-        stderr.Start(process.StandardError);
+        _ = stderr.Start(process.StandardError);
         var exited = process.WaitForExitAsync(CancellationToken.None);
         // a stdin producer's own fault is the exchange's: it ends the child and is rethrown once the lines read are yielded
         Exception? producerFault = null;
@@ -693,7 +693,7 @@ public sealed class ProcessRunner : IProcessRunner
             await Task.WhenAny(read, exited).ConfigureAwait(false);
             if (!read.IsCompleted && await Task.WhenAny(read, Task.Delay(DrainBound)).ConfigureAwait(false) != read)
             {
-                read.ContinueWith(static t => _ = t.Exception, TaskContinuationOptions.OnlyOnFaulted);
+                _ = read.ContinueWith(static t => _ = t.Exception, TaskContinuationOptions.OnlyOnFaulted);
                 KillTree(process);
                 return null;
             }
