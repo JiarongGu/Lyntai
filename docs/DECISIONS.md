@@ -7546,7 +7546,7 @@ recall and its write-back is already a silent skip).
 
 **Rejected.** Refusing it everywhere (a cut reply would fail the turn that produced it, and the SQL stores would need a check SQLite never made). A different replacement (SQLite's is the one a restore from it would show).
 
-**Re-opens** when the Postgres leg shows its driver refusing one: the fact then fails there, and the store gets the same scrub. The graph, score, trace, job, cache, usage and vector stores still hold a lone surrogate as given (`TASKS.md` Part 499 has the graph's).
+**Re-opens** when the Postgres leg shows its driver refusing one: the fact then fails there, and the store gets the same scrub. The graph, score, trace, job, cache, usage and vector stores still hold a lone surrogate as given (**D278** has the graph export's).
 
 ## D263 — a key's order is its UTF-8 bytes, in process as in SQLite and Postgres (2026-11-09)
 
@@ -7655,7 +7655,7 @@ recall and its write-back is already a silent skip).
 
 ## D271 — a score outside 0 to 1 is skipped with a warning, as a non-finite one is (2026-11-09)
 
-**Standing.** A ruling on `TASKS.md` Part 499's first row, **the steward's under the owner's delegation, which the owner may reverse** — not the owner's words. Built, and frozen from release (**D70**).
+**Standing.** A ruling on `docs/task-archive.md` Part 512's first row, **the steward's under the owner's delegation, which the owner may reverse** — not the owner's words. Built, and frozen from release (**D70**).
 
 **Decided.** `ScoringService` skips a score below 0 or above 1 with a warning and stores nothing for it; 0 and 1 are kept. The type doc says so.
 
@@ -7667,7 +7667,7 @@ recall and its write-back is already a silent skip).
 
 ## D272 — a throwing `IScorer.Applies` stays surfaced (2026-11-09)
 
-**Standing.** A ruling on `TASKS.md` Part 499's second row, **the steward's under the owner's delegation, which the owner may reverse** — not the owner's words. No code moves.
+**Standing.** A ruling on `docs/task-archive.md` Part 512's second row, **the steward's under the owner's delegation, which the owner may reverse** — not the owner's words. No code moves.
 
 **Decided.** An exception from `Applies` propagates out of `ScoringService.EvaluateAsync` and discards the scores already computed, as `ScorerAppliesTests` pins and the type doc says.
 
@@ -7679,7 +7679,7 @@ recall and its write-back is already a silent skip).
 
 ## D273 — `JudgeAgreement.Compare` keeps 1.0 for two empty series and refuses a non-finite score (2026-11-09)
 
-**Standing.** A ruling on `TASKS.md` Part 499's third row, **the steward's under the owner's delegation, which the owner may reverse** — not the owner's words. Built, and frozen from release (**D70**).
+**Standing.** A ruling on `docs/task-archive.md` Part 512's third row, **the steward's under the owner's delegation, which the owner may reverse** — not the owner's words. Built, and frozen from release (**D70**).
 
 **Decided.** `Compare([], [])` keeps an exact agreement of 1.0 with a `Count` of 0, and the doc says to read `Count` first. A NaN or infinite score on either side throws `ArgumentException` before any metric is computed.
 
@@ -7691,7 +7691,7 @@ recall and its write-back is already a silent skip).
 
 ## D274 — a prompt override that fails renders the default, never the next layer (2026-11-09)
 
-**Standing.** A ruling on `TASKS.md` Part 499's fourth row, **the steward's under the owner's delegation, which the owner may reverse** — not the owner's words. Behaviour unchanged; the type doc says it and a test pins it.
+**Standing.** A ruling on `docs/task-archive.md` Part 512's fourth row, **the steward's under the owner's delegation, which the owner may reverse** — not the owner's words. Behaviour unchanged; the type doc says it and a test pins it.
 
 **Decided.** The active `IPromptVersionStore` revision, when present, is the only override considered: if it is rejected for a dropped placeholder, or the version store fails, `PromptRegistry` renders the default and does not fall through to the key-value override.
 
@@ -7703,7 +7703,7 @@ recall and its write-back is already a silent skip).
 
 ## D275 — every conversation enricher runs, then the fault is rethrown (2026-11-09)
 
-**Standing.** A ruling on `TASKS.md` Part 499's fifth row, **the steward's under the owner's delegation, which the owner may reverse** — not the owner's words. Built, and frozen from release (**D70**).
+**Standing.** A ruling on `docs/task-archive.md` Part 512's fifth row, **the steward's under the owner's delegation, which the owner may reverse** — not the owner's words. Built, and frozen from release (**D70**).
 
 **Decided.** `EnrichingConversationStore` runs every enricher after a create and after an append, then rethrows the one fault, or an `AggregateException` of several. A caller's own cancel ends the pass at once. The docs say "after a create and an append", since a delete and a metadata change reach no enricher.
 
@@ -7715,7 +7715,7 @@ recall and its write-back is already a silent skip).
 
 ## D276 — a trace's ordinal fallback stays per step, and the doc says two steps can share one (2026-11-09)
 
-**Standing.** A ruling on `TASKS.md` Part 499's sixth row, **the steward's under the owner's delegation, which the owner may reverse** — not the owner's words. Behaviour unchanged; the doc is softened and a test pins it.
+**Standing.** A ruling on `docs/task-archive.md` Part 512's sixth row, **the steward's under the owner's delegation, which the owner may reverse** — not the owner's words. Behaviour unchanged; the doc is softened and a test pins it.
 
 **Decided.** `TraceOrdinals.Stored` keeps deciding each step on its own: a step with `Sequence` 0 takes its list position, so `[1, unset]` stores `[1, 1]` in list order. `ITraceStore` no longer calls the stored order "distinct" for a mixed trace.
 
@@ -7727,7 +7727,7 @@ recall and its write-back is already a silent skip).
 
 ## D277 — a corrupt `tokenizer_config.json` keeps the defaults, and a corrupt `tokenizer.json` is `InvalidDataException` (2026-11-09)
 
-**Standing.** A ruling on `TASKS.md` Part 499's seventh row, **the steward's under the owner's delegation, which the owner may reverse** — not the owner's words. Built, and frozen from release (**D70**).
+**Standing.** A ruling on `docs/task-archive.md` Part 512's seventh row, **the steward's under the owner's delegation, which the owner may reverse** — not the owner's words. Built, and frozen from release (**D70**).
 
 **Decided.** `TokenizerRules` keeps the reference defaults for a `tokenizer_config.json` that is not JSON or whose root is not an object, as **D269** keeps a default for an absent or unreadable file. `TokenizerJson.Read` raises `InvalidDataException`, as its doc promises, for an invalid regex (an `ArgumentException`), a null vocabulary piece and a null Metaspace `replacement`, which were `RegexParseException` and `NullReferenceException` before.
 
@@ -7739,7 +7739,7 @@ recall and its write-back is already a silent skip).
 
 ## D278 — a graph export refuses a non-finite number before it writes, and an import accepts an empty scope or headline (2026-11-09)
 
-**Standing.** A ruling on `TASKS.md` Part 499's eighth row, **the steward's under the owner's delegation, which the owner may reverse** — not the owner's words. Built, and frozen from release (**D70**).
+**Standing.** A ruling on `docs/task-archive.md` Part 512's eighth row, **the steward's under the owner's delegation, which the owner may reverse** — not the owner's words. Built, and frozen from release (**D70**).
 
 **Decided.** `GraphPortableLines.WriteAsync` checks every number of every entry and link first and throws `InvalidDataException` ("Nothing was written") for a non-finite one; a non-finite signal still travels as absent. A lone surrogate is written as U+FFFD, as **D262** stores it, in every text field and key: the JSON writer already did, and a test now pins it. An import takes a `scope` or `headline` that is present and empty, and still refuses one that is absent; `content` stays required non-empty.
 
@@ -7751,7 +7751,7 @@ recall and its write-back is already a silent skip).
 
 ## D279 — `MemoryContentKey` is documented as a hash over UTF-8, with a lone surrogate as U+FFFD (2026-11-09)
 
-**Standing.** A ruling on `TASKS.md` Part 499's ninth row, **the steward's under the owner's delegation, which the owner may reverse** — not the owner's words. Behaviour unchanged; the doc is reworded and a test pins it.
+**Standing.** A ruling on `docs/task-archive.md` Part 512's ninth row, **the steward's under the owner's delegation, which the owner may reverse** — not the owner's words. Behaviour unchanged; the doc is reworded and a test pins it.
 
 **Decided.** `MemoryContentKey.Of` hashes the UTF-8 bytes of the content, so every lone surrogate is U+FFFD to it and `"a\uD800"` and `"a"` plus a real U+FFFD share a key. The doc no longer says "byte-for-byte", which read as the UTF-16 units.
 
@@ -7763,7 +7763,7 @@ recall and its write-back is already a silent skip).
 
 ## D280 — a blend's explicit `Limit` wins over more authoritative entries than it allows (2026-11-09)
 
-**Standing.** A ruling on `TASKS.md` Part 499's tenth row, **the steward's under the owner's delegation, which the owner may reverse** — not the owner's words. Behaviour unchanged; the doc says it and a test pins it.
+**Standing.** A ruling on `docs/task-archive.md` Part 512's tenth row, **the steward's under the owner's delegation, which the owner may reverse** — not the owner's words. Behaviour unchanged; the doc says it and a test pins it.
 
 **Decided.** `CompositeMemoryEngine` cuts to an explicit `MemoryQuery.Limit` after ordering authoritative before associative and by relevance within each, so with three authoritative entries and a `Limit` of 2 it returns two. The grade tier decides what a cut keeps first; it exempts nothing from the cut.
 
@@ -7775,7 +7775,7 @@ recall and its write-back is already a silent skip).
 
 ## D281 — a scoring verification `EndorseCount` of 0 or less is no opinion, with a warning at composition (2026-11-09)
 
-**Standing.** A ruling on `TASKS.md` Part 499's eleventh row, **the steward's under the owner's delegation, which the owner may reverse** — not the owner's words. Built, and frozen from release (**D70**).
+**Standing.** A ruling on `docs/task-archive.md` Part 512's eleventh row, **the steward's under the owner's delegation, which the owner may reverse** — not the owner's words. Built, and frozen from release (**D70**).
 
 **Decided.** `ScoringVerificationPolicy` reports `NoOpinion` without calling the backend when `ScoringVerificationOptions.EndorseCount` is 0 or less, and logs one warning when the policy is composed. The option's accepted range does not move: no value throws.
 
@@ -7787,7 +7787,7 @@ recall and its write-back is already a silent skip).
 
 ## D282 — a semantic seed filters before it takes (2026-11-09)
 
-**Standing.** A ruling on `TASKS.md` Part 499's last row, **the steward's under the owner's delegation, which the owner may reverse** — not the owner's words. Built, and frozen from release (**D70**).
+**Standing.** A ruling on `docs/task-archive.md` Part 512's last row, **the steward's under the owner's delegation, which the owner may reverse** — not the owner's words. Built, and frozen from release (**D70**).
 
 **Decided.** `SemanticSeedSource` walks the ordered matches and stops at `min(K, Limit)` live nodes, skipping a match whose id does not parse, repeats, or names an entry that no longer exists. A stale top match and a `Limit` of 1 now return the second.
 

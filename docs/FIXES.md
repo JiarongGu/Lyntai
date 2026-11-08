@@ -7,6 +7,20 @@ to `.agents/knowledge/pitfalls.md`; the release-facing line goes to `CHANGELOG.m
 
 ---
 
+## 2026-11-09 — a throwing enricher skipped the rest after the row was stored, a score outside 0 to 1 reached the store, a half-written graph export, a stale seed that cost a live one, and a corrupt tokenizer file that escaped as the wrong exception
+
+**Symptom.** None reported; the rows were filed by the 2026-11-09 review of the scoring layer, the conversation stores, the tokenizers and the portable format (`docs/task-archive.md` Part 512). A first enricher that threw left the later ones unrun after `AppendMessageAsync` had stored its row, so a retry appended a duplicate. A BYO scorer's 1.7 was stored and averaged. A graph export with a non-finite number threw from the writer after earlier lines were out. A seed source with a stale top match and a limit of 1 returned nothing though a live match followed. `EndorseCount` of 0 judged every recall empty after a backend call. A corrupt `tokenizer.json` raised `RegexParseException` or `NullReferenceException`, and a `tokenizer_config.json` whose root was an array raised `InvalidOperationException`.
+
+**Root cause.** The enricher loop awaited each hook with no fault handling. `ScoringService` checked finiteness and nothing else. `GraphPortableLines.WriteAsync` validated as it wrote. `SemanticSeedSource` applied `Take` before its filter. The verification policy clamped the count with `Math.Max(0, …)` and went on. `TokenizerJson` caught a fixed list of exception types and called `GetString()!` on a field that may be null; `TokenizerRules` caught `JsonException` only.
+
+**Fix.** `EnrichingConversationStore` runs every hook, then rethrows the fault or an `AggregateException`. `ScoringService` skips a score outside 0 to 1. The export checks every number first. The seed walk stops at the limit's worth of live nodes. A count of 0 or less is no opinion with no call. `TokenizerJson` catches `ArgumentException` and guards its null pieces; `TokenizerRules` returns the defaults for a non-object root (**D271**, **D275**, **D277**, **D278**, **D281**, **D282**).
+
+**Verify.** Each of these tests failed before its change: `A_throwing_enricher_does_not_skip_the_ones_after_it_and_its_fault_is_rethrown`, `A_non_finite_number_is_refused_before_the_first_line_is_written`, `A_stale_or_unparsable_top_match_does_not_cost_a_live_seed_the_limit_would_allow`, `An_EndorseCount_of_zero_or_less_gives_no_opinion_and_never_calls_the_backend`, `A_corrupt_component_is_refused_as_invalid_data_not_as_the_exception_it_raised` and `A_config_that_is_unparsable_or_not_an_object_keeps_the_reference_defaults`. The score-range test (`A_score_outside_zero_to_one_is_skipped_and_never_reaches_the_store`) was written beside its change and not seen to fail first.
+
+**Introduced by.** Not traced to a commit for each.
+
+---
+
 ## 2026-11-09 — a run hung on a grandchild holding the pipes, a throwing stdin producer left the child waiting, a stderr rate limit read Fatal, and Model2Vec divided by tokens it never read
 
 **Symptom.** None reported; the rows were filed by the 2026-11-08 reviews (`TASKS.md` Part 485 and Part 490, since closed). A node parent that exited while a detached child inherited its stdout made `RunAsync` and `StreamLinesAsync` wait for the child's end (reproduced: a 30 s guard expired). A stdin producer that threw left the child's stdin open, so the exchange read as the child's inactivity timeout. A stderr `429` ended an agent turn with `AgentFailureKind.Fatal`, which the account pool does not hold. A `vocab.txt` longer than the table made every `Model2VecProvider` mean divide by tokens that added no row.

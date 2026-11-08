@@ -8,13 +8,11 @@ namespace Lyntai.Memory;
 /// "re-remembering identical content REFRESHES rather than duplicating" mean the same thing on every
 /// backend.
 ///
-/// <para><b>Why this is shared rather than each backend's own line.</b> Both SQL backends carried an
-/// identical private <c>ContentHash</c>, and it is not an implementation detail: it is the <b>dedup key</b>.
-/// Two backends that hash differently do not merely differ in storage, they answer <i>"is this the same
-/// memory?"</i> differently — one refreshes an entry where the other appends a second copy, so a corpus
-/// migrated between them changes shape. That is a contract fact, and this repository's rule for a contract
-/// fact read at N sites is one function every reader calls (see <see cref="MemorySignals.Salience"/>,
-/// <see cref="MemorySubject"/>, <see cref="MemoryRelevance"/>).</para>
+/// <para><b>Why this is shared rather than each backend's own line.</b> It is the <b>dedup key</b>: two backends
+/// that hash differently answer <i>"is this the same memory?"</i> differently — one refreshes an entry where the
+/// other appends a copy, so a corpus migrated between them changes shape. A contract fact read at N sites is one
+/// function every reader calls (see <see cref="MemorySignals.Salience"/>, <see cref="MemorySubject"/>,
+/// <see cref="MemoryRelevance"/>).</para>
 ///
 /// <para><b>Public because a BYO store needs the same key.</b> A store outside this repository that hashes
 /// content its own way silently gets its own dedup semantics, and nothing would report it.</para>
