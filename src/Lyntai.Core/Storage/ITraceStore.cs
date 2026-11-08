@@ -6,8 +6,9 @@ namespace Lyntai.Storage;
 /// <para><b>A step's stored ordinal is its <see cref="TraceStep.Sequence"/> where a recorder set one, and
 /// its LIST POSITION otherwise</b>, and a read returns the steps in that order. The fallback is what makes a
 /// hand-built trace — every <c>Sequence</c> left at its default — persist in a monotonic, distinct order
-/// rather than collapsing onto one ordinal. <see cref="TraceOrdinals.Stored"/> is the rule, for every
-/// backend.</para>
+/// rather than collapsing onto one ordinal. It is decided per step, so a trace mixing recorded and unset
+/// sequences can store two steps at one ordinal, which keep their list order.
+/// <see cref="TraceOrdinals.Stored"/> is the rule, for every backend.</para>
 /// </summary>
 public interface ITraceStore
 {
