@@ -330,8 +330,13 @@ new decision overturns an old one, rewrite the old entry as a stub pointing here
 | [D258](#d258--a-negative-count-or-cost-on-a-backends-wire-reads-as-no-figure-2026-11-08) | 2026-11-08 | a negative count or cost on a backend's wire reads as no figure |
 | [D259](#d259--a-prune-that-empties-a-scope-drops-its-vector-collection-which-releases-the-vector-space-that-stamped-it-2026-11-08) | 2026-11-08 | a prune that empties a scope drops its vector collection, which releases the vector space that st… |
 | [D260](#d260--a-keyed-link-writes-an-edge-only-between-two-entries-the-calling-engine-holds-2026-11-08) | 2026-11-08 | a keyed link writes an edge only between two entries the calling engine holds |
+| [D261](#d261--the-file-backend-persists-a-high-water-mark-for-curated-and-memory-ids-so-a-removed-id-is-never-handed-out-again-2026-11-09) | 2026-11-09 | the file backend persists a high-water mark for curated and memory ids, so a removed id is never… |
+| [D262](#d262--a-lone-surrogate-is-stored-as-ufffd-by-every-backend-as-sqlite-stores-it-2026-11-09) | 2026-11-09 | a lone surrogate is stored as U+FFFD by every backend, as SQLite stores it |
+| [D263](#d263--a-keys-order-is-its-utf-8-bytes-in-process-as-in-sqlite-and-postgres-2026-11-09) | 2026-11-09 | a key's order is its UTF-8 bytes, in process as in SQLite and Postgres |
+| [D264](#d264--a-vector-with-a-non-finite-component-is-refused-at-every-upsert-2026-11-09) | 2026-11-09 | a vector with a non-finite component is refused at every upsert |
+| [D265](#d265--a-response-cache-maxentries-of-0-or-less-stores-nothing-2026-11-09) | 2026-11-09 | a response cache `MaxEntries` of 0 or less stores nothing |
 
-**255 live decisions.** The rest are stubs — `D<n>` is a permanent identifier, so a number is never reused or renumbered (5): [D36](#d36--a-translation-between-two-verdict-taxonomies-gets-one-arm-per-member-gated-by-a-test-2026-08-05) → D136 · [D80](#d80--merged-into-d77-2026-08-16-folded-2026-08-17) → D77 · [D131](#d131--a-backends-produces-is-derived-from-its-configuration-so-a-modality-is-a-field-2026-09-14) → D133 · [D134](#d134--a-registration-names-the-backend-the-provider-suffix-is-gone-from-all-seventeen-2026-09-14) → D137 · [D145](#d145--the-microsoftextensionsai-module-is-a-bridge-not-a-provider-2026-09-15) → D146
+**260 live decisions.** The rest are stubs — `D<n>` is a permanent identifier, so a number is never reused or renumbered (5): [D36](#d36--a-translation-between-two-verdict-taxonomies-gets-one-arm-per-member-gated-by-a-test-2026-08-05) → D136 · [D80](#d80--merged-into-d77-2026-08-16-folded-2026-08-17) → D77 · [D131](#d131--a-backends-produces-is-derived-from-its-configuration-so-a-modality-is-a-field-2026-09-14) → D133 · [D134](#d134--a-registration-names-the-backend-the-provider-suffix-is-gone-from-all-seventeen-2026-09-14) → D137 · [D145](#d145--the-microsoftextensionsai-module-is-a-bridge-not-a-provider-2026-09-15) → D146
 
 <!-- index:end -->
 
@@ -7501,3 +7506,63 @@ the store-level contract has not said an un-keyed edge stays inside one engine (
 recall and its write-back is already a silent skip).
 
 **Re-opens** when a ruling says an un-keyed edge stays inside one engine on every store: the statement above gains the predicate and that restart test loses its scenario.
+
+## D261 — the file backend persists a high-water mark for curated and memory ids, so a removed id is never handed out again (2026-11-09)
+
+**Standing.** The steward's ruling under the owner's delegation while the owner is away, which the owner may reverse; the first row of the 2026-11-08 file and in-memory storage review (`docs/task-archive.md` Part 510). Built, and frozen from release (**D70**).
+
+**Decided.** `FileSystemCuratedMemoryStore` and `FileSystemMemoryStore` keep a `next-id` file (no `.md` extension, so no loader reads it) directly in `curated/` and `memory/`, written atomically before a new id's record. A store starts its counter past the larger of that mark and the highest numbered file, as **D174** gave the graph store.
+
+**Why.** The next id was the highest live or numbered file plus one, so removing the highest freed it, and a stale `UpdateAsync(id, expectedRevision)` landed on whichever entry was given the id next. SQLite's `AUTOINCREMENT` never reissues; the file backend now agrees. The mark goes first, so a failed record write burns a number and never reuses one.
+
+**Rejected.** Stating the reuse in the contract (it leaves the revision guard unsafe on one backend, and the guard exists to be safe).
+
+**Re-opens** when an id must be dense, or a mark must survive a hand-edited directory: the mark is read as 0 when it does not parse, and the files still bound the id from below.
+
+## D262 — a lone surrogate is stored as U+FFFD by every backend, as SQLite stores it (2026-11-09)
+
+**Standing.** The steward's ruling under the owner's delegation, which the owner may reverse; the second row of the 2026-11-08 file and in-memory storage review (`docs/task-archive.md` Part 510). Built for the five domains the file backend stores apart from the graph, on the in-memory and file backends and on SQLite; Postgres joins once its leg runs.
+
+**Decided.** The in-memory and file stores replace each lone surrogate with U+FFFD in a key, an id, a name and a value, on the write and on the lookup, so a key written with one is found by the same key. One helper, `Utf8Text`, serves the key-value, conversation, prompt, curated and memory stores; the curated and memory ones run it inside the plan their two backends share. Each domain's contract has a fact for it.
+
+**Why.** Three backends did three things with one reply cut inside a pair: the file store threw, the in-memory one returned it verbatim, and SQLite stored U+FFFD. A UTF-8 database is the reference, since a lone surrogate has no UTF-8 spelling, and a reply cut at a token limit is not a caller's mistake worth a failed turn.
+
+**Rejected.** Refusing it everywhere (a cut reply would fail the turn that produced it, and the SQL stores would need a check SQLite never made). A different replacement (SQLite's is the one a restore from it would show).
+
+**Re-opens** when the Postgres leg shows its driver refusing one: the fact then fails there, and the store gets the same scrub. The graph, score, trace, job, cache, usage and vector stores still hold a lone surrogate as given (`TASKS.md` Part 499 has the graph's).
+
+## D263 — a key's order is its UTF-8 bytes, in process as in SQLite and Postgres (2026-11-09)
+
+**Standing.** The steward's ruling under the owner's delegation, which the owner may reverse; the third row of the 2026-11-08 file and in-memory storage review (`docs/task-archive.md` Part 510). Built, and frozen from release (**D70**).
+
+**Decided.** "Ordinal" in `IKeyValueStore.ListKeysAsync` means the key's UTF-8 bytes, which SQLite's BINARY and Postgres's `COLLATE "C"` sort. The in-memory and file stores order by `Utf8Ordinal`, and so do `ChatThreads.Page`'s id tiebreak and its cursor. A character past U+FFFF sorts after U+E000 to U+FFFF, and a key that is only the prefix sorts before any longer one. `Utf8Ordinal` is one source linked into Core and `Lyntai.Storage.Basic`.
+
+**Why.** UTF-16 order puts a surrogate pair before U+E000 to U+FFFF, so the same keys listed in a different order on each backend, and a walk by `Page`'s cursor could disagree with the SQL stores about what came next.
+
+**Rejected.** UTF-16 units as the contract's meaning (the two SQL backends would each need a collation that does not exist for them).
+
+**Re-opens** when `Utf8Ordinal` is wanted by a type outside those two assemblies; it is internal, and a public spelling would be a new frozen member.
+
+## D264 — a vector with a non-finite component is refused at every upsert (2026-11-09)
+
+**Standing.** The steward's ruling under the owner's delegation, which the owner may reverse; the fourth row of the 2026-11-08 file and in-memory storage review (`docs/task-archive.md` Part 510). Built, and frozen from release (**D70**).
+
+**Decided.** `UpsertAsync` of `InMemoryVectorStore`, `SqliteVectorStore` and `PostgresVectorStore` throws `ArgumentException` for a NaN or infinite component and stores nothing; `IVectorStore.UpsertAsync` says an implementation must. The SQL stores share `FiniteVector.Require`; Core's store carries its own copy of the three lines, since an adapter cannot reach Core's internals.
+
+**Why.** The in-process store scored such a vector NaN, which broke its top-k tiebreak, and pgvector refused it with its own error; SQLite refused it only because the JSON serializer did.
+
+**Rejected.** Scoring it 0 and ranking it last (it stores a vector that can never be found, and a NaN from an embedder is a fault worth surfacing).
+
+**Re-opens** when a query vector must be refused too: only the upsert is, and a NaN query still scores 0 or NaN by backend.
+
+## D265 — a response cache `MaxEntries` of 0 or less stores nothing (2026-11-09)
+
+**Standing.** The steward's ruling under the owner's delegation, which the owner may reverse; the fifth row of the 2026-11-08 file and in-memory storage review (`docs/task-archive.md` Part 510). Built, and frozen from release (**D70**).
+
+**Decided.** A non-positive `CacheOptions.MaxEntries` disables the response cache, as a non-positive `Ttl` does: `SetAsync` returns before it writes, on the in-memory, SQLite and Postgres caches. `CacheOptions.MaxEntries` says so. The SQL trim keeps the cap as given, no longer clamped to one.
+
+**Why.** The in-memory cache cached nothing at a cap of 0 while both SQL caches kept one row, so the same options meant different things.
+
+**Rejected.** Refusing the value (a property setter that throws is a new failure at a configuration seam, and `Ttl` already means this). One entry (a cap of 0 asking for a cache of one is surprising, and it is what the SQL stores did by accident).
+
+**Re-opens** when the environment override should accept 0: `LYNTAI_CACHE_MAX_ENTRIES` still ignores a non-positive value, where `LYNTAI_CACHE_TTL_SECONDS` accepts zero.

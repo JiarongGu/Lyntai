@@ -49,7 +49,8 @@ database someone else edited has no shape it expects.
   while `UseSqliteStorage` / `UsePostgresStorage` is called (`SchemaMigration.OnStartup`); `OnFirstUse` defers it
   and `None` leaves the schema to the app.
 - **Files**: the file-system backend writes one Markdown record per file under the consumer's
-  `FileSystemStorageOptions.Root`, the memory graph under `graph/<engine>/<task>/<scope>/` and its learning
+  `FileSystemStorageOptions.Root` (a `next-id` file beside the curated and memory records holds the highest id
+  handed out, so a removed id is not reissued), the memory graph under `graph/<engine>/<task>/<scope>/` and its learning
   journal under `graph/<engine>/state/`.
 - How the SQL is written (casts, FTS triggers, migration numbering) is `storage.md`.
 
