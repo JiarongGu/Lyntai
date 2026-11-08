@@ -29,8 +29,7 @@ namespace Lyntai.Memory.Seeding;
 /// <para><b>Two bounds on two different things.</b> <see cref="SemanticSeedOptions.K"/> is the SEARCH width;
 /// <see cref="MemorySeedRequest.Limit"/> additionally caps what is RETURNED, so a small limit never narrows the
 /// search. The cap is deterministic because a scope-less merge is sorted by score then id. A match that does not
-/// parse or whose entry is gone is skipped without using the cap, so up to
-/// <see cref="SemanticSeedOptions.K"/> matches may be read.</para></summary>
+/// parse or whose entry is gone is skipped without using the cap (up to K matches are read).</para></summary>
 public sealed class SemanticSeedSource(
     IEnumerable<IModelProvider> providers,
     IVectorStore vectors,
