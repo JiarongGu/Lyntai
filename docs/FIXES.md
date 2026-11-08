@@ -7,6 +7,20 @@ to `.agents/knowledge/pitfalls.md`; the release-facing line goes to `CHANGELOG.m
 
 ---
 
+## 2026-11-08 — `LlamaSharpProvider` could leak its weights on a failed build, and `Dispose` freed the model under a running generation
+
+**Symptom.** None reported; found by reading the provider. A throw building the `StatelessExecutor` left the weights loaded on the field, so the next call loaded a second copy over it; `Dispose` freed the executor and weights while `InferAsync` ran, and the stream's `finally` then released a disposed semaphore.
+
+**Root cause.** `EnsureLoaded` assigned `_weights` before building the executor, and `Dispose` took no part in the gate that serialises generations and disposed that gate.
+
+**Fix.** The weights load into a local and are disposed if the executor throws; `Dispose` waits on the gate, frees, and releases it without disposing it, so a call queued behind it reads `_disposed` and answers `Failed`.
+
+**Verify.** Measured on 2026-11-08 against a 135M GGUF and the CPU backend added to the test project for the run only: the live completion and the new `Dispose_during_a_generation_waits_for_it_and_the_stream_ends_cleanly` pass, and the dispose test is the only one of the two that exercises the change. **Not proved:** the failed-build leak. A `ContextSize` past memory aborts the host natively instead of throwing (`TASKS.md` Part 490), so no executor-build throw was reproduced and that half is read from the code. `A_call_after_Dispose_answers_Failed…` runs without a model.
+
+**Introduced by.** Not traced to a commit.
+
+---
+
 ## 2026-11-08 — SQLite's graph delete failed past its variable limit, a node's subjects were replaced in two autocommits, and a portable file's age could throw or wrap a mark
 
 **Symptom.** None reported; found by reading the graph stores against each other and each reproduced here. A prune of a scope with more than 32,766 doomed entries, under any derivable age policy, threw `too many SQL variables` from `SqliteMemoryGraphStore.DeleteAsync` where Postgres deleted them, and so did a neighbour or typed-link read handed that many ids. Two annotators recording one node at once left both sets (`{left}` and `{right}`) on SQLite and on Postgres, where in-memory and the file store leave one; a fault between the delete and the insert left the node with none. An imported `elapsedAge` of `-1e300` threw `OverflowException` and `-3000000` threw `ArgumentOutOfRangeException` out of the import instead of landing a mark, and an `age` of `-1e19` made a mark that overflows the next time a head is subtracted from it.

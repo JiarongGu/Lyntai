@@ -6914,3 +6914,10 @@ lines the doors' own tests pin. Landed in `08b41270`; the row stayed open in `TA
 - the nine memory-core rows (D255)
 - the term floor and the signal bag
 - the selector's registration, the loop span and the two documented limits
+
+## Part 496 — `TASKS.md` Part 490's one startable row: the LlamaSharp weights leak and dispose under a generation (2026-11-08)
+
+✅ done 2026-11-08 — **Outcome:** the four blockers were re-checked first and none had cleared (no `hf_` token, no aggregator, no labels, the nine tests unrecurred; Docker down), every row of `TASKS.md` Parts 492 to 494 waits on a ruling and the roadmap holds nothing startable, so the piece taken was the one startable row. The model it needed is a named public download (SmolLM2 135M Q8, kept under the ignored `devtools/_models`) and the CPU backend package was in the local cache, so the live suite ran for the first time here. `LlamaSharpProvider` builds the weights into a local and disposes them if the executor throws; `Dispose` waits on the generation gate and no longer disposes it, and a call after it answers `Failed`. **Measured:** the live completion and a dispose raised mid-stream pass; a `ContextSize` of `int.MaxValue / 2` aborts the test host natively, so the executor-build throw the row named was never reproduced and that half is from reading (`docs/FIXES.md`), and the abort is a new `decision-only` row in `TASKS.md` Part 490. The backend reference was added for the run and reverted; the live tests still skip without `LYNTAI_LLAMA_MODEL`. `docs/FIXES.md` 2026-11-08 has the cause. No decision; no public member.
+
+- the weights built into a local, `Dispose` on the gate, a disposed call's verdict
+- the live dispose-during-generation test and a model-free after-dispose test

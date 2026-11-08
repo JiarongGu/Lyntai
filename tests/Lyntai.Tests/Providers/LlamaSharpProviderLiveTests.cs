@@ -48,6 +48,25 @@ public class LlamaSharpProviderLiveTests
     }
 
     [SkippableFact]
+    public async Task Dispose_during_a_generation_waits_for_it_and_the_stream_ends_cleanly()
+    {
+        Skip.IfNot(Live, Reason);
+
+        var provider = Provider();
+        var stream = provider.StreamAsync(Ask("Count from one to forty."));
+        var chunks = new List<TextChunk>();
+        var disposal = Task.CompletedTask;
+        await foreach (var c in stream)
+        {
+            chunks.Add(c);
+            if (chunks.Count == 1) disposal = Task.Run(provider.Dispose); // queues on the gate this call holds
+        }
+        await disposal;
+
+        Assert.Equal(TextChunkKind.Final, chunks[^1].Kind);
+    }
+
+    [SkippableFact]
     public async Task Streaming_against_a_real_local_model_yields_content_then_final()
     {
         Skip.IfNot(Live, Reason);

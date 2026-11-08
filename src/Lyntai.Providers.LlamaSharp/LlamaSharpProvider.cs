@@ -83,6 +83,11 @@ public sealed class LlamaSharpProvider(
         await _gate.WaitAsync(ct).ConfigureAwait(false);
         try
         {
+            if (_disposed)
+            {
+                yield return TextChunk.Error(ProviderVerdict.Failed, $"{Id}: provider disposed");
+                yield break;
+            }
             StatelessExecutor executor;
             string prompt;
             TextChunk? startupError = null;
@@ -163,8 +168,19 @@ public sealed class LlamaSharpProvider(
             ContextSize = options.ContextSize is int cs and > 0 ? (uint?)(uint)cs : null,
             GpuLayerCount = options.GpuLayerCount,
         };
-        _weights = LLamaWeights.LoadFromFile(modelParams);
-        _executor = new StatelessExecutor(_weights, modelParams);
+        // locals first: a throw building the executor (a ContextSize past memory) must free the weights, not
+        // leave them on the field for the next call to load a second copy over
+        var weights = LLamaWeights.LoadFromFile(modelParams);
+        try
+        {
+            _executor = new StatelessExecutor(weights, modelParams);
+        }
+        catch
+        {
+            weights.Dispose();
+            throw;
+        }
+        _weights = weights;
         _logger.LogInformation("{Id}: loaded local model {Path} (gpuLayers={Gpu})", Id, options.ModelPath, options.GpuLayerCount);
         return _executor;
     }
@@ -185,14 +201,25 @@ public sealed class LlamaSharpProvider(
         SamplingPipeline = new DefaultSamplingPipeline { Temperature = (float)(req.Temperature ?? options.Temperature) },
     };
 
+    /// <summary>Frees the weights once any generation in flight has finished — it waits on the same gate a call
+    /// holds, so a dispose never pulls the model from under a running one. A call made after it answers
+    /// <see cref="ProviderVerdict.Failed"/>.</summary>
     public void Dispose()
     {
-        if (_disposed) return;
-        _disposed = true;
-        (_executor as IDisposable)?.Dispose();
-        _executor = null;
-        _weights?.Dispose();
-        _weights = null;
-        _gate.Dispose();
+        _gate.Wait();
+        try
+        {
+            if (_disposed) return;
+            _disposed = true;
+            (_executor as IDisposable)?.Dispose();
+            _executor = null;
+            _weights?.Dispose();
+            _weights = null;
+        }
+        finally
+        {
+            // never disposed: a call queued behind this one must still acquire it, read _disposed and answer
+            _gate.Release();
+        }
     }
 }
