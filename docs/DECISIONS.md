@@ -348,8 +348,9 @@ new decision overturns an old one, rewrite the old entry as a stub pointing here
 | [D276](#d276--a-traces-ordinal-fallback-stays-per-step-and-the-doc-says-two-steps-can-share-one-2026-11-09) | 2026-11-09 | a trace's ordinal fallback stays per step, and the doc says two steps can share one |
 | [D277](#d277--a-corrupt-tokenizer_configjson-keeps-the-defaults-and-a-corrupt-tokenizerjson-is-invaliddataexception-2026-11-09) | 2026-11-09 | a corrupt `tokenizer_config.json` keeps the defaults, and a corrupt `tokenizer.json` is `InvalidD… |
 | [D278](#d278--a-graph-export-refuses-a-non-finite-number-before-it-writes-and-an-import-accepts-an-empty-scope-or-headline-2026-11-09) | 2026-11-09 | a graph export refuses a non-finite number before it writes, and an import accepts an empty scope… |
+| [D279](#d279--memorycontentkey-is-documented-as-a-hash-over-utf-8-with-a-lone-surrogate-as-ufffd-2026-11-09) | 2026-11-09 | `MemoryContentKey` is documented as a hash over UTF-8, with a lone surrogate as U+FFFD |
 
-**273 live decisions.** The rest are stubs — `D<n>` is a permanent identifier, so a number is never reused or renumbered (5): [D36](#d36--a-translation-between-two-verdict-taxonomies-gets-one-arm-per-member-gated-by-a-test-2026-08-05) → D136 · [D80](#d80--merged-into-d77-2026-08-16-folded-2026-08-17) → D77 · [D131](#d131--a-backends-produces-is-derived-from-its-configuration-so-a-modality-is-a-field-2026-09-14) → D133 · [D134](#d134--a-registration-names-the-backend-the-provider-suffix-is-gone-from-all-seventeen-2026-09-14) → D137 · [D145](#d145--the-microsoftextensionsai-module-is-a-bridge-not-a-provider-2026-09-15) → D146
+**274 live decisions.** The rest are stubs — `D<n>` is a permanent identifier, so a number is never reused or renumbered (5): [D36](#d36--a-translation-between-two-verdict-taxonomies-gets-one-arm-per-member-gated-by-a-test-2026-08-05) → D136 · [D80](#d80--merged-into-d77-2026-08-16-folded-2026-08-17) → D77 · [D131](#d131--a-backends-produces-is-derived-from-its-configuration-so-a-modality-is-a-field-2026-09-14) → D133 · [D134](#d134--a-registration-names-the-backend-the-provider-suffix-is-gone-from-all-seventeen-2026-09-14) → D137 · [D145](#d145--the-microsoftextensionsai-module-is-a-bridge-not-a-provider-2026-09-15) → D146
 
 <!-- index:end -->
 
@@ -7744,3 +7745,15 @@ recall and its write-back is already a silent skip).
 **Rejected.** Filtering a non-finite number to absent (an age or a stability read as zero changes what the entry is, where a signal's absence is already neutral). Refusing an empty scope or headline at write (the stores hold them today).
 
 **Re-opens** when a store is found that yields a non-finite age on export, which would be a defect in that store rather than a reason to export it.
+
+## D279 — `MemoryContentKey` is documented as a hash over UTF-8, with a lone surrogate as U+FFFD (2026-11-09)
+
+**Standing.** A ruling on `TASKS.md` Part 499's ninth row, **the steward's under the owner's delegation, which the owner may reverse** — not the owner's words. Behaviour unchanged; the doc is reworded and a test pins it.
+
+**Decided.** `MemoryContentKey.Of` hashes the UTF-8 bytes of the content, so every lone surrogate is U+FFFD to it and `"a\uD800"` and `"a"` plus a real U+FFFD share a key. The doc no longer says "byte-for-byte", which read as the UTF-16 units.
+
+**Why.** Each backend already holds the replacement for a lone surrogate (**D262**), so the key agrees with what is stored, and a key over the raw units would give two entries one stored text.
+
+**Rejected.** Refusing content with a lone surrogate (a reply cut inside a pair is one, and writes of it succeed on every store today).
+
+**Re-opens** when a store is introduced that keeps a lone surrogate distinct.
