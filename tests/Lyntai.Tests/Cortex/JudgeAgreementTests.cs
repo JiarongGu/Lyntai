@@ -63,6 +63,16 @@ public class JudgeAgreementTests
         Assert.Null(against.PearsonCorrelation);
     }
 
+    [Theory]
+    [InlineData(double.NaN)]
+    [InlineData(double.PositiveInfinity)]
+    [InlineData(double.NegativeInfinity)]
+    public void A_non_finite_score_on_either_side_is_refused(double bad)
+    {
+        Assert.Throws<ArgumentException>(() => JudgeAgreement.Compare([0.5, bad], [0.5, 0.5]));
+        Assert.Throws<ArgumentException>(() => JudgeAgreement.Compare([0.5, 0.5], [bad, 0.5]));
+    }
+
     [Fact]
     public void Empty_series_is_vacuously_perfect_agreement()
     {

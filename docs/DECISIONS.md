@@ -341,8 +341,10 @@ new decision overturns an old one, rewrite the old entry as a stub pointing here
 | [D269](#d269--the-onnx-reader-refuses-an-export-it-cannot-run-reads-a-roberta-exports-padding-offset-and-caps-a-pass-at-128-rows-2026-11-09) | 2026-11-09 | the Onnx reader refuses an export it cannot run, reads a RoBERTa export's padding offset, and cap… |
 | [D270](#d270--model2vec-divides-by-the-rows-it-read-and-a-contextsize-the-machine-cannot-hold-is-the-hosts-to-bound-2026-11-09) | 2026-11-09 | Model2Vec divides by the rows it read, and a `ContextSize` the machine cannot hold is the host's… |
 | [D271](#d271--a-score-outside-0-to-1-is-skipped-with-a-warning-as-a-non-finite-one-is-2026-11-09) | 2026-11-09 | a score outside 0 to 1 is skipped with a warning, as a non-finite one is |
+| [D272](#d272--a-throwing-iscorerapplies-stays-surfaced-2026-11-09) | 2026-11-09 | a throwing `IScorer.Applies` stays surfaced |
+| [D273](#d273--judgeagreementcompare-keeps-10-for-two-empty-series-and-refuses-a-non-finite-score-2026-11-09) | 2026-11-09 | `JudgeAgreement.Compare` keeps 1.0 for two empty series and refuses a non-finite score |
 
-**266 live decisions.** The rest are stubs — `D<n>` is a permanent identifier, so a number is never reused or renumbered (5): [D36](#d36--a-translation-between-two-verdict-taxonomies-gets-one-arm-per-member-gated-by-a-test-2026-08-05) → D136 · [D80](#d80--merged-into-d77-2026-08-16-folded-2026-08-17) → D77 · [D131](#d131--a-backends-produces-is-derived-from-its-configuration-so-a-modality-is-a-field-2026-09-14) → D133 · [D134](#d134--a-registration-names-the-backend-the-provider-suffix-is-gone-from-all-seventeen-2026-09-14) → D137 · [D145](#d145--the-microsoftextensionsai-module-is-a-bridge-not-a-provider-2026-09-15) → D146
+**268 live decisions.** The rest are stubs — `D<n>` is a permanent identifier, so a number is never reused or renumbered (5): [D36](#d36--a-translation-between-two-verdict-taxonomies-gets-one-arm-per-member-gated-by-a-test-2026-08-05) → D136 · [D80](#d80--merged-into-d77-2026-08-16-folded-2026-08-17) → D77 · [D131](#d131--a-backends-produces-is-derived-from-its-configuration-so-a-modality-is-a-field-2026-09-14) → D133 · [D134](#d134--a-registration-names-the-backend-the-provider-suffix-is-gone-from-all-seventeen-2026-09-14) → D137 · [D145](#d145--the-microsoftextensionsai-module-is-a-bridge-not-a-provider-2026-09-15) → D146
 
 <!-- index:end -->
 
@@ -7653,3 +7655,27 @@ recall and its write-back is already a silent skip).
 **Rejected.** Clamping (it invents a score the scorer never gave). Storing as given (the aggregate stops meaning anything).
 
 **Re-opens** when a scorer's scale is declared per scorer, which would move the range into `IScorer`.
+
+## D272 — a throwing `IScorer.Applies` stays surfaced (2026-11-09)
+
+**Standing.** A ruling on `TASKS.md` Part 499's second row, **the steward's under the owner's delegation, which the owner may reverse** — not the owner's words. No code moves.
+
+**Decided.** An exception from `Applies` propagates out of `ScoringService.EvaluateAsync` and discards the scores already computed, as `ScorerAppliesTests` pins and the type doc says.
+
+**Why.** A predicate is contractually pure and cheap, so a throw is a registration bug, and a score skipped with a log line would hide it behind a dashboard that merely looks thinner.
+
+**Rejected.** Failing open per scorer with a log (it treats a defect in the gate like a fault in the work the gate guards).
+
+**Re-opens** when a predicate may legitimately consult something that fails, such as a store.
+
+## D273 — `JudgeAgreement.Compare` keeps 1.0 for two empty series and refuses a non-finite score (2026-11-09)
+
+**Standing.** A ruling on `TASKS.md` Part 499's third row, **the steward's under the owner's delegation, which the owner may reverse** — not the owner's words. Built, and frozen from release (**D70**).
+
+**Decided.** `Compare([], [])` keeps an exact agreement of 1.0 with a `Count` of 0, and the doc says to read `Count` first. A NaN or infinite score on either side throws `ArgumentException` before any metric is computed.
+
+**Why.** `Empty_series_is_vacuously_perfect_agreement` pins 1.0 and a caller that reads `Count` is not misled. A NaN was bucketed as 0 and gave a NaN error and correlation, a report that looks computed.
+
+**Rejected.** NaN for the empty rate (it poisons an average over reports). A nullable rate: `ExactAgreementRate` is a public record's type, so changing it stays the owner's.
+
+**Re-opens** when a dashboard needs "no data" distinguished from "perfect" without reading `Count`, which needs the nullable rate.
