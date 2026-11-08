@@ -131,14 +131,20 @@ public static class SearchTerms
     }
 
     /// <summary>Sliding n-grams of one script RUN, de-duplicated and capped. A run is one script by
-    /// construction, so a gram never straddles two. A non-positive <paramref name="length"/> adds none.</summary>
+    /// construction, so a gram never straddles two. A non-positive <paramref name="length"/> adds none. The
+    /// window slides by code point, so an emoji inside the run is never cut into a lone surrogate.</summary>
     private static void AddGrams(string run, int length, List<string> terms, HashSet<string> seen)
     {
         if (length < 1) return;
+        var offsets = new List<int>(run.Length + 1);
+        var at = 0;
+        foreach (var rune in run.EnumerateRunes()) { offsets.Add(at); at += rune.Utf16SequenceLength; }
+        offsets.Add(at);
+
         var taken = 0;
-        for (var i = 0; i + length <= run.Length && taken < MaxTermsPerToken; i++)
+        for (var i = 0; i + length < offsets.Count && taken < MaxTermsPerToken; i++)
         {
-            var gram = run.Substring(i, length);
+            var gram = run[offsets[i]..offsets[i + length]];
             if (!seen.Add(gram)) continue;
             terms.Add(gram);
             taken++;

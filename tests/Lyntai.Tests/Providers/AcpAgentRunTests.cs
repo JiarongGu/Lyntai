@@ -206,12 +206,12 @@ public class AcpAgentRunTests
         Assert.Equal("first", Assert.IsType<TextDelta>(firstEvents[1]).Text);
         Assert.DoesNotContain(secondEvents, e => e is SessionStarted);
         Assert.Equal("second", Assert.IsType<TextDelta>(secondEvents[0]).Text);
-        foreach (var events in new[] { firstEvents, secondEvents })
+        foreach (var (turn, events) in new[] { (first, firstEvents), (second, secondEvents) })
         {
             Assert.Single(events.OfType<SessionEnded>());
             var ended = Ended(events);
             Assert.Equal((ProviderVerdict.Ok, false, "s1"), (ended.Verdict, ended.IsError, ended.SessionId));
-            Assert.Equal(AgentRunTurnOrigin.Sent, first.Origin);
+            Assert.Equal(AgentRunTurnOrigin.Sent, turn.Origin);
         }
 
         Assert.Equal("first", Ended(firstEvents).FinalText);

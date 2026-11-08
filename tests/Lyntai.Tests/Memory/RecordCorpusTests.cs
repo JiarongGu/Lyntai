@@ -143,7 +143,9 @@ public sealed class RecordCorpusTests
         Assert.Contains(chunks, c => c.Text.Contains("never released"));
 
         var d = RecordParser.Decision(DecisionOne)!;
-        Assert.All(RecordChunker.Chunk([d]), c => Assert.DoesNotContain("also compresses the closed file", c.Text));
+        var decisionChunks = RecordChunker.Chunk([d]);
+        Assert.NotEmpty(decisionChunks);   // held out, not dropped whole
+        Assert.All(decisionChunks, c => Assert.DoesNotContain("also compresses the closed file", c.Text));
     }
 
     [Fact]

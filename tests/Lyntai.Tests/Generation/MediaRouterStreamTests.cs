@@ -356,13 +356,33 @@ public class MediaRouterStreamTests
             Script = [MediaChunk.Content([1]), MediaChunk.Content([2]), MediaChunk.Completed()],
         };
         using var cts = new CancellationTokenSource();
+        var tracker = new DeadHostTracker(threshold: 1, cooldown: TimeSpan.FromMinutes(5));
+        var router = new MediaRouter([tts], null, tracker);
 
         await Assert.ThrowsAnyAsync<OperationCanceledException>(async () =>
         {
-            await foreach (var chunk in Router(tts).StreamAsync(Candidates(tts), Speech(), cts.Token))
+            await foreach (var chunk in router.StreamAsync(Candidates(tts), Speech(), cts.Token))
             {
                 if (chunk.Data is not null) await cts.CancelAsync();
             }
         });
+
+        Assert.False(tracker.IsDead("generation::tts"));
+    }
+
+    [Fact]
+    public async Task A_backend_that_fails_its_stream_is_struck_where_a_cancelled_caller_is_not()
+    {
+        // The control for the cancellation fact above: the same tracker and key DO register a real failure.
+        var tts = new ScriptedStreamProvider
+        {
+            Id = "tts",
+            Script = [MediaChunk.Failure(ProviderVerdict.Failed, "backend fell over")],
+        };
+        var tracker = new DeadHostTracker(threshold: 1, cooldown: TimeSpan.FromMinutes(5));
+
+        await new MediaRouter([tts], null, tracker).StreamAsync(Candidates(tts), Speech()).ToListAsync();
+
+        Assert.True(tracker.IsDead("generation::tts"));
     }
 }

@@ -268,7 +268,7 @@ anything being wrong with it). They hang off the enum, so they read the same off
   `MaxProviderTimeout`.
 - **All of the above is the default `RoutingPolicy` — tune it without a fork.** Retry a transient
   fault on the same candidate before failing over, override what each verdict does, cool by
-  `(provider, model)` instead of whole-host, or keep the sole candidate always live:
+  `(provider, model)` instead of whole-host, or drop the default exemption that keeps a sole candidate live:
   ```csharp
   cfg.ConfigureRouting(r =>
   {
@@ -310,7 +310,7 @@ anything being wrong with it). They hang off the enum, so they read the same off
   `LYNTAI_DEADHOST_THRESHOLD`, `LYNTAI_DEADHOST_COOLDOWN_SECONDS`, `LYNTAI_DEFAULT_CANDIDATES`
   (`providerId[:model],…`), `LYNTAI_MODEL_<CONSUMER>` (+ `LYNTAI_DEFAULT_MODEL` alias),
   `LYNTAI_RETRY_FAILED`/`_TIMEOUT`/`_BACKOFF_SECONDS`, `LYNTAI_COOLDOWN_SCOPE`,
-  `LYNTAI_TOOL_LOOP_MAX_ITERATIONS`, `LYNTAI_CACHE_TTL_SECONDS`/`_MAX_ENTRIES`,
+  `LYNTAI_TOOL_LOOP_MAX_ITERATIONS`/`_MAX_CALLS_PER_TURN`, `LYNTAI_CACHE_TTL_SECONDS`/`_MAX_ENTRIES`,
   `LYNTAI_MEMORY_MAX_ENTRIES`/`_EVICTION` (`Fifo`|`Lru`)/`_TTL_SECONDS`/`_MAX_CHARS`,
   `LYNTAI_BUDGET_MAX_COST_USD`/`_MAX_TOKENS`, `LYNTAI_RATELIMIT_PERMITS_PER_SECOND`/`_BURST`/`_MAX_WAIT_SECONDS`,
   the durable-jobs family `LYNTAI_JOBS_LEASE_SECONDS`/`_POLL_SECONDS`/`_MAX_ATTEMPTS`/`_BACKOFF_SECONDS`/`_DEFAULT_CONCURRENCY`/`_MAX_STEP_LOG`,
@@ -390,7 +390,8 @@ fences memory spend, and a reached cap degrades a recall through its fail-open p
 **A layer of your own goes on the same chain:** `AddFrontDoorDecorator(order, (sp, inner) => …)` folds PII
 redaction, request logging or a bespoke cache in beside the built-ins — higher `order` = further out, with
 the built-ins at 5 (rate limit) / 10 (budget) / 20 (cache) / 30 (call tracing). Reach for it *instead of* pre-registering an
-`ITextClient`, which discards every front-door decorator with no error at all. Taking an order another
+`ITextClient`: one registered before `AddLyntai` makes it throw when a decorator is configured, and one registered
+inside the callback or after it discards every front-door decorator with no error at all. Taking an order another
 decorator already holds — a built-in's included — throws at composition, naming the slot and both
 registrations. **Derive the layer from `DelegatingTextClient`**, which forwards `GetCapabilitiesAsync`; a
 layer answering null there puts every tool loop above it on the prompt path.
@@ -876,8 +877,8 @@ throw is classified conservatively, while a verdict says what happened
 (`ProviderVerdictClassifier.FromHttpFailure(status, body, hasCredentials)` maps a response for you). For an
 `IChatClient` in particular, [`docs/extensions-ai.md`](extensions-ai.md) has the whole mapping. **A bridge declares only what you hand it a delegate for**: omit
 `stream` and no router asks it to stream, and pass `capabilities` to declare more than the defaults — tool
-calls, a model list, declared limits. **A bridge answers text only**, and refuses any other `Produces` at the
-call: an embedder or reranker of your own is an `IModelProvider` that implements `IVectorProvider` or
+calls, a model list, declared limits. **A bridge answers text only**, and `AddBridgeProvider` throws for a
+`capabilities.Produces` other than text: an embedder or reranker of your own is an `IModelProvider` that implements `IVectorProvider` or
 `IScoreProvider`, registered with `AddProvider(_ => backend, declares)`.
 
 ## Local in-process inference (`Lyntai.Providers.LlamaSharp`)
@@ -887,7 +888,7 @@ Run a GGUF model in-process via LLamaSharp — no network, no key, no subprocess
 
 ```xml
 <PackageReference Include="Lyntai.Providers.LlamaSharp" />             <!-- version: the current release -->
-<PackageReference Include="LLamaSharp.Backend.Cpu" Version="0.27.0" />  <!-- or .Cuda12 / .Vulkan / .Metal -->
+<PackageReference Include="LLamaSharp.Backend.Cpu" Version="0.30.0" />  <!-- or .Cuda12 / .Vulkan / .Metal -->
 ```
 
 ```csharp
@@ -1055,8 +1056,9 @@ an `AuthToken` never reaches the command line.
 **The codex session** (`AddCodexCliAgentSession()`) sits behind the same `IAgentSession`, and both
 `Add*CliAgentSession` extensions also register keyed by their `id` (`"claude-cli"`, `"codex-cli"` by
 default). What the codex mapping cannot do (`docs/DECISIONS.md` **D35**): a tool step arrives under codex's
-own item type with codex's own payload, so switch on `ToolCall.Name`; `UsageLive`, `SessionEnded.Subtype`,
-`UsageFinal.Model` and token-level deltas are never emitted; `DisallowedTools` is logged as unhonoured (codex
+own item type with codex's own payload, so switch on `ToolCall.Name`; `UsageLive`, `UsageFinal.Model`
+and token-level deltas are never emitted, and `SessionEnded.Subtype` is null on a turn codex ran (only a turn
+refused before the spawn carries one); `DisallowedTools` is logged as unhonoured (codex
 gates on `--sandbox`, from `ToolPolicy` or `CodexAgentOptions.SandboxMode`); and `SystemPrompt` travels as a
 leading block of the prompt.
 
@@ -1624,7 +1626,7 @@ await ctx.ReportStageAsync(3, 10, new JobMessage("Copying 3 of 10")
   on by default), and the model goes through the tool loop only when `UseTools` (on by default) is set and a tool
   is registered; else it is one plain completion. A batteries-included, guarded chat entry point.
 - **Secret vault** (`Lyntai.Secrets`) — `AddSecretVault(key)` gives an `ISecretVault` encrypted at rest
-  (AES-256-GCM, your key) over your storage backend. `AddEnvelopeSecretVault(machineProtector)` instead uses a
+  (AES-256-GCM, your key) over your storage backend, or in memory when none is registered. `AddEnvelopeSecretVault(machineProtector)` instead uses a
   Lyntai-generated key sealed to the host and backed by a one-time recovery key (`GenerateMasterKeyAsync()`,
   then `RecoverAsync(key)` on migration); on Windows, `AddDpapiSecretVault()` (`Lyntai.Secrets.Dpapi`) seals
   it with DPAPI.

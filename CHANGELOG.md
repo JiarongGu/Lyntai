@@ -731,6 +731,11 @@ every addition.
 
 ### Fixed
 
+- **An emoji inside a CJK query is no longer cut in half, a NaN salience no longer erases a real one, a tiny rate limit no longer throws,
+  and one failed resolution no longer turns call tracing off.** The search terms of a spaceless run slide over code points, so a
+  store is never handed a lone surrogate. `MaximalSalienceCompositionPolicy` skips a non-finite value another policy reported. A
+  per-consumer or global rate that is NaN or too small to make a wait refuses the call (`MaxWait` is the bound) where it threw
+  after taking a permit. `AddTextCallTracing` resolves its sinks again on the next call after a failed first resolution.
 - **A one-shot `claude` call no longer takes a subagent's words as its answer, and a hand-over brief no longer throws on a lone surrogate.**
   A line naming a parent tool call is read as that subagent's, not the turn's. A tool name or message holding an unpaired high
   surrogate threw `IndexOutOfRangeException` out of `AgentBriefComposer.Brief`. Two smaller ones: a `codex login status` text that

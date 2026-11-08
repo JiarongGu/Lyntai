@@ -7,6 +7,20 @@ to `.agents/knowledge/pitfalls.md`; the release-facing line goes to `CHANGELOG.m
 
 ---
 
+## 2026-11-08 — an emoji in a CJK query was cut in half, a NaN salience erased a real one, a tiny rate limit threw after taking a permit, and one failed resolution turned tracing off
+
+**Symptom.** None reported; found by reading the streaming, rate-limit, tracing and memory-policy code. `SearchTerms` slid its window by UTF-16 unit, so `我今天很开心😀你好吗` produced grams ending or starting inside the emoji, a lone surrogate that a store never matches (SQLite) or refuses (Npgsql, believed, not run). `MaximalSalienceCompositionPolicy` took `Math.Max`, so one policy's NaN beat another's 3.0 and the write stored a salience that reads as 1. `TokenBucketRateLimiter` threw `OverflowException` or `ArgumentException` from `TimeSpan.FromSeconds` for a rate below about 1e-13 or a NaN rate, after the permit was taken, and a NaN rate left the bucket's count NaN for good. `TracingTextClient` kept the first failed resolution of the trace service in its `Lazy` and traced nothing afterwards.
+
+**Root cause.** Each took the usual path through a corner nothing pinned: a substring by index where the text is a run of code points; a max over values nobody had checked finite; a span built from a quotient before it was compared with the bound; a `Lazy<T>` left at its default mode, which caches the exception.
+
+**Fix.** `AddGrams` slides over rune offsets. The composition skips a non-finite value. The limiter refills nothing on a NaN rate and compares the wait in seconds with `MaxWait` before it builds a span. The `Lazy` is `PublicationOnly`.
+
+**Verify.** `An_emoji_inside_a_cjk_run_is_never_cut_in_half`, `A_non_finite_value_from_one_policy_never_beats_a_real_one`, `A_rate_no_wait_can_be_made_from_refuses_and_keeps_the_bucket_usable` (both rows) and `One_failed_resolution_of_the_trace_service_does_not_disable_tracing_for_good` failed with the four source files reverted and pass with them.
+
+**Introduced by.** Not traced to a commit for each.
+
+---
+
 ## 2026-11-08 — six guards could pass without checking, and the curated store and the file backend each held a defect the contract did not pin
 
 **Symptom.** None reported; found by reading the guard scripts and the curated and legacy memory stores against each other. Guards: a package's docs row could be deleted while another package's row named it; a line of the private ban list that did not parse was reported and the guard exited 0; a ` ```cs ` or ` ```c# ` fence was never compiled; a required `{ get; set; }` member of `IModelProvider` left D127 reading "holds"; a user's `color.diff=always` blanked the version-bump guard's reading of the staged diff; an enum member with an initialiser dropped out of a counted claim; the committed `pre-commit` hook had mode 100644, which git skips on Linux and macOS. Stores: on Postgres an unchecked curated update that named only `enabled` wrote the stale `content` back over a concurrent edit; a Postgres recall or search of two-character words (`配偶 客户`) returned only the row holding the whole phrase; the in-memory and file stores ordered curated kinds by UTF-16 unit where the interface says UTF-8 byte; SQLite's `ForCompositionAsync` threw past 32,766 scopes; the file backend deleted any `*.tmp` file in a record directory; `LazyMigratingConnectionFactory.OpenAsync` threw out of the call when the first migration failed, and migrated for a cancelled token.

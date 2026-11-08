@@ -39,11 +39,12 @@ minutes for the queue ones (`ComfyUiOptions`, `FalOptions`, whose calls are subm
 rather than renders), 5 minutes for `PiperOptions`, and 15 minutes for `LocalDiffusionOptions`. The two
 subprocess backends pair theirs with an `InactivityTimeout`, because a local engine is legitimately slow but
 never *silent*, so silence rather than elapsed time is what marks it wedged. A request's own
-`MediaRequest.TimeoutSeconds` overrides the backend's deadline. A fired deadline on a render or a result fetch is a
+`MediaRequest.TimeoutSeconds` overrides the deadline of the four HTTP backends; the two subprocess backends (`sd-cli`
+and piper) ignore it and run on their `Timeout` and `InactivityTimeout`. A fired deadline on a render or a result fetch is a
 `ProviderVerdict.Timeout` **result**, not a throw (a queue backend's submit answers it as the next
 paragraph says, and its status read and cancel report the render still `Running`); your own `CancellationToken` keeps its own meaning.
-`Timeout = System.Threading.Timeout.InfiniteTimeSpan` drops the backend's own deadline, and a request that
-names `TimeoutSeconds` still gets one.
+`Timeout = System.Threading.Timeout.InfiniteTimeSpan` drops the backend's own deadline, and a request to an HTTP
+backend that names `TimeoutSeconds` still gets one.
 
 **For a queue backend the deadline bounds one HTTP call, never the render** — the render outlives every call,
 and bounding it is the durable job's retry budget. One consequence: a **submit whose outcome is unknown** — no
@@ -382,9 +383,9 @@ if (!result.IsOk)
 }
 ```
 
-A stage that cannot identify a single artifact to chain **refuses** (`Unsupported`) rather than guessing — a
-media type cannot be branched on, and "the first `image/*`" picks a texture atlas on a mesh backend;
-`GenerationStage.SelectInput` is where you state your own rule.
+A stage that cannot identify a single artifact to chain **refuses** (`Unsupported`) rather than guessing, since
+"the first `image/*`" picks a texture atlas on a mesh backend; `GenerationStage.SelectInput` is where you state
+your own rule, and the durable form's `InputMediaType` selects by type.
 
 **A mesh chains into an image only through a backend that RASTERIZES it.** That edge is a render, not a
 generation, and this library performs none — but a ComfyUI graph with a render node does, as a durable-job

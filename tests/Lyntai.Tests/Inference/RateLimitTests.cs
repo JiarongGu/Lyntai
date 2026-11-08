@@ -26,6 +26,26 @@ public class RateLimitTests
 
     // ---- token bucket reservation math ---------------------------------------------------------------
 
+    [Theory]
+    [InlineData(double.NaN)]
+    [InlineData(1e-300)]
+    public void A_rate_no_wait_can_be_made_from_refuses_and_keeps_the_bucket_usable(double rate)
+    {
+        // TimeSpan.FromSeconds throws past its range and on NaN, after the permit was already taken.
+        var options = new LyntaiOptions();
+        options.RateLimit.PermitsPerSecond = 0;
+        options.RateLimit.MaxWait = TimeSpan.FromSeconds(10);
+        options.RateLimit.PerConsumer["c"] = new ConsumerRate(PermitsPerSecond: rate, Burst: 1);
+        var limiter = new TokenBucketRateLimiter(options, () => T0);
+
+        Assert.Equal(TimeSpan.Zero, limiter.TryReserve("c", T0));   // the one burst permit
+        Assert.Null(limiter.TryReserve("c", T0));                   // refused, not an exception
+        Assert.Null(limiter.TryReserve("c", T0.AddSeconds(1)));     // and the refusal did not spend a permit
+
+        options.RateLimit.PerConsumer["c"] = new ConsumerRate(PermitsPerSecond: 1, Burst: 1);
+        Assert.Equal(TimeSpan.Zero, limiter.TryReserve("c", T0.AddSeconds(2)));   // a sane rate recovers it
+    }
+
     [Fact]
     public void Burst_permits_go_immediately_then_the_next_waits()
     {

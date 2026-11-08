@@ -140,6 +140,33 @@ public class LyntaiOptionsTests
         }
     }
 
+    [Fact] // the control for the theory above: each key is READ, so "ignored" there is not just "never looked at"
+    public void Every_duration_env_key_sets_its_own_option()
+    {
+        (string Key, Func<LyntaiOptions, TimeSpan> Read)[] keys =
+        [
+            ("LYNTAI_TIMEOUT_SECONDS", o => o.ProviderTimeout),
+            ("LYNTAI_MAX_TIMEOUT_SECONDS", o => o.MaxProviderTimeout),
+            ("LYNTAI_DEADHOST_COOLDOWN_SECONDS", o => o.DeadHostCooldown),
+            ("LYNTAI_JOBS_LEASE_SECONDS", o => o.Jobs.Lease),
+            ("LYNTAI_JOBS_POLL_SECONDS", o => o.Jobs.PollInterval),
+            ("LYNTAI_JOBS_BACKOFF_SECONDS", o => o.Jobs.RetryBackoff),
+            ("LYNTAI_CACHE_TTL_SECONDS", o => o.Cache.Ttl),
+            ("LYNTAI_MEMORY_TTL_SECONDS", o => o.MemoryEviction.DefaultTtl ?? TimeSpan.Zero),
+            ("LYNTAI_RATELIMIT_MAX_WAIT_SECONDS", o => o.RateLimit.MaxWait),
+            ("LYNTAI_RETRY_BACKOFF_SECONDS", o => o.Routing.RetryBackoff),
+        ];
+
+        foreach (var (key, read) in keys)
+        {
+            var options = new LyntaiOptions();
+
+            options.ApplyEnvOverrides(k => k == key ? "4242" : null);
+
+            Assert.True(TimeSpan.FromSeconds(4242) == read(options), $"{key} did not set its option");
+        }
+    }
+
     [Fact] // Env numbers parse INVARIANT — a comma-decimal locale must not read "1.5" as 15
     public void Numeric_env_overrides_parse_invariant_regardless_of_culture()
     {

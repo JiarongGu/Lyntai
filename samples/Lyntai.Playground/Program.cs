@@ -306,7 +306,7 @@ static class GovernanceDemo
     }
 
     // semantic memory: remember two facts, recall by a query that overlaps the relevant one — it must rank
-    // first, and the unrelated fact be filtered by the minScore floor. (DemoVectorProvider is a stand-in model.)
+    // first; the unrelated fact may still trail it. (DemoVectorProvider is a stand-in model.)
     private static async Task<bool> SemanticScenario(string dbPath)
     {
         var services = new ServiceCollection();

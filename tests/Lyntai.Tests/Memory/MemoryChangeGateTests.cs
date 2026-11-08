@@ -174,8 +174,9 @@ public class MemoryChangeGateTests
     [Fact]
     public void The_library_ships_no_approver_that_approves_by_itself()
     {
-        var shipped = typeof(IMemoryChangeApprover).Assembly.GetTypes()
-            .Where(t => t is { IsClass: true, IsAbstract: false } && typeof(IMemoryChangeApprover).IsAssignableFrom(t));
+        // every package the suite gates, not Core alone, and a struct counts as much as a class
+        var shipped = Api.ApiSurfaceTests.Loaded.Values.SelectMany(a => a.GetTypes())
+            .Where(t => t is { IsAbstract: false, IsInterface: false } && typeof(IMemoryChangeApprover).IsAssignableFrom(t));
         Assert.Empty(shipped);
     }
 

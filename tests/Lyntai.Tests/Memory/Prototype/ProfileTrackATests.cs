@@ -62,6 +62,8 @@ public class ProfileTrackATests(ITestOutputHelper output)
     {
         var outcomes = await ProfileTrackA.RunAsync(Open(backend), s => new ProfileOverCurated(s));
 
+        Assert.Equal(ProfileTrackA.Cases.Count, outcomes.Count);   // every case RAN: a run of none fails nothing
+        Assert.Contains(outcomes, o => o.Passed);
         foreach (var bucket in outcomes.GroupBy(o => o.Bucket))
             output.WriteLine($"{backend}/{bucket.Key}: {bucket.Count(o => o.Passed)}/{bucket.Count()}");
         var failed = outcomes.Where(o => !o.Passed).ToList();
