@@ -63,7 +63,8 @@ internal static class EmbeddingRouting
     /// <summary>Embed a batch, falling over to the next capable backend when one fails.</summary>
     /// <exception cref="InvalidOperationException">Nothing can embed, or every backend failed. <b>Thrown
     /// rather than returned</b> because these callers have no verdict to put it in — the routing beneath
-    /// now has one, and a caller that wants it asks the router directly.</exception>
+    /// now has one, and a caller that wants it asks the router directly. Also thrown when the backend that
+    /// answered returned a different number of vectors than <paramref name="texts"/>.</exception>
     /// <param name="providers">The registered backends.</param>
     /// <param name="texts">What to embed, in the order the vectors come back.</param>
     /// <param name="role">Which side of a retrieval the texts are.</param>
@@ -83,10 +84,12 @@ internal static class EmbeddingRouting
         if (!router.CanServe()) throw new InvalidOperationException(NothingEmbeds);
 
         var response = await router.CallAsync(new VectorRequest(texts, role, consumer), ct).ConfigureAwait(false);
-        return response.IsOk
+        if (!response.IsOk)
+            throw new InvalidOperationException($"Every embedding backend failed ({response.Verdict}). {response.Detail}");
+        return response.Vectors.Count == texts.Count
             ? response.Vectors
             : throw new InvalidOperationException(
-                $"Every embedding backend failed ({response.Verdict}). {response.Detail}");
+                $"the embedding backend returned {response.Vectors.Count} vectors for {texts.Count} texts");
     }
 
     /// <summary>Embed a single text — a thin wrapper over the batch primitive, which is what real endpoints

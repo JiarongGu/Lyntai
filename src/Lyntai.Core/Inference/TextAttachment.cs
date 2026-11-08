@@ -12,8 +12,9 @@ public sealed record TextAttachment(string MediaType, byte[]? Data = null, strin
 
     /// <summary>The URL to send: the remote <see cref="Uri"/> if set, else the inline <see cref="DataUrl"/>.
     /// Throws if the attachment has neither — better than silently sending an empty image URL.</summary>
-    public string Url() => Uri
-        ?? (Data is not null
+    public string Url() => !string.IsNullOrEmpty(Uri)
+        ? Uri
+        : Data is not null
             ? DataUrl()
-            : throw new InvalidOperationException("TextAttachment has neither inline Data nor a Uri — nothing to send."));
+            : throw new InvalidOperationException("TextAttachment has neither inline Data nor a Uri — nothing to send.");
 }

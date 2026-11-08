@@ -107,6 +107,8 @@ internal static partial class StatedRecovery
                 local = local.AddDays(1);
         }
 
-        return new DateTimeOffset(local, zone.GetUtcOffset(local));
+        // a stated date at the calendar's edge has no UTC instant in this offset: unreadable, never a throw
+        try { return new DateTimeOffset(local, zone.GetUtcOffset(local)); }
+        catch (ArgumentOutOfRangeException) { return null; }
     }
 }

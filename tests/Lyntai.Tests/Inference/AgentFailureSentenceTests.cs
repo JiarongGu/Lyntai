@@ -161,6 +161,20 @@ public class AgentFailureSentenceTests
         Assert.Equal(new StatedRecoveryParts(StatedTimeShape.TimeOfDay) { Time = new TimeOnly(15, 45), Zone = "Not/AZone", ZoneNamed = true }, recovery.Stated);
     }
 
+    [Theory] // a stated date whose instant the calendar cannot hold is a sentence this cannot read, not a throw out of the classifier
+    [InlineData("You’ve hit your usage limit. Try again at Jan 1st, 0001 12:00 AM.", 11)]
+    [InlineData("You’ve hit your usage limit. Try again at Dec 31st, 9999 11:59 PM.", -5)]
+    public void A_stated_date_outside_the_calendar_reads_as_an_unknown_recovery(string text, int offsetHours)
+    {
+        var clock = new FixedLocalClock(FixedLocalClock.Wednesday.GetUtcNow(), TimeSpan.FromHours(offsetHours));
+
+        var failure = ProviderVerdictClassifier.ReadAgentFailure(text, clock);
+
+        Assert.Equal(AgentFailureKind.Limit, failure!.Kind);
+        Assert.Equal(RecoveryKind.Unknown, failure.Restriction!.Recovery.Kind);
+        Assert.Null(failure.Restriction.Recovery.At);
+    }
+
     [Fact] // a sentence that states no time leaves nothing stated, rather than an empty set of parts
     public void A_limit_that_states_no_time_has_no_stated_parts()
     {

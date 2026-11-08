@@ -210,6 +210,36 @@ public class GenerationGovernanceTests
         Assert.Equal(150, total.TotalTokens);      // the render contributed no tokens, and claimed none
     }
 
+    /// <summary>A ledger that, like a SQL one, honours the token it is handed.</summary>
+    private sealed class CancellationAwareTracker(InMemoryUsageTracker inner) : IUsageTracker
+    {
+        public ValueTask RecordAsync(string consumer, Lyntai.Inference.ProviderUsage usage, CancellationToken ct = default)
+        {
+            ct.ThrowIfCancellationRequested();
+            return inner.RecordAsync(consumer, usage, ct);
+        }
+
+        public ValueTask<UsageTotals> TotalAsync(string? consumer = null, CancellationToken ct = default) =>
+            inner.TotalAsync(consumer, ct);
+
+        public ValueTask ResetAsync(string? consumer = null, CancellationToken ct = default) =>
+            inner.ResetAsync(consumer, ct);
+    }
+
+    [Fact] // the money is spent when the render returns: a cancel that lands after it must not lose the ledger line
+    public async Task A_cancel_after_the_render_does_not_lose_what_it_spent()
+    {
+        using var cts = new CancellationTokenSource();
+        var backend = new FakeGenerationProvider { Id = "hosted", CostUsd = 0.40, OnGenerate = cts.Cancel };
+        var ledger = new InMemoryUsageTracker();
+        var router = new BudgetedMediaRouter(Router([backend]), new CancellationAwareTracker(ledger), new LyntaiOptions());
+
+        var result = await router.GenerateAsync(Order("hosted"), Image, cts.Token);
+
+        Assert.True(result.IsOk);
+        Assert.Equal(0.40, (await ledger.TotalAsync()).CostUsd, 6);
+    }
+
     [Fact]
     public async Task A_token_cap_alone_never_blocks_a_render()
     {

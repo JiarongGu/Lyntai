@@ -131,12 +131,12 @@ public sealed class ProviderRouter<TRequest, TResponse>(
 
             var response = await RouteAsync(request, ct).ConfigureAwait(false);
             if (admission is not null && response.Usage is { } usage)
-                await admission.SettleAsync(usage, ct).ConfigureAwait(false);
+                await admission.SettleAsync(usage).ConfigureAwait(false);
             return response;
         }
         finally
         {
-            if (admission is not null) await admission.SettleAsync(null, ct).ConfigureAwait(false);
+            if (admission is not null) await admission.SettleAsync(null).ConfigureAwait(false);
         }
     }
 

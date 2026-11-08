@@ -49,6 +49,16 @@ public class MultimodalTests
         Assert.Throws<InvalidOperationException>(() => new TextAttachment("image/png").Url());
     }
 
+    [Fact] // an empty string is no location: the bytes are sent, or nothing is
+    public void An_empty_uri_is_no_uri_so_the_inline_bytes_are_sent_or_the_attachment_throws()
+    {
+        var url = new TextAttachment("image/png", Png, Uri: "").Url();
+
+        Assert.StartsWith("data:image/png;base64,", url);
+        Assert.Equal(new TextAttachment("image/png", Png).DataUrl(), url);
+        Assert.Throws<InvalidOperationException>(() => new TextAttachment("image/png", Uri: "").Url());
+    }
+
     [Fact]
     public void Openai_drops_images_on_a_non_user_role()
     {

@@ -7003,3 +7003,10 @@ lines the doors' own tests pin. Landed in `08b41270`; the row stayed open in `TA
 - the six code fixes and their reverted-source proof
 - the orchestrator and pairwise tests
 - the per-thread message lists
+
+## Part 508 — a design review of the provider pools, the media router and the embedding routing, and the faults of them that were certain and small (2026-11-09)
+
+✅ done 2026-11-09 — **Outcome:** the blockers were re-checked first and none had cleared (no `hf_` token, no aggregator, no labels, the nine tests unrecurred; every other open row waits on a ruling, and the roadmap holds nothing startable), so the piece taken was a review of the one area no earlier review read: two read-only reviews (the pools, admission and process helpers; the structured-output extension, the media routers and the embedding routing), each finding read against the code before it was fixed or filed. **Code** (`docs/FIXES.md` 2026-11-09, each test failed with the source reversed): `BoundedProviderPool` reads `TimeSpan.MaxValue` and `Timeout.InfiniteTimeSpan` as never; a media stream's pre-commit terminal chunk with no data falls over; the media router fails a null or empty `Ok` response; a spend settles with no token (`BudgetAdmission.SettleAsync` lost its `ct`); a stated date at the calendar's edge is unreadable, not a throw; `EmbedAsync` checks the vector count; an empty attachment `Uri` is none; a pool disposes an instance it refused. The rest is `TASKS.md` Part 500: eleven rows, ten `decision-only` and one startable. The review's other claims were read and left: `ExtractObject` committing to its first brace is already a row (`TASKS.md` Part 487). **Docker was started** and the Postgres leg ran. No decision; no public member (`SettleAsync` is internal). Lanes `inference`, `platform`.
+
+- the two reviews; the eleven rows
+- the eight fixes and their reverted-source proof

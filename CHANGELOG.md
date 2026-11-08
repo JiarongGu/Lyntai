@@ -37,6 +37,12 @@ every addition.
 
 ### Changed
 
+- **A pool's never-idle timeout, an empty media stream, a cancel after a render and four smaller edges no longer misbehave.**
+  `ProviderPoolOptions.IdleTimeout` of `TimeSpan.MaxValue` or `Timeout.InfiniteTimeSpan` now means never; the first threw on every access and the second retired every entry on every access.
+  A media stream whose only chunk is a terminal one falls over to the next candidate instead of completing empty, and a null or `Ok`-with-no-artifacts response from a backend of your own is a failure
+  to fall over. A caller's cancel arriving after a render returned no longer drops what it spent from the usage ledger. A stated recovery date at the calendar's edge reads as an unknown recovery
+  rather than throwing out of the classifier. `EmbeddingRouting.EmbedAsync` throws when a backend returns a different number of vectors than texts, an empty `TextAttachment.Uri` is read as none,
+  and a pool disposes an instance it refused for its id.
 - **A memory walk rethrows a caller's mistake at every step, a blend's view recall fails open per view, and a graph import refuses an optional field of the wrong type.**
   A walk whose expansion threw an `ArgumentException` or `KeyNotFoundException` ended quietly; it now propagates as it does on step 1. One throwing member view no longer loses the
   whole blend's view recall. A link `kind`, an `endedReason` or a `recheck` that is not a string is refused rather than read as absent, and a blend's import refusal names the line

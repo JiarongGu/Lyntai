@@ -33,6 +33,28 @@ public class MediaRouterTests
         Assert.Equal(1, healthy.GenerateCalls);
     }
 
+    // the same boundary for what a backend RETURNS: MediaResponse.Success refuses an empty Ok, but the record's
+    // constructor is public, and a null is a value the signature cannot rule out
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task A_response_that_is_null_or_an_Ok_with_nothing_produced_is_a_failure_to_fall_over(bool returnsNull)
+    {
+        var broken = new FakeGenerationProvider
+        {
+            Id = "byo",
+            Reply = () => returnsNull ? null : new MediaResponse(ProviderVerdict.Ok, []),
+        };
+        var healthy = new FakeGenerationProvider { Id = "a1111" };
+
+        var result = await Router(broken, healthy).GenerateAsync(
+            [new ProviderCandidate("byo"), new ProviderCandidate("a1111")], Image());
+
+        Assert.True(result.IsOk);
+        Assert.Equal("a1111", result.ProviderId);
+        Assert.Equal(1, healthy.GenerateCalls);
+    }
+
     [Fact]
     public async Task A_thrown_refusal_is_clamped_so_a_keyword_cannot_stop_the_chain()
     {

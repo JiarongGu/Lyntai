@@ -126,6 +126,24 @@ public class BoundedProviderPoolTests
         Assert.Same(first, pool.GetOrAdd(Key("a"), () => new FakeGenerationProvider()));
     }
 
+    // the two spellings of "never" a TimeSpan has: MaxValue underflowed the cutoff and threw on every access,
+    // and the infinite span (-1 ms) put the cutoff in the future and retired every entry on every access
+    [Theory]
+    [MemberData(nameof(NeverSpans))]
+    public void An_idle_timeout_that_says_never_never_retires_and_never_throws(TimeSpan never)
+    {
+        var clock = new MutableClock();
+        var pool = Pool(idleTimeout: never, clock: clock);
+        var first = pool.GetOrAdd(Key("a"), () => new FakeGenerationProvider());
+
+        clock.Advance(TimeSpan.FromDays(30));
+
+        Assert.Same(first, pool.GetOrAdd(Key("a"), () => new FakeGenerationProvider()));
+        Assert.Equal(1, pool.Statistics.Created);
+    }
+
+    public static TheoryData<TimeSpan> NeverSpans => new() { TimeSpan.MaxValue, Timeout.InfiniteTimeSpan };
+
     [Fact]
     public void Both_bounds_unset_means_nothing_is_ever_evicted()
     {
@@ -196,6 +214,21 @@ public class BoundedProviderPoolTests
         Assert.Equal(0, pool.Statistics.Live);
     }
 
+    // the pool never disposes what it POOLS (a call may be in flight on it); an instance it refused was never
+    // pooled, so nothing else holds it and it would otherwise be built and leaked on every call
+    [Fact]
+    public void A_refused_instance_is_disposed_because_nothing_else_holds_it()
+    {
+        var built = new DisposableProvider { Id = "comfyui" };
+
+        Assert.Throws<ArgumentException>(() => new BoundedProviderPool<DisposableProvider>().GetOrAdd(Key("a", "a1111"), () => built));
+        Assert.True(built.Disposed);
+
+        var transient = new DisposableProvider { Id = "comfyui" };
+        Assert.Throws<ArgumentException>(() => new TransientProviderPool<DisposableProvider>().GetOrAdd(Key("a", "a1111"), () => transient));
+        Assert.True(transient.Disposed);
+    }
+
     [Fact]
     public void TryGetKey_answers_for_a_live_entry()
     {
@@ -248,7 +281,7 @@ public class BoundedProviderPoolTests
 
     private sealed class DisposableProvider : Lyntai.Inference.IProviderIdentity, IDisposable
     {
-        public string Id => "disposable";
+        public string Id { get; init; } = "disposable";
         public bool Disposed { get; private set; }
         public void Dispose() => Disposed = true;
     }

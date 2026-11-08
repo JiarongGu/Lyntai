@@ -32,12 +32,12 @@ public sealed class BudgetedTextClient(
         try
         {
             var reply = await Inner.CompleteAsync(req, ct).ConfigureAwait(false);
-            await admission.SettleAsync(reply.Usage?.ToProviderUsage(), ct).ConfigureAwait(false);
+            await admission.SettleAsync(reply.Usage?.ToProviderUsage()).ConfigureAwait(false);
             return reply;
         }
         finally
         {
-            await admission.SettleAsync(null, ct).ConfigureAwait(false);
+            await admission.SettleAsync(null).ConfigureAwait(false);
         }
     }
 
@@ -56,13 +56,13 @@ public sealed class BudgetedTextClient(
             await foreach (var chunk in Inner.StreamAsync(req, ct).ConfigureAwait(false))
             {
                 if (chunk is { Kind: TextChunkKind.Final, Usage: not null })
-                    await admission.SettleAsync(chunk.Usage.ToProviderUsage(), ct).ConfigureAwait(false);
+                    await admission.SettleAsync(chunk.Usage.ToProviderUsage()).ConfigureAwait(false);
                 yield return chunk;
             }
         }
         finally
         {
-            await admission.SettleAsync(null, ct).ConfigureAwait(false);
+            await admission.SettleAsync(null).ConfigureAwait(false);
         }
     }
 
