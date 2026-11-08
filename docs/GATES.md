@@ -337,7 +337,10 @@ the former: the release stamp deletes that region on its way past.
 
 **It also scans code COMMENTS** in `src/`, `tests/`, `bench/` and `devtools/` — the compiler resolves
 `<see cref>` and nothing else, so a retired CLAIM in a `<c>` tag or a `//` comment was checked by no one.
-Three `devtools/` paths are out because quoting retired vocabulary is their job: the registry itself
+**A `/* … */` block, JSDoc included, is read line by line** from a line that starts with `/*` to the one
+holding the closer, as `check-links` already counts it (**D294**); **a comment trailing code on the same
+line (`code // x`) stays out**, and so does code after a closer, because the line is the unit and a line
+that is code is blanked (`check-tautology` reads the same lines). Three `devtools/` paths are out because quoting retired vocabulary is their job: the registry itself
 (`project.config.mjs`), the roster of published package ids (`nuget-unlist.mjs`) and the guards' own tests
 folder (`devtools/scripts/__tests__/`), whose fixtures are the terms. Excluding the whole tier once hid a stale embedder name in a sweep script.
 **An empty `retiredTerms` registry FAILS** rather than reporting a clean tree it never checked.

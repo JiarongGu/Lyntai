@@ -348,6 +348,23 @@ describe('check-docs — the CODE tiers, comment lines only', () => {
     assert.equal(run({ 'devtools/scripts/x.mjs': '// available but not the default\n' }).code, 1);
   });
 
+  it('reads a /* */ and JSDoc block, line by line, as it reads a run of // lines', () => {
+    const jsdoc = '/**\n * available but not the default\n */\nexport const x = 1;\n';
+    assert.equal(run({ 'devtools/scripts/x.mjs': jsdoc }).code, 1, 'a JSDoc line is prose');
+    assert.equal(run({ 'src/A.cs': '/* available but not the default */\nclass A;\n' }).code, 1, 'a one-line block');
+    assert.equal(run({ 'src/A.cs': '/*\n  available but not the\n  default\n*/\nclass A;\n' }).code, 1,
+      'a claim wrapped across two block lines joins like prose');
+    assert.equal(run({ 'src/A.cs': '/** available but not the default */\nclass A;\n' }).code, 1);
+  });
+
+  it('a block ends at its closer: code after it and a trailing comment on a code line stay out', () => {
+    assert.equal(run({ 'src/A.cs': '/* fine */\nvar s = "available but not the default";\n' }).code, 0, 'code after the block');
+    assert.equal(run({ 'src/A.cs': 'var x = 1; // available but not the default\n' }).code, 0,
+      'a trailing // is out of scope, as docs/GATES.md §check-docs says');
+    assert.equal(run({ 'src/A.cs': 'var s = "/*";\nvar t = "available but not the default";\n' }).code, 0,
+      'a block opener not at the start of a line opens nothing');
+  });
+
   it('scans tests/ and bench/, not just src/ — the tiers a review would forget', () => {
     assert.equal(run({ 'tests/T.cs': '// available but not the default\nclass T;\n' }).code, 1);
     assert.equal(run({ 'bench/B.cs': '// available but not the default\nclass B;\n' }).code, 1);
