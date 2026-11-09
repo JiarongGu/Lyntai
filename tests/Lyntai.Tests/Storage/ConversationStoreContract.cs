@@ -32,6 +32,21 @@ public static class ConversationStoreContract
         Assert.Equal(["cut \uFFFD"], (await store.GetMessagesAsync(t)).Select(m => m.Payload));
     }
 
+    /// <summary>Eight writers appending to one thread at once all succeed and take distinct, gapless sequence numbers on every
+    /// backend: Postgres retried a lost race four times, so a fifth contender could surface a raw unique violation
+    /// (the steward's ruling, <c>docs/DECISIONS.md</c> D313).</summary>
+    public static async Task Eight_concurrent_appenders_to_one_thread_all_succeed(IConversationStore store, string key)
+    {
+        var t = key + "-t1";
+        await store.CreateThreadAsync(t, "busy");
+
+        var appended = await Task.WhenAll(Enumerable.Range(0, 8)
+            .Select(i => Task.Run(() => store.AppendMessageAsync(t, "user", $"message {i}"))));
+
+        Assert.Equal(Enumerable.Range(1, 8).Select(i => (long)i), appended.Select(m => m.Seq).Order());
+        Assert.Equal(8, (await store.GetMessagesAsync(t)).Count);
+    }
+
     public static async Task Create_and_get_thread(IConversationStore store, string key)
     {
         var t = key + "-t1";
