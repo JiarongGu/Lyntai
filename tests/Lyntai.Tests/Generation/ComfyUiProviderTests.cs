@@ -755,6 +755,39 @@ public class ComfyUiProviderTests
         Assert.Contains("subfolder=3d", artifact.Uri);
     }
 
+    /// <summary>A workflow with both a save node and a preview node lists the preview under <c>type: "temp"</c>, and a
+    /// pipeline stage chains forward exactly one artifact, so the previews are dropped when the run saved anything
+    /// and kept when previews are all it made (the steward's ruling, <c>docs/DECISIONS.md</c> D323).</summary>
+    [Fact]
+    public async Task A_temp_preview_is_dropped_when_the_run_also_saved_an_output()
+    {
+        var (provider, http) = Provider();
+        http.Enqueue(HttpStatusCode.OK, """
+            {"abc-123":{"status":{"completed":true},"outputs":{
+              "7":{"images":[{"filename":"saved.png","subfolder":"","type":"output"}]},
+              "8":{"images":[{"filename":"ComfyUI_temp_x.png","subfolder":"","type":"temp"}]}}}}
+            """);
+
+        var result = await provider.FetchAsync("abc-123");
+
+        Assert.Contains("filename=saved.png", Assert.Single(result.Artifacts).Uri);
+    }
+
+    [Fact]
+    public async Task Temp_previews_are_kept_when_they_are_all_the_run_made()
+    {
+        var (provider, http) = Provider();
+        http.Enqueue(HttpStatusCode.OK, """
+            {"abc-123":{"status":{"completed":true},"outputs":{
+              "8":{"images":[{"filename":"ComfyUI_temp_x.png","subfolder":"","type":"temp"}]}}}}
+            """);
+
+        var result = await provider.FetchAsync("abc-123");
+
+        Assert.True(result.IsOk, result.Detail);
+        Assert.Contains("type=temp", Assert.Single(result.Artifacts).Uri);
+    }
+
     [Theory]
     [InlineData("scene.gltf", "model/gltf+json")]
     [InlineData("mesh.obj", "model/obj")]

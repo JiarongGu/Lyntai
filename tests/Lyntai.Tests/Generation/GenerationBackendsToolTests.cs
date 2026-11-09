@@ -102,6 +102,33 @@ public class GenerationBackendsToolTests
         Assert.Contains("boom", broken.GetProperty("detail").GetString()!, StringComparison.Ordinal);
     }
 
+    /// <summary>Only a backend that produces an image, a video, audio or a 3d asset is a generation backend: a chat, an
+    /// embedding or a rerank provider is neither listed nor probed, since a probe can spawn a CLI or reach a network
+    /// (the steward's ruling, <c>docs/DECISIONS.md</c> D322).</summary>
+    [Fact]
+    public async Task A_text_vector_or_score_provider_is_neither_listed_nor_probed()
+    {
+        var probed = new List<string>();
+        IModelProvider Counting(string id, params string[] produces) =>
+            new CountingProbeProvider(id, _ => { lock (probed) probed.Add(id); return Task.CompletedTask; }, produces);
+        var tool = Tool(TimeSpan.FromSeconds(5),
+            Counting("chat", ProviderKinds.Text),
+            Counting("embed", ProviderKinds.Vector),
+            Counting("rerank", ProviderKinds.Score),
+            Counting("images", ProviderKinds.Image),
+            Counting("mesh", ProviderKinds.Model3d),
+            Counting("both", ProviderKinds.Text, ProviderKinds.Audio),
+            new FakeGenerationJobProvider { Id = "video" });
+
+        var observation = await tool.InvokeAsync("{}");
+
+        Assert.Equal(["both", "images", "mesh", "video"],
+            Backends(observation).EnumerateArray().Select(b => b.GetProperty("id").GetString()!).Order());
+        Assert.DoesNotContain("chat", probed);
+        Assert.DoesNotContain("embed", probed);
+        Assert.DoesNotContain("rerank", probed);
+    }
+
     /// <summary>Probes run CONCURRENTLY — asserted by OBSERVING overlap rather than by timing it. An elapsed
     /// bound depends on machine load and fails inside a full-suite run (`pitfalls.md` records the shape);
     /// serial execution cannot produce a concurrency above 1 however fast or slow the machine is, so counting
@@ -138,7 +165,7 @@ public class GenerationBackendsToolTests
 
     /// <summary>A backend whose probe runs a supplied body — for observing HOW the tool calls it rather than
     /// what it answers.</summary>
-    private sealed class CountingProbeProvider(string id, Func<CancellationToken, Task> body)
+    private sealed class CountingProbeProvider(string id, Func<CancellationToken, Task> body, params string[] produces)
         : IModelProvider
     {
         public string Id => id;
@@ -146,7 +173,7 @@ public class GenerationBackendsToolTests
         public ProviderCapabilities Capabilities { get; } = new()
         {
             Accepts = [ProviderKinds.Text],
-            Produces = [ProviderKinds.Image],
+            Produces = produces.Length > 0 ? produces : [ProviderKinds.Image],
             Operations = [ProviderOperation.Complete],
         };
 

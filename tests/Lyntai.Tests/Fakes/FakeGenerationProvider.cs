@@ -137,8 +137,14 @@ public sealed class FakeGenerationJobProvider : IModelProvider, IMediaJobProvide
     /// real queue backend prices at fetch, which is the only point the total is known.</summary>
     public double? FetchCostUsd { get; set; }
 
+    /// <summary>When set, the fetch FAILS with this verdict instead of delivering — set it back to null to let the next
+    /// fetch land.</summary>
+    public ProviderVerdict? FetchVerdict { get; set; }
+
     public Task<MediaResponse> FetchAsync(string operationId, CancellationToken ct = default) =>
-        Task.FromResult(MediaResponse.Success(
+        FetchVerdict is { } failed
+            ? Task.FromResult(MediaResponse.Failure(failed, $"fake fetch {failed}"))
+            : Task.FromResult(MediaResponse.Success(
             [new MediaArtifact("video/mp4", Uri: $"https://example.invalid/{operationId}.mp4")],
             new MediaUsage(Seconds: 5, CostUsd: FetchCostUsd)));
 

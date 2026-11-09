@@ -842,7 +842,7 @@ public sealed class ComfyUiProvider(
             !value.TryGetProperty(options.OutputsField, out var outputs) || outputs.ValueKind != JsonValueKind.Object)
             return [];
 
-        var artifacts = new List<MediaArtifact>();
+        var artifacts = new List<(MediaArtifact Artifact, bool Temp)>();
         foreach (var node in outputs.EnumerateObject())
         {
             if (node.Value.ValueKind != JsonValueKind.Object) continue;
@@ -858,16 +858,19 @@ public sealed class ComfyUiProvider(
                     var type = JsonExtract.StringProperty(file, "type") ?? "output";
                     var uri = $"{Url(options.ViewPath)}?filename={Uri.EscapeDataString(filename)}" +
                         $"&subfolder={Uri.EscapeDataString(subfolder)}&type={Uri.EscapeDataString(type)}";
-                    artifacts.Add(new MediaArtifact(MediaTypeOf(filename), Uri: uri,
+                    artifacts.Add((new MediaArtifact(MediaTypeOf(filename), Uri: uri,
                         Metadata: new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
                         {
                             ["node"] = node.Name,
                             ["filename"] = filename,
-                        }));
+                        }), string.Equals(type, "temp", StringComparison.OrdinalIgnoreCase)));
                 }
             }
         }
-        return artifacts;
+        // a preview node files under type "temp"; it is dropped when the run saved anything, so a stage chains one
+        // artifact, and kept when previews are all there is (D323)
+        var saved = artifacts.Where(a => !a.Temp).ToList();
+        return [.. (saved.Count > 0 ? saved : artifacts).Select(a => a.Artifact)];
     }
 
     /// <summary>The extension, with its dot, of the file a URI names when the shared table knows it — else

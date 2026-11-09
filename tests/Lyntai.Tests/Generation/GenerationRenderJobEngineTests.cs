@@ -58,6 +58,55 @@ public class GenerationRenderJobEngineTests
         Assert.Equal("op-1", delivery.OperationId);
     }
 
+    /// <summary>A fetch that timed out or was rate limited is a retryable read of an operation the checkpoint already holds,
+    /// so the job RETRIES (bounded by its attempts, then Dead, replayable) and the next run fetches it, billing and
+    /// delivering once; every other failure still fails (the steward's ruling, <c>docs/DECISIONS.md</c> D321).</summary>
+    [Theory]
+    [InlineData(ProviderVerdict.Timeout)]
+    [InlineData(ProviderVerdict.RateLimited)]
+    public async Task A_transient_fetch_failure_retries_and_the_next_run_fetches_the_same_operation(ProviderVerdict verdict)
+    {
+        var backend = new FakeGenerationJobProvider { Id = "video", FetchCostUsd = 0.50, FetchVerdict = verdict };
+        IModelProvider[] providers = [backend];
+        var usage = new InMemoryUsageTracker();
+        var sink = new Sink();
+        var handler = new GenerationRenderJobHandler(new MediaRouter(providers), providers, sink, usage: usage);
+        var ctx = new Context();
+
+        Assert.Equal(JobOutcome.Kind.Poll, (await handler.HandleAsync(ctx.Build(Payload()))).Result);
+        var retried = await handler.HandleAsync(ctx.Build(Payload()));
+
+        Assert.Equal(JobOutcome.Kind.Retry, retried.Result);
+        Assert.Empty(sink.Received);
+        Assert.Equal(0, (await usage.TotalAsync()).CostUsd);
+
+        backend.FetchVerdict = null;
+        var outcome = await handler.HandleAsync(ctx.Build(Payload()));
+
+        Assert.Equal(JobOutcome.Kind.Complete, outcome.Result);
+        Assert.Equal(1, backend.SubmitCalls);                                    // the operation was fetched, never re-submitted
+        Assert.Equal(0.50, (await usage.TotalAsync()).CostUsd, precision: 6);
+        Assert.Equal("op-1", Assert.Single(sink.Received).OperationId);
+    }
+
+    [Theory]
+    [InlineData(ProviderVerdict.Failed)]
+    [InlineData(ProviderVerdict.Unsupported)]
+    [InlineData(ProviderVerdict.AuthFailed)]
+    public async Task Any_other_fetch_failure_still_fails_the_job(ProviderVerdict verdict)
+    {
+        var backend = new FakeGenerationJobProvider { Id = "video", FetchVerdict = verdict };
+        IModelProvider[] providers = [backend];
+        var handler = new GenerationRenderJobHandler(new MediaRouter(providers), providers, new Sink());
+        var ctx = new Context();
+
+        await handler.HandleAsync(ctx.Build(Payload()));
+        var outcome = await handler.HandleAsync(ctx.Build(Payload()));
+
+        Assert.Equal(JobOutcome.Kind.Fail, outcome.Result);
+        Assert.Contains("could not be fetched", outcome.Error);
+    }
+
     [Fact]
     public async Task A_job_checkpointed_as_providerId_and_operationId_resumes_polling_that_operation()
     {
