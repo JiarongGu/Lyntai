@@ -66,6 +66,7 @@ public static class MigrationRunnerService
     {
         // the All-vs-subset tag dispatch lives in Core (StorageFeatures.TagPasses) so both backend
         // runners share the all-requested-tags-must-match semantics
+        SqliteDatabasePath.RequireFile(dbPath, nameof(dbPath));
         var passes = StorageFeatures.TagPasses(features).ToList();
         if (passes.Count == 0) return;
         using var _ = MigrationLock.Acquire(dbPath);

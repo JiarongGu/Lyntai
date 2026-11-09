@@ -12,15 +12,23 @@ public sealed class SqliteConnectionFactory : IDbConnectionFactory
 
     private readonly string _connectionString;
 
+    /// <exception cref="ArgumentException"><paramref name="dbPath"/> names an in-memory database
+    /// (<c>:memory:</c>, or a <c>file:</c> URI with <c>mode=memory</c>): every connection would open its own
+    /// empty one, so the schema a migration built would not be there for the stores. Give a file path.</exception>
     public SqliteConnectionFactory(string dbPath)
     {
+        SqliteDatabasePath.RequireFile(dbPath, nameof(dbPath));
         DbPath = dbPath;
         _connectionString = new SqliteConnectionStringBuilder { DataSource = dbPath }.ToString();
     }
 
-    /// <summary>The database path this factory was constructed with — for diagnostics, backup, or locating
-    /// the file a BYO caller handed in. Connections are opened from the connection string built from it in
-    /// the constructor, not from this property.</summary>
+    /// <summary>The database path this factory was constructed with — for diagnostics, or locating the file a
+    /// BYO caller handed in. Connections are opened from the connection string built from it in the
+    /// constructor, not from this property.
+    /// <para><b>Copying this file alone is not a backup.</b> Every connection runs the WAL journal, so a commit
+    /// lives in the <c>-wal</c> file beside it until a checkpoint, and a copy of the <c>.db</c> alone loses it.
+    /// Back up with <c>VACUUM INTO</c> or SQLite's backup API, or copy the <c>.db</c> together with its
+    /// <c>-wal</c> and <c>-shm</c> files while nothing writes.</para></summary>
     public string DbPath { get; }
 
     // journal_mode persists in the db but is idempotent; busy_timeout + foreign_keys are per-connection
