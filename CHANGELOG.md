@@ -40,6 +40,9 @@ every addition.
   The Codex door refuses a stdio MCP server's variable named `LYNTAI_MCP_TOKEN_*`, `CODEX_HOME` or an account key, and two servers giving one variable two values.
   `OnnxProvider.FromDirectory` throws `InvalidDataException` for an export declaring last-token, max or weighted-mean pooling or a `Dense` module, which it mean-pooled silently.
   **Pass `OnnxProviderOptions.Pooling` to run such an export with the pooling you choose, and a `.cmd` launcher no argument holding those characters.**
+- **A cron that never occurs is refused where it is registered** (**D318**). Through 3.5.3 `AddCronSchedule` and the schedule store took `0 0 30 2 *` and the scheduler warned at the first tick;
+  `JobScheduleRules.Validate` now throws `FormatException` for it, so `AddCronSchedule`, `AddJobSchedule` and `KeyValueJobScheduleStore.SetAsync` refuse it and a stored one is skipped as invalid.
+  **A host that registered such an expression must correct or drop it.**
 
 ### Changed
 
@@ -68,6 +71,13 @@ every addition.
   returning `Encoding = 0` is unretrievable to the curve and to the prune alike. `BurstDampenedAgePolicy` forgets an engine a window old, with no change to any tick, and its doc says a burst is
   not bounded in length. A traced text stream abandoned after its caller cancelled records its step on a token of its own, bounded at five seconds. `RateLimitOptions.PerConsumer` and
   `BudgetOptions.PerConsumer` say they are set before the first call. A malformed metadata cell keeps failing the read, now stated on `CuratedMetadataJson.Deserialize` and pinned on SQLite and Postgres.
+- **Kept runs, schedules, MCP results and judge verdicts: eleven edges now behave as their documents say** (**D312**–**D314**, **D316**, **D317**, **D319**–**D323**). A word sent after `StopAsync` is refused `Busy`
+  and writes no prompt; a dispose that had to kill the agent ends `Disposed` with the kill in `Diagnostic`, where it said `run-killed`; the woken-turn quiet timer reads the turn's state inside its gate.
+  `AgentAccountPool.ReportReadingAsync` lifts a hold whose recovery is a stated reset and never a service's `RetryNotBefore`. An interval schedule counts from its due slot, so a late tick no
+  longer pushes every slot after it; a handler's cancel answered by another exception ends `Cancelled`, not a retry or a dead letter; removing a stored schedule leaves the next run of a build-time
+  schedule of the same name. `McpToolset` describes each image, audio and blob block in a result, in order and beside the text, with its media type and size. The hosted MCP accept loop survives an
+  `HttpListenerException` while the listener is up. `LlmScorerBase` leaves a dimension unscored for a `score` outside 0 to 1 or not finite, where it clamped `7` to a perfect score, and
+  `JsonExtract.TryParseObject` and `TryReadObject` try a later `{` (at most eight) when a balanced one in prose is not JSON. A job with no handler on the claiming worker stays `Failed` (**D315**), now said with the replay a mixed fleet needs.
 - **Five behaviours are now stated and pinned** (**D282**, **D284**, **D286**, **D289**, **D290**): a throwing `IScorer.Applies` surfaces, a failing prompt override renders the default and not the next layer,
   `TraceOrdinals.Stored` decides per step, `MemoryContentKey` hashes UTF-8 with a lone surrogate as U+FFFD, and a blend's explicit `Limit` wins over the authoritative tier.
 - **A stdio MCP server's variables no longer travel in Codex's argv, the agent doors wait 15 minutes of silence, and a rate limit on stderr holds the account** (**D267**, **D268**).

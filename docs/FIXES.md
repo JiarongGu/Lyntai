@@ -7,6 +7,20 @@ to `.agents/knowledge/pitfalls.md`; the release-facing line goes to `CHANGELOG.m
 
 ---
 
+## 2026-11-09 — a word queued behind a cancel, a forced dispose reported as a kill, a reading lifting a `Retry-After`, an interval drifting, a cancel retried, a removal skipping a fire, a listener fault ending the MCP host, a judge's `7` read as perfect, and prose braces hiding a verdict
+
+**Symptom.** None reported; filed by the 2026-11-07 and 2026-11-08 reviews of the agent layer, the durable jobs, the MCP bridge and the scorers (`TASKS.md` Parts 475, 483 and 487, steward's rulings D312 to D323). A word sent after `StopAsync` was written behind the `session/cancel`; a dispose that had to kill the agent ended the run `run-killed`; a reading that showed room lifted a service's `Retry-After` hold; a 60 s interval on a 2 s poll fired every 60 to 62 s; a handler's cancel wrapped in another exception was retried or dead-lettered; removing a stored schedule re-anchored a build-time one of the same name; an `HttpListenerException` ended the hosted MCP accept loop; `{"score": 7}` from a 0 to 10 judge scored `1.0`; `see {score}: {"score":0.8}` read as no verdict. The woken-turn quiet timer could be left unarmed by a stale reading.
+
+**Root cause.** `TryPrompt` looked only at the door's queued-word statement; `AcpAgentRun.Fault` read the kill reason before `_disposing`, and the pump's fault reached `Over` before the dispose's own end; `ReportReadingAsync` named `RetryNotBefore` among the kinds a reading answers; `NextAfter` added the interval to the tick that fired; the runner's catch for a requested cancel was an `OperationCanceledException` filter; `RemoveAsync` deleted the shared next-run and trigger keys by name; the accept loop's catch was filtered on shutdown alone; `LlmScorerBase` clamped; `ExtractObject` commits to the first `{`; `ScheduleQuiet` read the quiet left before taking `_timerGate`.
+
+**Fix.** Each as its decision: D312 to D314, D316, D317, D319 and D321 to D323, the cron refusal at registration (D318) and the non-text block lines (D320); the quiet timer reads inside its gate.
+
+**Verify.** Failed before the change: `A_word_sent_after_a_stop_is_refused_busy_and_no_prompt_frame_is_written`, `A_dispose_that_kills_an_agent_ignoring_stdins_close_still_ends_disposed_with_the_kill_in_its_detail`, `A_reading_that_shows_room_never_lifts_a_stated_retry_not_before`, the two interval facts, `A_cancel_a_handler_answers_with_another_exception_still_ends_cancelled_not_retried_or_dead_lettered`, the removal and cron facts, the MCP block facts, the scorer's out-of-range facts and the two later-brace facts. The accept-loop facts needed the new seam. **Not tested:** the quiet-timer race (no seam holds the read and the arm apart) and every Postgres leg (Docker was down).
+
+**Introduced by.** Not traced to a commit for each; the agent-run, scheduler and bridge code date from their first versions.
+
+---
+
 ## 2026-11-09 — two migrators racing on an empty database, a write evicting the row it stored, two recall answers for one query, a node delete scanning the subject table, and `:memory:` accepted into an empty database
 
 **Symptom.** None reported; filed by the 2026-11-08 review of the memory stores, migrations and connection lifecycle (`TASKS.md` Part 496, steward's rulings D293 to D300). Four SQLite runners started together on one fresh file failed with a loser's DDL error; a re-remembered fact in a scope already over its cap, on a fixed clock, could be the row evicted; "客户 deploy" returned the row holding only 客户 on the in-memory and file stores and not on SQLite or Postgres; `EXPLAIN` of the node cascade read `SCAN lyntai_memory_subject`.
