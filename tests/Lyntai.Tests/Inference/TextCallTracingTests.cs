@@ -283,6 +283,41 @@ public class TextCallTracingTests
         Assert.Single(Assert.Single(sp.GetRequiredService<CapturingTraceStore>().Saved).Steps);
     }
 
+    [Fact]
+    public async Task A_stream_abandoned_after_its_token_was_cancelled_is_still_traced()
+    {
+        var provider = Answering();
+        provider.StreamScript = _ => [TextChunk.Content("ab"), TextChunk.Content("cd"), TextChunk.Final()];
+        var traces = new CancellationAwareTraceStore();
+        using var sp = BuildWith(traces, provider, b => b.AddTextCallTracing());
+        using var cts = new CancellationTokenSource();
+
+        await foreach (var _ in sp.GetRequiredService<ITextClient>().StreamAsync(Req(), cts.Token))
+        {
+            cts.Cancel();
+            break;   // abandoned with a token that is already cancelled
+        }
+
+        var step = Assert.Single(Assert.Single(traces.Saved).Steps);
+        Assert.Contains("incomplete", step.Detail);   // ended before its Final chunk, as any abandoned stream
+    }
+
+    /// <summary>Refuses a write under a cancelled token, as a real store's driver does.</summary>
+    private sealed class CancellationAwareTraceStore : ITraceStore
+    {
+        public List<RunTrace> Saved { get; } = [];
+
+        public Task SaveAsync(RunTrace trace, CancellationToken ct = default)
+        {
+            ct.ThrowIfCancellationRequested();
+            lock (Saved) Saved.Add(trace);
+            return Task.CompletedTask;
+        }
+
+        public Task<RunTrace?> GetAsync(string sessionId, CancellationToken ct = default) =>
+            Task.FromResult(Saved.LastOrDefault(t => t.SessionId == sessionId));
+    }
+
     private static async Task<string> Drain(IAsyncEnumerable<TextChunk> stream)
     {
         var text = "";

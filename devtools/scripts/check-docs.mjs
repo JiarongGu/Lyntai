@@ -171,9 +171,22 @@ const QUOTES_THE_REGISTRY = ['devtools/project.config.mjs', 'devtools/nuget-unli
  * stripped — so `twoLineWindows`' join reads as continuous prose across two comment lines exactly as it
  * does across two paragraph lines. Left in, the marker sits between the two halves of a wrapped claim and
  * breaks the same single-space adjacency raw indentation does — the reason `twoLineWindows` itself trims.
+ *
+ * A `/* … *\/` block (JSDoc included) is read line by line, from a line that STARTS with `/*` to the one
+ * holding `*\/`, each line reduced to its text: the opener, a leading `*` and the closer stripped, anything
+ * after the closer dropped. A comment trailing code on the same line (`code // x`) stays out, as it did.
  */
-export const commentLinesOnly = (lines) =>
-  lines.map((l) => (l.trim().startsWith('//') ? l.trim().replace(/^\/{2,3}\s*/, '') : ''));
+export const commentLinesOnly = (lines) => {
+  let inBlock = false;
+  return lines.map((l) => {
+    const t = l.trim();
+    if (!inBlock && t.startsWith('/*')) inBlock = true;
+    else if (!inBlock) return t.startsWith('//') ? t.replace(/^\/{2,3}\s*/, '') : '';
+    const close = t.indexOf('*/', t.startsWith('/*') ? 2 : 0);
+    if (close >= 0) inBlock = false;
+    return (close >= 0 ? t.slice(0, close) : t).replace(/^(?:\/\*+|\*+(?!\/))\s*/, '').trim();
+  });
+};
 
 /**
  * The two root files written FOR coding agents (D197): `llms.txt` and `context7.json`, whose `rules` an

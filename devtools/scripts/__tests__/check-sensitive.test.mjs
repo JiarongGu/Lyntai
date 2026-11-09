@@ -309,7 +309,7 @@ describe('check-sensitive — end to end over a real repository', () => {
     assert.equal(checkSensitive({ repo: dir, tree: false, log, err }), 0);
   });
 
-  it('does not block on a tracked file deleted from the working tree — it reports the skip', (t) => {
+  it('does not block on a tracked file deleted from the working tree — the listing no longer holds it', (t) => {
     const dir = makeRepo({ 'docs/a.md': 'fine\n', 'docs/b.md': 'fine\n' });
     t.after(() => removeTree(dir));
     git(dir, ['add', '.']);
@@ -318,6 +318,7 @@ describe('check-sensitive — end to end over a real repository', () => {
 
     const log = recorder(); const err = recorder();
     assert.equal(checkSensitive({ repo: dir, tree: true, log, err }), 0);
-    assert.match(log.text(), /1 tracked file\(s\) deleted in the working tree/);
+    assert.deepEqual(sources(dir, { tree: true }).files, ['docs/a.md']);
+    assert.doesNotMatch(log.text(), /deleted in the working tree/, 'a listed-then-gone file is the race, not this case');
   });
 });

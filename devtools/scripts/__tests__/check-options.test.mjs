@@ -196,6 +196,35 @@ describe('checkOptions', () => {
     assert.doesNotMatch(log.text(), /✓/);
   });
 
+  it('FAILS an undocumented option declared as a struct, in each spelling of one', () => {
+    for (const head of ['public struct', 'public readonly struct', 'public record struct',
+      'public readonly record struct', 'public readonly partial struct', 'public partial record struct']) {
+      const { dir, files } = tree(`
+${head} WidgetOptions
+{
+    public int Count { get; set; }
+}`);
+      const log = recorder();
+      assert.equal(checkOptions(dir, {}, log, files), 1, head);
+      assert.match(log.text(), /WidgetOptions\.Count/, head);
+    }
+  });
+
+  it('passes a documented struct option, and sees a positional record struct\'s parameter', () => {
+    const doc = tree(`
+public struct WidgetOptions
+{
+    /// <summary>How many.</summary>
+    public int Count { get; set; }
+}`);
+    assert.equal(checkOptions(doc.dir, {}, recorder(), doc.files), 0);
+    const positional = tree(`
+/// <param name="Retries">How many tries.</param>
+public readonly record struct WidgetOptions(int Retries = 3, int Undocumented = 1);`);
+    assert.deepEqual(collectOptions(positional.dir, positional.files).map((r) => [r.prop, r.docLines]),
+      [['Retries', 1], ['Undocumented', 0]]);
+  });
+
   it('FAILS an undocumented option and names it', () => {
     const { dir, files } = tree(`
 public sealed class WidgetOptions

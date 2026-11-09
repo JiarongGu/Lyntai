@@ -210,6 +210,10 @@ public sealed class ElapsedAgePolicy(Func<DateTimeOffset>? clock = null) : IMemo
 /// <para>Real time is used only to DETECT a burst — writes closer together than
 /// <paramref name="window"/> belong to the same one. The position it produces is still dimensionless, and
 /// still advances only when this memory is written to.</para>
+/// <para><b>A burst is measured from the LAST write, and its length is not bounded.</b> A gap longer than
+/// <paramref name="window"/> ends it; a steady write every few seconds never does, so that stream is one burst
+/// for ever: its <i>n</i> keeps growing, each new write crowds by <c>1/n</c> and starts at <c>1/√n</c> of the
+/// usual half-life.</para>
 /// </summary>
 /// <param name="inner">The clock being damped; null takes <see cref="PerWriteAgePolicy"/>.</param>
 /// <param name="window">A gap longer than this ends the burst. Null takes five seconds.</param>
@@ -227,6 +231,14 @@ public sealed class BurstDampenedAgePolicy(
     private readonly Func<DateTimeOffset> _clock = clock ?? (() => DateTimeOffset.UtcNow);
     private readonly Lock _lock = new();
     private readonly Dictionary<string, (DateTimeOffset Last, int Burst)> _bursts = new(StringComparer.Ordinal);
+    private DateTimeOffset _swept;
+
+    /// <summary>Engines whose burst state is held — one per engine written within the last window or so,
+    /// since an older entry is evicted (a write after the window starts a burst of one with or without it).</summary>
+    internal int TrackedEngines
+    {
+        get { lock (_lock) return _bursts.Count; }
+    }
 
     /// <inheritdoc />
     public MemoryAgeKind Kind => MemoryAgeKind.Accumulating;
@@ -247,9 +259,20 @@ public sealed class BurstDampenedAgePolicy(
             burst = now - last > _window ? 1 : burst + 1;
             _bursts[engine] = (now, burst);
             n = burst;
+            Evict(now);
         }
 
         return new MemoryTick(tick.Position / n, tick.Encoding / Math.Sqrt(n));
+    }
+
+    // Under the lock. An entry older than the window cannot change a tick, so a name per tenant does not grow
+    // the map for ever; the walk runs at most once per window, and only once the map is past a handful.
+    private void Evict(DateTimeOffset now)
+    {
+        if (_bursts.Count <= 64 || now - _swept <= _window) return;
+        _swept = now;
+        foreach (var stale in _bursts.Where(b => now - b.Value.Last > _window).Select(b => b.Key).ToList())
+            _bursts.Remove(stale);
     }
 
     /// <summary>Delegates to the wrapped (inner) policy's own projection — deliberately NOT an attempt to

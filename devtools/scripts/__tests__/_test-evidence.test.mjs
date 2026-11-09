@@ -94,6 +94,21 @@ describe('checkTestEvidence — a Postgres skip fails unless the run DECLARES it
     const log = recorder();
     assert.equal(checkTestEvidence(summary(0, 0), { allowPostgresSkip: true }, log), 1);
   });
+
+  it('FAILS an outcome that is none of passed, failed or skipped, and prints the count', () => {
+    const log = recorder();
+    const run = reduceTrx(trx(result('A.B.C', 'Passed'), result('A.B.D', 'Inconclusive'), result('A.B.E', 'NotRunnable')));
+    assert.equal(run.other, 2);
+    assert.equal(checkTestEvidence(run, { allowPostgresSkip: true }, log), 1, 'a declared Postgres skip does not excuse it');
+    assert.match(log.text(), /✗ 2 result\(s\)/);
+    assert.match(log.text(), /Inconclusive/);
+    assert.match(log.text(), /NotRunnable/);
+  });
+
+  it('passes a run whose `other` count is zero', () => {
+    const log = recorder();
+    assert.equal(checkTestEvidence(summary(0), { allowPostgresSkip: false }, log), 0, log.text());
+  });
 });
 
 describe('testEvidence — reads the trx, writes the summary, returns the verdict', () => {

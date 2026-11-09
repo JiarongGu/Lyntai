@@ -213,3 +213,16 @@ test('the arrow form a rename TABLE uses fires, and keeps two different names cl
     });
   }
 });
+
+test('a JSDoc or block-comment line is prose, a trailing comment on a code line is not', () => {
+  const pair = `\`${NAME}\` and \`${NAME}\``;
+  withRepo({
+    'devtools/scripts/x.mjs': `/**\n * ${pair}\n */\nexport const x = 1;\n`,
+    'src/b.cs': `/* ${pair} */\nclass B;\n`,
+    'src/c.cs': `var x = 1; // ${pair}\n`,
+  }, (repo) => {
+    assert.equal(run(repo, ['devtools/scripts/x.mjs']), 1, 'a JSDoc line must fire');
+    assert.equal(run(repo, ['src/b.cs']), 1, 'a block-comment line must fire');
+    assert.equal(run(repo, ['src/c.cs']), 0, 'a trailing comment stays out, as docs/GATES.md says');
+  });
+});

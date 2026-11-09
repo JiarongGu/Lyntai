@@ -56,8 +56,8 @@ export const STATES = ['startable', 'blocked', 'watch', 'decision-only'];
  */
 export const KINDS = ['tree', 'env', 'decision', 'data'];
 
-/** A handover block. Kept broad — the defect is the BLOCK, whatever it is dressed as. */
-const HANDOVER = /^\s*(?:_|\*)*\s*\*\*HANDOVER\b/i;
+/** A handover block. Kept broad — the defect is the BLOCK, whatever it is dressed as, a blockquote included. */
+const HANDOVER = /^\s*(?:>\s*)*(?:_|\*)*\s*\*\*HANDOVER\b/i;
 
 // Where the preamble ends. The BLOCKED roster is structured backlog data — which Parts cannot be started
 // and on what — so it is open-backlog content and charging it to a "the banner is too long" budget would
@@ -65,9 +65,10 @@ const HANDOVER = /^\s*(?:_|\*)*\s*\*\*HANDOVER\b/i;
 // to raise the allowance without looking. The subject here is the NARRATIVE above it.
 const PREAMBLE_END = /^## Part \d|^Blocked, and on what:/;
 
-const OPEN_ITEM = /^- \[ \]/;
+// Indented too: a nested `- [ ]` that matched nothing was an open item no marker, roster or count ever saw.
+const OPEN_ITEM = /^\s*- \[ \]/;
 const PART_HEADING = /^#{2,3} Part (\d+)\b/;
-const TITLE = /^- \[ \]\s+\*\*(.+?)\*\*/;
+const TITLE = /^\s*- \[ \]\s+\*\*(.+?)\*\*/;
 
 /** The anchors between which the manifest is generated. Placed by hand ONCE; content is never hand-written. */
 export const BLOCK_BEGIN = '<!-- open-items:begin';

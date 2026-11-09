@@ -1,28 +1,31 @@
+using System.Text;
+
 namespace Lyntai.Storage;
 
 /// <summary>
 /// Splits raw user text into the terms a keyword search matches on — the ONE tokenization every backend
 /// shares, so that "does this recall find the entry" has the same answer on every backend.
 ///
-/// <para><b>Why this exists.</b> Only SQLite's FTS path ever split a query; every other path — both LIKE
-/// fallbacks, all three Postgres queries, both InMemory stores — matched the WHOLE query as one contiguous
-/// substring, so the same recall found nothing unless the entry held that exact phrase. One
-/// <see cref="Lyntai.Memory.IMemoryGraphStore"/> contract therefore gave a different answer to whether a
-/// fact is found at all, which is not a "backend-specific ordering" difference.</para>
+/// <para><b>Why this exists.</b> Only SQLite's FTS path ever split a query; every other path matched the
+/// WHOLE query as one contiguous substring, so one <see cref="Lyntai.Memory.IMemoryGraphStore"/> contract
+/// gave a different answer to whether a fact is found at all (<c>docs/DECISIONS.md</c> D55).</para>
 ///
 /// <para><b>How a token is analysed is decided by its SCRIPT, through <see cref="ScriptProfile"/>.</b> A run
 /// in a script that writes no spaces becomes character n-grams, because splitting on whitespace hands back
-/// the whole sentence as one token. N-grams are the right unit because they are what both indexes already
-/// store (<c>tokenize='trigram'</c>, <c>pg_trgm</c>) — only the QUERY side was English-shaped. No
-/// configuration and no per-language setup.</para>
+/// the whole sentence as one token. N-grams are what both indexes already store (<c>tokenize='trigram'</c>,
+/// <c>pg_trgm</c>), so no configuration and no per-language setup is needed.</para>
 ///
 /// <para><b>An ASCII word is NOT expanded</b>, deliberately: a whole word is more precise (<c>"cat"</c>
 /// would otherwise match <c>"concatenate"</c>), and whitespace already separated it.</para>
 ///
+/// <para><b>Punctuation at either end of a spaced word is trimmed</b> (Unicode category P): <c>spouse?</c> is
+/// <c>spouse</c>. A symbol stays (<c>C++</c>, <c>$100</c>), as does punctuation inside a word (<c>don't</c>),
+/// and the floor below is checked after the trim (D306).</para>
+///
 /// <para><b>The floor is <see cref="MinimumTermLength"/> characters</b>, because that is what a trigram index
 /// can match. A query below it yields no terms at all and callers fall back to a whole-query substring scan,
-/// which is exactly right for a two-character CJK word. The floor is a FLOOR, not a ceiling — a script whose
-/// 3-grams are not selective can ask for longer ones through its profile.</para>
+/// which is exactly right for a two-character CJK word. It is a FLOOR: a script whose 3-grams are not
+/// selective can ask for longer ones through its profile.</para>
 /// </summary>
 public static class SearchTerms
 {
@@ -63,7 +66,8 @@ public static class SearchTerms
         {
             foreach (var (run, profile) in ScriptRuns(token))
                 if (profile.ExpandsIntoGrams) AddGrams(run, gramLength(profile), terms, seen);
-                else if (keepWholeRuns && CodePoints(run) >= MinimumTermLength && seen.Add(run)) terms.Add(run);
+                else if (keepWholeRuns && TrimPunctuation(run) is var word
+                         && CodePoints(word) >= MinimumTermLength && seen.Add(word)) terms.Add(word);
             if (terms.Count >= MaxTerms) break;
         }
         return terms.Count > MaxTerms ? terms.GetRange(0, MaxTerms) : terms;
@@ -121,6 +125,32 @@ public static class SearchTerms
                 return profile;
         return char.IsLetter(c) ? ScriptProfile.Spaced : null;
     }
+
+    /// <summary>The run without Unicode punctuation at either end. A lone surrogate is not punctuation, so it
+    /// ends the trim like any other character.</summary>
+    private static string TrimPunctuation(string run)
+    {
+        var start = 0;
+        while (start < run.Length && Rune.TryGetRuneAt(run, start, out var first) && IsPunctuation(first))
+            start += first.Utf16SequenceLength;
+
+        var end = run.Length;
+        while (end > start)
+        {
+            var at = end - 1;
+            if (at > start && char.IsLowSurrogate(run[at]) && char.IsHighSurrogate(run[at - 1])) at--;
+            if (!Rune.TryGetRuneAt(run, at, out var last) || !IsPunctuation(last)) break;
+            end = at;
+        }
+        return run[start..end];
+    }
+
+    private static bool IsPunctuation(Rune rune) => Rune.GetUnicodeCategory(rune) is
+        System.Globalization.UnicodeCategory.ConnectorPunctuation or System.Globalization.UnicodeCategory.DashPunctuation
+        or System.Globalization.UnicodeCategory.OpenPunctuation or System.Globalization.UnicodeCategory.ClosePunctuation
+        or System.Globalization.UnicodeCategory.InitialQuotePunctuation
+        or System.Globalization.UnicodeCategory.FinalQuotePunctuation
+        or System.Globalization.UnicodeCategory.OtherPunctuation;
 
     /// <summary>Code points, not UTF-16 units: a trigram index counts what a reader sees, so two emoji are two.</summary>
     private static int CodePoints(string run)

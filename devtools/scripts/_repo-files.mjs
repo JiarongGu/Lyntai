@@ -7,7 +7,8 @@ import { join } from 'node:path';
 // copied scope rule diverges silently — every copy prints the same green line whatever it scanned.
 
 /**
- * The ONE file list every full-tree gate scans: tracked files PLUS new files that are not ignored.
+ * The ONE file list every full-tree gate scans: tracked files PLUS new files that are not ignored, MINUS a
+ * tracked file deleted from the working tree.
  *
  * `git ls-files` alone lists the INDEX, so `verify` would scan everything EXCEPT the work being verified —
  * a new file passes every gate until it is committed (`.agents/knowledge/pitfalls.md` §Environment /
@@ -26,7 +27,10 @@ export const repoFiles = (repo, tiers = []) => {
       .split('\0')
       .filter(Boolean);
 
-  return [...new Set([...list([]), ...list(['--others', '--exclude-standard'])])];
+  // `--deleted` is a file the index lists and the working tree lacks (a plain `mv` or `rm`, not yet staged):
+  // counting it present lets a citation of the moved file and a glob matching only it pass.
+  const gone = new Set(list(['--deleted']));
+  return [...new Set([...list([]), ...list(['--others', '--exclude-standard'])])].filter((f) => !gone.has(f));
 };
 
 /**
