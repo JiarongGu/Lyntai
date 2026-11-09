@@ -60,6 +60,9 @@ internal sealed class TracingTextClient : DelegatingTextClient
     // set while scorers run, so an LLM scorer's own front-door call passes straight through
     private static readonly AsyncLocal<bool> Scoring = new();
 
+    // how long an abandoned, cancelled stream's record may take before it is dropped (fail-open)
+    private static readonly TimeSpan AbandonedRecordBudget = TimeSpan.FromSeconds(5);
+
     private readonly TextCallTracingOptions _options;
     private readonly ILogger _logger;
     private readonly Lazy<Sinks> _sinks;
@@ -122,10 +125,16 @@ internal sealed class TracingTextClient : DelegatingTextClient
         finally
         {
             await chunks.DisposeAsync().ConfigureAwait(false);
-            // an abandoned stream is recorded here, on dispose; one that threw is not, as a thrown completion is not
+            // an abandoned stream is recorded here, on dispose; one that threw is not, as a thrown completion is not.
+            // A caller that cancelled and walked away has a token every store refuses, so the record takes its own,
+            // bounded one — it must not hold the dispose.
             if (!threw)
-                await RecordAsync(scope, req, end?.Verdict, text.ToString(), end?.Usage, end?.Detail, clock.ElapsedMilliseconds, ct)
+            {
+                using var own = ct.IsCancellationRequested ? new CancellationTokenSource(AbandonedRecordBudget) : null;
+                await RecordAsync(scope, req, end?.Verdict, text.ToString(), end?.Usage, end?.Detail, clock.ElapsedMilliseconds,
+                        own?.Token ?? ct)
                     .ConfigureAwait(false);
+            }
         }
     }
 
