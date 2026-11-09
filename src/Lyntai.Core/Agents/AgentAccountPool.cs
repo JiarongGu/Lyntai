@@ -221,9 +221,11 @@ public sealed class AgentAccountPool
 
     /// <summary>Tell the pool what a reading of <paramref name="account"/>'s allowance showed, measured at
     /// <paramref name="measuredAt"/>. A reading that shows room (<paramref name="hasRoom"/> true) lifts the holds on
-    /// that account, and on the allowance it draws on, whose recovery was a stated moment — if it was measured
-    /// AFTER the hold was taken. An older reading, one that shows no room, and one that shows nothing (null: absent is
-    /// unknown, never zero) change nothing; an owner action or an unknown recovery is never lifted by a reading.
+    /// that account, and on the allowance it draws on, whose recovery was a stated reset moment
+    /// (<see cref="RecoveryKind.ResetAt"/>) — if it was measured AFTER the hold was taken. An older reading, one that
+    /// shows no room, and one that shows nothing (null: absent is unknown, never zero) change nothing; an owner action,
+    /// an unknown recovery and a service's own <see cref="RecoveryKind.RetryNotBefore"/> are never lifted by a reading,
+    /// since room in the allowance is no word on a service that said when to come back.
     /// Returns how many holds were lifted; an account the pool does not list lifts none.</summary>
     public async Task<int> ReportReadingAsync(
         AgentAccount account, DateTimeOffset measuredAt, bool? hasRoom, CancellationToken ct = default)
@@ -238,14 +240,14 @@ public sealed class AgentAccountPool
             await LoadAsync(ct).ConfigureAwait(false);
             var scopes = new List<string> { AgentPoolReducer.AccountScope(account.Provider, account.Name) };
             if (place.Allowance is not null) scopes.Add(AgentPoolReducer.AllowanceScope(place.Allowance));
-            // a reading of room answers a stated moment and nothing else: no reading frees an owner action or an unknown recovery
+            // a reading of room answers a stated reset and nothing else: no reading frees an owner action, an unknown recovery or a stated retry-not-before
             var state = _state;
             var lifted = 0;
             if (hasRoom == true)
                 foreach (var hold in _state.HoldMap.Values.Where(h => scopes.Contains(h.Scope, StringComparer.Ordinal)).ToList())
                 {
                     var step = AgentPoolReducer.Discharge(state, new AgentPoolEvidence(
-                        hold.Id, hold.Revision, hold.Scope, measuredAt, [RecoveryKind.ResetAt, RecoveryKind.RetryNotBefore]));
+                        hold.Id, hold.Revision, hold.Scope, measuredAt, [RecoveryKind.ResetAt]));
                     state = step.Snapshot;
                     if (step.Outcome) lifted++;
                 }

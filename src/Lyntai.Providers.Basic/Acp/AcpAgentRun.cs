@@ -144,7 +144,7 @@ internal sealed class AcpAgentRun : IAgentRun
                 Window();
                 return Task.FromResult(((TurnSink)turn!.Sink!).Turn);
             case AcpPromptRefusal.Busy:
-                return Task.FromResult(Refused(AgentRunSubtypes.Busy, "a turn is running and this door states no queued-words, so a word has nowhere to go."));
+                return Task.FromResult(Refused(AgentRunSubtypes.Busy, "a turn is running and takes no word: this door states no queued-words, or a stop is out."));
             case AcpPromptRefusal.RequestHeld:
                 return Task.FromResult(Refused(AgentRunSubtypes.RequestHeld, "a permission request is held for the host, and no record shows a word taken beside one."));
             case AcpPromptRefusal.WokenRunning:
@@ -191,8 +191,11 @@ internal sealed class AcpAgentRun : IAgentRun
             await _pump.ConfigureAwait(false);
         }
 
-        Over(new SessionEnded(ProviderVerdict.Ok, false, AgentRunSubtypes.Disposed, SessionId, null, null));
+        Over(DisposedEnd());
     }
+
+    // a dispose that had to kill the agent still ends Disposed, as IAgentRun.Ended promises: the kill is the detail
+    private SessionEnded DisposedEnd() => new(ProviderVerdict.Ok, false, AgentRunSubtypes.Disposed, SessionId, null, _killReason);
 
     // ── the pump ─────────────────────────────────────────────────────────────
 
@@ -226,7 +229,7 @@ internal sealed class AcpAgentRun : IAgentRun
             }
 
             ended = Volatile.Read(ref _disposing) == 1
-                ? new SessionEnded(ProviderVerdict.Ok, false, AgentRunSubtypes.Disposed, SessionId, null, null)
+                ? DisposedEnd()
                 : new SessionEnded(ProviderVerdict.Failed, true, "process-exited", SessionId, null, "the agent's process ended while the run was open.")
                     { Failure = new AgentFailure(AgentFailureKind.Fatal, "process.exited") };
         }
@@ -240,6 +243,7 @@ internal sealed class AcpAgentRun : IAgentRun
 
     private SessionEnded Fault(Exception ex)
     {
+        if (Volatile.Read(ref _disposing) == 1) return DisposedEnd();
         if (_killReason is { } reason)
             return new SessionEnded(ProviderVerdict.Failed, true, AgentRunSubtypes.Over, SessionId, null, reason)
                 { Failure = new AgentFailure(AgentFailureKind.Fatal, "run-killed") };
@@ -374,10 +378,11 @@ internal sealed class AcpAgentRun : IAgentRun
     private void ScheduleQuiet()
     {
         if (_run.WokenTurnQuiet is not { } quiet) return;
-        var left = _reader.WokenQuietLeft(quiet);
         lock (_timerGate)
         {
             if (_ended.Task.IsCompleted) return;
+            // read inside the gate: a reading taken before it can be set after a newer one and leave the timer unarmed
+            var left = _reader.WokenQuietLeft(quiet);
             _quietTimer ??= _host.Time.CreateTimer(OnQuiet, null, Timeout.InfiniteTimeSpan, Timeout.InfiniteTimeSpan);
             _quietTimer.Change(left ?? Timeout.InfiniteTimeSpan, Timeout.InfiniteTimeSpan);
         }

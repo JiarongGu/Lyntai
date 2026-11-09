@@ -36,6 +36,9 @@ public class AcpAgentRunTests
 
         public bool CanPauseInactivity { get; init; } = true;
 
+        /// <summary>An agent that does not go when its stdin closes, so only a kill ends it.</summary>
+        public bool IgnoresStdinClose { get; init; }
+
         public InactivityPause? Pause { get; private set; }
 
         public bool StdinClosed { get; private set; }
@@ -100,7 +103,7 @@ public class AcpAgentRunTests
                 }
 
                 StdinClosed = true;
-                _out.Writer.TryComplete();   // an agent whose stdin closed goes
+                if (!IgnoresStdinClose) _out.Writer.TryComplete();   // an agent whose stdin closed goes
             });
             await foreach (var line in _out.Reader.ReadAllAsync(ct)) yield return line;
         }
@@ -291,6 +294,28 @@ public class AcpAgentRunTests
         Assert.Equal(AgentRunSubtypes.Over, (await run.Ended.WaitAsync(Wait)).Subtype);
     }
 
+    [Fact] // a word after a stop would be queued behind the cancel and lose its answer to it
+    public async Task A_word_sent_after_a_stop_is_refused_busy_and_no_prompt_frame_is_written()
+    {
+        var agent = new KeptAgent();
+        await using var run = await Open(agent);
+        var first = await run.SendAsync("long");
+        Assert.True(await run.StopAsync());
+
+        var refused = await run.SendAsync("a word");
+
+        var ended = Ended(await Read(refused));
+        Assert.Equal((ProviderVerdict.Unsupported, AgentRunSubtypes.Busy, AgentDelivery.NeverSent), (ended.Verdict, ended.Subtype, ended.Failure!.Delivery));
+        await agent.Wrote(f => Method(f) == "session/cancel");
+        await Task.Delay(100);
+        Assert.Single(agent.Written, f => Method(f) == "session/prompt");
+        agent.Say(Answer(100, "cancelled", NoUsage));
+        Assert.Equal("cancelled", (await first.Ended.WaitAsync(Wait)).Subtype);
+        var next = await run.SendAsync("again");   // once the stop is answered the run is idle again
+        agent.Say(Answer(101));
+        Assert.Equal(ProviderVerdict.Ok, Ended(await Read(next)).Verdict);
+    }
+
     [Fact] // a door that states no queued-words refuses the word, not the turn
     public async Task A_busy_run_refuses_a_word_where_the_door_states_none_queued()
     {
@@ -372,6 +397,26 @@ public class AcpAgentRunTests
         var cut = Ended(await Read(open));
         Assert.Equal((ProviderVerdict.Failed, true, AgentRunSubtypes.Over), (cut.Verdict, cut.IsError, cut.Subtype));
         await run.DisposeAsync();   // twice is once
+    }
+
+    [Fact] // IAgentRun.Ended promises Disposed after a dispose, and a dispose that had to kill the agent is one
+    public async Task A_dispose_that_kills_an_agent_ignoring_stdins_close_still_ends_disposed_with_the_kill_in_its_detail()
+    {
+        var time = new ManualTimeProvider();
+        var agent = new KeptAgent { IgnoresStdinClose = true };
+        var run = await Open(agent, time: time);
+        var open = await run.SendAsync("long");
+
+        var disposing = run.DisposeAsync().AsTask();
+        await Eventually(() => time.Pending > 0);
+        time.Advance(AcpAgentSession.DefaultCancelGrace + TimeSpan.FromSeconds(1));
+        await disposing.WaitAsync(Wait);
+
+        var ended = await run.Ended.WaitAsync(Wait);
+        Assert.Equal((ProviderVerdict.Ok, false, AgentRunSubtypes.Disposed), (ended.Verdict, ended.IsError, ended.Subtype));
+        Assert.Contains("did not leave within its grace", ended.Diagnostic);
+        var cut = Ended(await Read(open));
+        Assert.Equal((true, "run-disposed"), (cut.IsError, cut.Failure!.By));
     }
 
     [Fact] // a process that dies under an open turn ends the run with its fault

@@ -667,6 +667,22 @@ public class AgentAccountPoolTests
         Assert.Equal(0, await pool.ReportReadingAsync(Acct("not-in-the-pool"), clock.GetUtcNow(), true));
     }
 
+    [Fact]
+    public async Task A_reading_that_shows_room_never_lifts_a_stated_retry_not_before()
+    {
+        var clock = new ManualTimeProvider();
+        var pool = Pool(clock, Choice(null, "claude-cli", "a"));
+        await pool.ReportAsync(await Take(pool), Limit(RestrictionRecovery.RetryNotBefore(clock.GetUtcNow() + Hour), RestrictionCause.Rate));
+        clock.Advance(TimeSpan.FromMinutes(1));
+
+        Assert.Equal(0, await pool.ReportReadingAsync(Acct("a"), clock.GetUtcNow(), true));
+
+        Assert.Null((await pool.PickAsync()).Pick);
+        Assert.Single(await pool.HoldsAsync());
+        clock.Advance(Hour);
+        Assert.True((await Take(pool)).Seat.IsProbe);   // the stated moment passing still frees it, as a probe
+    }
+
     // ── a restart ────────────────────────────────────────────────────────────────────────────────
 
     [Fact]
