@@ -114,6 +114,42 @@ public class MemoryAgePolicyTests
     }
 
     [Fact]
+    public void Engines_older_than_the_window_are_evicted_and_every_tick_is_unchanged()
+    {
+        var now = new DateTimeOffset(2026, 1, 1, 0, 0, 0, TimeSpan.Zero);
+        var policy = new BurstDampenedAgePolicy(new PerWriteAgePolicy(), TimeSpan.FromSeconds(5), () => now);
+
+        // an app naming an engine per tenant: each is written once, and the next is a window or more later
+        for (var i = 0; i < 10_000; i++)
+        {
+            var first = policy.Advance(Write(), $"tenant-{i}");
+            Assert.Equal(MemoryTick.One, first);
+            now = now.AddSeconds(10);
+        }
+
+        Assert.InRange(policy.TrackedEngines, 1, 100);   // bounded, not 10,000
+
+        // an evicted engine starts a new burst, exactly as one left in the map would after the gap
+        var again = policy.Advance(Write(), "tenant-0");
+        Assert.Equal(MemoryTick.One, again);
+    }
+
+    [Fact]
+    public void A_burst_in_progress_is_never_evicted()
+    {
+        var now = new DateTimeOffset(2026, 1, 1, 0, 0, 0, TimeSpan.Zero);
+        var policy = new BurstDampenedAgePolicy(new PerWriteAgePolicy(), TimeSpan.FromSeconds(5), () => now);
+
+        for (var i = 0; i < 1_000; i++) policy.Advance(Write(), $"tenant-{i}");   // all inside one window
+        Assert.Equal(1_000, policy.TrackedEngines);
+
+        now = now.AddSeconds(2);
+        var second = policy.Advance(Write(), "tenant-0");
+
+        Assert.Equal(0.5, second.Position, precision: 6);   // tenant-0's burst is still its second write
+    }
+
+    [Fact]
     public void Damping_composes_over_whichever_age_policy_was_chosen()
     {
         var now = new DateTimeOffset(2026, 1, 1, 0, 0, 0, TimeSpan.Zero);
