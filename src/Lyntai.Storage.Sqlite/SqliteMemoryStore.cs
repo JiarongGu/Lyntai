@@ -33,10 +33,12 @@ public sealed class SqliteMemoryStore(
         // dedup as a single ATOMIC upsert (via ux_lyntai_memory_dedup) — race-free. An identical fact in the
         // same (task, scope) is refreshed (recency + last-access + TTL); the content is unchanged so the
         // (content-scoped) FTS trigger does not fire.
-        await conn.ExecuteAsync(new CommandDefinition("""
+        // RETURNING names the row this write stored, which eviction below never removes
+        var writtenId = await conn.ExecuteScalarAsync<long>(new CommandDefinition("""
             INSERT INTO lyntai_memory_entry (task_key, scope, content, created_at, last_accessed_at, expires_at)
             VALUES (@taskKey, @scope, @content, @now, @now, @expiresAt)
             ON CONFLICT(task_key, scope, content) DO UPDATE SET created_at = @now, last_accessed_at = @now, expires_at = @expiresAt
+            RETURNING id
             """, new { taskKey, scope, content, now, expiresAt }, cancellationToken: ct)).ConfigureAwait(false);
 
         // Eviction: the COUNT-CAP case (the common path) is a single ATOMIC DELETE — race-free and without
@@ -48,9 +50,9 @@ public sealed class SqliteMemoryStore(
                 (ids, c) => conn.ExecuteAsync(new CommandDefinition(
                     "DELETE FROM lyntai_memory_entry WHERE id IN (SELECT value FROM json_each(@ids))",
                     new { ids = IdArray(ids) }, cancellationToken: c)),
-                ct).ConfigureAwait(false);
+                writtenId, ct).ConfigureAwait(false);
         else if (policy.MaxEntriesPerScope is int cap and > 0)
-            await CapEvictAsync(conn, taskKey, scope, cap, policy.Mode, now, ct).ConfigureAwait(false);
+            await CapEvictAsync(conn, taskKey, scope, cap, policy.Mode, now, writtenId, ct).ConfigureAwait(false);
     }
 
     // An id list travels as ONE JSON parameter: `IN @ids` expands to a parameter per id, which SQLite refuses past
@@ -60,9 +62,9 @@ public sealed class SqliteMemoryStore(
 
     // One atomic statement: race-free, and no scope fetch — which is why this exists beside ApplyAsync.
     private static Task CapEvictAsync(IDbConnection conn, string taskKey, string scope, int cap,
-        MemoryEvictionMode mode, DateTimeOffset now, CancellationToken ct) =>
-        conn.ExecuteAsync(new CommandDefinition(MemoryEviction.CapEvictSql(mode),
-            new { taskKey, scope, cap, now }, cancellationToken: ct));
+        MemoryEvictionMode mode, DateTimeOffset now, long writtenId, CancellationToken ct) =>
+        conn.ExecuteAsync(new CommandDefinition(MemoryEviction.CapEvictSql(mode, excludeWritten: true),
+            new { taskKey, scope, cap, now, writtenId }, cancellationToken: ct));
 
     private static async Task<IReadOnlyList<MemoryEviction.Row>> FetchScopedAsync(IDbConnection conn, string taskKey, string scope, CancellationToken ct)
     {

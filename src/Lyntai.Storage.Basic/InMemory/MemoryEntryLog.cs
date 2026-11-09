@@ -48,7 +48,7 @@ internal sealed class MemoryEntryLog(LyntaiOptions options)
         if (!policy.HasSizeBound) return (write, []);
         // the shared MemoryEviction picks the survivors — the SQL backends run the same rule
         var scoped = _entries.Where(e => e.TaskKey == taskKey && e.Scope == scope && e.Id != write.Id).Append(write).ToList();
-        var keep = MemoryEviction.Survivors(policy, scoped.Select(e => e.ToEvictionRow()), now);
+        var keep = MemoryEviction.Survivors(policy, scoped.Select(e => e.ToEvictionRow()), now, write.Id);
         return (write, [.. scoped.Where(e => !keep.Contains(e.Id)).Select(e => e.Id)]);
     }
 
@@ -68,21 +68,34 @@ internal sealed class MemoryEntryLog(LyntaiOptions options)
     /// <summary>The entries a recall returns, best first: unexpired, in the task (and scope), matching the
     /// query's terms — the MATCHED-TERM COUNT leads, then recency, as <see cref="IMemoryStore.RecallAsync"/>
     /// documents, so under a limit this returns the same entries as the SQL stores. With no query every count
-    /// is 0 and it collapses to most recent first.</summary>
+    /// is 0 and it collapses to most recent first.
+    /// <para>TWO PASSES, as the SQL stores: the terms an index can serve first (the whole query as one literal when
+    /// it yields none), and only a miss widens to a spaceless script's two-character words — so the set found
+    /// is the one every backend finds.</para></summary>
     public IReadOnlyList<MemoryLogEntry> Recall(string taskKey, string? scope, string? query, int? limit, DateTimeOffset now)
     {
         (taskKey, scope, query) = (Utf8Text.Scrub(taskKey), Utf8Text.Scrub(scope), Utf8Text.Scrub(query));
         var asked = !string.IsNullOrWhiteSpace(query);
-        var terms = asked ? SearchTerms.SubstringTerms(query) : [];
-        return [.. _entries
-            .Where(e => e.TaskKey == taskKey && (scope is null || e.Scope == scope)
-                        && (e.ExpiresAt is null || e.ExpiresAt > now))
-            .Select(e => (Entry: e, Count: asked ? SearchTerms.MatchCount(e.Content, terms, query) : 0))
-            .Where(x => !asked || x.Count > 0)
-            .OrderByDescending(x => x.Count).ThenByDescending(x => x.Entry.CreatedAt).ThenByDescending(x => x.Entry.Id)
-            .Take(limit ?? options.MemoryRecallLimit)
-            .Select(x => x.Entry)];
+        var live = _entries.Where(e => e.TaskKey == taskKey && (scope is null || e.Scope == scope)
+                                       && (e.ExpiresAt is null || e.ExpiresAt > now));
+        var take = limit ?? options.MemoryRecallLimit;
+        if (!asked) return [.. Best(live.Select(e => (Entry: e, Count: 0)), take)];
+
+        // no index-friendly term: pass 1 would match the whole text as one literal, so it goes wide at once
+        var narrow = SearchTerms.Extract(query);
+        var hits = Match(live, narrow.Count == 0 ? SearchTerms.SubstringTerms(query) : narrow, query, take);
+        if (hits.Count == 0 && SearchTerms.HasShortSpacelessTerms(query))
+            hits = Match(live, SearchTerms.SubstringTerms(query), query, take);
+        return hits;
     }
+
+    private static List<MemoryLogEntry> Match(IEnumerable<MemoryLogEntry> live, IReadOnlyList<string> terms,
+        string? query, int take) =>
+        [.. Best(live.Select(e => (Entry: e, Count: SearchTerms.MatchCount(e.Content, terms, query))).Where(x => x.Count > 0), take)];
+
+    private static IEnumerable<MemoryLogEntry> Best(IEnumerable<(MemoryLogEntry Entry, int Count)> candidates, int take) =>
+        candidates.OrderByDescending(x => x.Count).ThenByDescending(x => x.Entry.CreatedAt).ThenByDescending(x => x.Entry.Id)
+            .Take(take).Select(x => x.Entry);
 
     /// <summary>Whether a recall with this query counts as USE for LRU — only a queried one does, so a
     /// routine list-all never churns the working set (<see cref="MemoryEvictionPolicy.TracksAccess"/>).</summary>

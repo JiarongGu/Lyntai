@@ -16,14 +16,22 @@ public static class MemoryEviction
     /// first); then newest-recency first (created-at for FIFO, last-access for LRU); then the count cap;
     /// then the size (character) budget — at least one entry is always kept. When the policy has no size
     /// bound (<see cref="MemoryEvictionPolicy.HasSizeBound"/> false), every id survives.</summary>
-    public static HashSet<long> Survivors(MemoryEvictionPolicy policy, IEnumerable<Row> rows, DateTimeOffset now)
+    public static HashSet<long> Survivors(MemoryEvictionPolicy policy, IEnumerable<Row> rows, DateTimeOffset now) =>
+        Survivors(policy, rows, now, null);
+
+    /// <summary>As above, with the row a write just stored named by <paramref name="writtenId"/>: it ranks
+    /// first, so it is never evicted — not by a recency tie, nor by a clock that ran backwards — and the
+    /// others fill what the cap and the budget leave.</summary>
+    public static HashSet<long> Survivors(MemoryEvictionPolicy policy, IEnumerable<Row> rows, DateTimeOffset now,
+        long? writtenId)
     {
         var all = rows as IReadOnlyCollection<Row> ?? [.. rows];
         if (!policy.HasSizeBound) return [.. all.Select(r => r.Id)]; // nothing bounds size → keep all
 
         var lru = policy.Mode == MemoryEvictionMode.Lru;
         IEnumerable<Row> kept = all
-            .OrderBy(r => IsLive(r, now) ? 0 : 1)                        // live first (expired evicted first)
+            .OrderBy(r => r.Id == writtenId ? 0 : 1)                     // the row just written is never evicted
+            .ThenBy(r => IsLive(r, now) ? 0 : 1)                         // live first (expired evicted first)
             .ThenByDescending(r => lru ? r.LastAccessedAt : r.CreatedAt) // newest-recency first
             .ThenByDescending(r => r.Id);
 
@@ -49,18 +57,25 @@ public static class MemoryEviction
     private static bool IsLive(Row r, DateTimeOffset now) => r.ExpiresAt is null || r.ExpiresAt > now;
 
     /// <summary>The atomic COUNT-CAP eviction statement (the common fast path that skips
-    /// <see cref="ApplyAsync"/>'s fetch→survivors→delete round-trip): keep the newest <c>@cap</c> LIVE
+    /// <c>ApplyAsync</c>'s fetch→survivors→delete round-trip): keep the newest <c>@cap</c> LIVE
     /// entries of a <c>(@taskKey, @scope)</c> group — expired rows sort last so they evict first, recency is
     /// created-at (FIFO) or last-access (LRU), id breaks ties — and delete the rest, which is exactly the
     /// first <c>count − @cap</c> rows of the REVERSE order (expired oldest-first, then live oldest-first).
     /// A scope at or under its cap computes <c>0</c> and the <c>LIMIT 0</c> branches read nothing; over it,
     /// each branch keeps only that many rows (typically one), so the whole scope is never ordered. The text is
     /// dialect-identical (<c>WITH … DELETE</c> and <c>LIMIT (subquery)</c> run on SQLite and Postgres), so it
-    /// lives ONCE here and reproduces <see cref="Survivors"/>' count-cap ordering; each backend binds
+    /// lives ONCE here and reproduces <c>Survivors</c>' count-cap ordering; each backend binds
     /// <c>@taskKey/@scope/@cap/@now</c> through its own driver. The recency expression is one of two fixed
     /// column expressions (no user input) — safe to interpolate.</summary>
-    public static string CapEvictSql(MemoryEvictionMode mode)
+    public static string CapEvictSql(MemoryEvictionMode mode) => CapEvictSql(mode, excludeWritten: false);
+
+    /// <summary>As above; with <paramref name="excludeWritten"/> the statement also binds <c>@writtenId</c>,
+    /// the row a write just stored, and never deletes it: the excess comes off the OTHER rows, so a scope
+    /// still ends at <c>@cap</c> and a re-remembered fact keeping its old id cannot lose a recency tie to
+    /// the rows it was written beside.</summary>
+    public static string CapEvictSql(MemoryEvictionMode mode, bool excludeWritten)
     {
+        var skip = excludeWritten ? " AND id <> @writtenId" : "";
         var recency = mode == MemoryEvictionMode.Lru ? "COALESCE(last_accessed_at, created_at)" : "created_at";
         return $"""
             WITH excess AS (
@@ -71,12 +86,12 @@ public static class MemoryEviction
                 SELECT id FROM (
                     SELECT id, tier, rec FROM (
                         SELECT id, 0 AS tier, {recency} AS rec FROM lyntai_memory_entry
-                        WHERE task_key = @taskKey AND scope = @scope AND expires_at IS NOT NULL AND expires_at <= @now
+                        WHERE task_key = @taskKey AND scope = @scope AND expires_at IS NOT NULL AND expires_at <= @now{skip}
                         ORDER BY rec, id LIMIT (SELECT n FROM excess)) AS expired
                     UNION ALL
                     SELECT id, tier, rec FROM (
                         SELECT id, 1 AS tier, {recency} AS rec FROM lyntai_memory_entry
-                        WHERE task_key = @taskKey AND scope = @scope AND (expires_at IS NULL OR expires_at > @now)
+                        WHERE task_key = @taskKey AND scope = @scope AND (expires_at IS NULL OR expires_at > @now){skip}
                         ORDER BY rec, id LIMIT (SELECT n FROM excess)) AS live) AS worst
                 ORDER BY tier, rec, id LIMIT (SELECT n FROM excess))
             """;
@@ -87,14 +102,22 @@ public static class MemoryEviction
     /// only its storage-specific <paramref name="fetchScoped"/> + <paramref name="deleteByIds"/> — so this
     /// "compute survivors → delete non-survivors" flow lives in ONE place and the SQLite/Postgres backends
     /// can't drift on it (they differ only in the fetch/delete SQL dialect).</summary>
+    public static Task ApplyAsync(MemoryEvictionPolicy policy, DateTimeOffset now,
+        Func<CancellationToken, Task<IReadOnlyList<Row>>> fetchScoped,
+        Func<IReadOnlyList<long>, CancellationToken, Task> deleteByIds,
+        CancellationToken ct = default) =>
+        ApplyAsync(policy, now, fetchScoped, deleteByIds, writtenId: null, ct);
+
+    /// <summary>As above, never evicting <paramref name="writtenId"/>, the row the write just stored
+    /// (<see cref="Survivors(MemoryEvictionPolicy, IEnumerable{Row}, DateTimeOffset, long?)"/>).</summary>
     public static async Task ApplyAsync(MemoryEvictionPolicy policy, DateTimeOffset now,
         Func<CancellationToken, Task<IReadOnlyList<Row>>> fetchScoped,
         Func<IReadOnlyList<long>, CancellationToken, Task> deleteByIds,
-        CancellationToken ct = default)
+        long? writtenId, CancellationToken ct = default)
     {
         if (!policy.HasSizeBound) return;
         var rows = await fetchScoped(ct).ConfigureAwait(false);
-        var keep = Survivors(policy, rows, now);
+        var keep = Survivors(policy, rows, now, writtenId);
         var evict = rows.Where(r => !keep.Contains(r.Id)).Select(r => r.Id).ToList();
         if (evict.Count > 0) await deleteByIds(evict, ct).ConfigureAwait(false);
     }
