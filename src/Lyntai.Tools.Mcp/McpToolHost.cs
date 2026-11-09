@@ -158,19 +158,39 @@ internal sealed class McpToolHost : IAsyncDisposable
         return (host, port);
     }
 
-    private async Task AcceptLoopAsync(string authToken, CancellationToken ct)
+    // how long a loop waits after a listener fault before it accepts again, so a fault that repeats cannot spin
+    private static readonly TimeSpan AcceptRetryDelay = TimeSpan.FromMilliseconds(100);
+
+    private Task AcceptLoopAsync(string authToken, CancellationToken ct)
     {
         var expected = Encoding.UTF8.GetBytes($"Bearer {authToken}");
+        return AcceptLoopAsync(
+            () => _listener.GetContextAsync(), () => _listener.IsListening,
+            context => HandleAsync(context, expected, ct), TryFail, AcceptRetryDelay, ct);
+    }
+
+    // The loop as a seam over what it accepts. A fault of the listener while it is still up (a client's reset surfaces as an
+    // HttpListenerException) is survived after a short delay: ending here would leave the CLI's client waiting on connect.
+    internal static async Task AcceptLoopAsync<TContext>(
+        Func<Task<TContext>> accept, Func<bool> listening, Func<TContext, Task> handle, Action<TContext> fail,
+        TimeSpan retryDelay, CancellationToken ct)
+    {
         while (!ct.IsCancellationRequested)
         {
-            HttpListenerContext context;
+            TContext context;
             try
             {
-                context = await _listener.GetContextAsync().ConfigureAwait(false);
+                context = await accept().ConfigureAwait(false);
             }
-            catch (Exception) when (ct.IsCancellationRequested || !_listener.IsListening)
+            catch (Exception) when (ct.IsCancellationRequested || !listening())
             {
                 return;   // disposed mid-wait: an expected shutdown, not a fault
+            }
+            catch (HttpListenerException)
+            {
+                try { await Task.Delay(retryDelay, ct).ConfigureAwait(false); }
+                catch (OperationCanceledException) { return; }
+                continue;
             }
 
             // Each request runs on its own task, and that is not an optimisation — it is required. A
@@ -182,11 +202,11 @@ internal sealed class McpToolHost : IAsyncDisposable
             {
                 try
                 {
-                    await HandleAsync(context, expected, ct).ConfigureAwait(false);
+                    await handle(context).ConfigureAwait(false);
                 }
                 catch (Exception)
                 {
-                    TryFail(context);   // one bad request must not take the host down
+                    fail(context);   // one bad request must not take the host down
                 }
             }, CancellationToken.None);
         }

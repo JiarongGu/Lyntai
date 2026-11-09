@@ -67,13 +67,44 @@ public static class JsonExtract
         return Encoding.UTF8.GetString(buffer.ToArray());
     }
 
+    /// <summary>The first balanced <c>{…}</c> object in <paramref name="text"/>, parsed or not: it commits to the first
+    /// <c>{</c>, so prose braces ahead of the JSON (<c>see {score}: {"score":0.8}</c>) give back the prose.
+    /// <see cref="TryParseObject"/> and <see cref="TryReadObject"/> go on to later braces; this does not.</summary>
+    /// <param name="text">The model's reply, prose and code fences included.</param>
+    /// <returns>The object's text, or null when there is no <c>{</c> or its object is never closed.</returns>
     public static string? ExtractObject(string? text)
     {
         if (string.IsNullOrWhiteSpace(text)) return null;
 
         var start = text.IndexOf('{');
         if (start < 0) return null;
+        return BalancedEnd(text, start) is var end and >= 0 ? text[start..(end + 1)] : null;
+    }
 
+    /// <summary>How many braces a read tries before it gives up: prose with more than this before its JSON is not one a
+    /// model wrote an answer in.</summary>
+    private const int MaxBraces = 8;
+
+    // The balanced objects of the text in order, each starting at the first { after the one before ended, at most MaxBraces. An
+    // object never closed ends the walk: it is the TRUNCATED case, which must reach a retry, not the smaller object inside it.
+    private static IEnumerable<string> BalancedObjects(string? text)
+    {
+        if (string.IsNullOrWhiteSpace(text)) yield break;
+        var from = 0;
+        for (var tried = 0; tried < MaxBraces; tried++)
+        {
+            var start = text.IndexOf('{', from);
+            if (start < 0) yield break;
+            var end = BalancedEnd(text, start);
+            if (end < 0) yield break;
+            yield return text[start..(end + 1)];
+            from = end + 1;
+        }
+    }
+
+    // the index of the } that closes the { at start, or -1 when it is never closed
+    private static int BalancedEnd(string text, int start)
+    {
         var depth = 0;
         var inString = false;
         for (var i = start; i < text.Length; i++)
@@ -91,11 +122,11 @@ public static class JsonExtract
                 case '{': depth++; break;
                 case '}':
                     depth--;
-                    if (depth == 0) return text[start..(i + 1)];
+                    if (depth == 0) return i;
                     break;
             }
         }
-        return null; // unbalanced
+        return -1; // unbalanced
     }
 
     /// <summary>What a READ of a model's own answer tolerates, and what grading it must not.
@@ -112,23 +143,26 @@ public static class JsonExtract
     private static readonly JsonDocumentOptions Lenient =
         new() { AllowTrailingCommas = true, CommentHandling = JsonCommentHandling.Skip };
 
-    /// <summary>Extract the first balanced JSON object from <paramref name="text"/> (via
-    /// <see cref="ExtractObject"/>) AND parse it, tolerating the punctuation noted on <see cref="Lenient"/>.
-    /// Returns false — with a null <paramref name="doc"/> — when nothing balanced is found or it doesn't
-    /// parse. The caller OWNS the returned document and must dispose it (wrap in a <c>using</c>). This is the
-    /// shared "tolerantly read a JSON object out of an LLM reply" primitive behind the judge/comparer verdict
-    /// parsers.</summary>
+    /// <summary>Extract the first balanced JSON object from <paramref name="text"/> that parses, tolerating the
+    /// punctuation noted on <see cref="Lenient"/>: a balanced <c>{…}</c> that is not JSON (<c>{score}</c> in prose) is
+    /// passed over for the next one, at most 8 braces in all, and an object never closed ends the search.
+    /// Returns false — with a null <paramref name="doc"/> — when none parses. The caller OWNS the returned document and
+    /// must dispose it (wrap in a <c>using</c>). This is the shared "tolerantly read a JSON object out of an LLM reply"
+    /// primitive behind the judge/comparer verdict parsers.</summary>
     public static bool TryParseObject(string? text, [NotNullWhen(true)] out JsonDocument? doc)
     {
         doc = null;
-        var json = ExtractObject(text);
-        if (json is null) return false;
-        try { doc = JsonDocument.Parse(json, Lenient); return true; }
-        catch (Exception e) when (e is JsonException or ArgumentException) { return false; }
+        foreach (var json in BalancedObjects(text))
+        {
+            try { doc = JsonDocument.Parse(json, Lenient); return true; }
+            catch (Exception e) when (e is JsonException or ArgumentException) { /* prose braces: try the next */ }
+        }
+        return false;
     }
 
-    /// <summary>The first balanced JSON object in <paramref name="text"/>, as STRICTLY valid JSON — read
-    /// leniently and re-serialized when, and only when, that was necessary.
+    /// <summary>The first balanced JSON object in <paramref name="text"/> that reads, as STRICTLY valid JSON — read
+    /// leniently and re-serialized when, and only when, that was necessary. Later braces are tried as
+    /// <see cref="TryParseObject"/> says.</summary>
     ///
     /// <para><b>Unchanged byte for byte when the object already parses strictly</b>, so a caller that was
     /// handed the model's own spacing keeps it; re-serializing unconditionally would reformat every reply to
@@ -144,23 +178,30 @@ public static class JsonExtract
     /// is missing content rather than commas.</returns>
     public static bool TryReadObject(string? text, [NotNullWhen(true)] out string? json)
     {
-        json = ExtractObject(text);
-        if (json is null) return false;
-        if (IsValid(json)) return true;                 // already strict — hand back exactly what was sent
+        foreach (var candidate in BalancedObjects(text))
+        {
+            if (IsValid(candidate))                      // already strict — hand back exactly what was sent
+            {
+                json = candidate;
+                return true;
+            }
 
-        try
-        {
-            using var doc = JsonDocument.Parse(json, Lenient);
-            using var buffer = new MemoryStream();
-            using (var writer = new Utf8JsonWriter(buffer)) doc.RootElement.WriteTo(writer);
-            json = Encoding.UTF8.GetString(buffer.ToArray());
-            return true;
+            try
+            {
+                using var doc = JsonDocument.Parse(candidate, Lenient);
+                using var buffer = new MemoryStream();
+                using (var writer = new Utf8JsonWriter(buffer)) doc.RootElement.WriteTo(writer);
+                json = Encoding.UTF8.GetString(buffer.ToArray());
+                return true;
+            }
+            catch (Exception e) when (e is JsonException or ArgumentException)   // a lone surrogate is the latter
+            {
+                // prose braces: try the next
+            }
         }
-        catch (Exception e) when (e is JsonException or ArgumentException)   // a lone surrogate is the latter
-        {
-            json = null;
-            return false;
-        }
+
+        json = null;
+        return false;
     }
 
     /// <summary>Whether <paramref name="text"/> parses as JSON in its entirety (any JSON value, not just an
