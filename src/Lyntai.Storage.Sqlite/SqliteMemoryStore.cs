@@ -127,7 +127,7 @@ public sealed class SqliteMemoryStore(
             {
                 // Term-wise, via the same split the FTS path above uses: the fallback degrades the RANKING
                 // (a term count instead of bm25), never which entries are found.
-                var kw = SearchTerms.LikeClause(query, "m.content");
+                var kw = SqliteLike.Clause(query, "m.content");
                 var p = new DynamicParameters(new { taskKey, scope, take, now });
                 foreach (var (name, value) in kw.Parameters) p.Add(name, value);
                 var likeHits = (await conn.QueryAsync<MemoryEntry>(new CommandDefinition($"""

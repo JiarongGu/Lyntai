@@ -354,7 +354,7 @@ public sealed class SqliteMemoryGraphStore(
 
         // Term-wise, via the same split the FTS path above uses — so falling back to LIKE degrades the
         // RANKING (a term count instead of bm25) without changing which entries are found.
-        var kw = SearchTerms.LikeClause(query, ["n.content", "n.headline"]);
+        var kw = SqliteLike.Clause(query, "n.content", "n.headline");
         var p = new DynamicParameters(args);
         foreach (var (name, value) in kw.Parameters) p.Add(name, value);
         return await SeedQueryAsync(conn, MemoryGraphSql.SeedMatching(kw), p, totals.EncodedAt, ct).ConfigureAwait(false);

@@ -7069,3 +7069,11 @@ lines the doors' own tests pin. Landed in `08b41270`; the row stayed open in `TA
 
 - the code commits and their tests, one per part
 - D312 to D323, the changelog entry
+
+## Part 517 — the steward's rulings on `TASKS.md` Parts 488, 489, 491 and 495, and Part 481's Codex row: SQLite LIKE, the Postgres append, vectors, the HTTP wires, generation jobs and the agent hand-over (2026-11-09)
+
+✅ done 2026-11-09 — **Outcome:** sixteen rulings, **the steward's under the owner's delegation while the owner is away (the owner may reverse them)**; `docs/DECISIONS.md` **D324** to **D339** record each with the side it rejected. **Built, test failing first on the SQLite, in-memory and process-free legs:** SQLite's `LIKE` fallback folding Unicode through `lyntai_fold` (D324); an empty vector refused and a NUL in a query split (D326); an OpenAI `refusal` Refused on both wires (D327); an error after content with no terminator ending Error (D328); a non-finite temperature Unsupported and a scheme-only `BaseUrl` refused at registration (D329); a buffered answer to a stream read (D331); a base ending in any version segment gaining no `/v1` (D332); a `Timeout` or `RateLimited` fetch retrying the job (D333); `generate_backends` listing media providers only (D334); ComfyUI `temp` previews yielding to a saved output (D335); assistant messages separated by a blank line in a streamed Claude answer and in Codex's `FinalText` (D336); a flag-shaped argument prompt Unsupported, tool calls and results rendered with ids and an attachment warning (D337); a hand-over resuming only over its own newest turn (D338); the recorder keeping only the host's request (D339). **Built, Postgres leg not run (Docker was down):** the per-thread advisory lock on a conversation append (D325), whose eight-appender fact passed on SQLite and in memory. **Documented only:** a reasoning model's `max_tokens` and `temperature` (D330).
+<br>**What stays the owner's:** a `MaxTokensField` option and a use-verbatim base URL flag (new public members), a NUL in stored text, `TASKS.md` Part 491's ComfyUI-restart row (a new option), and the Codex one-shot provider's agreement with its agent door on message separators.
+
+- the code commits and their tests, one per Part
+- D324 to D339, the changelog entry

@@ -117,6 +117,27 @@ public class AgentHandoverTests
         Assert.Equal("s-new", decision.ResumeToken);
     }
 
+    /// <summary>A resume carries the session's own thread, which never saw a newer turn another provider, door or account
+    /// ran, so only a newest turn whose source is the session turn's own (and the target's) resumes; otherwise a fresh
+    /// session is handed the brief, for the reason the first differing field gives (the steward's ruling,
+    /// <c>docs/DECISIONS.md</c> D338).</summary>
+    [Theory]
+    [InlineData("codex-cli", "cli", null, AgentHandoverReason.ProviderChanged)]
+    [InlineData("claude-cli", "acp", null, AgentHandoverReason.DoorChanged)]
+    [InlineData("claude-cli", "cli", "home", AgentHandoverReason.AccountChanged)]
+    public void A_newer_turn_another_source_ran_without_a_session_id_is_not_resumed_over(
+        string provider, string door, string? account, AgentHandoverReason reason)
+    {
+        var transcript = new AgentTranscript([
+            new TranscriptTurn { Source = new AgentConversationSource("claude-cli", "cli"), Prompt = "a", SessionId = "s-1" },
+            new TranscriptTurn { Source = new AgentConversationSource(provider, door, account), Prompt = "b" },
+        ]);
+
+        var decision = AgentHandover.Decide(transcript, Provider("claude-cli", AgentSupport.Supported), "cli");
+
+        Assert.Equal(new AgentHandoverDecision(AgentHandoverKind.FreshWithBrief, reason, null), decision);
+    }
+
     // ── over the registered providers: one source, the registry ─────────────────────────────────────
 
     public static TheoryData<string, string> Doors()

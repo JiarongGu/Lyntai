@@ -29,7 +29,9 @@ public sealed class AgentTranscriptRecorder
         lock (_gate)
         {
             CloseOpen();
-            _open = new OpenTurn(source, options.Prompt, options.SystemPrompt);
+            // the host's words: a prompt built by AgentHandoverDecision.Apply carries a brief before them, which is the
+            // library's record and would come back in the next brief as the host's (D339)
+            _open = new OpenTurn(source, HandoverFraming.HostRequest(options.Prompt), options.SystemPrompt);
         }
     }
 

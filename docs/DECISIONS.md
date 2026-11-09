@@ -393,8 +393,24 @@ new decision overturns an old one, rewrite the old entry as a stub pointing here
 | [D321](#d321--the-hosted-mcp-accept-loop-survives-a-listener-fault-while-the-listener-is-up-2026-11-09) | 2026-11-09 | the hosted MCP accept loop survives a listener fault while the listener is up |
 | [D322](#d322--a-judge-out-of-range-or-non-finite-is-unscored-2026-11-09) | 2026-11-09 | a judge out of range or non-finite is unscored |
 | [D323](#d323--tryparseobject-and-tryreadobject-try-later-braces-at-most-eight-2026-11-09) | 2026-11-09 | `TryParseObject` and `TryReadObject` try later braces, at most eight |
+| [D324](#d324--sqlites-substring-fallback-folds-case-beyond-ascii-by-a-function-on-the-connection-2026-11-09) | 2026-11-09 | SQLite's substring fallback folds case beyond ASCII, by a function on the connection |
+| [D325](#d325--a-postgres-conversation-append-takes-a-per-thread-advisory-lock-in-a-transaction-2026-11-09) | 2026-11-09 | a Postgres conversation append takes a per-thread advisory lock in a transaction |
+| [D326](#d326--an-empty-vector-is-refused-at-every-upsert-and-a-nul-in-a-query-splits-it-2026-11-09) | 2026-11-09 | an empty vector is refused at every upsert, and a NUL in a query splits it |
+| [D327](#d327--an-openai-refusal-is-refused-on-both-wires-2026-11-09) | 2026-11-09 | an OpenAI `refusal` is Refused on both wires |
+| [D328](#d328--an-in-band-error-after-streamed-content-with-no-terminator-ends-error-2026-11-09) | 2026-11-09 | an in-band error after streamed content with no terminator ends Error |
+| [D329](#d329--a-non-finite-request-number-answers-unsupported-before-sending-and-a-scheme-only-base-url-is-refused-at-registration-2026-11-09) | 2026-11-09 | a non-finite request number answers Unsupported before sending, and a scheme-only base URL is ref… |
+| [D330](#d330--a-reasoning-models-max_tokens-and-temperature-stay-the-hosts-to-leave-unset-2026-11-09) | 2026-11-09 | a reasoning model's `max_tokens` and `temperature` stay the host's to leave unset |
+| [D331](#d331--a-server-that-ignores-streamtrue-is-read-as-its-buffered-answer-2026-11-09) | 2026-11-09 | a server that ignores `stream:true` is read as its buffered answer |
+| [D332](#d332--a-base-url-ending-in-a-version-segment-is-used-as-given-2026-11-09) | 2026-11-09 | a base URL ending in a version segment is used as given |
+| [D333](#d333--a-transient-fetch-failure-retries-the-generation-job-2026-11-09) | 2026-11-09 | a transient fetch failure retries the generation job |
+| [D334](#d334--generate_backends-lists-only-providers-that-produce-image-video-audio-or-3d-2026-11-09) | 2026-11-09 | `generate_backends` lists only providers that produce image, video, audio or 3d |
+| [D335](#d335--comfyuis-temp-outputs-yield-to-a-saved-one-2026-11-09) | 2026-11-09 | ComfyUI's `temp` outputs yield to a saved one |
+| [D336](#d336--an-assistant-message-after-the-first-opens-with-a-blank-line-2026-11-09) | 2026-11-09 | an assistant message after the first opens with a blank line |
+| [D337](#d337--a-flag-shaped-argument-prompt-is-unsupported-and-the-flattened-prompt-keeps-tool-calls-and-says-it-dropped-attachments-2026-11-09) | 2026-11-09 | a flag-shaped argument prompt is Unsupported, and the flattened prompt keeps tool calls and says… |
+| [D338](#d338--a-hand-over-resumes-only-over-its-own-newest-turn-2026-11-09) | 2026-11-09 | a hand-over resumes only over its own newest turn |
+| [D339](#d339--the-recorder-keeps-only-the-hosts-request-from-a-prompt-a-hand-over-built-2026-11-09) | 2026-11-09 | the recorder keeps only the host's request from a prompt a hand-over built |
 
-**318 live decisions.** The rest are stubs — `D<n>` is a permanent identifier, so a number is never reused or renumbered (5): [D36](#d36--a-translation-between-two-verdict-taxonomies-gets-one-arm-per-member-gated-by-a-test-2026-08-05) → D136 · [D80](#d80--merged-into-d77-2026-08-16-folded-2026-08-17) → D77 · [D131](#d131--a-backends-produces-is-derived-from-its-configuration-so-a-modality-is-a-field-2026-09-14) → D133 · [D134](#d134--a-registration-names-the-backend-the-provider-suffix-is-gone-from-all-seventeen-2026-09-14) → D137 · [D145](#d145--the-microsoftextensionsai-module-is-a-bridge-not-a-provider-2026-09-15) → D146
+**334 live decisions.** The rest are stubs — `D<n>` is a permanent identifier, so a number is never reused or renumbered (5): [D36](#d36--a-translation-between-two-verdict-taxonomies-gets-one-arm-per-member-gated-by-a-test-2026-08-05) → D136 · [D80](#d80--merged-into-d77-2026-08-16-folded-2026-08-17) → D77 · [D131](#d131--a-backends-produces-is-derived-from-its-configuration-so-a-modality-is-a-field-2026-09-14) → D133 · [D134](#d134--a-registration-names-the-backend-the-provider-suffix-is-gone-from-all-seventeen-2026-09-14) → D137 · [D145](#d145--the-microsoftextensionsai-module-is-a-bridge-not-a-provider-2026-09-15) → D146
 
 <!-- index:end -->
 
@@ -7624,6 +7640,7 @@ recall and its write-back is already a silent skip).
 **Rejected.** Refusing the value (a property setter that throws is a new failure at a configuration seam, and `Ttl` already means this). One entry (a cap of 0 asking for a cache of one is surprising, and it is what the SQL stores did by accident).
 
 **Re-opens** when the environment override should accept 0: `LYNTAI_CACHE_MAX_ENTRIES` still ignores a non-positive value, where `LYNTAI_CACHE_TTL_SECONDS` accepts zero.
+
 ## D266 — the process runner refuses a `.cmd` argument cmd.exe would re-parse, bounds a drain after the child exits, and ends an exchange with its producer's fault (2026-11-09)
 
 **Standing.** Three rulings on `TASKS.md` Part 485's rows, **the steward's under the owner's delegation to develop while away, which the owner may reverse** — not the owner's words. Built, and frozen from release (**D70**).
@@ -8053,6 +8070,7 @@ recall and its write-back is already a silent skip).
 **Rejected.** A checkpoint-on-demand member on the factory (a new frozen public member, the owner's).
 
 **Re-opens** when a consumer asks for a supported backup call, which would be that member.
+
 ## D301 — a tracked file deleted from disk is not in the gates' file list (2026-11-09)
 
 **Standing.** A ruling on the first row of the guard-script review's open list (`docs/task-archive.md` Part 503), recorded in `docs/task-archive.md` Part 515, **the steward's under the owner's delegation, which the owner may reverse** — not the owner's words. Built.
@@ -8328,3 +8346,195 @@ recall and its write-back is already a silent skip).
 **Rejected.** Documenting the first-brace rule (a model's prose is not ours to constrain), and trying every `{`, which would answer a truncated reply with the smaller object inside it.
 
 **Re-opens** when a reply is shown to hold its answer behind more than eight braces.
+
+## D324 — SQLite's substring fallback folds case beyond ASCII, by a function on the connection (2026-11-09)
+
+**Standing.** A ruling on `TASKS.md` Part 488's second row, **the steward's under the owner's delegation, which the owner may reverse** — not the owner's words. Built; no public member moves.
+
+**Decided.** `SqliteConnectionFactory` registers a scalar function `lyntai_fold` (upper case by the invariant culture) on every connection it opens. The memory, curated and graph `LIKE` fallbacks apply it to the column and fold each pattern in .NET (`SqliteLike`), so a query below the trigram floor, which skips full-text search, finds `да` for `Да` and `école` for `ÉC`. `MemoryStoreContract`, the curated contract and the graph contract each carry a fact with a non-ASCII query.
+
+**Why.** SQLite's `LIKE` folds ASCII alone, so a two-character non-ASCII query found nothing where the in-memory stores (`OrdinalIgnoreCase`) and Postgres (`ILIKE`) found it. The fallback is a scan already, so a managed call per row costs the scan little.
+
+**Rejected.** An in-process scan of the table (it loads every row the filter admits to rank a few). Stating ASCII-only (the three other backends fold, so one query would answer by where it was stored). A `COLLATE NOCASE` collation (it is ASCII too).
+
+**Re-opens** when the per-row callback is measured as a cost on a large scoped table; the fold is `ToUpperInvariant`, which is not full Unicode case folding (`ß` stays `ß`).
+
+## D325 — a Postgres conversation append takes a per-thread advisory lock in a transaction (2026-11-09)
+
+**Standing.** A ruling on `TASKS.md` Part 488's third row, **the steward's under the owner's delegation, which the owner may reverse** — not the owner's words. Built; the Postgres leg was not run (Docker was down), so the new fact passed on SQLite and in memory only.
+
+**Decided.** `PostgresConversationStore.AppendMessageAsync` opens a transaction, takes `pg_advisory_xact_lock(hashtextextended(thread, 0))` and runs the insert, replacing the four tries on a `23505`. Appenders to one thread queue and the lock lets go at commit, as **D293** locked the migration. `ConversationStoreContract` has an eight-appender fact for every backend.
+
+**Why.** Eight concurrent appenders could exhaust four retries and surface a raw unique violation, where SQLite and the in-memory store never threw.
+
+**Rejected.** An unbounded retry bounded by the token (it burns round trips under contention and still races). A table lock (it serializes every thread). A sequence per thread (a migration for a counter the lock gives for free).
+
+**Re-opens** when a deployment runs through a transaction-pooling proxy that does not keep a transaction on one backend, or a hash collision between two threads is shown to cost.
+
+## D326 — an empty vector is refused at every upsert, and a NUL in a query splits it (2026-11-09)
+
+**Standing.** A ruling on `TASKS.md` Part 488's fourth row, **the steward's under the owner's delegation, which the owner may reverse** — not the owner's words. Built; the Postgres leg was not run (Docker was down).
+
+**Decided.** `FiniteVector.Require` and Core's copy in `InMemoryVectorStore` throw `ArgumentException` for an empty vector, as for a non-finite one (**D264**), and `IVectorStore.UpsertAsync` says an implementation must. `SearchTerms` reads U+0000 in a query as whitespace, in its terms and in its whole-query fallback, so a query holding one never reaches a Postgres parameter. **A NUL in STORED text is not decided here.**
+
+**Why.** pgvector needs a dimension and refused an empty vector alone, while the other stores kept a row no query could score. `text` cannot hold `\0`, so `RecallAsync` failed open to `[]` for a query that held one.
+
+**Rejected.** Scoring an empty vector 0 (it stores a vector that can never be found). Stripping or replacing a NUL in stored text (the same family as **D262**, and the owner's: it changes what a store returns).
+
+**Re-opens** when a NUL in stored text is ruled; the query half is already portable.
+
+## D327 — an OpenAI `refusal` is Refused on both wires (2026-11-09)
+
+**Standing.** A ruling on `TASKS.md` Part 489's first row, **the steward's under the owner's delegation, which the owner may reverse** — not the owner's words. Built; rests on OpenAI's documented `refusal` field, not run against a server.
+
+**Decided.** `OpenAiChatWire` reads `message.refusal` and `delta.refusal`; a non-empty one ends the call `Refused` with the refusal as the reply text, whatever `finish_reason` says beside it (it says `stop`). One request is sent, no dead-host strike follows, and a streamed refusal sticks across the `stop` after it and delivers no content.
+
+**Why.** A refusal arrives as content null and `refusal` set, which read as an empty reply: the engine resent the identical request (a second billed call) and then answered `Failed`, which advances and strikes the host.
+
+**Rejected.** Leaving it `Failed` (a refusal is an answer about the prompt, as `content_filter` is).
+
+**Re-opens** when a host that sets `refusal` on a reply it wants delivered is reported.
+
+## D328 — an in-band error after streamed content with no terminator ends Error (2026-11-09)
+
+**Standing.** A ruling on `TASKS.md` Part 489's second row, **the steward's under the owner's delegation, which the owner may reverse** — not the owner's words. Built; a plain end of stream stays Final.
+
+**Decided.** `HttpChatEngine` ends a stream `Error` with the error's own verdict when content streamed, an error line was seen and no terminator arrived (`[DONE]`, `done:true` or a finish reason). The recovered `Reconnecting… 2/5` case ends in `[DONE]` and is kept; an end of stream with no error line is Final, as before.
+
+**Why.** Ollama's `{"error":…}` after content, then EOF, read as a clean truncated reply, so a broken stream was delivered as a complete one, and a failure after data struck nobody (compare **D273**).
+
+**Rejected.** Failing on any error line after content (the measured recovered runs would fail). Treating a missing terminator alone as an error (a CLI-shaped wire that ends by EOF would fail).
+
+**Re-opens** when a backend is shown to recover from an error line and end by EOF with no terminator.
+
+## D329 — a non-finite request number answers Unsupported before sending, and a scheme-only base URL is refused at registration (2026-11-09)
+
+**Standing.** A ruling on `TASKS.md` Part 489's fourth row, **the steward's under the owner's delegation, which the owner may reverse** — not the owner's words. Built.
+
+**Decided.** `HttpChatEngine` answers a NaN or infinite `TextRequest.Temperature` with `Unsupported`, naming the field, before anything is sent, on both doors and both wires. `AddHttpProvider` and `AddOllamaProvider` throw `ArgumentException` at registration for a non-blank `BaseUrl` that is not an absolute http or https URL (`localhost:11434` parses as scheme `localhost`); a blank one stays the unavailable registration.
+
+**Why.** The serializer threw out of the call although a failure is a verdict, and a scheme-only URL threw out of the HTTP client on the first call.
+
+**Rejected.** Throwing to the caller from the call (the engine promises a verdict). A `Failed` verdict (it advances and strikes a host for a request no host could serve).
+
+**Re-opens** when a number other than the temperature reaches a JSON body.
+
+## D330 — a reasoning model's `max_tokens` and `temperature` stay the host's to leave unset (2026-11-09)
+
+**Standing.** A ruling on `TASKS.md` Part 489's third row, **the steward's under the owner's delegation, which the owner may reverse** — not the owner's words. **Documented only; the option stays the owner's.**
+
+**Decided.** `TextRequest.MaxTokens` and `Temperature` say that OpenAI's reasoning models are believed to refuse `max_tokens` (they take `max_completion_tokens`) and a non-default temperature, and that a host calling one leaves both null. No `MaxTokensField` option is added.
+
+**Why.** A field choice is a new public member of a frozen surface, and the vendor's refusal is believed from its documentation, not run. Unset, the library sends neither.
+
+**Rejected.** A per-model rule in the wire (it names vendor models the library cannot keep current).
+
+**Re-opens** when the owner rules a `MaxTokensField` option, or the refusal is measured.
+
+## D331 — a server that ignores `stream:true` is read as its buffered answer (2026-11-09)
+
+**Standing.** A ruling on `TASKS.md` Part 489's fifth row, **the steward's under the owner's delegation, which the owner may reverse** — not the owner's words. Built.
+
+**Decided.** `OpenAiChatWire.ParseStreamLine` reads a line whose choice has `message` and no `delta` as the whole answer: its content, usage, finish reason (a refusal included) and complete tool calls, with `IsFinal` set. A body spread over several lines is not read.
+
+**Why.** A proxy that ignores the flag answers one `chat.completion`, which the stream path dropped as "no output produced".
+
+**Rejected.** Leaving a non-streaming proxy unsupported (the answer was there and paid for).
+
+**Re-opens** when a proxy answers a pretty-printed body, which would need the line reader to buffer.
+
+## D332 — a base URL ending in a version segment is used as given (2026-11-09)
+
+**Standing.** A ruling on `TASKS.md` Part 489's sixth row, **the steward's under the owner's delegation, which the owner may reverse** — not the owner's words. Built; **the use-verbatim flag stays the owner's.**
+
+**Decided.** `HttpEndpoint.Build` appends no `/v1` when the base's last path segment is `v` and a digit and then letters or digits, so `…/api/paas/v4` composes `…/api/paas/v4/chat/completions`. `…/v1beta/openai` ends in `openai` and still composes `/v1/…`, a case only a verbatim flag serves.
+
+**Why.** Only a trailing `/v1` was recognised, so any other version composed `…/v4/v1/…` and a 404.
+
+**Rejected.** A flag to use the base verbatim (a new public member). Searching every segment for a version (an `api/v2/proxy` base would lose its `/v1`).
+
+**Re-opens** when a verbatim flag is ruled.
+
+## D333 — a transient fetch failure retries the generation job (2026-11-09)
+
+**Standing.** A ruling on `TASKS.md` Part 491's first row, **the steward's under the owner's delegation, which the owner may reverse** — not the owner's words. Built; `TASKS.md` Part 491's ComfyUI-restart row stays the owner's (a new option).
+
+**Decided.** When `FetchAsync` answers `Timeout` or `RateLimited` for an operation the checkpoint holds, `GenerationJobEngine` returns `JobOutcome.Retry()`. The job's own attempts bound it, after which the runner dead-letters it, and a dead job can be replayed; the checkpoint still holds the operation, so the next run polls and fetches the same render, bills and delivers once. Every other fetch failure still fails the job.
+
+**Why.** `QueueCalls.FetchGuard` says the operation can be fetched again, but the engine turned a 429 or a deadline into a permanent failure of a paid render.
+
+**Rejected.** Polling again without spending an attempt (an unbounded loop on a host that never answers). Retrying every non-Ok fetch (a 422 is pinned as a real failure).
+
+**Re-opens** when another verdict is shown transient.
+
+## D334 — `generate_backends` lists only providers that produce image, video, audio or 3d (2026-11-09)
+
+**Standing.** A ruling on `TASKS.md` Part 491's fifth row, **the steward's under the owner's delegation, which the owner may reverse** — not the owner's words. Built.
+
+**Decided.** `GenerationBackendsTool` filters the registered providers to those whose `Produces` holds an image, video, audio or 3d kind before it probes, so a chat, embedding or rerank provider is neither listed nor probed.
+
+**Why.** Text, vector and score providers appeared to the model as generation backends with `usable: true`, and each probe could spawn a CLI or reach a network.
+
+**Rejected.** Keeping the whole roster (it hands the model backends it cannot render with, and probes them).
+
+**Re-opens** when a new media kind is added to `ProviderKinds`; the list is closed on purpose.
+
+## D335 — ComfyUI's `temp` outputs yield to a saved one (2026-11-09)
+
+**Standing.** A ruling on `TASKS.md` Part 491's sixth row, **the steward's under the owner's delegation, which the owner may reverse** — not the owner's words. Built.
+
+**Decided.** `ComfyUiProvider`'s output walk drops files of `type: "temp"` when the run saved anything (`output` or any other type) and keeps them when previews are all it made.
+
+**Why.** A workflow with SaveImage and PreviewImage returned two artifacts, so a pipeline stage's "exactly one chains forward" rule refused it.
+
+**Rejected.** Keeping every output the history lists (a preview node breaks every chained stage). An option to include temp outputs (a new public member).
+
+**Re-opens** when a host needs the previews beside the saved file.
+
+## D336 — an assistant message after the first opens with a blank line (2026-11-09)
+
+**Standing.** A ruling on `TASKS.md` Part 495's first row and Part 481's Codex row, **the steward's under the owner's delegation, which the owner may reverse** — not the owner's words. Built.
+
+**Decided.** `ClaudeCliProvider.StreamAsync` opens the second and later content chunks with `\n\n`, each chunk being one assistant message, so a call that spoke between tool uses streams `I'll search.` then `Answer` as two paragraphs. `CodexAgentReader`'s `FinalText` joins its agent messages the same way, each after the first after a blank line. The buffered Claude answer is still the `result` line's text, and the Codex one-shot provider's streamed and buffered answers still concatenate.
+
+**Why.** The streamed answer ran messages together with no separator ("I'll search.Answer") where the buffered one was the last message.
+
+**Rejected.** Only the last message, or deferring to the `result` line (it loses words the caller already received). A flag on `CliOutputEvent` marking a message start (a new public member).
+
+**Re-opens** when the Codex one-shot provider is to agree with its agent door, which needs the engine to learn message boundaries.
+
+## D337 — a flag-shaped argument prompt is Unsupported, and the flattened prompt keeps tool calls and says it dropped attachments (2026-11-09)
+
+**Standing.** A ruling on `TASKS.md` Part 495's fifth row, **the steward's under the owner's delegation, which the owner may reverse** — not the owner's words. Built; no shipped backend delivers by argument.
+
+**Decided.** Under `CliPromptDelivery.Argument`, a prompt that starts with `-` answers `Unsupported` before anything is spawned, on both doors. `CliPrompt.Flatten` renders an assistant turn's calls as `[call <id>] <name> <arguments>` and a result as `[tool <id>]`, and the engine logs a warning naming the count when a message carries attachments.
+
+**Why.** A positional prompt starting with a dash is read as an option, and the flattened prompt rendered a tool-call turn as an empty `[assistant]` and a result without the call it answers, which a model could not match.
+
+**Rejected.** Inserting `--` (not every CLI honours it, and a wrong guess spends a turn). Dropping the calls silently (the row's complaint).
+
+**Re-opens** when a backend that delivers by argument ships, and states whether it takes `--`.
+
+## D338 — a hand-over resumes only over its own newest turn (2026-11-09)
+
+**Standing.** A ruling on `TASKS.md` Part 495's sixth row, **the steward's under the owner's delegation, which the owner may reverse** — not the owner's words. Built.
+
+**Decided.** `AgentHandover.Decide` resumes only when the NEWEST turn's source (provider, door, account) equals the session turn's and the target's. A newest turn that ran elsewhere gives `FreshWithBrief` for the first differing field, with the existing reasons `ProviderChanged`, `DoorChanged` and `AccountChanged`. A newer turn with the same source and no id still resumes.
+
+**Why.** The session id came from the last turn that gave one, so claude turn 1, a door with no id turn 2 and a claude target resumed a session that never saw turn 2.
+
+**Rejected.** Documenting the gap (the decision a host sees is silently wrong). A new reason (a new public enum member).
+
+**Re-opens** when a turn that gave no id must be shown to have reached the session.
+
+## D339 — the recorder keeps only the host's request from a prompt a hand-over built (2026-11-09)
+
+**Standing.** A ruling on `TASKS.md` Part 495's seventh row, **the steward's under the owner's delegation, which the owner may reverse** — not the owner's words. Built; no public member moves.
+
+**Decided.** `AgentTranscriptRecorder.BeginTurn` records the part after `AgentHandoverDecision.Apply`'s marker when the prompt opens with `HAND-OVER BRIEF` and a newline, and the prompt as given otherwise. The header and the marker are one internal pair, `HandoverFraming`, shared by `Apply`, the composer and the recorder.
+
+**Why.** The recorder took the whole prompt, brief included, as the host's verbatim request, so a second brief printed the first under the host's words.
+
+**Rejected.** Documenting that a host records before `Apply` (the recording decorator sees the options after it).
+
+**Re-opens** when a host's own request legitimately begins with the header and holds the marker.

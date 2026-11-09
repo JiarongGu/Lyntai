@@ -120,10 +120,12 @@ public sealed class OllamaProvider : IModelProvider, IVectorProvider
         // under Truncate the deployment accepted loss, so the server's own cut may stand behind the client's
         NoServerTruncation: c.MaxInputChars is not null && c.Segmentation?.Overflow != InputOverflow.Truncate);
 
-    /// <summary>Throws when <see cref="OllamaOptions.MaxInputChars"/> cannot bound a piece — run at
+    /// <summary>Throws when <see cref="OllamaOptions.BaseUrl"/> is not an absolute http(s) URL, or
+    /// <see cref="OllamaOptions.MaxInputChars"/> cannot bound a piece — run at
     /// registration as well as here, so a bad bound fails composition rather than a first call.</summary>
     internal static void ValidateInputBound(OllamaOptions c)
     {
+        HttpEndpoint.RequireHttpBase(c.BaseUrl, $"{nameof(OllamaOptions)}.{nameof(OllamaOptions.BaseUrl)}");
         if (ServesVectors(c))
             InputSegmenter.ValidateBound(c.MaxInputChars, embeds: true, c.DocumentPrefix, c.QueryPrefix);
     }

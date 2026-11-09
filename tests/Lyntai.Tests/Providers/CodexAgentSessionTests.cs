@@ -287,7 +287,7 @@ public class CodexAgentSessionTests
     }
 
     [Fact] // the codex PROVIDER concatenates every agent_message; the session must agree
-    public async Task Multiple_agent_messages_concatenate_into_the_final_text()
+    public async Task Multiple_agent_messages_join_with_a_blank_line_into_the_final_text()
     {
         var runner = new FakeProcessRunner([
             """{"type":"thread.started","thread_id":"t"}""",
@@ -299,7 +299,8 @@ public class CodexAgentSessionTests
         var events = await Session(runner).StreamAsync(Ask()).ToListAsync();
 
         Assert.Equal(2, events.OfType<TextDelta>().Count());
-        Assert.Equal("one two", events.OfType<SessionEnded>().Single().FinalText);
+        // one text per message, so the final text keeps them apart (the steward's ruling, docs/DECISIONS.md D336)
+        Assert.Equal("one \n\ntwo", events.OfType<SessionEnded>().Single().FinalText);
     }
 
     // ── the tool-step mapping — MEASURED against codex-cli 0.155.1 (D35) ─────────────────────

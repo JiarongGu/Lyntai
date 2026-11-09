@@ -152,6 +152,7 @@ public sealed class HttpModelProvider : IModelProvider, IVectorProvider, IScoreP
                 + $"backend does not serve. An OpenAI-shaped endpoint produces {ProviderKinds.Text} "
                 + $"(chat/completions), {ProviderKinds.Vector} (embeddings) or {ProviderKinds.Score} (rerank).",
                 nameof(c));
+        HttpEndpoint.RequireHttpBase(c.BaseUrl, $"{nameof(HttpModelOptions)}.{nameof(HttpModelOptions.BaseUrl)}");
         if (ServesVectors(c) || ServesScores(c))
             InputSegmenter.ValidateBound(c.MaxInputChars, ServesVectors(c), c.DocumentPrefix, c.QueryPrefix);
         if (ServesText(c))

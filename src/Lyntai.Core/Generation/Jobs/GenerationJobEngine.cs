@@ -235,6 +235,10 @@ internal sealed class GenerationJobEngine(
                     return (JobOutcome.Fail($"lease lost before fetching {name}'s operation {operationId} — " +
                                             "stopping so the render is not fetched, billed and delivered twice"), null);
                 var result = await backend.FetchAsync(operationId, ct).ConfigureAwait(false);
+                // a timeout or a rate limit is a read that can be made again of an operation the checkpoint holds
+                // (QueueCalls.FetchGuard says so): retry within the job's attempts, never fail a paid render for it
+                if (result.Verdict is ProviderVerdict.Timeout or ProviderVerdict.RateLimited)
+                    return (JobOutcome.Retry(), null);
                 return result.IsOk
                     ? (null, new Produced(result, providerId, operationId, Queued: true))
                     : (JobOutcome.Fail($"{name}: operation {operationId} succeeded but its artifacts could not be " +

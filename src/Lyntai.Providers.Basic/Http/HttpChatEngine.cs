@@ -44,8 +44,16 @@ internal sealed class HttpChatEngine(
     // 1 once a refusal of the configured members has been warned of: once per registration, not per call
     private int _refusalWarned;
 
+    /// <summary>The request's number a JSON body cannot carry, named, or null. NaN and infinity make the serializer throw,
+    /// and a failure here is a verdict (D329).</summary>
+    private string? UnwritableNumber(TextRequest req) =>
+        req.Temperature is { } t && !double.IsFinite(t)
+            ? $"{id}: {nameof(TextRequest.Temperature)} must be a finite number, got {t}"
+            : null;
+
     public async Task<TextResponse> CompleteAsync(TextRequest req, CancellationToken ct = default)
     {
+        if (UnwritableNumber(req) is { } unwritable) return new TextResponse("", ProviderVerdict.Unsupported, Detail: unwritable);
         var model = req.Model ?? wire.DefaultModel ?? "";
         var timeout = options.ResolveTimeout(req);
         using var owned = OwnedClient();       // disposed only when Lyntai owns it
@@ -64,8 +72,11 @@ internal sealed class HttpChatEngine(
             {
                 // a content filter often arrives as HTTP 200 + finish_reason with EMPTY content —
                 // it must classify as Refused (no fallback) before any empty-text handling
-                if (finishReason == "content_filter")
+                if (finishReason == WireFinish.ContentFilter)
                     return new TextResponse(text, ProviderVerdict.Refused, usage, $"{id}: content filter");
+                // a refusal is the model's own answer: Refused on the first reply, never re-sent
+                if (finishReason == WireFinish.Refusal)
+                    return new TextResponse(text, ProviderVerdict.Refused, usage, $"{id}: refused — {HttpBody.Head(text)}");
                 // a tool-call turn is a SUCCESSFUL reply with empty text — surface it before the
                 // empty-text→Failed/retry path (the tool loop drives the next turn)
                 if (toolCalls is { Count: > 0 })
@@ -94,6 +105,11 @@ internal sealed class HttpChatEngine(
 
     public async IAsyncEnumerable<TextChunk> StreamAsync(TextRequest req, [EnumeratorCancellation] CancellationToken ct = default)
     {
+        if (UnwritableNumber(req) is { } unwritable)
+        {
+            yield return TextChunk.Error(ProviderVerdict.Unsupported, unwritable);
+            yield break;
+        }
         var model = req.Model ?? wire.DefaultModel ?? "";
         var timeout = options.ResolveTimeout(req);
         using var owned = OwnedClient();       // disposed only when Lyntai owns it
@@ -141,11 +157,13 @@ internal sealed class HttpChatEngine(
             // SSE ("data: {...}" / "data: [DONE]") for the OpenAI-shaped wire; bare NDJSON for Ollama's
             var payload = line.StartsWith("data:", StringComparison.Ordinal) ? line[5..].Trim() : line.Trim();
             if (payload.Length == 0) continue;
-            if (payload == "[DONE]") break;
+            if (payload == "[DONE]") { progress.Terminated = true; break; }
 
             var parsed = wire.ParseStreamLine(payload);
             if (parsed.Usage is not null) progress.Usage = parsed.Usage;
-            if (parsed.FinishReason is not null) progress.FinishReason = parsed.FinishReason;
+            // a refusal sticks: the stop that follows its fragments must not turn the stream into a Final
+            if (parsed.FinishReason is not null && progress.FinishReason != WireFinish.Refusal)
+                progress.FinishReason = parsed.FinishReason;
             if (parsed.ToolCalls is not null) progress.ToolCalls.Add(parsed.ToolCalls);
             if (parsed.InBandError is { } streamed) progress.InBandError = streamed;
             if (parsed.Text is { Length: > 0 })
@@ -153,6 +171,7 @@ internal sealed class HttpChatEngine(
                 progress.SawContent = true;
                 yield return TextChunk.Content(parsed.Text);
             }
+            if (parsed.IsFinal) progress.Terminated = true;
             if (parsed.IsFinal && wire.EndsStreamOnFinal) break;
         }
 
@@ -238,12 +257,15 @@ internal sealed class HttpChatEngine(
         public StreamingToolCalls ToolCalls { get; } = new();
 
         /// <summary>The last error the backend reported IN BAND. Remembered rather than acted on: an error
-        /// line that arrives AFTER content is not terminal — codex's measured
-        /// <c>{"type":"error","message":"Reconnecting ... 2/5"}</c> appeared in runs that went on to SUCCEED,
-        /// and treating every error-ish line as fatal kills healthy calls that recovered (pitfalls.md, the
-        /// mirror of the trap this fix closes). So it is consulted only on the zero-content path, where the
-        /// alternative is a reasonless "no output".</summary>
+        /// line that arrives AFTER content is not terminal by itself — codex's measured
+        /// <c>{"type":"error","message":"Reconnecting ... 2/5"}</c> appeared in runs that went on to SUCCEED
+        /// (pitfalls.md). So it is consulted on the zero-content path, and after content only when no
+        /// terminator arrived.</summary>
         public string? InBandError { get; set; }
+
+        /// <summary>Whether the stream reached its own end: a <c>[DONE]</c>, a <c>done:true</c> or a finish reason. An
+        /// in-band error after content makes the stream an Error only when this never happened.</summary>
+        public bool Terminated { get; set; }
 
         /// <summary>The response's headers, which an in-band error read for an agent turn needs.</summary>
         public System.Net.Http.Headers.HttpResponseHeaders? Headers { get; init; }
@@ -256,9 +278,19 @@ internal sealed class HttpChatEngine(
     {
         // a streamed content filter must end as Refused, not a benign Final — same verdict the
         // non-streaming path gives the identical finish_reason
-        if (progress.FinishReason == "content_filter")
+        if (progress.FinishReason is WireFinish.ContentFilter or WireFinish.Refusal)
         {
-            yield return TextChunk.Error(ProviderVerdict.Refused, $"{id}: content filter");
+            yield return TextChunk.Error(ProviderVerdict.Refused,
+                progress.FinishReason == WireFinish.Refusal ? $"{id}: refused" : $"{id}: content filter");
+            yield break;
+        }
+        // content streamed, the backend then said it failed, and the stream never reached its own end: it broke
+        // (D328). The recovered "Reconnecting" case ends in a terminator and stays a Final.
+        if (progress.SawContent && !progress.Terminated && progress.InBandError is not null)
+        {
+            exchanges?.RejectedInBand(progress.Headers, progress.InBandError);
+            var broken = InBandFailure(progress.InBandError);
+            yield return TextChunk.Error(broken.Verdict, broken.Detail);
             yield break;
         }
         // TOOL CALLS, assembled from their fragments and delivered before the terminal chunk — never dropped

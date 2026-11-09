@@ -63,6 +63,12 @@ internal sealed class OpenAiChatWire(HttpModelOptions config) : IHttpChatWire
             {
                 text = WireJson.String(m, "content") ?? "";
                 toolCalls = WireToolCalls.Read(m);
+                // a structured-output refusal (content null) outranks the finish_reason beside it, which says stop
+                if (WireJson.String(m, "refusal") is { Length: > 0 } refusal)
+                {
+                    if (text.Length == 0) text = refusal;
+                    finishReason = WireFinish.Refusal;
+                }
             }
 
             usage = ExtractUsage(root);
@@ -102,8 +108,21 @@ internal sealed class OpenAiChatWire(HttpModelOptions config) : IHttpChatWire
             {
                 string? text = null;
                 IReadOnlyList<ToolCallDelta>? toolCalls = null;
+                // a server that ignored stream:true answers one buffered chat.completion: its choice carries a
+                // message and no delta, and that line is the whole answer (D331)
+                if (WireJson.Object(choice, "delta") is null && WireJson.Object(choice, "message") is { } whole)
+                {
+                    var stopped = WireJson.String(choice, "finish_reason");
+                    var refused = WireJson.String(whole, "refusal") is { Length: > 0 };
+                    return new HttpStreamLine(WireJson.String(whole, "content"), ExtractUsage(root), true,
+                        refused ? WireFinish.Refusal : stopped, StreamingToolCalls.Read(whole, complete: true))
+                        { InBandError = inBand };
+                }
                 if (WireJson.Object(choice, "delta") is { } delta)
                 {
+                    // a refusal fragment is not content: the stream ends Refused however it stops
+                    if (WireJson.String(delta, "refusal") is { Length: > 0 })
+                        return new HttpStreamLine(null, ExtractUsage(root), false, WireFinish.Refusal, null) { InBandError = inBand };
                     text = WireJson.String(delta, "content");
                     toolCalls = StreamingToolCalls.Read(delta);
                 }

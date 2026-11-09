@@ -61,7 +61,7 @@ public static class SearchTerms
         if (string.IsNullOrWhiteSpace(raw)) return terms;
 
         var seen = new HashSet<string>(comparer);
-        foreach (var token in raw.Split((char[]?)null,
+        foreach (var token in NulAsSpace(raw).Split((char[]?)null,
                      StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
         {
             foreach (var (run, profile) in ScriptRuns(token))
@@ -180,6 +180,10 @@ public static class SearchTerms
             taken++;
         }
     }
+
+    /// <summary>U+0000 splits a query as whitespace does: Postgres refuses it in a bound text parameter, and the fail-open
+    /// recall read the refusal as no match. A NUL in STORED text is the caller's, not read here (D326).</summary>
+    private static string NulAsSpace(string? raw) => raw is null ? string.Empty : raw.Replace('\0', ' ');
 
     /// <summary>The terms a SUBSTRING scan should match on — <see cref="Extract"/>'s terms plus each
     /// expanded script's shorter grams.
@@ -372,7 +376,7 @@ public static class SearchTerms
         if (columns.Count == 0) throw new ArgumentException("At least one column is required.", nameof(columns));
 
         var terms = includeShortTerms ? SubstringTerms(raw) : Extract(raw);
-        if (terms.Count == 0) terms = [raw?.Trim() ?? string.Empty];
+        if (terms.Count == 0) terms = [NulAsSpace(raw).Trim()];
 
         var parameters = new Dictionary<string, object?>(terms.Count, StringComparer.Ordinal);
         var predicates = new List<string>(terms.Count);

@@ -179,7 +179,8 @@ internal static class GenerationToolJson
 }
 
 /// <summary>Lists the generation backends and what each can actually do — the tool an agent calls FIRST, so it
-/// picks a backend that exists and supports the medium instead of guessing a name.
+/// picks a backend that exists and supports the medium instead of guessing a name. Only a provider that produces
+/// an image, a video, audio or a 3d asset is listed or probed; a chat, embedding or rerank provider is not.
 ///
 /// <para><b>The listing is bounded as a WHOLE and never fails because one backend did.</b> Probes run
 /// concurrently under a single <see cref="MediaOptions.ProbeDeadline"/>; a backend that overruns it, or
@@ -209,7 +210,8 @@ internal sealed class GenerationBackendsTool(
     /// <inheritdoc/>
     public async Task<string> InvokeAsync(string argumentsJson, CancellationToken ct = default)
     {
-        var list = providers.ToList();
+        // a chat, embedding or rerank provider is no generation backend, and its probe may spawn a CLI or reach a network
+        var list = providers.Where(IsMediaBackend).ToList();
 
         using var budget = CancellationTokenSource.CreateLinkedTokenSource(ct);
         if (_options.ProbeDeadline > TimeSpan.Zero) budget.CancelAfter(_options.ProbeDeadline);
@@ -248,6 +250,10 @@ internal sealed class GenerationBackendsTool(
             writer.WriteEndArray();
         });
     }
+
+    private static bool IsMediaBackend(IModelProvider provider) =>
+        provider.Capabilities.Produces.Any(kind => kind is ProviderKinds.Image or ProviderKinds.Video
+            or ProviderKinds.Audio or ProviderKinds.Model3d);
 
     /// <summary>One backend's probe, bounded and never allowed to fail the listing.</summary>
     /// <param name="provider">The backend to ask.</param>

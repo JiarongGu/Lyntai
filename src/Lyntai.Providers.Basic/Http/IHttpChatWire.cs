@@ -3,6 +3,15 @@ using Lyntai.Inference;
 
 namespace Lyntai.Providers.Http;
 
+/// <summary>The finish reasons a wire reports that the engine reads. <see cref="Refusal"/> is the wire's own spelling of a
+/// model's refusal (OpenAI's <c>refusal</c> field, which arrives beside a <c>stop</c>), kept apart from the vendor's
+/// <c>content_filter</c> so each is read where it is carried.</summary>
+internal static class WireFinish
+{
+    public const string ContentFilter = "content_filter";
+    public const string Refusal = "refusal";
+}
+
 /// <summary>One parsed streaming line, whichever wire produced it. <c>IsFinal</c> is the wire's own
 /// end-of-answer signal (Ollama's <c>done:true</c>, an SSE <c>finish_reason</c>); whether it TERMINATES the
 /// stream is <see cref="IHttpChatWire.EndsStreamOnFinal"/>'s call, because SSE sends usage after it.</summary>

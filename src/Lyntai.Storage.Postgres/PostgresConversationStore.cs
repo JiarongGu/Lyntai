@@ -51,26 +51,21 @@ public sealed class PostgresConversationStore(IDbConnectionFactory factory) : IC
 
     public async Task<ChatMessage> AppendMessageAsync(string threadId, string kind, string payload, string? metadata = null, CancellationToken ct = default)
     {
-        // Id is a store-assigned GUID handle; Seq is the 1-based per-thread order. The UNIQUE(thread_id, seq)
-        // index rejects a duplicate if two writers race the MAX(seq)+1 subquery (single-writer-per-thread is
-        // the normal case) — a rare concurrent append is retried HERE (bounded), recomputing MAX(seq)+1, so
-        // the caller never sees a raw unique-violation for a transient race (SQLite serializes writes and
-        // InMemory locks — this keeps the three backends' observable behavior aligned).
+        // Id is a store-assigned GUID handle; Seq is the 1-based per-thread order. Two writers racing the
+        // MAX(seq)+1 subquery would collide on UNIQUE(thread_id, seq), so the append takes a per-thread
+        // transaction-scoped advisory lock first: appenders to one thread queue, the lock lets go at commit,
+        // and the statement that follows reads what the last one wrote (SQLite serializes writes and InMemory
+        // locks — this keeps the three backends' observable behavior aligned, D325).
         var id = Guid.NewGuid().ToString();
         var createdAt = DateTimeOffset.UtcNow;
         await using var conn = await factory.OpenAsync(ct).ConfigureAwait(false);
-        for (var attempt = 0; ; attempt++)
-        {
-            try
-            {
-                var seq = await conn.ExecuteScalarAsync<long>(new CommandDefinition(ConversationStoreSql.AppendMessage, new { id, threadId, kind, payload, metadata, createdAt }, cancellationToken: ct)).ConfigureAwait(false);
-                return new ChatMessage(id, threadId, seq, kind, payload, metadata, createdAt);
-            }
-            catch (Npgsql.PostgresException ex) when (ex.SqlState == "23505" && attempt < 3)
-            {
-                // 23505 unique_violation on (thread_id, seq): a concurrent append won the slot — recompute
-            }
-        }
+        await using var tx = await conn.BeginTransactionAsync(ct).ConfigureAwait(false);
+        await conn.ExecuteAsync(new CommandDefinition("SELECT pg_advisory_xact_lock(hashtextextended(@threadId, 0))",
+            new { threadId }, tx, cancellationToken: ct)).ConfigureAwait(false);
+        var seq = await conn.ExecuteScalarAsync<long>(new CommandDefinition(ConversationStoreSql.AppendMessage,
+            new { id, threadId, kind, payload, metadata, createdAt }, tx, cancellationToken: ct)).ConfigureAwait(false);
+        await tx.CommitAsync(ct).ConfigureAwait(false);
+        return new ChatMessage(id, threadId, seq, kind, payload, metadata, createdAt);
     }
 
     public async Task<IReadOnlyList<ChatMessage>> GetMessagesAsync(string threadId, CancellationToken ct = default)

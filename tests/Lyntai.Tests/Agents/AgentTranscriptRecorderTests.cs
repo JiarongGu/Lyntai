@@ -208,4 +208,34 @@ public class AgentTranscriptRecorderTests
         Assert.Equal(events, seen);
         Assert.Equal("hi", recorder.Transcript.Turns.Single().LastMessage);
     }
+
+    /// <summary>A prompt `AgentHandoverDecision.Apply` built is a brief followed by the host's request, and only the request
+    /// is the host's words: recording the whole prompt put the first brief into the second as the host's (the steward's
+    /// ruling, <c>docs/DECISIONS.md</c> D339).</summary>
+    [Fact]
+    public void A_prompt_built_by_a_hand_over_records_only_the_hosts_request()
+    {
+        var composer = new AgentBriefComposer();
+        var first = new AgentTranscript([new TranscriptTurn { Source = Claude, Prompt = "build it", SessionId = "s-1", LastMessage = "built" }]);
+        var decision = new AgentHandoverDecision(AgentHandoverKind.FreshWithBrief, AgentHandoverReason.ProviderChanged, null);
+        var sent = decision.Apply(Turn("now test it"), composer.Brief(first));
+        Assert.StartsWith("HAND-OVER BRIEF", sent.Prompt);
+
+        var recorder = new AgentTranscriptRecorder();
+        recorder.BeginTurn(Claude, sent);
+        recorder.Add(Ended());
+
+        var turn = recorder.Transcript.Turns.Single();
+        Assert.Equal("now test it", turn.Prompt);
+        var second = composer.Brief(new AgentTranscript([first.Turns[0], turn])).Text;
+        Assert.Equal(1, System.Text.RegularExpressions.Regex.Count(second, "HAND-OVER BRIEF"));
+    }
+
+    [Fact]
+    public void A_prompt_that_only_opens_like_a_brief_is_kept_whole()
+    {
+        var prompt = "HAND-OVER BRIEF" + (char)10 + "typed by the host, with no marker";
+
+        Assert.Equal(prompt, Record(Turn(prompt), Ended()).Turns.Single().Prompt);
+    }
 }

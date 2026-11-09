@@ -21,7 +21,8 @@ public sealed class HttpModelOptions
 {
     /// <summary>Endpoint base, e.g. <c>https://api.openai.com</c>, <c>http://localhost:8080</c>,
     /// <c>https://openrouter.ai/api/v1</c>. Requests compose the <c>/v1</c> convention over it (a base
-    /// already ending in <c>/v1</c> is not doubled). An Ollama server ROOT given to <c>AddHttpProvider</c>
+    /// whose last path segment is already a version — <c>/v1</c>, <c>/v4</c>, <c>/v1beta</c> — is used as given).
+    /// It must be an absolute http or https URL: registration refuses <c>localhost:11434</c>. An Ollama server ROOT given to <c>AddHttpProvider</c>
     /// composes the Ollama-native provider instead — see <c>AddOllamaProvider</c>.</summary>
     public string BaseUrl { get; set; } = "https://api.openai.com";
 

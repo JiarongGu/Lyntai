@@ -25,6 +25,20 @@ public static class MemoryStoreContract
         Assert.Equal(["cut \uFFFD"], (await store.RecallAsync(key)).Select(m => m.Content));
     }
 
+    /// <summary>A query below the index floor is matched by a substring scan, and that scan folds case beyond ASCII on
+    /// every backend: <c>Да</c> finds <c>да</c> and <c>ÉC</c> finds <c>école</c> (the steward's ruling,
+    /// <c>docs/DECISIONS.md</c> D324). SQLite's <c>LIKE</c> folds ASCII alone, so its stores fold the column and
+    /// the pattern themselves.</summary>
+    public static async Task A_short_query_folds_case_beyond_ascii(IMemoryStore store, string key)
+    {
+        await store.RememberAsync(key, "notes", "да, конечно");
+        await store.RememberAsync(key, "notes", "une école publique");
+        await store.RememberAsync(key, "notes", "unrelated entry");
+
+        Assert.Equal(["да, конечно"], (await store.RecallAsync(key, query: "Да")).Select(m => m.Content));
+        Assert.Equal(["une école publique"], (await store.RecallAsync(key, query: "ÉC")).Select(m => m.Content));
+    }
+
     public static async Task Remember_then_recall_by_single_token_substring(IMemoryStore store, string key)
     {
         await store.RememberAsync(key, "prod", "the deploy pipeline requires manual approval");

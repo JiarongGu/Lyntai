@@ -57,6 +57,44 @@ public class OllamaProviderTests
     }
 
     [Fact]
+    public async Task An_ndjson_error_line_after_content_with_no_done_ends_error()
+    {
+        const string ndjson = """
+            {"message":{"content":"a"},"done":false}
+            {"error":"model runner has unexpectedly stopped"}
+            """;
+        var handler = new StubHttpHandler().Enqueue(HttpStatusCode.OK, ndjson, "application/x-ndjson");
+
+        var chunks = await Provider(handler).StreamAsync(Req).ToListAsync();
+
+        Assert.Equal(["a"], chunks.Where(c => c.Kind == TextChunkKind.Content).Select(c => c.Text));
+        Assert.Equal(TextChunkKind.Error, chunks[^1].Kind);
+        Assert.Contains("model runner", chunks[^1].Detail);
+    }
+
+    [Fact]
+    public async Task A_non_finite_temperature_answers_unsupported_before_sending()
+    {
+        var handler = new StubHttpHandler().Enqueue(HttpStatusCode.OK, "{}");
+        var req = new TextRequest { Messages = [TextMessage.User("q")], Temperature = double.NaN };
+
+        var reply = await Provider(handler).CompleteAsync(req);
+
+        Assert.Equal(ProviderVerdict.Unsupported, reply.Verdict);
+        Assert.Contains(nameof(TextRequest.Temperature), reply.Detail);
+        Assert.Empty(handler.Requests);
+    }
+
+    [Fact]
+    public void A_base_url_without_a_scheme_is_refused_at_registration()
+    {
+        var ex = Assert.Throws<ArgumentException>(() => new ServiceCollection().AddLyntai(b =>
+            b.AddOllamaProvider("o", o => o.BaseUrl = "localhost:11434")));
+
+        Assert.Contains(nameof(OllamaOptions.BaseUrl), ex.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public async Task Ndjson_stream_parses_and_final_carries_usage()
     {
         const string ndjson = """

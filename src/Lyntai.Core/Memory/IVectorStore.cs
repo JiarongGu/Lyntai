@@ -10,9 +10,10 @@ namespace Lyntai.Memory;
 public interface IVectorStore
 {
     /// <summary>Insert or replace the vector + payload stored under <paramref name="id"/> in
-    /// <paramref name="collection"/> (re-upserting the same id overwrites — the dedup mechanism). A vector with a
-    /// NaN or infinite component is refused with an <see cref="ArgumentException"/> and nothing is stored, as every
-    /// shipped store does; an implementation must do the same, since a NaN score breaks the top-k order.</summary>
+    /// <paramref name="collection"/> (re-upserting the same id overwrites — the dedup mechanism). An empty vector,
+    /// or one with a NaN or infinite component, is refused with an <see cref="ArgumentException"/> and nothing is
+    /// stored, as every shipped store does; an implementation must do the same, since a NaN score breaks the top-k
+    /// order and an empty vector can never be scored.</summary>
     Task UpsertAsync(string collection, string id, float[] vector, string payload, CancellationToken ct = default);
 
     /// <summary>The <paramref name="k"/> nearest entries in <paramref name="collection"/> to
