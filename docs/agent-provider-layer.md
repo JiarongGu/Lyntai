@@ -248,7 +248,7 @@ host-enabled, validated per door and version, side effects declared, unknown on 
   a released hold permits one attempt at a time, leased for `AttemptLease`, and only that attempt's success removes
   it; its failure restates the hold one revision up. A success, a clear or a reading names the revision or the time
   it is about, so none can undo a newer failure. A reading (`ReportReadingAsync`, the input AG9's `HasRoom` fits) lifts
-  only holds with a stated moment, and only if measured strictly after the hold was taken. State is one key per
+  only holds with a stated reset moment (never a service's retry-not-before), and only if measured strictly after the hold was taken. State is one key per
   hold under `lyntai:agent-pool:<name>:hold:` and one record of the highest revision each removed hold reached under
   `lyntai:agent-pool:<name>:revisions`, written through and read back on first use. **Out of scope, and
   stated on the type: two processes sharing one pool**, since the store has no compare-and-set (§7, **D219**'s

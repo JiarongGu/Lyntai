@@ -183,6 +183,40 @@ public class JobRunnerTests
         Assert.Equal(JobStatus.Cancelled, (await store.GetAsync(id))!.Status);
     }
 
+    [Fact]
+    public async Task A_cancel_a_handler_answers_with_another_exception_still_ends_cancelled_not_retried_or_dead_lettered()
+    {
+        var entered = new TaskCompletionSource();
+        var handler = new WrappingCancelHandler(entered);
+        // one attempt: a transient retry of the thrown exception would dead-letter the job the person cancelled
+        var (runner, store, queue, _) = Build(o =>
+        {
+            o.Jobs.PollInterval = TimeSpan.FromMilliseconds(20);
+            o.Jobs.DefaultMaxAttempts = 1;
+        }, handler);
+        var id = await queue.EnqueueAsync("default", "wrap", "{}");
+
+        var runTask = runner.RunOnceAsync();
+        await entered.Task.WaitAsync(TimeSpan.FromSeconds(30));
+        Assert.True(await queue.CancelAsync(id));
+        await runTask.WaitAsync(TimeSpan.FromSeconds(30));
+
+        Assert.Equal(JobStatus.Cancelled, (await store.GetAsync(id))!.Status);
+    }
+
+    /// <summary>A handler whose client turns the cancel into some other exception.</summary>
+    private sealed class WrappingCancelHandler(TaskCompletionSource entered) : IJobHandler
+    {
+        public string Type => "wrap";
+        public async Task<JobOutcome> HandleAsync(JobContext ctx, CancellationToken ct)
+        {
+            entered.TrySetResult();
+            try { await Task.Delay(Timeout.Infinite, ct).ConfigureAwait(false); }
+            catch (OperationCanceledException ex) { throw new InvalidOperationException("the client wrapped the cancel", ex); }
+            return JobOutcome.Complete;
+        }
+    }
+
     /// <summary>A handler that signals it started, then blocks until its cancellation token fires.</summary>
     private sealed class BlockingHandler(TaskCompletionSource entered) : IJobHandler
     {

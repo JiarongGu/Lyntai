@@ -54,6 +54,41 @@ public class JsonExtractTests
     }
 
     [Fact]
+    public void The_two_READS_try_a_later_brace_when_the_first_balanced_one_is_not_JSON_and_ExtractObject_keeps_the_first()
+    {
+        const string prose = """see {score}: {"score":0.8}""";
+
+        Assert.True(JsonExtract.TryParseObject(prose, out var doc));
+        using (doc) Assert.Equal(0.8, doc.RootElement.GetProperty("score").GetDouble());
+        Assert.True(JsonExtract.TryReadObject(prose, out var json));
+        Assert.Equal("""{"score":0.8}""", json);
+
+        Assert.Equal("{score}", JsonExtract.ExtractObject(prose));   // the first-brace contract is unchanged
+    }
+
+    [Fact]
+    public void A_later_brace_is_tried_only_a_bounded_number_of_times()
+    {
+        const string valid = """{"ok":true}""";
+        var seven = string.Concat(Enumerable.Repeat("{x} ", 7)) + valid;       // the valid object is the eighth brace
+        var eight = string.Concat(Enumerable.Repeat("{x} ", 8)) + valid;       // …and here the ninth
+
+        Assert.True(JsonExtract.TryParseObject(seven, out var doc));
+        doc.Dispose();
+        Assert.True(JsonExtract.TryReadObject(seven, out _));
+        Assert.False(JsonExtract.TryParseObject(eight, out _));
+        Assert.False(JsonExtract.TryReadObject(eight, out _));
+    }
+
+    [Fact]
+    public void A_truncated_object_after_prose_braces_still_reaches_a_retry()
+    {
+        // trying later braces must not turn a cut-off reply into the smaller object inside it
+        Assert.False(JsonExtract.TryReadObject("""see {x}: {"cut": {"in":1}, "of""", out _));
+        Assert.False(JsonExtract.TryParseObject("""{"cut": {"in":1}, "of""", out _));
+    }
+
+    [Fact]
     public void A_TRUNCATED_object_is_refused_rather_than_completed()
     {
         // Missing content, not missing punctuation — so it must still reach a retry.

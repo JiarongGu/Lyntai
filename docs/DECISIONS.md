@@ -381,8 +381,20 @@ new decision overturns an old one, rewrite the old entry as a stub pointing here
 | [D309](#d309--a-malformed-metadata-cell-keeps-failing-the-read-2026-11-09) | 2026-11-09 | a malformed metadata cell keeps failing the read |
 | [D310](#d310--an-abandoned-stream-of-a-cancelled-caller-records-on-a-token-of-its-own-2026-11-09) | 2026-11-09 | an abandoned stream of a cancelled caller records on a token of its own |
 | [D311](#d311--perconsumer-maps-are-set-before-the-first-call-2026-11-09) | 2026-11-09 | `PerConsumer` maps are set before the first call |
+| [D312](#d312--a-word-sent-after-stopasync-is-refused-busy-2026-11-09) | 2026-11-09 | a word sent after `StopAsync` is refused `Busy` |
+| [D313](#d313--a-forced-dispose-ends-disposed-with-the-kill-in-its-detail-2026-11-09) | 2026-11-09 | a forced dispose ends `Disposed`, with the kill in its detail |
+| [D314](#d314--a-reading-never-lifts-a-stated-retrynotbefore-2026-11-09) | 2026-11-09 | a reading never lifts a stated `RetryNotBefore` |
+| [D315](#d315--a-missing-handler-keeps-failed-and-the-mixed-fleet-replay-is-documented-2026-11-09) | 2026-11-09 | a missing handler keeps `Failed`, and the mixed-fleet replay is documented |
+| [D316](#d316--an-interval-schedule-counts-from-its-due-slot-2026-11-09) | 2026-11-09 | an interval schedule counts from its due slot |
+| [D317](#d317--a-cancel-request-seen-plus-any-exception-ends-cancelled-2026-11-09) | 2026-11-09 | a cancel request seen plus any exception ends `Cancelled` |
+| [D318](#d318--a-cron-that-never-occurs-is-refused-at-registration-2026-11-09) | 2026-11-09 | a cron that never occurs is refused at registration |
+| [D319](#d319--removing-a-stored-schedule-deletes-the-shared-next-run-keys-only-when-they-are-its-own-2026-11-09) | 2026-11-09 | removing a stored schedule deletes the shared next-run keys only when they are its own |
+| [D320](#d320--a-non-text-mcp-block-is-described-in-order-beside-the-text-2026-11-09) | 2026-11-09 | a non-text MCP block is described in order beside the text |
+| [D321](#d321--the-hosted-mcp-accept-loop-survives-a-listener-fault-while-the-listener-is-up-2026-11-09) | 2026-11-09 | the hosted MCP accept loop survives a listener fault while the listener is up |
+| [D322](#d322--a-judge-out-of-range-or-non-finite-is-unscored-2026-11-09) | 2026-11-09 | a judge out of range or non-finite is unscored |
+| [D323](#d323--tryparseobject-and-tryreadobject-try-later-braces-at-most-eight-2026-11-09) | 2026-11-09 | `TryParseObject` and `TryReadObject` try later braces, at most eight |
 
-**306 live decisions.** The rest are stubs — `D<n>` is a permanent identifier, so a number is never reused or renumbered (5): [D36](#d36--a-translation-between-two-verdict-taxonomies-gets-one-arm-per-member-gated-by-a-test-2026-08-05) → D136 · [D80](#d80--merged-into-d77-2026-08-16-folded-2026-08-17) → D77 · [D131](#d131--a-backends-produces-is-derived-from-its-configuration-so-a-modality-is-a-field-2026-09-14) → D133 · [D134](#d134--a-registration-names-the-backend-the-provider-suffix-is-gone-from-all-seventeen-2026-09-14) → D137 · [D145](#d145--the-microsoftextensionsai-module-is-a-bridge-not-a-provider-2026-09-15) → D146
+**318 live decisions.** The rest are stubs — `D<n>` is a permanent identifier, so a number is never reused or renumbered (5): [D36](#d36--a-translation-between-two-verdict-taxonomies-gets-one-arm-per-member-gated-by-a-test-2026-08-05) → D136 · [D80](#d80--merged-into-d77-2026-08-16-folded-2026-08-17) → D77 · [D131](#d131--a-backends-produces-is-derived-from-its-configuration-so-a-modality-is-a-field-2026-09-14) → D133 · [D134](#d134--a-registration-names-the-backend-the-provider-suffix-is-gone-from-all-seventeen-2026-09-14) → D137 · [D145](#d145--the-microsoftextensionsai-module-is-a-bridge-not-a-provider-2026-09-15) → D146
 
 <!-- index:end -->
 
@@ -8172,3 +8184,147 @@ recall and its write-back is already a silent skip).
 **Rejected.** A copy-on-write map (it changes the type of a public property, which is the owner's).
 
 **Re-opens** when a consumer must retune a per-consumer limit while calls run.
+
+## D312 — a word sent after `StopAsync` is refused `Busy` (2026-11-09)
+
+**Standing.** A ruling on the kept-run row that `docs/task-archive.md` Part 474 left open, recorded in `docs/task-archive.md` Part 516, **the steward's under the owner's delegation, which the owner may reverse** — not the owner's words. Built.
+
+**Decided.** `AcpAgentReader.TryPrompt` refuses a word while the outstanding turn has `CancelSent`, as `Busy` (its summary reads "or a stop is out"), and writes no prompt frame. A send after the stop is answered runs as a first turn.
+
+**Why.** The word would be written behind `session/cancel`, and `TryCancelRun` already refuses the opposite order for the same reason: the agent keeps what is queued and drops its output.
+
+**Rejected.** Documenting the order (a caller learns it from a lost answer, the one failure a refusal turns into a typed result).
+
+**Re-opens** when a capture shows an agent answering a word queued behind a cancel.
+
+## D313 — a forced dispose ends `Disposed`, with the kill in its detail (2026-11-09)
+
+**Standing.** A ruling on the kept-run row that `docs/task-archive.md` Part 474 left open, recorded in `docs/task-archive.md` Part 516, **the steward's under the owner's delegation, which the owner may reverse** — not the owner's words. Built.
+
+**Decided.** A dispose that had to kill an agent which would not leave ends the run `run-disposed`, `Ok`, with the kill reason as `Diagnostic`; `AcpAgentRun.Fault` checks `_disposing` before the kill reason. A turn still open ends failed, as before.
+
+**Why.** `IAgentRun.Ended` promises `Disposed` after a dispose, and the pump's fault reached `Over` before the dispose's own end, so the run said `run-killed` for the one end the caller asked for.
+
+**Rejected.** Leaving `run-killed` and rewording the promise (a host would have to tell its own dispose from a crash by the reason string).
+
+**Re-opens** when a host needs a forced dispose told apart by type rather than by `Diagnostic`.
+
+## D314 — a reading never lifts a stated `RetryNotBefore` (2026-11-09)
+
+**Standing.** A ruling on the kept-run row that `docs/task-archive.md` Part 474 left open, recorded in `docs/task-archive.md` Part 516, **the steward's under the owner's delegation, which the owner may reverse** — not the owner's words. Built.
+
+**Decided.** `ReportReadingAsync` answers `ResetAt` alone: a reading that shows room lifts a hold whose recovery is a stated reset, never one a service gave as `RetryNotBefore` (a `Retry-After`). `AgentPoolReducer.Discharge` still takes whatever kinds its evidence names.
+
+**Why.** Room in an account's allowance says nothing of a service that stated when to come back, and a Rate hold lifted by the reading sent the next turn into the same refusal.
+
+**Rejected.** Lifting both (the allowance and the service's own clock are different facts).
+
+**Re-opens** when a service's `Retry-After` is shown to be set by the same allowance a reading measures.
+
+## D315 — a missing handler keeps `Failed`, and the mixed-fleet replay is documented (2026-11-09)
+
+**Standing.** A ruling on `TASKS.md` Part 483's missing-handler row, recorded in `docs/task-archive.md` Part 516, **the steward's under the owner's delegation, which the owner may reverse** — not the owner's words. Documentation only.
+
+**Decided.** A job whose type the claiming worker has no handler for stays terminal `Failed`, as `Unknown_type_fails_the_job` pins. `JobRunner` and the guide say why a rolling deploy meets it, and the two ways out: a lane the older workers do not claim (`LaneConcurrency` 0), or `ReplayAsync` once every worker has the handler.
+
+**Why.** A retry that spends no attempt would loop a job nobody can run for as long as one worker lacks it, and a typo'd type would never surface.
+
+**Rejected.** A retry that spends no attempt (it hides a misspelt type behind a queue that never drains).
+
+**Re-opens** when a claim by type, not lane, is built.
+
+## D316 — an interval schedule counts from its due slot (2026-11-09)
+
+**Standing.** A ruling on `TASKS.md` Part 483's drift row, recorded in `docs/task-archive.md` Part 516, **the steward's under the owner's delegation, which the owner may reverse** — not the owner's words. Built.
+
+**Decided.** After a fire, the next run is `due + k·interval`, the first slot after now. First sight and a changed trigger still anchor at now. A lapsed ticker still coalesces to one run.
+
+**Why.** Counting from the tick that fired let every late tick push the grid, so a 60 s interval on a 2 s poll fired every 60 to 62 s and the lateness accumulated.
+
+**Rejected.** Counting from the last fire (it is the drift this removes).
+
+**Re-opens** when a schedule must wait a full interval after a run finishes.
+
+## D317 — a cancel request seen plus any exception ends `Cancelled` (2026-11-09)
+
+**Standing.** A ruling on `TASKS.md` Part 483's cancel row, recorded in `docs/task-archive.md` Part 516, **the steward's under the owner's delegation, which the owner may reverse** — not the owner's words. Built.
+
+**Decided.** When the poll has cancelled a job's token and the runner is not shutting down, any exception the handler throws finalises the job `Cancelled`, as an `OperationCanceledException` does.
+
+**Why.** A client that wraps the cancel in another exception sent the job to a transient retry, and on its last attempt a job the person cancelled was dead-lettered.
+
+**Rejected.** Reading only `OperationCanceledException` (it makes the person's cancel depend on how a handler's HTTP client words it).
+
+**Re-opens** when a handler fails for its own reasons in the same instant a cancel lands and the failure matters more.
+
+## D318 — a cron that never occurs is refused at registration (2026-11-09)
+
+**Standing.** A ruling on `TASKS.md` Part 483's cron row, recorded in `docs/task-archive.md` Part 516, **the steward's under the owner's delegation, which the owner may reverse** — not the owner's words. Built.
+
+**Decided.** `JobScheduleRules.Validate` throws `FormatException` for a cron that parses and has no occurrence (`0 0 30 2 *`), so `AddCronSchedule`, `AddJobSchedule` and the shipped store's `SetAsync` refuse it and a stored one is skipped as invalid. A schedule handed to `JobScheduler` directly is still quarantined at the tick.
+
+**Why.** Cron has no year, so a never-occurring expression never will, and refusing it where it is written beats a warning at every deployment's first tick.
+
+**Rejected.** Accepting it and warning once (the mistake is found by reading logs).
+
+**Re-opens** when an expression with a year or an end date is supported.
+
+## D319 — removing a stored schedule deletes the shared next-run keys only when they are its own (2026-11-09)
+
+**Standing.** A ruling on `TASKS.md` Part 483's removal row, recorded in `docs/task-archive.md` Part 516, **the steward's under the owner's delegation, which the owner may reverse** — not the owner's words. Built.
+
+**Decided.** `KeyValueJobScheduleStore.RemoveAsync` deletes the next-run and trigger keys only when the recorded trigger equals the removed definition's fingerprint. A build-time schedule of the same name, which shadows it (D192), keeps its slot.
+
+**Why.** The scheduler's record is keyed by name and shared, so removing the stored schedule re-anchored the live one and skipped the fire that was due.
+
+**Rejected.** Never deleting them (a re-added schedule with another trigger would find a stale slot).
+
+**Re-opens** when a stored and a build-time schedule of one name share a trigger and the removal's re-anchor costs a fire.
+
+## D320 — a non-text MCP block is described in order beside the text (2026-11-09)
+
+**Standing.** A ruling on `TASKS.md` Part 487's MCP row, recorded in `docs/task-archive.md` Part 516, **the steward's under the owner's delegation, which the owner may reverse** — not the owner's words. Built; passing the bytes or a link is not.
+
+**Decided.** `McpToolset.ToText` writes a line for each image, audio and blob block in the result's order, naming its kind, media type and size (`[image content: image/png, 1500 bytes]`), beside any text. Structured content still leads where no block holds text.
+
+**Why.** A result with text and a picture dropped the picture altogether, and a picture alone read as a bare placeholder.
+
+**Rejected.** The block's bytes or a link a host resolves (a multimodal observation shape, which is the owner's).
+
+**Re-opens** when an observation can carry more than a string.
+
+## D321 — the hosted MCP accept loop survives a listener fault while the listener is up (2026-11-09)
+
+**Standing.** A ruling on `TASKS.md` Part 487's accept-loop row, recorded in `docs/task-archive.md` Part 516, **the steward's under the owner's delegation, which the owner may reverse** — not the owner's words. Built.
+
+**Decided.** `McpToolHost.AcceptLoopAsync` waits 100 ms and accepts again on an `HttpListenerException` while the listener is listening and the host is not cancelled. A fault after either still ends it. The loop is a static seam over the accept it awaits.
+
+**Why.** A client's reset surfaced as that exception, faulted the task unseen and left the CLI's client waiting on connect.
+
+**Rejected.** Stopping and surfacing it to the session (the session has no seam to hear it).
+
+**Re-opens** when a listener fault repeats fast enough that 100 ms is not a bound.
+
+## D322 — a judge out of range or non-finite is unscored (2026-11-09)
+
+**Standing.** A ruling on `TASKS.md` Part 487's judge row, recorded in `docs/task-archive.md` Part 516, **the steward's under the owner's delegation, which the owner may reverse** — not the owner's words. Built, as **D281** does for a scorer.
+
+**Decided.** `LlmScorerBase` reads `score` with `TryGetDouble` and returns no verdict for a value that is not finite or lies outside 0 to 1; the dimension is skipped. 0 and 1 are kept.
+
+**Why.** Clamping read `{"score": 7}` from a 0 to 10 judge as a perfect score, the one answer the judge did not give.
+
+**Rejected.** Clamping (today's, which invents a score) and rescaling (it guesses the judge's scale).
+
+**Re-opens** when a judge's scale is declared per scorer.
+
+## D323 — `TryParseObject` and `TryReadObject` try later braces, at most eight (2026-11-09)
+
+**Standing.** A ruling on `TASKS.md` Part 487's extraction row, recorded in `docs/task-archive.md` Part 516, **the steward's under the owner's delegation, which the owner may reverse** — not the owner's words. Built.
+
+**Decided.** The two lenient reads take the first balanced `{…}` that parses, passing over one that does not (`{score}` in prose) for the next, at most eight in all; an object never closed ends the search. `ExtractObject` keeps its first-brace contract.
+
+**Why.** `see {score}: {"score":0.8}` read as no verdict although a valid one followed.
+
+**Rejected.** Documenting the first-brace rule (a model's prose is not ours to constrain), and trying every `{`, which would answer a truncated reply with the smaller object inside it.
+
+**Re-opens** when a reply is shown to hold its answer behind more than eight braces.

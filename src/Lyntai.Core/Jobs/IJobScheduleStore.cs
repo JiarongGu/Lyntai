@@ -29,8 +29,9 @@ public interface IJobScheduleStore
     Task SetAsync(JobSchedule schedule, CancellationToken ct = default);
 
     /// <summary>Remove the schedule of that name; true when there was one. The shipped store also clears the
-    /// scheduler's record of its next run; a store of the app's own does not, so a schedule it removes and re-adds
-    /// with an unchanged trigger resumes its old slot.</summary>
+    /// scheduler's record of its next run and trigger, but only where that record is the removed schedule's own: a
+    /// build-time schedule of the same name shadows it and keeps its record. A store of the app's own does not clear it, so
+    /// a schedule it removes and re-adds with an unchanged trigger resumes its old slot.</summary>
     Task<bool> RemoveAsync(string name, CancellationToken ct = default);
 }
 
@@ -65,7 +66,7 @@ public sealed class KeyValueJobScheduleStore(IKeyValueStore store, ILogger<KeyVa
     /// <inheritdoc/>
     /// <exception cref="ArgumentException">The name is blank, or the schedule sets both triggers or neither.</exception>
     /// <exception cref="ArgumentOutOfRangeException">The interval is not positive.</exception>
-    /// <exception cref="FormatException">The cron does not parse.</exception>
+    /// <exception cref="FormatException">The cron does not parse, or never occurs (Feb 30).</exception>
     public Task SetAsync(JobSchedule schedule, CancellationToken ct = default)
     {
         JobScheduleRules.Validate(schedule);
@@ -87,9 +88,17 @@ public sealed class KeyValueJobScheduleStore(IKeyValueStore store, ILogger<KeyVa
     {
         ArgumentNullException.ThrowIfNull(name);
         var existed = await store.GetAsync(JobScheduleRules.DefinitionKey(name), ct).ConfigureAwait(false) is not null;
+        var removed = existed ? await ReadAsync(JobScheduleRules.DefinitionKey(name), ct).ConfigureAwait(false) : null;
         await store.DeleteAsync(JobScheduleRules.DefinitionKey(name), ct).ConfigureAwait(false);
-        await store.DeleteAsync(JobScheduleRules.NextRunKey(name), ct).ConfigureAwait(false);
-        await store.DeleteAsync(JobScheduleRules.TriggerKey(name), ct).ConfigureAwait(false);
+        // the scheduler's record is shared by name with a build-time schedule that shadows this one: it is this schedule's own
+        // only while the trigger it was computed from is this one's, and an entry that no longer reads has no trigger to compare
+        if (removed is not null && string.Equals(
+                await store.GetAsync(JobScheduleRules.TriggerKey(name), ct).ConfigureAwait(false),
+                JobScheduleRules.Fingerprint(removed), StringComparison.Ordinal))
+        {
+            await store.DeleteAsync(JobScheduleRules.NextRunKey(name), ct).ConfigureAwait(false);
+            await store.DeleteAsync(JobScheduleRules.TriggerKey(name), ct).ConfigureAwait(false);
+        }
         return existed;
     }
 

@@ -1457,9 +1457,9 @@ without it holds its seat until you act. `HoldsAsync()` lists every hold with it
 time alone releases it.
 
 `ReportReadingAsync(account, measuredAt, hasRoom)` takes a reading of an account's allowance, the input an
-`IAgentUsageSource` read can feed (below), though nothing connects the two for you. It lifts a hold with a stated moment only when the reading shows room and was measured after
-the hold was taken; an older reading, one that shows nothing (`null`: absent is unknown, never zero) and an owner
-action or unknown recovery are left alone. Which permitted seat serves beyond the first is an `IAgentAccountPolicy`
+`IAgentUsageSource` read can feed (below), though nothing connects the two for you. It lifts a hold with a stated reset moment only when the reading shows room and was measured after
+the hold was taken; an older reading, one that shows nothing (`null`: absent is unknown, never zero), an owner
+action, an unknown recovery and a service's own retry-not-before (a `Retry-After`) are left alone. Which permitted seat serves beyond the first is an `IAgentAccountPolicy`
 you register yourself; only the ordered walk ships.
 
 Holds are written through the registered `IKeyValueStore`, one key per hold under `lyntai:agent-pool:<name>:hold:`
@@ -1571,7 +1571,10 @@ await runner.RunAsync(ct);   // in your IHostedService — claims across lanes a
 A lane absent from `LaneConcurrency` runs one job at a time (`DefaultLaneConcurrency`, 1), and both limits are per
 process; `GlobalMaxConcurrency` caps every process sharing the store. Run several `IJobRunner` instances, in one
 process or many, and the atomic claim gives each job to exactly one. Delivery is at-least-once, so a handler must be idempotent from its checkpoint. Higher priority runs first
-within a lane, and a job that exhausts its retries lands in the dead-letter queue (`JobStatus.Dead`):
+within a lane, and a job that exhausts its retries lands in the dead-letter queue (`JobStatus.Dead`). A runner claims
+by lane, not by type, and fails a job whose type it has no handler for (`JobStatus.Failed`, which nothing retries), so
+in a rolling deploy keep a new type on a lane the older workers do not claim (`LaneConcurrency` 0 there) or replay
+the Failed jobs once every worker has the handler:
 
 <!-- compile-given: string payloadJson;
      Guid jobId; -->

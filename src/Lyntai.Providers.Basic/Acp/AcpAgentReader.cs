@@ -230,7 +230,8 @@ internal sealed class AcpAgentReader
             if (!_kept || _phase != Phase.Kept) return AcpPromptRefusal.Over;
             if (_held.Count > 0) return AcpPromptRefusal.RequestHeld;
             if (_woken is not null) return AcpPromptRefusal.WokenRunning;
-            if (_outstanding.Count > 0 && !queuedWords) return AcpPromptRefusal.Busy;
+            // a word sent while a stop is out would be written behind the session/cancel: no word until the stop is answered
+            if (_outstanding.Count > 0 && (!queuedWords || _outstanding.Exists(t => t.CancelSent))) return AcpPromptRefusal.Busy;
 
             // what the readers held from the last turn's updates (a rejected allowance report) is not this turn's failure
             if (_outstanding.Count == 0) _extensions = new AcpExtensionSet(_readers, _time);

@@ -53,15 +53,32 @@ public class LlmScorerBaseTests
     }
 
     [Theory]
-    [InlineData("""{"score":1e999}""", 1.0)]      // overflows to infinity, then clamps: never an exception
-    [InlineData("""{"score":-1e999}""", 0.0)]
-    [InlineData("""{"score":-4,"reason":"low"}""", 0.0)]
-    [InlineData("""{"score":7}""", 1.0)]
     [InlineData("""{"score":0.25,"reason":"fine"}""", 0.25)]
-    public void A_verdict_is_clamped_to_the_unit_interval(string reply, double expected)
+    [InlineData("""{"score":0}""", 0.0)]          // both ends of the unit interval are kept
+    [InlineData("""{"score":1}""", 1.0)]
+    public void A_verdict_inside_the_unit_interval_is_kept_as_given(string reply, double expected)
     {
         Assert.True(LlmScorerBase.TryParseVerdict(reply, out var result));
         Assert.Equal(expected, result.Score);
+    }
+
+    [Theory]
+    [InlineData("""{"score":1e999}""")]           // overflows, and is never an exception
+    [InlineData("""{"score":-1e999}""")]
+    [InlineData("""{"score":-4,"reason":"low"}""")]
+    [InlineData("""{"score":7}""")]               // a 0 to 10 judge: clamping would read it as a perfect score
+    [InlineData("""{"score":1.0000001}""")]
+    public void A_verdict_outside_the_unit_interval_or_not_finite_is_unscored_not_clamped(string reply)
+    {
+        Assert.False(LlmScorerBase.TryParseVerdict(reply, out _));
+    }
+
+    [Fact]
+    public async Task A_judge_answering_on_the_wrong_scale_leaves_its_dimension_unscored()
+    {
+        var result = await new Judge(ClientReturning(7)).ScoreAsync(Ctx, default);
+
+        Assert.Null(result);
     }
 
     [Theory]

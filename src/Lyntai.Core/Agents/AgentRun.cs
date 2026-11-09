@@ -48,13 +48,15 @@ public interface IAgentRun : IAsyncDisposable
 
     /// <summary>Completes once, when the run is over: the failed open or the process fault as the typed terminal it is, or an
     /// <see cref="ProviderVerdict.Ok"/> one with subtype <see cref="AgentRunSubtypes.Disposed"/> after
-    /// <see cref="IAsyncDisposable.DisposeAsync"/>. A turn still open then ends first, failed, with the same cause.</summary>
+    /// <see cref="IAsyncDisposable.DisposeAsync"/>, also when the dispose had to kill an agent that would not leave (its
+    /// <see cref="SessionEnded.Diagnostic"/> says so). A turn still open then ends first, failed, with the same cause.</summary>
     Task<SessionEnded> Ended { get; }
 
     /// <summary>Send a prompt. On an idle run it starts a turn. On a busy run it is a word: taken only where the door states
     /// <see cref="AgentAbilities.QueuedWords"/> <see cref="AgentSupport.Supported"/>, when the earlier turn then ends
     /// <see cref="AgentRunSubtypes.Folded"/> (success, every usage count 0) and this one owns the rest of the work. Refused while a
-    /// permission request is held, while a woken turn runs, on a busy run whose door takes no word, and on an ended run.</summary>
+    /// permission request is held, while a woken turn runs, on a busy run whose door takes no word, while a stop is out (the
+    /// cancelled turn would answer it), and on an ended run.</summary>
     /// <param name="prompt">The words.</param>
     /// <param name="ct">Cancels the send before it is made; a sent prompt is stopped by <see cref="StopAsync"/>.</param>
     Task<AgentRunTurn> SendAsync(string prompt, CancellationToken ct = default);
@@ -114,7 +116,7 @@ public static class AgentRunSubtypes
     /// <summary>A woken turn ended by <see cref="AgentRunOptions.WokenTurnQuiet"/> of silence.</summary>
     public const string Quiet = "quiet";
 
-    /// <summary>Refused: the run is busy and its door states no <see cref="AgentAbilities.QueuedWords"/>.</summary>
+    /// <summary>Refused: the run is busy and its door states no <see cref="AgentAbilities.QueuedWords"/>, or a stop is out.</summary>
     public const string Busy = "run-busy";
 
     /// <summary>Refused: a permission request is held for the host, and no record shows a word with one.</summary>

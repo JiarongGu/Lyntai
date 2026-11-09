@@ -67,6 +67,34 @@ public sealed class JobScheduleValidationTests
     }
 
     [Theory]
+    [InlineData("0 0 30 2 *")]            // Feb 30
+    [InlineData("0 0 31 4 *")]            // Apr 31
+    public void A_cron_that_never_occurs_is_refused_at_composition_naming_it(string cron)
+    {
+        var ex = Assert.Throws<FormatException>(() => Compose(b => b.AddCronSchedule("never", "l", "t", "{}", cron)));
+        Assert.Contains(cron, ex.Message, StringComparison.Ordinal);
+        Assert.Throws<FormatException>(() => Compose(b => b.AddJobSchedule(new JobSchedule("never", "l", "t", "{}", Cron: cron))));
+    }
+
+    [Fact]
+    public async Task The_shipped_schedule_store_refuses_a_cron_that_never_occurs()
+    {
+        var store = new KeyValueJobScheduleStore(new InMemoryKeyValueStore());
+
+        await Assert.ThrowsAsync<FormatException>(() =>
+            store.SetAsync(new JobSchedule("never", "l", "t", "{}", Cron: "0 0 30 2 *")));
+    }
+
+    [Theory]
+    [InlineData("0 0 29 2 *")]            // Feb 29 occurs, however far off
+    [InlineData("0 0 30 2 1")]            // day-of-month OR day-of-week: Mondays occur
+    [InlineData("@yearly")]
+    public void A_cron_that_occurs_rarely_is_accepted(string cron)
+    {
+        Compose(b => b.AddCronSchedule("rare", "l", "t", "{}", cron));
+    }
+
+    [Theory]
     [InlineData("99999999999 * * * *")]   // overflows int
     [InlineData("1-2-3 * * * *")]         // a range has two ends
     public void A_malformed_cron_number_is_a_FormatException(string cron)
