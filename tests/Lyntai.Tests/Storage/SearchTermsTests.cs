@@ -292,6 +292,37 @@ public class SearchTermsTests
     public void Nothing_above_the_floor_yields_no_terms(string? raw) =>
         Assert.Empty(SearchTerms.Extract(raw));
 
+    /// <summary>Sentence punctuation at either end of a spaced word is trimmed, so a question's last word
+    /// matches the stored word: <c>spouse?</c> as a term needs the <c>?</c> in the text.</summary>
+    [Theory]
+    [InlineData("Who is the spouse?", new[] { "Who", "the", "spouse" })]
+    [InlineData("\"quoted\" (bracketed), done.", new[] { "quoted", "bracketed", "done" })]
+    [InlineData("¿qué? ¡hola!", new[] { "qué", "hola" })]
+    [InlineData("...leading and trailing...", new[] { "leading", "and", "trailing" })]
+    public void Punctuation_at_either_end_of_a_spaced_word_is_trimmed(string raw, string[] expected) =>
+        Assert.Equal(expected, SearchTerms.Extract(raw));
+
+    /// <summary>Punctuation INSIDE a word stays (<c>don't</c>, <c>e.g</c>), and so does a symbol at either end:
+    /// <c>C++</c> keeps its three characters, <c>$100</c> its sign, because a symbol is part of what the
+    /// word is called.</summary>
+    [Theory]
+    [InlineData("don't", new[] { "don't" })]
+    [InlineData("C++", new[] { "C++" })]
+    [InlineData("C++?", new[] { "C++" })]
+    [InlineData("$100", new[] { "$100" })]
+    [InlineData("a/b-c", new[] { "a/b-c" })]
+    public void An_inner_mark_and_an_edge_symbol_stay(string raw, string[] expected) =>
+        Assert.Equal(expected, SearchTerms.Extract(raw));
+
+    /// <summary>The floor is checked AFTER trimming: <c>ok??</c> is four characters and two letters, so it is
+    /// no term, and a run of only punctuation is none either.</summary>
+    [Theory]
+    [InlineData("ok??")]
+    [InlineData("!!!")]
+    [InlineData("...")]
+    [InlineData("?? !!")]
+    public void The_floor_is_checked_after_trimming(string raw) => Assert.Empty(SearchTerms.Extract(raw));
+
     // ---- LikeClause: what the substring backends actually run ----
 
     /// <summary>One predicate and one score term per extracted term, with the values parameterized. The

@@ -1,3 +1,5 @@
+using System.Text;
+
 namespace Lyntai.Storage;
 
 /// <summary>
@@ -18,6 +20,11 @@ namespace Lyntai.Storage;
 ///
 /// <para><b>An ASCII word is NOT expanded</b>, deliberately: a whole word is more precise (<c>"cat"</c>
 /// would otherwise match <c>"concatenate"</c>), and whitespace already separated it.</para>
+///
+/// <para><b>Punctuation at either end of a spaced word is trimmed</b> (Unicode category P), so the question
+/// <c>Who is the spouse?</c> yields <c>spouse</c>, which the stored <c>the spouse is Alice</c> contains, rather
+/// than <c>spouse?</c>, which it does not. A symbol stays (<c>C++</c>, <c>$100</c>), as does punctuation inside a
+/// word (<c>don't</c>). The floor below is checked after the trim.</para>
 ///
 /// <para><b>The floor is <see cref="MinimumTermLength"/> characters</b>, because that is what a trigram index
 /// can match. A query below it yields no terms at all and callers fall back to a whole-query substring scan,
@@ -63,7 +70,8 @@ public static class SearchTerms
         {
             foreach (var (run, profile) in ScriptRuns(token))
                 if (profile.ExpandsIntoGrams) AddGrams(run, gramLength(profile), terms, seen);
-                else if (keepWholeRuns && CodePoints(run) >= MinimumTermLength && seen.Add(run)) terms.Add(run);
+                else if (keepWholeRuns && TrimPunctuation(run) is var word
+                         && CodePoints(word) >= MinimumTermLength && seen.Add(word)) terms.Add(word);
             if (terms.Count >= MaxTerms) break;
         }
         return terms.Count > MaxTerms ? terms.GetRange(0, MaxTerms) : terms;
@@ -121,6 +129,32 @@ public static class SearchTerms
                 return profile;
         return char.IsLetter(c) ? ScriptProfile.Spaced : null;
     }
+
+    /// <summary>The run without Unicode punctuation at either end. A lone surrogate is not punctuation, so it
+    /// ends the trim like any other character.</summary>
+    private static string TrimPunctuation(string run)
+    {
+        var start = 0;
+        while (start < run.Length && Rune.TryGetRuneAt(run, start, out var first) && IsPunctuation(first))
+            start += first.Utf16SequenceLength;
+
+        var end = run.Length;
+        while (end > start)
+        {
+            var at = end - 1;
+            if (at > start && char.IsLowSurrogate(run[at]) && char.IsHighSurrogate(run[at - 1])) at--;
+            if (!Rune.TryGetRuneAt(run, at, out var last) || !IsPunctuation(last)) break;
+            end = at;
+        }
+        return run[start..end];
+    }
+
+    private static bool IsPunctuation(Rune rune) => Rune.GetUnicodeCategory(rune) is
+        System.Globalization.UnicodeCategory.ConnectorPunctuation or System.Globalization.UnicodeCategory.DashPunctuation
+        or System.Globalization.UnicodeCategory.OpenPunctuation or System.Globalization.UnicodeCategory.ClosePunctuation
+        or System.Globalization.UnicodeCategory.InitialQuotePunctuation
+        or System.Globalization.UnicodeCategory.FinalQuotePunctuation
+        or System.Globalization.UnicodeCategory.OtherPunctuation;
 
     /// <summary>Code points, not UTF-16 units: a trigram index counts what a reader sees, so two emoji are two.</summary>
     private static int CodePoints(string run)

@@ -318,6 +318,19 @@ public static class CuratedMemoryStoreContract
         Assert.Equal(2, hits.Count);
     }
 
+    /// <summary>A question's punctuation does not hide its content word: <c>Who is the spouse?</c> finds
+    /// <c>my spouse is Alice</c>, which shares no other word with it, as the memory store's recall does.</summary>
+    public static async Task Search_ignores_punctuation_at_the_edge_of_a_word(ICuratedMemoryStore store,
+        string task = "edge-punctuation")
+    {
+        await store.AddAsync("glossary", "my spouse is Alice", taskKey: task);
+        await store.AddAsync("glossary", "rollbacks must page the on-call", taskKey: task);
+
+        var hits = await store.SearchAsync("Who is the spouse?", taskKey: task);
+
+        Assert.Contains(hits, e => e.Content == "my spouse is Alice");
+    }
+
     /// <summary>A composition over more scopes than SQLite binds variables for (32,766) still answers: the scope
     /// list is a value, not one parameter per scope.</summary>
     public static async Task Composition_accepts_a_very_long_scope_list(ICuratedMemoryStore store, string task = "wide")

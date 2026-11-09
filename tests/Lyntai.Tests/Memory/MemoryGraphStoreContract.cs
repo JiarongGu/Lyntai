@@ -73,6 +73,19 @@ public static class MemoryGraphStoreContract
         Assert.Contains(hits, h => h.Content == "the user's spouse is Alice");
     }
 
+    /// <summary><b>A question's punctuation does not hide its content word, on every backend</b>:
+    /// <c>Who is the spouse?</c> seeds <c>my spouse is Alice</c>, which shares no other word with it, where the
+    /// term <c>spouse?</c> would have needed the <c>?</c> in the stored text.</summary>
+    public static async Task Seeding_ignores_punctuation_at_the_edge_of_a_word(IMemoryGraphStore store, string key)
+    {
+        await store.UpsertAsync(Write("e", key, "my spouse is Alice"));
+        await store.UpsertAsync(Write("e", key, "rollbacks must page the on-call"));
+
+        var hits = await store.SeedAsync("e", key, "s", "Who is the spouse?", 10);
+
+        Assert.Contains(hits, h => h.Content == "my spouse is Alice");
+    }
+
     /// <summary><b>The same guarantee in Chinese — a script that writes no spaces at all.</b> Whitespace
     /// splitting hands back a Chinese sentence as ONE token, which would make a Chinese cue an
     /// exact-substring match only — the language deciding the recall semantics. Both backends index trigrams

@@ -242,6 +242,19 @@ public static class MemoryStoreContract
         Assert.Empty(await store.RecallAsync(key, "s", "refund shipping"));    // not "match everything"
     }
 
+    /// <summary><b>A question's punctuation does not hide its content word, on every backend</b>:
+    /// <c>Who is the spouse?</c> finds <c>my spouse is Alice</c>, which shares no other word with it, where the
+    /// term <c>spouse?</c> would have needed the <c>?</c> in the stored text.</summary>
+    public static async Task A_questions_punctuation_does_not_hide_its_content_word(IMemoryStore store, string key)
+    {
+        await store.RememberAsync(key, "s", "my spouse is Alice");
+        await store.RememberAsync(key, "s", "rollbacks must page the on-call");
+
+        var hits = await store.RecallAsync(key, "s", "Who is the spouse?");
+
+        Assert.Contains(hits, h => h.Content == "my spouse is Alice");
+    }
+
     /// <summary><b>A row matching MORE of the query outranks one matching less, even when the weaker match is
     /// newer</b> — the ranking of every backend except SQLite's bm25 (<c>docs/DECISIONS.md</c> D55), and the
     /// bound on the pollution term-wise matching bought: without it a one-term brush-past displaces a
