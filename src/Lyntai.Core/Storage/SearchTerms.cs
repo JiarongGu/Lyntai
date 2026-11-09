@@ -20,7 +20,7 @@ namespace Lyntai.Storage;
 ///
 /// <para><b>Punctuation at either end of a spaced word is trimmed</b> (Unicode category P): <c>spouse?</c> is
 /// <c>spouse</c>. A symbol stays (<c>C++</c>, <c>$100</c>), as does punctuation inside a word (<c>don't</c>),
-/// and the floor below is checked after the trim (D298).</para>
+/// and the floor below is checked after the trim (D306).</para>
 ///
 /// <para><b>The floor is <see cref="MinimumTermLength"/> characters</b>, because that is what a trigram index
 /// can match. A query below it yields no terms at all and callers fall back to a whole-query substring scan,

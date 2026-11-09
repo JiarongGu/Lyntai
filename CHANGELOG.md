@@ -63,7 +63,7 @@ every addition.
   `lyntai_memory_subject(node_id)`, where a node delete scanned the table; Postgres has none yet. **`UseSqliteStorage`, `SqliteConnectionFactory` and the SQLite migration runner throw
   `ArgumentException` for `:memory:`** (each connection saw its own empty database), `IResponseCache.SetAsync` and a graph write refuse a null key or engine with
   `ArgumentNullException`, the file backend's prompt-save window is documented, and `SqliteConnectionFactory.DbPath` no longer offers copying the `.db` alone as a backup.
-- **Recall, stored stability, burst state, an abandoned stream and two options maps** (**D298**–**D303**). A spaced word loses the punctuation at its ends before it becomes a search term,
+- **Recall, stored stability, burst state, an abandoned stream and two options maps** (**D306**–**D311**). A spaced word loses the punctuation at its ends before it becomes a search term,
   so `Who is the spouse?` finds `the spouse is Alice` on every backend (a symbol stays: `C++`, `$100`). `GraphMemoryEngine` stores no stability below the prune's floor, so a BYO age policy
   returning `Encoding = 0` is unretrievable to the curve and to the prune alike. `BurstDampenedAgePolicy` forgets an engine a window old, with no change to any tick, and its doc says a burst is
   not bounded in length. A traced text stream abandoned after its caller cancelled records its step on a token of its own, bounded at five seconds. `RateLimitOptions.PerConsumer` and

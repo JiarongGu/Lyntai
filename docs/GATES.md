@@ -338,7 +338,7 @@ the former: the release stamp deletes that region on its way past.
 **It also scans code COMMENTS** in `src/`, `tests/`, `bench/` and `devtools/` — the compiler resolves
 `<see cref>` and nothing else, so a retired CLAIM in a `<c>` tag or a `//` comment was checked by no one.
 **A `/* … */` block, JSDoc included, is read line by line** from a line that starts with `/*` to the one
-holding the closer, as `check-links` already counts it (**D294**); **a comment trailing code on the same
+holding the closer, as `check-links` already counts it (**D310**); **a comment trailing code on the same
 line (`code // x`) stays out**, and so does code after a closer, because the line is the unit and a line
 that is code is blanked (`check-tautology` reads the same lines). Three `devtools/` paths are out because quoting retired vocabulary is their job: the registry itself
 (`project.config.mjs`), the roster of published package ids (`nuget-unlist.mjs`) and the guards' own tests
@@ -584,7 +584,7 @@ It checks FIVE things. Two are LENGTH: the preamble's non-blank line count again
 (`backlogPreambleAllowance` raises it, reported as slack; no escape token), and that **no `HANDOVER` block
 survives anywhere** — a handover describes work that is DONE, so its home is `docs/task-archive.md`, one Part
 per task. A handover is matched with emphasis and a leading `>` blockquote marker, and an open item with
-leading whitespace (**D297**), so a nested `- [ ]` is counted, marked and rostered and one with no marker fails. The generated roster is excluded from the budget by sitting above the `## Active backlog` heading,
+leading whitespace (**D305**), so a nested `- [ ]` is counted, marked and rostered and one with no marker fails. The generated roster is excluded from the budget by sitting above the `## Active backlog` heading,
 which is placement rather than a carve-out.
 
 The other two are the **open-item MANIFEST** (`docs/DECISIONS.md` **D111**): every open `- [ ]` carries a
@@ -658,7 +658,7 @@ measured at a **0% defect rate**, and withdrew; a hit here is a defect by constr
 vocabulary gate has to clear before it ships. The one-line count is REPORTED on a passing run so the softer
 tier stays visible without being enforced.
 
-**A `*Options` type is a class, a record or a struct** (`struct`, `record struct`, `readonly struct`; **D296**):
+**A `*Options` type is a class, a record or a struct** (`struct`, `record struct`, `readonly struct`; **D304**):
 none of the last is in `src/` today, and the pattern reads it so that the day one appears it is checked.
 
 **What counts as an option was widened once, on a measured miss**: an accessor block on the line after the
@@ -892,7 +892,7 @@ its count and classes, and whether the run declared a Postgres skip. It prints t
 trio on one line — the figures to re-measure by hand (§Which numbers a gate holds) — and **FAILS when a
 Postgres fact skipped** unless the run sets `LYNTAI_ALLOW_POSTGRES_SKIP=1`, when the trx is missing
 or records nothing, and **when any result ended outside passed, failed and skipped** (`Inconclusive`,
-`NotRunnable`; **D295**): the summary's `other` count, printed with the outcome names, which no declaration
+`NotRunnable`; **D311**): the summary's `other` count, printed with the outcome names, which no declaration
 excuses.
 
 **The leg is identified by its skip REASON**: `PostgresFixture.InitError` and every site's fallback start

@@ -370,21 +370,19 @@ new decision overturns an old one, rewrite the old entry as a stub pointing here
 | [D298](#d298--the-file-backends-prompt-save-keeps-its-two-writes-with-the-window-documented-and-a-cut-test-2026-11-09) | 2026-11-09 | the file backend's prompt save keeps its two writes, with the window documented and a cut test |
 | [D299](#d299--each-store-refuses-a-callers-null-key-before-sql-and-the-sqlite-table-rebuild-is-not-done-2026-11-09) | 2026-11-09 | each store refuses a caller's NULL key before SQL, and the SQLite table rebuild is not done |
 | [D300](#d300--sqliteconnectionfactorydbpath-is-documented-as-no-backup-and-no-checkpoint-method-is-offered-2026-11-09) | 2026-11-09 | `SqliteConnectionFactory.DbPath` is documented as no backup, and no checkpoint method is offered |
+| [D301](#d301--a-tracked-file-deleted-from-disk-is-not-in-the-gates-file-list-2026-11-09) | 2026-11-09 | a tracked file deleted from disk is not in the gates' file list |
+| [D302](#d302--the-prose-gates-read-block-comment-lines-and-stop-at-a-trailing-comment-2026-11-09) | 2026-11-09 | the prose gates read block-comment lines, and stop at a trailing comment |
+| [D303](#d303--a-trx-result-outside-passed-failed-and-skipped-fails-the-test-run-2026-11-09) | 2026-11-09 | a trx result outside passed, failed and skipped fails the `test` run |
+| [D304](#d304--check-options-scans-structs-as-well-as-classes-and-records-2026-11-09) | 2026-11-09 | `check-options` scans structs as well as classes and records |
+| [D305](#d305--check-backlog-reads-a-blockquoted-handover-and-an-indented-open-item-failing-closed-2026-11-09) | 2026-11-09 | `check-backlog` reads a blockquoted handover and an indented open item, failing closed |
+| [D306](#d306--a-spaced-word-loses-the-punctuation-at-its-ends-before-it-becomes-a-search-term-2026-11-09) | 2026-11-09 | a spaced word loses the punctuation at its ends before it becomes a search term |
+| [D307](#d307--the-engine-stores-no-stability-below-the-prunes-floor-2026-11-09) | 2026-11-09 | the engine stores no stability below the prune's floor |
+| [D308](#d308--a-burst-policy-forgets-an-engine-a-window-old-and-a-bursts-length-stays-unbounded-2026-11-09) | 2026-11-09 | a burst policy forgets an engine a window old, and a burst's length stays unbounded |
+| [D309](#d309--a-malformed-metadata-cell-keeps-failing-the-read-2026-11-09) | 2026-11-09 | a malformed metadata cell keeps failing the read |
+| [D310](#d310--an-abandoned-stream-of-a-cancelled-caller-records-on-a-token-of-its-own-2026-11-09) | 2026-11-09 | an abandoned stream of a cancelled caller records on a token of its own |
+| [D311](#d311--perconsumer-maps-are-set-before-the-first-call-2026-11-09) | 2026-11-09 | `PerConsumer` maps are set before the first call |
 
-**295 live decisions.** The rest are stubs — `D<n>` is a permanent identifier, so a number is never reused or renumbered (5): [D36](#d36--a-translation-between-two-verdict-taxonomies-gets-one-arm-per-member-gated-by-a-test-2026-08-05) → D136 · [D80](#d80--merged-into-d77-2026-08-16-folded-2026-08-17) → D77 · [D131](#d131--a-backends-produces-is-derived-from-its-configuration-so-a-modality-is-a-field-2026-09-14) → D133 · [D134](#d134--a-registration-names-the-backend-the-provider-suffix-is-gone-from-all-seventeen-2026-09-14) → D137 · [D145](#d145--the-microsoftextensionsai-module-is-a-bridge-not-a-provider-2026-09-15) → D146
-| [D293](#d293--a-tracked-file-deleted-from-disk-is-not-in-the-gates-file-list-2026-11-09) | 2026-11-09 | a tracked file deleted from disk is not in the gates' file list |
-| [D294](#d294--the-prose-gates-read-block-comment-lines-and-stop-at-a-trailing-comment-2026-11-09) | 2026-11-09 | the prose gates read block-comment lines, and stop at a trailing comment |
-| [D295](#d295--a-trx-result-outside-passed-failed-and-skipped-fails-the-test-run-2026-11-09) | 2026-11-09 | a trx result outside passed, failed and skipped fails the `test` run |
-| [D296](#d296--check-options-scans-structs-as-well-as-classes-and-records-2026-11-09) | 2026-11-09 | `check-options` scans structs as well as classes and records |
-| [D297](#d297--check-backlog-reads-a-blockquoted-handover-and-an-indented-open-item-failing-closed-2026-11-09) | 2026-11-09 | `check-backlog` reads a blockquoted handover and an indented open item, failing closed |
-| [D298](#d298--a-spaced-word-loses-the-punctuation-at-its-ends-before-it-becomes-a-search-term-2026-11-09) | 2026-11-09 | a spaced word loses the punctuation at its ends before it becomes a search term |
-| [D299](#d299--the-engine-stores-no-stability-below-the-prunes-floor-2026-11-09) | 2026-11-09 | the engine stores no stability below the prune's floor |
-| [D300](#d300--a-burst-policy-forgets-an-engine-a-window-old-and-a-bursts-length-stays-unbounded-2026-11-09) | 2026-11-09 | a burst policy forgets an engine a window old, and a burst's length stays unbounded |
-| [D301](#d301--a-malformed-metadata-cell-keeps-failing-the-read-2026-11-09) | 2026-11-09 | a malformed metadata cell keeps failing the read |
-| [D302](#d302--an-abandoned-stream-of-a-cancelled-caller-records-on-a-token-of-its-own-2026-11-09) | 2026-11-09 | an abandoned stream of a cancelled caller records on a token of its own |
-| [D303](#d303--perconsumer-maps-are-set-before-the-first-call-2026-11-09) | 2026-11-09 | `PerConsumer` maps are set before the first call |
-
-**298 live decisions.** The rest are stubs — `D<n>` is a permanent identifier, so a number is never reused or renumbered (5): [D36](#d36--a-translation-between-two-verdict-taxonomies-gets-one-arm-per-member-gated-by-a-test-2026-08-05) → D136 · [D80](#d80--merged-into-d77-2026-08-16-folded-2026-08-17) → D77 · [D131](#d131--a-backends-produces-is-derived-from-its-configuration-so-a-modality-is-a-field-2026-09-14) → D133 · [D134](#d134--a-registration-names-the-backend-the-provider-suffix-is-gone-from-all-seventeen-2026-09-14) → D137 · [D145](#d145--the-microsoftextensionsai-module-is-a-bridge-not-a-provider-2026-09-15) → D146
+**306 live decisions.** The rest are stubs — `D<n>` is a permanent identifier, so a number is never reused or renumbered (5): [D36](#d36--a-translation-between-two-verdict-taxonomies-gets-one-arm-per-member-gated-by-a-test-2026-08-05) → D136 · [D80](#d80--merged-into-d77-2026-08-16-folded-2026-08-17) → D77 · [D131](#d131--a-backends-produces-is-derived-from-its-configuration-so-a-modality-is-a-field-2026-09-14) → D133 · [D134](#d134--a-registration-names-the-backend-the-provider-suffix-is-gone-from-all-seventeen-2026-09-14) → D137 · [D145](#d145--the-microsoftextensionsai-module-is-a-bridge-not-a-provider-2026-09-15) → D146
 
 <!-- index:end -->
 
@@ -8043,9 +8041,9 @@ recall and its write-back is already a silent skip).
 **Rejected.** A checkpoint-on-demand member on the factory (a new frozen public member, the owner's).
 
 **Re-opens** when a consumer asks for a supported backup call, which would be that member.
-## D293 — a tracked file deleted from disk is not in the gates' file list (2026-11-09)
+## D301 — a tracked file deleted from disk is not in the gates' file list (2026-11-09)
 
-**Standing.** A ruling on the first row of the guard-script review's open list (`docs/task-archive.md` Part 503), recorded in `docs/task-archive.md` Part 514, **the steward's under the owner's delegation, which the owner may reverse** — not the owner's words. Built.
+**Standing.** A ruling on the first row of the guard-script review's open list (`docs/task-archive.md` Part 503), recorded in `docs/task-archive.md` Part 515, **the steward's under the owner's delegation, which the owner may reverse** — not the owner's words. Built.
 
 **Decided.** `repoFiles` subtracts `git ls-files -z --deleted`, so a file removed with a plain `mv` or `rm` and not yet staged drops out of every full-tree gate: a citation of it dangles in `check-links` and a glob matching only it is stale in `check-lanes`. `check-sensitive`'s `ENOENT` branch stays for a file that goes between the listing and the read, and its tree test now pins the listing instead of the report.
 
@@ -8055,9 +8053,9 @@ recall and its write-back is already a silent skip).
 
 **Re-opens** when a gate needs the index's view of a file the working tree lacks.
 
-## D294 — the prose gates read block-comment lines, and stop at a trailing comment (2026-11-09)
+## D302 — the prose gates read block-comment lines, and stop at a trailing comment (2026-11-09)
 
-**Standing.** A ruling on the second row of the guard-script review's open list (`docs/task-archive.md` Part 503), recorded in `docs/task-archive.md` Part 514, **the steward's under the owner's delegation, which the owner may reverse** — not the owner's words. Built.
+**Standing.** A ruling on the second row of the guard-script review's open list (`docs/task-archive.md` Part 503), recorded in `docs/task-archive.md` Part 515, **the steward's under the owner's delegation, which the owner may reverse** — not the owner's words. Built.
 
 **Decided.** `commentLinesOnly`, shared by `check-docs` and `check-tautology`, reads a `/* … */` block (JSDoc included) line by line from a line starting `/*` to the one holding `*/`, markers stripped, so a retired term in a `.mjs` JSDoc block fails. A trailing `code // x` stays out and `docs/GATES.md` §check-docs says so. The real tree has no new hit: both gates stay green.
 
@@ -8067,9 +8065,9 @@ recall and its write-back is already a silent skip).
 
 **Re-opens** when a retired claim is found in a trailing comment.
 
-## D295 — a trx result outside passed, failed and skipped fails the `test` run (2026-11-09)
+## D303 — a trx result outside passed, failed and skipped fails the `test` run (2026-11-09)
 
-**Standing.** A ruling on the third row of the guard-script review's open list (`docs/task-archive.md` Part 503), recorded in `docs/task-archive.md` Part 514, **the steward's under the owner's delegation, which the owner may reverse** — not the owner's words. Built.
+**Standing.** A ruling on the third row of the guard-script review's open list (`docs/task-archive.md` Part 503), recorded in `docs/task-archive.md` Part 515, **the steward's under the owner's delegation, which the owner may reverse** — not the owner's words. Built.
 
 **Decided.** `checkTestEvidence` fails, printing the count and the outcome names (`Inconclusive`, `NotRunnable`), when `other` is above 0, and no `LYNTAI_ALLOW_POSTGRES_SKIP` declaration excuses it. The summary gains `otherOutcomes`. The run measured at this change had `other` = 0, so the gate fails nothing today.
 
@@ -8079,9 +8077,9 @@ recall and its write-back is already a silent skip).
 
 **Re-opens** when a legitimate outcome outside the three is found in a green run.
 
-## D296 — `check-options` scans structs as well as classes and records (2026-11-09)
+## D304 — `check-options` scans structs as well as classes and records (2026-11-09)
 
-**Standing.** A ruling on the fourth row of the guard-script review's open list (`docs/task-archive.md` Part 503), recorded in `docs/task-archive.md` Part 514, **the steward's under the owner's delegation, which the owner may reverse** — not the owner's words. Built.
+**Standing.** A ruling on the fourth row of the guard-script review's open list (`docs/task-archive.md` Part 503), recorded in `docs/task-archive.md` Part 515, **the steward's under the owner's delegation, which the owner may reverse** — not the owner's words. Built.
 
 **Decided.** `TYPE` takes `struct`, `record struct`, `readonly struct` and `readonly record struct` beside `class` and `record`, so an option declared as a struct without an XML doc fails. None exists in `src/` today, so the real run is unchanged.
 
@@ -8091,9 +8089,9 @@ recall and its write-back is already a silent skip).
 
 **Re-opens** never on its own: a shape the pattern misses is a defect in the pattern.
 
-## D297 — `check-backlog` reads a blockquoted handover and an indented open item, failing closed (2026-11-09)
+## D305 — `check-backlog` reads a blockquoted handover and an indented open item, failing closed (2026-11-09)
 
-**Standing.** A ruling on the fifth row of the guard-script review's open list (`docs/task-archive.md` Part 503), recorded in `docs/task-archive.md` Part 514, **the steward's under the owner's delegation, which the owner may reverse** — not the owner's words. Built.
+**Standing.** A ruling on the fifth row of the guard-script review's open list (`docs/task-archive.md` Part 503), recorded in `docs/task-archive.md` Part 515, **the steward's under the owner's delegation, which the owner may reverse** — not the owner's words. Built.
 
 **Decided.** `HANDOVER` takes a leading `>` (nested too) and `OPEN_ITEM` and `TITLE` take leading whitespace, so `> **HANDOVER` fails the run and an indented `- [ ]` is counted and must carry its marker and bolded title. The real backlog has neither shape, so its roster is unchanged.
 
@@ -8103,9 +8101,9 @@ recall and its write-back is already a silent skip).
 
 **Re-opens** when an indented `- [ ]` that is not an open item (a template inside prose) is found outside a fence.
 
-## D298 — a spaced word loses the punctuation at its ends before it becomes a search term (2026-11-09)
+## D306 — a spaced word loses the punctuation at its ends before it becomes a search term (2026-11-09)
 
-**Standing.** A ruling on the first row of the streaming, rate-limit, tracing and memory-policy review's open list (`docs/task-archive.md` Part 504), recorded in `docs/task-archive.md` Part 514, **the steward's under the owner's delegation, which the owner may reverse** — not the owner's words. Built; the measured figures are `docs/task-archive.md` Part 514's.
+**Standing.** A ruling on the first row of the streaming, rate-limit, tracing and memory-policy review's open list (`docs/task-archive.md` Part 504), recorded in `docs/task-archive.md` Part 515, **the steward's under the owner's delegation, which the owner may reverse** — not the owner's words. Built; the measured figures are `docs/task-archive.md` Part 515's.
 
 **Decided.** `SearchTerms` trims Unicode punctuation (category P) from both ends of a spaced run before the floor is checked, so `Who is the spouse?` extracts `spouse` on every backend and finds `the spouse is Alice`. A symbol stays (`C++` keeps its three characters, `$100` its sign) and so does punctuation inside a word (`don't`). A run that trims to under the floor is no term, and a query left with none takes the whole-query scan as before. Spaceless-script runs are unchanged.
 
@@ -8115,9 +8113,9 @@ recall and its write-back is already a silent skip).
 
 **Re-opens** when a recall measurement moves against it, or when a spaceless run's edge punctuation is shown to cost recall the way this did.
 
-## D299 — the engine stores no stability below the prune's floor (2026-11-09)
+## D307 — the engine stores no stability below the prune's floor (2026-11-09)
 
-**Standing.** A ruling on the second row of the streaming, rate-limit, tracing and memory-policy review's open list (`docs/task-archive.md` Part 504), recorded in `docs/task-archive.md` Part 514, **the steward's under the owner's delegation, which the owner may reverse** — not the owner's words. Built.
+**Standing.** A ruling on the second row of the streaming, rate-limit, tracing and memory-policy review's open list (`docs/task-archive.md` Part 504), recorded in `docs/task-archive.md` Part 515, **the steward's under the owner's delegation, which the owner may reverse** — not the owner's words. Built.
 
 **Decided.** `GraphMemoryEngine` stores the larger of `InitialStability × Encoding` and `MemoryGraphSql.MinimumStabilityValue`. A BYO age policy returning `Encoding = 0` now stores the floor, which `DsrRetrievability` reads as unretrievable and the store's prune reads the same, so `CandidateCutoff`'s superset claim has one answer. `DsrRetrievability` is unchanged: a stored 0 or less still reads as `InitialStability`, which only a store written outside the engine can hold.
 
@@ -8127,9 +8125,9 @@ recall and its write-back is already a silent skip).
 
 **Re-opens** when a store is found to hold a stability of 0 that the engine did not write.
 
-## D300 — a burst policy forgets an engine a window old, and a burst's length stays unbounded (2026-11-09)
+## D308 — a burst policy forgets an engine a window old, and a burst's length stays unbounded (2026-11-09)
 
-**Standing.** A ruling on the third row of the streaming, rate-limit, tracing and memory-policy review's open list (`docs/task-archive.md` Part 504), recorded in `docs/task-archive.md` Part 514, **the steward's under the owner's delegation, which the owner may reverse** — not the owner's words. Built.
+**Standing.** A ruling on the third row of the streaming, rate-limit, tracing and memory-policy review's open list (`docs/task-archive.md` Part 504), recorded in `docs/task-archive.md` Part 515, **the steward's under the owner's delegation, which the owner may reverse** — not the owner's words. Built.
 
 **Decided.** `BurstDampenedAgePolicy` drops the burst state of an engine whose last write is older than `window`, in a walk at most once per window and only once the map holds more than 64, so an app naming an engine per tenant no longer grows it. No tick changes: a write after the window starts a burst of one with or without the entry. The class doc now says a burst is measured from the last write and is not bounded, so a steady write inside the window is one burst for ever. `ElapsedAgePolicy`'s per-engine map is not evicted, because its entry is the previous time and an evicted one would change the first tick.
 
@@ -8139,9 +8137,9 @@ recall and its write-back is already a silent skip).
 
 **Re-opens** when a long steady stream is shown to bury what it should not, which is the owner's question.
 
-## D301 — a malformed metadata cell keeps failing the read (2026-11-09)
+## D309 — a malformed metadata cell keeps failing the read (2026-11-09)
 
-**Standing.** A ruling on the fourth row of the streaming, rate-limit, tracing and memory-policy review's open list (`docs/task-archive.md` Part 504), recorded in `docs/task-archive.md` Part 514, **the steward's under the owner's delegation, which the owner may reverse** — not the owner's words. Behaviour unchanged; the doc says it and a test per SQL backend pins it.
+**Standing.** A ruling on the fourth row of the streaming, rate-limit, tracing and memory-policy review's open list (`docs/task-archive.md` Part 504), recorded in `docs/task-archive.md` Part 515, **the steward's under the owner's delegation, which the owner may reverse** — not the owner's words. Behaviour unchanged; the doc says it and a test per SQL backend pins it.
 
 **Decided.** `CuratedMetadataJson.Deserialize` throws `JsonException` for text that is not JSON, and a curated or node row holding such a cell fails the read that touches it on SQLite and Postgres. A null, blank or non-object cell still reads as none.
 
@@ -8151,9 +8149,9 @@ recall and its write-back is already a silent skip).
 
 **Re-opens** when one bad cell taking a read down is reported as costing more than the loss it prevents.
 
-## D302 — an abandoned stream of a cancelled caller records on a token of its own (2026-11-09)
+## D310 — an abandoned stream of a cancelled caller records on a token of its own (2026-11-09)
 
-**Standing.** A ruling on the fifth row of the streaming, rate-limit, tracing and memory-policy review's open list (`docs/task-archive.md` Part 504), recorded in `docs/task-archive.md` Part 514, **the steward's under the owner's delegation, which the owner may reverse** — not the owner's words. Built.
+**Standing.** A ruling on the fifth row of the streaming, rate-limit, tracing and memory-policy review's open list (`docs/task-archive.md` Part 504), recorded in `docs/task-archive.md` Part 515, **the steward's under the owner's delegation, which the owner may reverse** — not the owner's words. Built.
 
 **Decided.** When a traced text stream is disposed with its caller's token already cancelled, the step is recorded under a fresh token bounded at five seconds, so the trace store accepts the write and a stuck one cannot hold the dispose. A stream that threw is still not recorded.
 
@@ -8163,9 +8161,9 @@ recall and its write-back is already a silent skip).
 
 **Re-opens** when five seconds is shown too short or too long for a trace write.
 
-## D303 — `PerConsumer` maps are set before the first call (2026-11-09)
+## D311 — `PerConsumer` maps are set before the first call (2026-11-09)
 
-**Standing.** A ruling on the sixth row of the streaming, rate-limit, tracing and memory-policy review's open list (`docs/task-archive.md` Part 504), recorded in `docs/task-archive.md` Part 514, **the steward's under the owner's delegation, which the owner may reverse** — not the owner's words. Documented only.
+**Standing.** A ruling on the sixth row of the streaming, rate-limit, tracing and memory-policy review's open list (`docs/task-archive.md` Part 504), recorded in `docs/task-archive.md` Part 515, **the steward's under the owner's delegation, which the owner may reverse** — not the owner's words. Documented only.
 
 **Decided.** `RateLimitOptions.PerConsumer` and `BudgetOptions.PerConsumer` say that every entry is set before the first call, since each is a plain `Dictionary` read on every acquire, and the rate limiter's doc keeps its live retune for the scalar settings.
 
