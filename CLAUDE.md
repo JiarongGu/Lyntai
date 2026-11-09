@@ -12,7 +12,7 @@ The reasoning is `docs/DECISIONS.md`, **D1–D311** — read its generated index
 decisions kept here.
 
 **The baseline a green run should match:** `7445 passed / 7531 total, 86 skipped` (every skip is a
-live-backend gate), e2e 3/3, guard-script tests 1032/1032, doc samples 83/83 — MEASURED with Docker up at
+live-backend gate), e2e 3/3, guard-script tests 1044/1044, doc samples 83/83 — MEASURED with Docker up at
 `d8801ec7` plus `docs/task-archive.md` Part 509 (2026-11-09). No gate holds the xUnit trio (`docs/GATES.md` §Which numbers a gate holds), so:
 
 - **Re-measure it by hand after `verify`, off that run's own output**, never from a diff, and re-attest the
