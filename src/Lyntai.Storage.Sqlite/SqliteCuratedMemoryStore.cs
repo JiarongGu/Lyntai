@@ -198,7 +198,7 @@ public sealed class SqliteCuratedMemoryStore(IDbConnectionFactory factory,
 
             // Term-wise, via the same split the FTS path above uses: the fallback degrades the RANKING
             // (a term count instead of bm25), never which entries are found.
-            var kw = SearchTerms.LikeClause(query, "content");
+            var kw = SqliteLike.Clause(query, "content");
             var pl = new DynamicParameters(new { kind, task = taskKey, scope, enabledOnly, limit = limit ?? -1 });
             foreach (var (name, value) in kw.Parameters) pl.Add(name, value);
             var ml = BuildMetaClause(metadataMatch, "lyntai_curated_memory.id", pl);

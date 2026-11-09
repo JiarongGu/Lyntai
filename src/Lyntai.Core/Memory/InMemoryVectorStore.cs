@@ -21,7 +21,9 @@ public sealed class InMemoryVectorStore : IListableVectorStore, IReadableVectorS
     public Task UpsertAsync(string collection, string id, float[] vector, string payload, CancellationToken ct = default)
     {
         ArgumentNullException.ThrowIfNull(vector);
-        // the same refusal the SQL stores make (Shared/Relational/FiniteVector): NaN would break the top-k tiebreak
+        // the same refusals the SQL stores make (Shared/Relational/FiniteVector): NaN would break the top-k tiebreak
+        if (vector.Length == 0)
+            throw new ArgumentException("a vector must have at least one component: an empty one is refused", nameof(vector));
         foreach (var v in vector)
             if (!float.IsFinite(v))
                 throw new ArgumentException("a vector component must be finite: NaN and infinity are refused", nameof(vector));

@@ -499,4 +499,24 @@ public class SearchTermsTests
         Assert.Empty(SearchTerms.Extract("\U0001F600\U0001F600"));
         Assert.Equal(["\U0001F600\U0001F600\U0001F600"], SearchTerms.Extract("\U0001F600\U0001F600\U0001F600"));
     }
+
+    /// <summary>U+0000 is not whitespace, so it stayed inside a word, and Postgres refuses a NUL in a bound text
+    /// parameter, which the fail-open recall read as no match. The query splits there instead (the steward's
+    /// ruling, <c>docs/DECISIONS.md</c> D314); a NUL in STORED text stays the caller's.</summary>
+    [Fact]
+    public void A_nul_in_a_query_splits_it_as_whitespace_does()
+    {
+        Assert.Equal(["alpha", "beta"], SearchTerms.Extract("alpha\0beta"));
+        Assert.Equal(["alpha", "beta"], SearchTerms.SubstringTerms("alpha\0beta"));
+        Assert.Empty(SearchTerms.Extract("\0\0"));
+    }
+
+    /// <summary>The whole-query fallback of a clause carries no NUL either: it is the pattern a short query binds.</summary>
+    [Fact]
+    public void The_whole_query_fallback_of_a_clause_holds_no_nul()
+    {
+        var clause = SearchTerms.LikeClause("a\0b", "content");
+
+        Assert.All(clause.Parameters.Values, v => Assert.DoesNotContain('\0', (string)v!));
+    }
 }

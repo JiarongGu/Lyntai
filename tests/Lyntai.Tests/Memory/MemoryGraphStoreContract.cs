@@ -58,6 +58,18 @@ public static class MemoryGraphStoreContract
         Assert.Contains("manual approval", hits[0].Content, StringComparison.Ordinal);
     }
 
+    /// <summary>A cue below the index floor folds case beyond ASCII on every backend, as the memory store's recall does
+    /// (<c>docs/DECISIONS.md</c> D312): <c>Да</c> seeds a node holding <c>да</c>.</summary>
+    public static async Task A_short_cue_folds_case_beyond_ascii(IMemoryGraphStore store, string key)
+    {
+        await store.UpsertAsync(Write("e", key, "да, конечно"));
+        await store.UpsertAsync(Write("e", key, "unrelated entry"));
+
+        var hits = await store.SeedAsync("e", key, "s", "Да", 10);
+
+        Assert.Equal(["да, конечно"], hits.Select(h => h.Content));
+    }
+
     /// <summary><b>A multi-word cue matches an entry carrying ANY of its terms, on every backend.</b> This is
     /// the shape a real recall has — a model asking "what is the user's spouse called" rather than a bare
     /// keyword — and that cue never appears verbatim in the content, so a backend requiring the whole cue

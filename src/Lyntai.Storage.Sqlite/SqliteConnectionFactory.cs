@@ -5,7 +5,8 @@ using Microsoft.Data.Sqlite;
 namespace Lyntai.Storage.Sqlite;
 
 /// <summary>Opens pooled SQLite connections with the family pragmas applied:
-/// WAL journal, 5s busy timeout, foreign keys ON.</summary>
+/// WAL journal, 5s busy timeout, foreign keys ON, and the <c>lyntai_fold</c> case-folding function the
+/// stores' substring scan calls.</summary>
 public sealed class SqliteConnectionFactory : IDbConnectionFactory
 {
     static SqliteConnectionFactory() => DapperConventions.Register();
@@ -47,12 +48,17 @@ public sealed class SqliteConnectionFactory : IDbConnectionFactory
         lock (RentLock) conn.Open();
     }
 
+    // a function belongs to ONE connection, so every open registers it again
+    private static void Register(SqliteConnection conn) =>
+        conn.CreateFunction<string?, string?>(SqliteLike.FunctionName, SqliteLike.Fold, isDeterministic: true);
+
     public DbConnection Open()
     {
         var conn = New();
         try
         {
             Rent(conn);
+            Register(conn);
             using var cmd = conn.CreateCommand();
             cmd.CommandText = Pragmas;
             cmd.ExecuteNonQuery();
@@ -72,6 +78,7 @@ public sealed class SqliteConnectionFactory : IDbConnectionFactory
         {
             ct.ThrowIfCancellationRequested();
             Rent(conn); // the driver's OpenAsync is Open() run synchronously, so nothing is lost by calling it direct
+            Register(conn);
             await using var cmd = conn.CreateCommand();
             cmd.CommandText = Pragmas;
             await cmd.ExecuteNonQueryAsync(ct).ConfigureAwait(false);

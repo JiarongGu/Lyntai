@@ -318,6 +318,17 @@ public static class CuratedMemoryStoreContract
         Assert.Equal(2, hits.Count);
     }
 
+    /// <summary>A short query folds case beyond ASCII, as the memory store's does (<c>docs/DECISIONS.md</c> D312).</summary>
+    public static async Task A_short_search_folds_case_beyond_ascii(ICuratedMemoryStore store, string task = "fold-case")
+    {
+        await store.AddAsync("glossary", "да, конечно", taskKey: task);
+        await store.AddAsync("glossary", "unrelated entry", taskKey: task);
+
+        var hits = await store.SearchAsync("Да", taskKey: task);
+
+        Assert.Equal(["да, конечно"], hits.Select(h => h.Content));
+    }
+
     /// <summary>A question's punctuation does not hide its content word: <c>Who is the spouse?</c> finds
     /// <c>my spouse is Alice</c>, which shares no other word with it, as the memory store's recall does.</summary>
     public static async Task Search_ignores_punctuation_at_the_edge_of_a_word(ICuratedMemoryStore store,
