@@ -74,6 +74,8 @@ public sealed class SqliteMemoryGraphStore(
     private async Task<(long Id, long Revision)> UpsertInAsync(IDbConnection conn, IDbTransaction tx, GraphNodeWrite write,
         CancellationToken ct)
     {
+        // lyntai_memory_position.engine is a TEXT PRIMARY KEY, which SQLite lets be NULL and Postgres refuses
+        ArgumentNullException.ThrowIfNull(write.Engine);
         var hash = MemoryContentKey.Of(write.Content);
         var metadata = CuratedMetadataJson.Serialize(write.Metadata);
         // NULL, not "{}", for an empty bag — the DO UPDATE SET below reads NULL as "no opinion" and keeps
@@ -801,6 +803,7 @@ public sealed class SqliteMemoryGraphStore(
     public async Task<IReadOnlyList<GraphNodeImportResult>> ImportNodesAsync(string engine, string taskKey,
         IReadOnlyList<GraphNodeImport> nodes, CancellationToken ct = default)
     {
+        ArgumentNullException.ThrowIfNull(engine);
         ArgumentNullException.ThrowIfNull(nodes);
         ct.ThrowIfCancellationRequested();
         if (nodes.Count == 0) return [];

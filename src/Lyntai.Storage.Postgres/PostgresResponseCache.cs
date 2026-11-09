@@ -25,6 +25,7 @@ public sealed class PostgresResponseCache(IDbConnectionFactory factory, LyntaiOp
 
     public async Task SetAsync(string key, TextResponse reply, TimeSpan? ttl = null, CancellationToken ct = default)
     {
+        ArgumentNullException.ThrowIfNull(key); // the same refusal on every backend: SQLite would store a NULL key
         var window = ttl ?? options.Cache.Ttl;
         if (window <= TimeSpan.Zero) return; // non-positive TTL disables caching
         if (options.Cache.MaxEntries <= 0) return; // so does a non-positive cap

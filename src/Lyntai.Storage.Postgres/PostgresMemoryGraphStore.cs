@@ -65,6 +65,7 @@ public sealed class PostgresMemoryGraphStore(
     private async Task<(long Id, long Revision)> UpsertInAsync(IDbConnection conn, IDbTransaction tx, GraphNodeWrite write,
         CancellationToken ct)
     {
+        ArgumentNullException.ThrowIfNull(write.Engine); // the same refusal on every backend: SQLite would store a NULL engine
         var hash = MemoryContentKey.Of(write.Content);
         var metadata = CuratedMetadataJson.Serialize(write.Metadata);
         // NULL, not "{}", for an empty bag — the DO UPDATE SET below reads NULL as "no opinion" and keeps
@@ -749,6 +750,7 @@ public sealed class PostgresMemoryGraphStore(
     public async Task<IReadOnlyList<GraphNodeImportResult>> ImportNodesAsync(string engine, string taskKey,
         IReadOnlyList<GraphNodeImport> nodes, CancellationToken ct = default)
     {
+        ArgumentNullException.ThrowIfNull(engine);
         ArgumentNullException.ThrowIfNull(nodes);
         ct.ThrowIfCancellationRequested();
         if (nodes.Count == 0) return [];

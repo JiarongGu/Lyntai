@@ -26,6 +26,7 @@ public sealed class SqliteResponseCache(IDbConnectionFactory factory, LyntaiOpti
 
     public async Task SetAsync(string key, TextResponse reply, TimeSpan? ttl = null, CancellationToken ct = default)
     {
+        ArgumentNullException.ThrowIfNull(key); // a TEXT PRIMARY KEY column would take a NULL here, and Postgres refuses it
         var window = ttl ?? options.Cache.Ttl;
         if (window <= TimeSpan.Zero) return; // non-positive TTL disables caching
         if (options.Cache.MaxEntries <= 0) return; // so does a non-positive cap
