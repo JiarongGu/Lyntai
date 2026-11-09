@@ -162,7 +162,7 @@ public static class JsonExtract
 
     /// <summary>The first balanced JSON object in <paramref name="text"/> that reads, as STRICTLY valid JSON — read
     /// leniently and re-serialized when, and only when, that was necessary. Later braces are tried as
-    /// <see cref="TryParseObject"/> says.</summary>
+    /// <see cref="TryParseObject"/> says.
     ///
     /// <para><b>Unchanged byte for byte when the object already parses strictly</b>, so a caller that was
     /// handed the model's own spacing keeps it; re-serializing unconditionally would reformat every reply to
