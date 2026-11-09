@@ -70,7 +70,7 @@ public sealed record AgentHandoverDecision(AgentHandoverKind Kind, AgentHandover
 
 /// <summary>The two strings a fresh session's prompt is framed with, written once so the side that builds it
 /// (<see cref="AgentHandoverDecision.Apply"/>, <see cref="AgentBriefComposer"/>) and the side that must see through it
-/// (<see cref="AgentTranscriptRecorder"/>) cannot drift (D327).</summary>
+/// (<see cref="AgentTranscriptRecorder"/>) cannot drift (D339).</summary>
 internal static class HandoverFraming
 {
     /// <summary>What a brief opens with.</summary>
@@ -120,7 +120,7 @@ public static class AgentHandover
         if (!string.Equals(from.Account, account, StringComparison.Ordinal))
             return Fresh(AgentHandoverReason.AccountChanged);
 
-        // the session saw its own turns only: a newer turn that ran elsewhere is a turn it never saw (D326)
+        // the session saw its own turns only: a newer turn that ran elsewhere is a turn it never saw (D338)
         var newest = transcript.Turns[^1].Source;
         if (!string.Equals(newest.ProviderId, from.ProviderId, StringComparison.Ordinal))
             return Fresh(AgentHandoverReason.ProviderChanged);

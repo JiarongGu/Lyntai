@@ -171,7 +171,7 @@ internal sealed class CodexAgentReader : ICliAgentLineReader
         {
             // MEASURED. The text arrives whole at completion — codex's thread events carry no token-level
             // deltas, so a TextDelta here is one complete assistant message, not a token. FinalText is every
-            // message, each after the first opening with a blank line (D324), where they ran together.
+            // message, each after the first opening with a blank line (D336), where they ran together.
             case CodexEnvelope.AgentMessageItem:
                 if (!started && JsonExtract.StringProperty(item, "text") is { } text)
                 {

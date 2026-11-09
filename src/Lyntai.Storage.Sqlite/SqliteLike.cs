@@ -6,7 +6,7 @@ namespace Lyntai.Storage.Sqlite;
 /// it folds ASCII alone, so <c>да</c> never matched <c>Да</c> and <c>école</c> never matched <c>ÉCOLE</c>.
 /// <para>The column goes through <see cref="FunctionName"/>, which <see cref="SqliteConnectionFactory"/> registers on every
 /// connection it opens, and each pattern is folded here in .NET; <c>LIKE</c> then compares two already-folded
-/// strings, which its ASCII rule decides correctly (<c>docs/DECISIONS.md</c> D312).</para></summary>
+/// strings, which its ASCII rule decides correctly (<c>docs/DECISIONS.md</c> D324).</para></summary>
 internal static class SqliteLike
 {
     /// <summary>The scalar function a connection carries.</summary>

@@ -408,7 +408,7 @@ public static class VectorStoreContract
 
     /// <summary>An empty vector is refused with an <see cref="ArgumentException"/> and stores nothing: pgvector
     /// needs one dimension at least and refused it alone, while the other stores kept a row no query could score
-    /// (the steward's ruling, <c>docs/DECISIONS.md</c> D314).</summary>
+    /// (the steward's ruling, <c>docs/DECISIONS.md</c> D326).</summary>
     public static async Task An_empty_vector_is_refused_and_stores_nothing(IVectorStore store, string c)
     {
         await store.UpsertAsync(c, "ok", [1f, 0f], "OK");

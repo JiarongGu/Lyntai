@@ -483,7 +483,7 @@ public sealed class CliProviderEngine(
     }
 
     /// <summary>A prompt that opens with <c>-</c> would be read as a flag by a CLI that takes it as a trailing ARGUMENT, so
-    /// nothing is spawned: the call is <see cref="ProviderVerdict.Unsupported"/> and the detail says why (D325). A prompt
+    /// nothing is spawned: the call is <see cref="ProviderVerdict.Unsupported"/> and the detail says why (D337). A prompt
     /// delivered on stdin is never read as an option.</summary>
     private string? FlagShapedArgument(string prompt) =>
         backend.PromptDelivery == CliPromptDelivery.Argument && prompt.StartsWith('-')

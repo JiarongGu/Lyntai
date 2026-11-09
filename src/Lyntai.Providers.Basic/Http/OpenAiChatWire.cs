@@ -109,7 +109,7 @@ internal sealed class OpenAiChatWire(HttpModelOptions config) : IHttpChatWire
                 string? text = null;
                 IReadOnlyList<ToolCallDelta>? toolCalls = null;
                 // a server that ignored stream:true answers one buffered chat.completion: its choice carries a
-                // message and no delta, and that line is the whole answer (D319)
+                // message and no delta, and that line is the whole answer (D331)
                 if (WireJson.Object(choice, "delta") is null && WireJson.Object(choice, "message") is { } whole)
                 {
                     var stopped = WireJson.String(choice, "finish_reason");

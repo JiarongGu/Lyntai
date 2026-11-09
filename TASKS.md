@@ -430,16 +430,16 @@ the in-memory reference, outside the memory graph. None was run: where a row res
 - [ ] **A trace step's `seq` is `INTEGER` on Postgres and 64-bit on SQLite.** `Sequence` is a `long`; a value past 2^31 is stored by one and refused by the other. <!-- item: state=decision-only needs="a ruling: widen the column with a migration, which rewrites and locks the trace-step table for every deployment to serve a value nobody has written, or refuse a sequence past int.MaxValue on every backend, which narrows what SQLite stores today" -->
   A shipped migration is not edited, so the first is a new Postgres-only one (which moves the per-backend migration counts `.agents/knowledge/storage.md` §Migrations keeps); low impact.
 - [ ] **A NUL in stored text is refused on Postgres and stored elsewhere.** `text` cannot hold `\0`, so a `RememberAsync` of one fails there and succeeds on the other backends. <!-- item: state=decision-only needs="a ruling: strip, replace or refuse U+0000 in stored text (the same family as the lone-surrogate ruling, D262)" -->
-  The empty vector and a NUL in a query closed in `docs/DECISIONS.md` D314; not run against Postgres.
+  The empty vector and a NUL in a query closed in `docs/DECISIONS.md` D326; not run against Postgres.
 
 ## Part 489 — what the 2026-11-08 review of the HTTP and Ollama providers found and did not fix yet
 
 _Opened by `docs/task-archive.md` **Part 488**: a read-only review of `Lyntai.Providers.Basic/Http` and `Ollama`, each finding read against the code and none run against a server.
 The certain and small findings closed in that Part; a row that rests on a vendor's behaviour says so. Lane `inference`._
 
-- [ ] **`max_tokens` and a non-default `temperature` are sent to every OpenAI-shaped host.** OpenAI's reasoning models are believed to refuse both (`max_completion_tokens` instead), a 400 read as `Failed`; <!-- item: state=decision-only needs="a ruling: a MaxTokensField option, which is a new public member; the doc on TextRequest now says to leave both unset for such a host (D318), and the vendor's refusal is believed from its documentation, not run" -->
+- [ ] **`max_tokens` and a non-default `temperature` are sent to every OpenAI-shaped host.** OpenAI's reasoning models are believed to refuse both (`max_completion_tokens` instead), a 400 read as `Failed`; <!-- item: state=decision-only needs="a ruling: a MaxTokensField option, which is a new public member; the doc on TextRequest now says to leave both unset for such a host (D330), and the vendor's refusal is believed from its documentation, not run" -->
   `SuppressReasoningFields` refuses these two keys, so a host that sets either has no workaround but leaving them unset.
-- [ ] **A base URL whose version is not its last segment still gets `/v1` appended.** `…/v1beta/openai` composes `…/v1beta/openai/v1/chat/completions`; a base ending in `/v4` is now used as given (`docs/DECISIONS.md` D320). <!-- item: state=decision-only needs="a ruling: a flag to use the base verbatim, which is a new public member" -->
+- [ ] **A base URL whose version is not its last segment still gets `/v1` appended.** `…/v1beta/openai` composes `…/v1beta/openai/v1/chat/completions`; a base ending in `/v4` is now used as given (`docs/DECISIONS.md` D332). <!-- item: state=decision-only needs="a ruling: a flag to use the base verbatim, which is a new public member" -->
 
 ## Part 490 — what the 2026-11-08 review of the local inference backends found and did not fix yet
 

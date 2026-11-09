@@ -27,7 +27,7 @@ public static class MemoryStoreContract
 
     /// <summary>A query below the index floor is matched by a substring scan, and that scan folds case beyond ASCII on
     /// every backend: <c>Да</c> finds <c>да</c> and <c>ÉC</c> finds <c>école</c> (the steward's ruling,
-    /// <c>docs/DECISIONS.md</c> D312). SQLite's <c>LIKE</c> folds ASCII alone, so its stores fold the column and
+    /// <c>docs/DECISIONS.md</c> D324). SQLite's <c>LIKE</c> folds ASCII alone, so its stores fold the column and
     /// the pattern themselves.</summary>
     public static async Task A_short_query_folds_case_beyond_ascii(IMemoryStore store, string key)
     {

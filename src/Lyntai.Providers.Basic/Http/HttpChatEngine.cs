@@ -45,7 +45,7 @@ internal sealed class HttpChatEngine(
     private int _refusalWarned;
 
     /// <summary>The request's number a JSON body cannot carry, named, or null. NaN and infinity make the serializer throw,
-    /// and a failure here is a verdict (D317).</summary>
+    /// and a failure here is a verdict (D329).</summary>
     private string? UnwritableNumber(TextRequest req) =>
         req.Temperature is { } t && !double.IsFinite(t)
             ? $"{id}: {nameof(TextRequest.Temperature)} must be a finite number, got {t}"
@@ -285,7 +285,7 @@ internal sealed class HttpChatEngine(
             yield break;
         }
         // content streamed, the backend then said it failed, and the stream never reached its own end: it broke
-        // (D316). The recovered "Reconnecting" case ends in a terminator and stays a Final.
+        // (D328). The recovered "Reconnecting" case ends in a terminator and stays a Final.
         if (progress.SawContent && !progress.Terminated && progress.InBandError is not null)
         {
             exchanges?.RejectedInBand(progress.Headers, progress.InBandError);

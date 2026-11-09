@@ -60,7 +60,7 @@ public class GenerationRenderJobEngineTests
 
     /// <summary>A fetch that timed out or was rate limited is a retryable read of an operation the checkpoint already holds,
     /// so the job RETRIES (bounded by its attempts, then Dead, replayable) and the next run fetches it, billing and
-    /// delivering once; every other failure still fails (the steward's ruling, <c>docs/DECISIONS.md</c> D321).</summary>
+    /// delivering once; every other failure still fails (the steward's ruling, <c>docs/DECISIONS.md</c> D333).</summary>
     [Theory]
     [InlineData(ProviderVerdict.Timeout)]
     [InlineData(ProviderVerdict.RateLimited)]

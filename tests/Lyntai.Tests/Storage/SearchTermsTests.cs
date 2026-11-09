@@ -502,7 +502,7 @@ public class SearchTermsTests
 
     /// <summary>U+0000 is not whitespace, so it stayed inside a word, and Postgres refuses a NUL in a bound text
     /// parameter, which the fail-open recall read as no match. The query splits there instead (the steward's
-    /// ruling, <c>docs/DECISIONS.md</c> D314); a NUL in STORED text stays the caller's.</summary>
+    /// ruling, <c>docs/DECISIONS.md</c> D326); a NUL in STORED text stays the caller's.</summary>
     [Fact]
     public void A_nul_in_a_query_splits_it_as_whitespace_does()
     {

@@ -35,7 +35,7 @@ internal static class HttpEndpoint
     }
 
     /// <summary>Whether the path's last segment is a version — <c>v1</c>, <c>v4</c>, <c>v1beta</c> — so a base that names
-    /// one (<c>.../api/paas/v4</c>) is used as given rather than composed to <c>.../v4/v1/...</c> (D320).</summary>
+    /// one (<c>.../api/paas/v4</c>) is used as given rather than composed to <c>.../v4/v1/...</c> (D332).</summary>
     private static bool EndsInVersionSegment(string trimmedBase)
     {
         var path = PathOf(trimmedBase);

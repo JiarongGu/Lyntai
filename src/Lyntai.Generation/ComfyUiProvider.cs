@@ -868,7 +868,7 @@ public sealed class ComfyUiProvider(
             }
         }
         // a preview node files under type "temp"; it is dropped when the run saved anything, so a stage chains one
-        // artifact, and kept when previews are all there is (D323)
+        // artifact, and kept when previews are all there is (D335)
         var saved = artifacts.Where(a => !a.Temp).ToList();
         return [.. (saved.Count > 0 ? saved : artifacts).Select(a => a.Artifact)];
     }

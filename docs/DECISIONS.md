@@ -8189,7 +8189,7 @@ recall and its write-back is already a silent skip).
 
 **Re-opens** when a consumer must retune a per-consumer limit while calls run.
 
-## D312 — SQLite's substring fallback folds case beyond ASCII, by a function on the connection (2026-11-09)
+## D324 — SQLite's substring fallback folds case beyond ASCII, by a function on the connection (2026-11-09)
 
 **Standing.** A ruling on `TASKS.md` Part 488's second row, **the steward's under the owner's delegation, which the owner may reverse** — not the owner's words. Built; no public member moves.
 
@@ -8201,7 +8201,7 @@ recall and its write-back is already a silent skip).
 
 **Re-opens** when the per-row callback is measured as a cost on a large scoped table; the fold is `ToUpperInvariant`, which is not full Unicode case folding (`ß` stays `ß`).
 
-## D313 — a Postgres conversation append takes a per-thread advisory lock in a transaction (2026-11-09)
+## D325 — a Postgres conversation append takes a per-thread advisory lock in a transaction (2026-11-09)
 
 **Standing.** A ruling on `TASKS.md` Part 488's third row, **the steward's under the owner's delegation, which the owner may reverse** — not the owner's words. Built; the Postgres leg was not run (Docker was down), so the new fact passed on SQLite and in memory only.
 
@@ -8213,7 +8213,7 @@ recall and its write-back is already a silent skip).
 
 **Re-opens** when a deployment runs through a transaction-pooling proxy that does not keep a transaction on one backend, or a hash collision between two threads is shown to cost.
 
-## D314 — an empty vector is refused at every upsert, and a NUL in a query splits it (2026-11-09)
+## D326 — an empty vector is refused at every upsert, and a NUL in a query splits it (2026-11-09)
 
 **Standing.** A ruling on `TASKS.md` Part 488's fourth row, **the steward's under the owner's delegation, which the owner may reverse** — not the owner's words. Built; the Postgres leg was not run (Docker was down).
 
@@ -8225,7 +8225,7 @@ recall and its write-back is already a silent skip).
 
 **Re-opens** when a NUL in stored text is ruled; the query half is already portable.
 
-## D315 — an OpenAI `refusal` is Refused on both wires (2026-11-09)
+## D327 — an OpenAI `refusal` is Refused on both wires (2026-11-09)
 
 **Standing.** A ruling on `TASKS.md` Part 489's first row, **the steward's under the owner's delegation, which the owner may reverse** — not the owner's words. Built; rests on OpenAI's documented `refusal` field, not run against a server.
 
@@ -8237,7 +8237,7 @@ recall and its write-back is already a silent skip).
 
 **Re-opens** when a host that sets `refusal` on a reply it wants delivered is reported.
 
-## D316 — an in-band error after streamed content with no terminator ends Error (2026-11-09)
+## D328 — an in-band error after streamed content with no terminator ends Error (2026-11-09)
 
 **Standing.** A ruling on `TASKS.md` Part 489's second row, **the steward's under the owner's delegation, which the owner may reverse** — not the owner's words. Built; a plain end of stream stays Final.
 
@@ -8249,7 +8249,7 @@ recall and its write-back is already a silent skip).
 
 **Re-opens** when a backend is shown to recover from an error line and end by EOF with no terminator.
 
-## D317 — a non-finite request number answers Unsupported before sending, and a scheme-only base URL is refused at registration (2026-11-09)
+## D329 — a non-finite request number answers Unsupported before sending, and a scheme-only base URL is refused at registration (2026-11-09)
 
 **Standing.** A ruling on `TASKS.md` Part 489's fourth row, **the steward's under the owner's delegation, which the owner may reverse** — not the owner's words. Built.
 
@@ -8261,7 +8261,7 @@ recall and its write-back is already a silent skip).
 
 **Re-opens** when a number other than the temperature reaches a JSON body.
 
-## D318 — a reasoning model's `max_tokens` and `temperature` stay the host's to leave unset (2026-11-09)
+## D330 — a reasoning model's `max_tokens` and `temperature` stay the host's to leave unset (2026-11-09)
 
 **Standing.** A ruling on `TASKS.md` Part 489's third row, **the steward's under the owner's delegation, which the owner may reverse** — not the owner's words. **Documented only; the option stays the owner's.**
 
@@ -8273,7 +8273,7 @@ recall and its write-back is already a silent skip).
 
 **Re-opens** when the owner rules a `MaxTokensField` option, or the refusal is measured.
 
-## D319 — a server that ignores `stream:true` is read as its buffered answer (2026-11-09)
+## D331 — a server that ignores `stream:true` is read as its buffered answer (2026-11-09)
 
 **Standing.** A ruling on `TASKS.md` Part 489's fifth row, **the steward's under the owner's delegation, which the owner may reverse** — not the owner's words. Built.
 
@@ -8285,7 +8285,7 @@ recall and its write-back is already a silent skip).
 
 **Re-opens** when a proxy answers a pretty-printed body, which would need the line reader to buffer.
 
-## D320 — a base URL ending in a version segment is used as given (2026-11-09)
+## D332 — a base URL ending in a version segment is used as given (2026-11-09)
 
 **Standing.** A ruling on `TASKS.md` Part 489's sixth row, **the steward's under the owner's delegation, which the owner may reverse** — not the owner's words. Built; **the use-verbatim flag stays the owner's.**
 
@@ -8297,7 +8297,7 @@ recall and its write-back is already a silent skip).
 
 **Re-opens** when a verbatim flag is ruled.
 
-## D321 — a transient fetch failure retries the generation job (2026-11-09)
+## D333 — a transient fetch failure retries the generation job (2026-11-09)
 
 **Standing.** A ruling on `TASKS.md` Part 491's first row, **the steward's under the owner's delegation, which the owner may reverse** — not the owner's words. Built; `TASKS.md` Part 491's ComfyUI-restart row stays the owner's (a new option).
 
@@ -8309,7 +8309,7 @@ recall and its write-back is already a silent skip).
 
 **Re-opens** when another verdict is shown transient.
 
-## D322 — `generate_backends` lists only providers that produce image, video, audio or 3d (2026-11-09)
+## D334 — `generate_backends` lists only providers that produce image, video, audio or 3d (2026-11-09)
 
 **Standing.** A ruling on `TASKS.md` Part 491's fifth row, **the steward's under the owner's delegation, which the owner may reverse** — not the owner's words. Built.
 
@@ -8321,7 +8321,7 @@ recall and its write-back is already a silent skip).
 
 **Re-opens** when a new media kind is added to `ProviderKinds`; the list is closed on purpose.
 
-## D323 — ComfyUI's `temp` outputs yield to a saved one (2026-11-09)
+## D335 — ComfyUI's `temp` outputs yield to a saved one (2026-11-09)
 
 **Standing.** A ruling on `TASKS.md` Part 491's sixth row, **the steward's under the owner's delegation, which the owner may reverse** — not the owner's words. Built.
 
@@ -8333,7 +8333,7 @@ recall and its write-back is already a silent skip).
 
 **Re-opens** when a host needs the previews beside the saved file.
 
-## D324 — an assistant message after the first opens with a blank line (2026-11-09)
+## D336 — an assistant message after the first opens with a blank line (2026-11-09)
 
 **Standing.** A ruling on `TASKS.md` Part 495's first row and Part 481's Codex row, **the steward's under the owner's delegation, which the owner may reverse** — not the owner's words. Built.
 
@@ -8345,7 +8345,7 @@ recall and its write-back is already a silent skip).
 
 **Re-opens** when the Codex one-shot provider is to agree with its agent door, which needs the engine to learn message boundaries.
 
-## D325 — a flag-shaped argument prompt is Unsupported, and the flattened prompt keeps tool calls and says it dropped attachments (2026-11-09)
+## D337 — a flag-shaped argument prompt is Unsupported, and the flattened prompt keeps tool calls and says it dropped attachments (2026-11-09)
 
 **Standing.** A ruling on `TASKS.md` Part 495's fifth row, **the steward's under the owner's delegation, which the owner may reverse** — not the owner's words. Built; no shipped backend delivers by argument.
 
@@ -8357,7 +8357,7 @@ recall and its write-back is already a silent skip).
 
 **Re-opens** when a backend that delivers by argument ships, and states whether it takes `--`.
 
-## D326 — a hand-over resumes only over its own newest turn (2026-11-09)
+## D338 — a hand-over resumes only over its own newest turn (2026-11-09)
 
 **Standing.** A ruling on `TASKS.md` Part 495's sixth row, **the steward's under the owner's delegation, which the owner may reverse** — not the owner's words. Built.
 
@@ -8369,7 +8369,7 @@ recall and its write-back is already a silent skip).
 
 **Re-opens** when a turn that gave no id must be shown to have reached the session.
 
-## D327 — the recorder keeps only the host's request from a prompt a hand-over built (2026-11-09)
+## D339 — the recorder keeps only the host's request from a prompt a hand-over built (2026-11-09)
 
 **Standing.** A ruling on `TASKS.md` Part 495's seventh row, **the steward's under the owner's delegation, which the owner may reverse** — not the owner's words. Built; no public member moves.
 

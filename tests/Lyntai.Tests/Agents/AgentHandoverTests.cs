@@ -120,7 +120,7 @@ public class AgentHandoverTests
     /// <summary>A resume carries the session's own thread, which never saw a newer turn another provider, door or account
     /// ran, so only a newest turn whose source is the session turn's own (and the target's) resumes; otherwise a fresh
     /// session is handed the brief, for the reason the first differing field gives (the steward's ruling,
-    /// <c>docs/DECISIONS.md</c> D326).</summary>
+    /// <c>docs/DECISIONS.md</c> D338).</summary>
     [Theory]
     [InlineData("codex-cli", "cli", null, AgentHandoverReason.ProviderChanged)]
     [InlineData("claude-cli", "acp", null, AgentHandoverReason.DoorChanged)]

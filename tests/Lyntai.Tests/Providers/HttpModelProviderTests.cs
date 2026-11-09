@@ -279,7 +279,7 @@ public class HttpModelProviderTests
 
     /// <summary>The recovered case above ends in a terminator; an error line after content with NO terminator is a stream
     /// that broke, not one that finished, so it ends Error with the error's own verdict. A plain end of stream with
-    /// no error line stays Final (the steward's ruling, <c>docs/DECISIONS.md</c> D316).</summary>
+    /// no error line stays Final (the steward's ruling, <c>docs/DECISIONS.md</c> D328).</summary>
     [Fact]
     public async Task An_error_line_after_content_with_no_terminator_ends_error()
     {
@@ -314,7 +314,7 @@ public class HttpModelProviderTests
 
     /// <summary>A non-finite request number cannot be written as JSON, and the serializer's exception used to escape the
     /// provider although a failure is a verdict. It answers Unsupported before anything is sent, naming the field
-    /// (the steward's ruling, <c>docs/DECISIONS.md</c> D317).</summary>
+    /// (the steward's ruling, <c>docs/DECISIONS.md</c> D329).</summary>
     [Theory]
     [InlineData(double.NaN)]
     [InlineData(double.PositiveInfinity)]
@@ -350,7 +350,7 @@ public class HttpModelProviderTests
     }
 
     /// <summary>A base that already ends in a version segment of any shape is used as given, where only `/v1` was
-    /// recognised and the rest composed `.../v4/v1/chat/completions` (the steward's ruling, D320).</summary>
+    /// recognised and the rest composed `.../v4/v1/chat/completions` (the steward's ruling, D332).</summary>
     [Theory]
     [InlineData("https://open.example.com/api/paas/v4", "https://open.example.com/api/paas/v4/chat/completions")]
     [InlineData("https://host.example.com/v2/", "https://host.example.com/v2/chat/completions")]
@@ -368,7 +368,7 @@ public class HttpModelProviderTests
     }
 
     /// <summary>A proxy that ignores <c>stream:true</c> answers one buffered <c>chat.completion</c>, which read as no output
-    /// because the stream path looked for <c>delta</c> only (the steward's ruling, <c>docs/DECISIONS.md</c> D319).</summary>
+    /// because the stream path looked for <c>delta</c> only (the steward's ruling, <c>docs/DECISIONS.md</c> D331).</summary>
     [Fact]
     public async Task A_server_that_ignores_stream_true_is_read_as_its_buffered_answer()
     {
@@ -615,7 +615,7 @@ public class HttpModelProviderTests
 
     /// <summary>A structured-output refusal is HTTP 200 with null content and a <c>refusal</c> message: it is Refused
     /// on the first answer, never an empty reply the engine re-sends for a second billed call (the steward's ruling,
-    /// <c>docs/DECISIONS.md</c> D315).</summary>
+    /// <c>docs/DECISIONS.md</c> D327).</summary>
     [Fact]
     public async Task A_buffered_refusal_maps_to_refused_without_a_second_request()
     {

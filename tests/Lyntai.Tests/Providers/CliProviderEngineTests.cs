@@ -86,7 +86,7 @@ public class CliProviderEngineTests
     }
 
     /// <summary>A prompt that opens with a dash would be read as an option by a CLI taking it as a trailing argument, so
-    /// nothing is spawned and the call is Unsupported (the steward's ruling, <c>docs/DECISIONS.md</c> D325). The same
+    /// nothing is spawned and the call is Unsupported (the steward's ruling, <c>docs/DECISIONS.md</c> D337). The same
     /// prompt on stdin is ordinary text.</summary>
     [Fact]
     public async Task A_flag_shaped_prompt_under_argument_delivery_is_unsupported_and_spawns_nothing()

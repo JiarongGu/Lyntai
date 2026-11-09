@@ -103,7 +103,7 @@ public sealed class ClaudeCliProvider : IModelProvider, IProviderUpdater,
 
     /// <summary>Every content chunk is one assistant MESSAGE (the backend reads an <c>assistant</c> line whole), so the
     /// second and later ones open with a blank line, where the streamed answer of a call that spoke between tool
-    /// uses ran them together (D324).</summary>
+    /// uses ran them together (D336).</summary>
     private static async IAsyncEnumerable<TextChunk> SeparatedMessages(
         IAsyncEnumerable<TextChunk> chunks, [System.Runtime.CompilerServices.EnumeratorCancellation] CancellationToken ct)
     {

@@ -55,7 +55,7 @@ public class ClaudeArgsTests
     }
 
     /// <summary>A replayed tool loop keeps what it said: the assistant turn lists its calls with their ids, and a
-    /// result names the call it answers (the steward's ruling, <c>docs/DECISIONS.md</c> D325).</summary>
+    /// result names the call it answers (the steward's ruling, <c>docs/DECISIONS.md</c> D337).</summary>
     [Fact]
     public void Tool_calls_and_results_are_rendered_with_their_ids()
     {

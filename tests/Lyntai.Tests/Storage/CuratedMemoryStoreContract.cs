@@ -318,7 +318,7 @@ public static class CuratedMemoryStoreContract
         Assert.Equal(2, hits.Count);
     }
 
-    /// <summary>A short query folds case beyond ASCII, as the memory store's does (<c>docs/DECISIONS.md</c> D312).</summary>
+    /// <summary>A short query folds case beyond ASCII, as the memory store's does (<c>docs/DECISIONS.md</c> D324).</summary>
     public static async Task A_short_search_folds_case_beyond_ascii(ICuratedMemoryStore store, string task = "fold-case")
     {
         await store.AddAsync("glossary", "да, конечно", taskKey: task);

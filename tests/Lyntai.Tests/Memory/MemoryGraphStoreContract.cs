@@ -59,7 +59,7 @@ public static class MemoryGraphStoreContract
     }
 
     /// <summary>A cue below the index floor folds case beyond ASCII on every backend, as the memory store's recall does
-    /// (<c>docs/DECISIONS.md</c> D312): <c>Да</c> seeds a node holding <c>да</c>.</summary>
+    /// (<c>docs/DECISIONS.md</c> D324): <c>Да</c> seeds a node holding <c>да</c>.</summary>
     public static async Task A_short_cue_folds_case_beyond_ascii(IMemoryGraphStore store, string key)
     {
         await store.UpsertAsync(Write("e", key, "да, конечно"));

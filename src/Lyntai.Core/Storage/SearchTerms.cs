@@ -182,7 +182,7 @@ public static class SearchTerms
     }
 
     /// <summary>U+0000 splits a query as whitespace does: Postgres refuses it in a bound text parameter, and the fail-open
-    /// recall read the refusal as no match. A NUL in STORED text is the caller's, not read here (D314).</summary>
+    /// recall read the refusal as no match. A NUL in STORED text is the caller's, not read here (D326).</summary>
     private static string NulAsSpace(string? raw) => raw is null ? string.Empty : raw.Replace('\0', ' ');
 
     /// <summary>The terms a SUBSTRING scan should match on — <see cref="Extract"/>'s terms plus each

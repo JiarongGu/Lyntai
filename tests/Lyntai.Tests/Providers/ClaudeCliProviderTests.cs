@@ -72,7 +72,7 @@ public class ClaudeCliProviderTests
 
     /// <summary>A multi-turn call speaks in several assistant messages, and the streamed answer is all of them: the second
     /// and later messages start after a blank line, so they do not run into the first ("I'll search.Answer"). The
-    /// buffered answer is the <c>result</c> line's text (the steward's ruling, <c>docs/DECISIONS.md</c> D324).</summary>
+    /// buffered answer is the <c>result</c> line's text (the steward's ruling, <c>docs/DECISIONS.md</c> D336).</summary>
     [Fact]
     public async Task A_streamed_multi_turn_answer_separates_its_assistant_messages_with_a_blank_line()
     {

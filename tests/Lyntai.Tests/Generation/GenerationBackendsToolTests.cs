@@ -104,7 +104,7 @@ public class GenerationBackendsToolTests
 
     /// <summary>Only a backend that produces an image, a video, audio or a 3d asset is a generation backend: a chat, an
     /// embedding or a rerank provider is neither listed nor probed, since a probe can spawn a CLI or reach a network
-    /// (the steward's ruling, <c>docs/DECISIONS.md</c> D322).</summary>
+    /// (the steward's ruling, <c>docs/DECISIONS.md</c> D334).</summary>
     [Fact]
     public async Task A_text_vector_or_score_provider_is_neither_listed_nor_probed()
     {

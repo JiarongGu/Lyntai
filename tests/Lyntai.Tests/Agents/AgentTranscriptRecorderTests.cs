@@ -211,7 +211,7 @@ public class AgentTranscriptRecorderTests
 
     /// <summary>A prompt `AgentHandoverDecision.Apply` built is a brief followed by the host's request, and only the request
     /// is the host's words: recording the whole prompt put the first brief into the second as the host's (the steward's
-    /// ruling, <c>docs/DECISIONS.md</c> D327).</summary>
+    /// ruling, <c>docs/DECISIONS.md</c> D339).</summary>
     [Fact]
     public void A_prompt_built_by_a_hand_over_records_only_the_hosts_request()
     {

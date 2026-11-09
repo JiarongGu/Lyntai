@@ -757,7 +757,7 @@ public class ComfyUiProviderTests
 
     /// <summary>A workflow with both a save node and a preview node lists the preview under <c>type: "temp"</c>, and a
     /// pipeline stage chains forward exactly one artifact, so the previews are dropped when the run saved anything
-    /// and kept when previews are all it made (the steward's ruling, <c>docs/DECISIONS.md</c> D323).</summary>
+    /// and kept when previews are all it made (the steward's ruling, <c>docs/DECISIONS.md</c> D335).</summary>
     [Fact]
     public async Task A_temp_preview_is_dropped_when_the_run_also_saved_an_output()
     {

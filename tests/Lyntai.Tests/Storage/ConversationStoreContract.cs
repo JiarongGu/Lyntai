@@ -34,7 +34,7 @@ public static class ConversationStoreContract
 
     /// <summary>Eight writers appending to one thread at once all succeed and take distinct, gapless sequence numbers on every
     /// backend: Postgres retried a lost race four times, so a fifth contender could surface a raw unique violation
-    /// (the steward's ruling, <c>docs/DECISIONS.md</c> D313).</summary>
+    /// (the steward's ruling, <c>docs/DECISIONS.md</c> D325).</summary>
     public static async Task Eight_concurrent_appenders_to_one_thread_all_succeed(IConversationStore store, string key)
     {
         var t = key + "-t1";

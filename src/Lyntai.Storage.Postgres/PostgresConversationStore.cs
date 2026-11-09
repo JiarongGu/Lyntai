@@ -55,7 +55,7 @@ public sealed class PostgresConversationStore(IDbConnectionFactory factory) : IC
         // MAX(seq)+1 subquery would collide on UNIQUE(thread_id, seq), so the append takes a per-thread
         // transaction-scoped advisory lock first: appenders to one thread queue, the lock lets go at commit,
         // and the statement that follows reads what the last one wrote (SQLite serializes writes and InMemory
-        // locks — this keeps the three backends' observable behavior aligned, D313).
+        // locks — this keeps the three backends' observable behavior aligned, D325).
         var id = Guid.NewGuid().ToString();
         var createdAt = DateTimeOffset.UtcNow;
         await using var conn = await factory.OpenAsync(ct).ConfigureAwait(false);

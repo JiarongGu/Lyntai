@@ -299,7 +299,7 @@ public class CodexAgentSessionTests
         var events = await Session(runner).StreamAsync(Ask()).ToListAsync();
 
         Assert.Equal(2, events.OfType<TextDelta>().Count());
-        // one text per message, so the final text keeps them apart (the steward's ruling, docs/DECISIONS.md D324)
+        // one text per message, so the final text keeps them apart (the steward's ruling, docs/DECISIONS.md D336)
         Assert.Equal("one \n\ntwo", events.OfType<SessionEnded>().Single().FinalText);
     }
 
