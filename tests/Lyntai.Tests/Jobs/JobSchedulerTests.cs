@@ -80,6 +80,38 @@ public class JobSchedulerTests
     }
 
     [Fact]
+    public async Task An_interval_schedule_keeps_its_slots_and_does_not_drift_by_the_lateness_of_a_tick()
+    {
+        var (sched, jobs, clock, _) = Build(Every(TimeSpan.FromSeconds(60)));
+        await sched.TickAsync();                                   // anchors the first slot at +60 s
+
+        clock.Advance(TimeSpan.FromSeconds(62));                   // a 2 s poll saw the slot late
+        Assert.Equal(1, await sched.TickAsync());
+
+        clock.Advance(TimeSpan.FromSeconds(57));                   // 119 s: the next slot is 120 s, not 62 + 60
+        Assert.Equal(0, await sched.TickAsync());
+        clock.Advance(TimeSpan.FromSeconds(1));
+        Assert.Equal(1, await sched.TickAsync());
+        Assert.Equal(2, (await jobs.ListAsync()).Count);
+    }
+
+    [Fact]
+    public async Task A_lapsed_interval_resumes_on_its_own_grid_at_the_first_slot_after_now()
+    {
+        var (sched, jobs, clock, _) = Build(Every(TimeSpan.FromMinutes(10)));
+        await sched.TickAsync();                                   // slots at +10, +20, +30 …
+
+        clock.Advance(TimeSpan.FromMinutes(35));                   // the ticker was down across three of them
+        Assert.Equal(1, await sched.TickAsync());                  // one run, as ever
+
+        clock.Advance(TimeSpan.FromMinutes(4));                    // 39: before the +40 slot
+        Assert.Equal(0, await sched.TickAsync());
+        clock.Advance(TimeSpan.FromMinutes(1));                    // 40
+        Assert.Equal(1, await sched.TickAsync());
+        Assert.Equal(2, (await jobs.ListAsync()).Count);
+    }
+
+    [Fact]
     public async Task Priority_carries_through_to_the_enqueued_job()
     {
         var (sched, jobs, clock, _) = Build(Every(TimeSpan.FromMinutes(5), priority: 7));
@@ -353,6 +385,50 @@ public class JobSchedulerStoreTests
 
         _clock.Advance(TimeSpan.FromHours(1));
         Assert.Equal(1, await scheduler.TickAsync());
+    }
+
+    [Fact]
+    public async Task Removing_a_stored_schedule_leaves_the_next_run_of_a_build_time_schedule_that_shadows_it()
+    {
+        var store = new KeyValueJobScheduleStore(_kv);
+        await store.SetAsync(new JobSchedule("nightly", "reports", "stored", "{}", Cron: "0 3 * * *"));
+        var scheduler = Scheduler(store, Every("nightly", TimeSpan.FromMinutes(10), type: "built"));
+        await scheduler.TickAsync();                                       // the build-time interval wins the name and anchors +10 min
+        _clock.Advance(TimeSpan.FromMinutes(10));
+
+        Assert.True(await store.RemoveAsync("nightly"));
+
+        Assert.Equal(1, await scheduler.TickAsync());                      // its due slot was not skipped by a re-anchor
+        Assert.Equal("built", Assert.Single(await Jobs.ListAsync()).Type);
+    }
+
+    [Fact]
+    public async Task Removing_a_stored_schedule_still_clears_its_own_next_run_and_trigger()
+    {
+        var store = new KeyValueJobScheduleStore(_kv);
+        await store.SetAsync(Every("user", TimeSpan.FromMinutes(10)));
+        await Scheduler(store).TickAsync();
+        Assert.NotNull(await _kv.GetAsync("lyntai:schedule:user"));
+
+        Assert.True(await store.RemoveAsync("user"));
+
+        Assert.Null(await _kv.GetAsync("lyntai:schedule:user"));
+        Assert.Null(await _kv.GetAsync("lyntai:schedule-trigger:user"));
+    }
+
+    [Fact]
+    public async Task A_stored_schedule_with_a_cron_that_never_occurs_is_skipped_as_invalid_and_said_once()
+    {
+        var scheduler = Scheduler(new FixedStore(new JobSchedule("feb30", "reports", "report", "{}", Cron: "0 0 30 2 *")));
+
+        for (var i = 0; i < 3; i++)
+        {
+            await scheduler.TickAsync();
+            _clock.Advance(TimeSpan.FromHours(2));
+        }
+
+        Assert.Empty(await Jobs.ListAsync());
+        Assert.Contains("skipping the stored schedule 'feb30'", Assert.Single(_logger.Messages), StringComparison.Ordinal);
     }
 
     [Fact]

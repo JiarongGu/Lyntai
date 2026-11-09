@@ -1571,7 +1571,10 @@ await runner.RunAsync(ct);   // in your IHostedService — claims across lanes a
 A lane absent from `LaneConcurrency` runs one job at a time (`DefaultLaneConcurrency`, 1), and both limits are per
 process; `GlobalMaxConcurrency` caps every process sharing the store. Run several `IJobRunner` instances, in one
 process or many, and the atomic claim gives each job to exactly one. Delivery is at-least-once, so a handler must be idempotent from its checkpoint. Higher priority runs first
-within a lane, and a job that exhausts its retries lands in the dead-letter queue (`JobStatus.Dead`):
+within a lane, and a job that exhausts its retries lands in the dead-letter queue (`JobStatus.Dead`). A runner claims
+by lane, not by type, and fails a job whose type it has no handler for (`JobStatus.Failed`, which nothing retries), so
+in a rolling deploy keep a new type on a lane the older workers do not claim (`LaneConcurrency` 0 there) or replay
+the Failed jobs once every worker has the handler:
 
 <!-- compile-given: string payloadJson;
      Guid jobId; -->

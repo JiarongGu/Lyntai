@@ -20,6 +20,10 @@ namespace Lyntai.Jobs;
 /// thrown handler exception → transient retry up to max. Writes are fenced by the worker id; a write the
 /// store ignores (lease lost) is logged and the
 /// job abandoned.
+/// <para><b>A type this worker has no handler for is Failed</b>, which nothing retries: the runner claims by lane, not by
+/// type. In a mixed fleet (a rolling deploy) an older worker therefore fails a job of a newer type that a newer worker would
+/// run. Keep the new type on a lane the older workers do not claim (<see cref="JobOptions.LaneConcurrency"/> 0 there), or
+/// <c>ReplayAsync</c> the Failed jobs once every worker has the handler (attempts reset).</para>
 /// </summary>
 public sealed class JobRunner(
     IJobStore? store,
@@ -300,6 +304,14 @@ public sealed class JobRunner(
             catch (OperationCanceledException) when (ct.IsCancellationRequested)
             {
                 // shutdown mid-job: leave it Running; its lease lapses and another worker resumes it
+                outcome = "cancelled";
+            }
+            catch (Exception ex) when (jobCts.IsCancellationRequested && !ct.IsCancellationRequested)
+            {
+                // a cancel was requested and the handler's client answered it with some other exception: still the person's cancel,
+                // never a retry or, on the last attempt, a dead letter
+                _logger.LogInformation(ex, "job {Id} ('{Type}') threw after a cancel request; cancelled on request", job.Id, job.Type);
+                await _store.CancelRunningAsync(job.Id, _workerId, ct).ConfigureAwait(false);
                 outcome = "cancelled";
             }
             catch (Exception ex)
