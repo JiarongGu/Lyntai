@@ -24,7 +24,11 @@ public static class CuratedMetadataJson
     }
 
     /// <summary>Parse a stored JSON object back into a map, or <c>null</c> when the text is null/blank/empty
-    /// or not an object. Non-string values (which this codec never writes) are read as their raw JSON.</summary>
+    /// or not an object. Non-string values (which this codec never writes) are read as their raw JSON.
+    /// <para><b>Text that is not JSON throws <see cref="JsonException"/>, deliberately.</b> A cell that cannot be read
+    /// fails the read that touches it rather than reading as no metadata, because a degraded read hands the caller a
+    /// row with none and the next write of that row stores null over bytes a repair could still recover.</para></summary>
+    /// <exception cref="JsonException"><paramref name="json"/> is not valid JSON.</exception>
     public static IReadOnlyDictionary<string, string>? Deserialize(string? json)
     {
         if (string.IsNullOrWhiteSpace(json)) return null;
