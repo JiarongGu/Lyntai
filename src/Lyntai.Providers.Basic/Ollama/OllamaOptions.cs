@@ -12,7 +12,8 @@ namespace Lyntai.Providers.Ollama;
 public sealed class OllamaOptions
 {
     /// <summary>The server ROOT, e.g. <c>http://localhost:11434</c> — never its <c>/v1</c> OpenAI-shaped
-    /// surface, which speaks a different wire (see the class doc).</summary>
+    /// surface, which speaks a different wire (see the class doc). An absolute http or https URL: registration
+    /// refuses <c>localhost:11434</c>, whose scheme would read as <c>localhost</c>.</summary>
     public string BaseUrl { get; set; } = "http://localhost:11434";
 
     /// <summary>Bearer token for a proxied or gated server; null (the default) for the usual keyless local

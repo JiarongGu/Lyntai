@@ -30,8 +30,32 @@ internal static class HttpEndpoint
         // The path alone is searched: "//openai-prod.example.com" would otherwise count as an /openai segment.
         var path = azureConventions && !PathOf(b).Contains("/openai", StringComparison.OrdinalIgnoreCase)
             ? $"/openai/v1/{openAiRoute}"
-            : b.EndsWith("/v1", StringComparison.OrdinalIgnoreCase) ? $"/{openAiRoute}" : $"/v1/{openAiRoute}";
+            : EndsInVersionSegment(b) ? $"/{openAiRoute}" : $"/v1/{openAiRoute}";
         return new Uri(b + path);
+    }
+
+    /// <summary>Whether the path's last segment is a version — <c>v1</c>, <c>v4</c>, <c>v1beta</c> — so a base that names
+    /// one (<c>.../api/paas/v4</c>) is used as given rather than composed to <c>.../v4/v1/...</c> (D320).</summary>
+    private static bool EndsInVersionSegment(string trimmedBase)
+    {
+        var path = PathOf(trimmedBase);
+        var segment = path[(path.LastIndexOf('/') + 1)..];
+        return segment.Length >= 2 && (segment[0] is 'v' or 'V') && char.IsAsciiDigit(segment[1])
+            && segment.All(char.IsAsciiLetterOrDigit);
+    }
+
+    /// <summary>Refuses a non-blank base URL that is not an absolute http or https URL. <c>localhost:11434</c> parses as a URI
+    /// whose scheme is <c>localhost</c>, and the first call then threw out of the HTTP client; a blank one stays
+    /// the registration that is merely unavailable.</summary>
+    /// <exception cref="ArgumentException"><paramref name="baseUrl"/> is neither blank nor an absolute http(s) URL.</exception>
+    internal static void RequireHttpBase(string? baseUrl, string option)
+    {
+        if (string.IsNullOrWhiteSpace(baseUrl)) return;
+        if (!Uri.TryCreate(baseUrl.Trim(), UriKind.Absolute, out var uri)
+            || (uri.Scheme != Uri.UriSchemeHttp && uri.Scheme != Uri.UriSchemeHttps))
+            throw new ArgumentException(
+                $"{option} is '{baseUrl}', which is not an absolute http or https URL (write the scheme: http://host:port).",
+                nameof(baseUrl));
     }
 
     private static string PathOf(string baseUrl)

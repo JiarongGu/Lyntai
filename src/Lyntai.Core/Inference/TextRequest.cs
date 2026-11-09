@@ -9,8 +9,15 @@ public sealed record TextRequest
     /// <summary>Model id; a provider resolves null to its own default.</summary>
     public string? Model { get; init; }
 
+    /// <summary>The most tokens to generate, or null to leave it to the host. The OpenAI-shaped wire sends it as
+    /// <c>max_tokens</c>; OpenAI's reasoning models are believed to refuse that member (they take
+    /// <c>max_completion_tokens</c>, which this library does not send) and a non-default
+    /// <see cref="Temperature"/> too, so <b>leave both null for such a host</b>.</summary>
     public int? MaxTokens { get; init; }
 
+    /// <summary>The sampling temperature, or null to leave it to the host (see <see cref="MaxTokens"/> for the hosts
+    /// that refuse one). A NaN or infinite value is answered <see cref="ProviderVerdict.Unsupported"/> by the HTTP
+    /// providers before anything is sent.</summary>
     public double? Temperature { get; init; }
 
     /// <summary>Structured output: a JSON schema the reply must conform to (optional).</summary>

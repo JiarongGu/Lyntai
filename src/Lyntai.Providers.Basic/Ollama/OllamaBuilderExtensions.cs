@@ -36,7 +36,7 @@ public static class OllamaBuilderExtensions
     /// <see cref="LyntaiOptions.ProviderTimeout"/> owns deadlines.</summary>
     /// <exception cref="ArgumentException"><c>o.Produces</c> is neither <c>ProviderKinds.Text</c> nor
     /// <c>ProviderKinds.Vector</c> — Ollama serves no rerank surface; register an OpenAI-shaped reranker with
-    /// <c>AddHttpProvider</c>.</exception>
+    /// <c>AddHttpProvider</c>; or <c>o.BaseUrl</c> is neither blank nor an absolute http or https URL.</exception>
     /// <exception cref="ArgumentOutOfRangeException"><c>o.MaxInputChars</c> is not positive, or leaves an
     /// embedding prefix no room for text.</exception>
     public static LyntaiBuilder AddOllamaProvider(this LyntaiBuilder builder, string id,

@@ -277,6 +277,125 @@ public class HttpModelProviderTests
         Assert.Equal(TextChunkKind.Final, chunks[^1].Kind);
     }
 
+    /// <summary>The recovered case above ends in a terminator; an error line after content with NO terminator is a stream
+    /// that broke, not one that finished, so it ends Error with the error's own verdict. A plain end of stream with
+    /// no error line stays Final (the steward's ruling, <c>docs/DECISIONS.md</c> D316).</summary>
+    [Fact]
+    public async Task An_error_line_after_content_with_no_terminator_ends_error()
+    {
+        const string sse = """
+            data: {"choices":[{"delta":{"content":"par"}}]}
+
+            data: {"error":{"code":429,"message":"Rate limit exceeded"}}
+
+            """;
+        var handler = new StubHttpHandler().Enqueue(HttpStatusCode.OK, sse, "text/event-stream");
+
+        var chunks = await Provider(handler).StreamAsync(Req).ToListAsync();
+
+        Assert.Equal(["par"], chunks.Where(c => c.Kind == TextChunkKind.Content).Select(c => c.Text));
+        Assert.Equal(TextChunkKind.Error, chunks[^1].Kind);
+        Assert.Equal(ProviderVerdict.RateLimited, chunks[^1].Verdict);
+    }
+
+    [Fact]
+    public async Task A_plain_end_of_stream_after_content_stays_final()
+    {
+        const string sse = """
+            data: {"choices":[{"delta":{"content":"par"}}]}
+
+            """;
+        var handler = new StubHttpHandler().Enqueue(HttpStatusCode.OK, sse, "text/event-stream");
+
+        var chunks = await Provider(handler).StreamAsync(Req).ToListAsync();
+
+        Assert.Equal(TextChunkKind.Final, chunks[^1].Kind);
+    }
+
+    /// <summary>A non-finite request number cannot be written as JSON, and the serializer's exception used to escape the
+    /// provider although a failure is a verdict. It answers Unsupported before anything is sent, naming the field
+    /// (the steward's ruling, <c>docs/DECISIONS.md</c> D317).</summary>
+    [Theory]
+    [InlineData(double.NaN)]
+    [InlineData(double.PositiveInfinity)]
+    public async Task A_non_finite_temperature_answers_unsupported_before_sending(double temperature)
+    {
+        var handler = new StubHttpHandler().Enqueue(HttpStatusCode.OK, OkBody);
+        var req = new TextRequest { Messages = [TextMessage.User("q")], Temperature = temperature };
+
+        var reply = await Provider(handler).CompleteAsync(req);
+        var chunks = await Provider(handler).StreamAsync(req).ToListAsync();
+
+        Assert.Equal(ProviderVerdict.Unsupported, reply.Verdict);
+        Assert.Contains(nameof(TextRequest.Temperature), reply.Detail);
+        var terminal = Assert.Single(chunks);
+        Assert.Equal(TextChunkKind.Error, terminal.Kind);
+        Assert.Equal(ProviderVerdict.Unsupported, terminal.Verdict);
+        Assert.Contains(nameof(TextRequest.Temperature), terminal.Detail);
+        Assert.Empty(handler.Requests);
+    }
+
+    /// <summary>A BaseUrl such as <c>localhost:11434</c> parses as a URI whose scheme is <c>localhost</c>, and the first call
+    /// threw out of the HTTP client. Registration refuses what is not an absolute http or https URL.</summary>
+    [Theory]
+    [InlineData("localhost:11434")]
+    [InlineData("api.example.com")]
+    [InlineData("ftp://example.com")]
+    public void A_base_url_that_is_not_http_or_https_is_refused_at_registration(string baseUrl)
+    {
+        var ex = Assert.Throws<ArgumentException>(() => new ServiceCollection().AddLyntai(b =>
+            b.AddHttpProvider("h", o => o.BaseUrl = baseUrl)));
+
+        Assert.Contains(nameof(HttpModelOptions.BaseUrl), ex.Message, StringComparison.Ordinal);
+    }
+
+    /// <summary>A base that already ends in a version segment of any shape is used as given, where only `/v1` was
+    /// recognised and the rest composed `.../v4/v1/chat/completions` (the steward's ruling, D320).</summary>
+    [Theory]
+    [InlineData("https://open.example.com/api/paas/v4", "https://open.example.com/api/paas/v4/chat/completions")]
+    [InlineData("https://host.example.com/v2/", "https://host.example.com/v2/chat/completions")]
+    [InlineData("https://host.example.com/v1beta", "https://host.example.com/v1beta/chat/completions")]
+    [InlineData("https://host.example.com/V3", "https://host.example.com/V3/chat/completions")]
+    [InlineData("https://host.example.com/video", "https://host.example.com/video/v1/chat/completions")]
+    [InlineData("https://host.example.com/api", "https://host.example.com/api/v1/chat/completions")]
+    public async Task A_base_ending_in_a_version_segment_gets_no_v1_appended(string baseUrl, string expected)
+    {
+        var handler = new StubHttpHandler().Enqueue(HttpStatusCode.OK, OkBody);
+
+        await Provider(handler, o => o.BaseUrl = baseUrl).CompleteAsync(Req);
+
+        Assert.Equal(new Uri(expected), handler.Requests[0].Uri);
+    }
+
+    /// <summary>A proxy that ignores <c>stream:true</c> answers one buffered <c>chat.completion</c>, which read as no output
+    /// because the stream path looked for <c>delta</c> only (the steward's ruling, <c>docs/DECISIONS.md</c> D319).</summary>
+    [Fact]
+    public async Task A_server_that_ignores_stream_true_is_read_as_its_buffered_answer()
+    {
+        const string body = """{"choices":[{"message":{"role":"assistant","content":"whole answer"},"finish_reason":"stop"}],"usage":{"prompt_tokens":4,"completion_tokens":2}}""";
+        var handler = new StubHttpHandler().Enqueue(HttpStatusCode.OK, body);
+
+        var chunks = await Provider(handler).StreamAsync(Req).ToListAsync();
+
+        Assert.Equal(["whole answer"], chunks.Where(c => c.Kind == TextChunkKind.Content).Select(c => c.Text));
+        Assert.Equal(TextChunkKind.Final, chunks[^1].Kind);
+        Assert.Equal(4, chunks[^1].Usage!.InputTokens);
+    }
+
+    [Fact]
+    public async Task A_server_that_ignores_stream_true_still_delivers_its_tool_calls()
+    {
+        const string body = """{"choices":[{"message":{"role":"assistant","content":null,"tool_calls":[{"id":"c1","type":"function","function":{"name":"lookup","arguments":"{\"q\":1}"}}]},"finish_reason":"tool_calls"}]}""";
+        var handler = new StubHttpHandler().Enqueue(HttpStatusCode.OK, body);
+
+        var chunks = await Provider(handler).StreamAsync(Req).ToListAsync();
+
+        var call = Assert.Single(chunks, c => c.Kind == TextChunkKind.ToolCall).ToolCall!;
+        Assert.Equal("lookup", call.Name);
+        Assert.Equal("""{"q":1}""", call.ArgumentsJson);
+        Assert.Equal(TextChunkKind.Final, chunks[^1].Kind);
+    }
+
     [Fact]
     public async Task Malformed_then_good_recovers_on_the_retry()
     {
@@ -492,6 +611,46 @@ public class HttpModelProviderTests
 
         Assert.Equal(ProviderVerdict.Refused, reply.Verdict);
         Assert.Single(handler.Requests); // a refused prompt is never re-sent
+    }
+
+    /// <summary>A structured-output refusal is HTTP 200 with null content and a <c>refusal</c> message: it is Refused
+    /// on the first answer, never an empty reply the engine re-sends for a second billed call (the steward's ruling,
+    /// <c>docs/DECISIONS.md</c> D315).</summary>
+    [Fact]
+    public async Task A_buffered_refusal_maps_to_refused_without_a_second_request()
+    {
+        var handler = new StubHttpHandler().Enqueue(HttpStatusCode.OK, """
+            {"choices":[{"message":{"role":"assistant","content":null,"refusal":"I can't help with that."},"finish_reason":"stop"}]}
+            """);
+
+        var reply = await Provider(handler).CompleteAsync(Req);
+
+        Assert.Equal(ProviderVerdict.Refused, reply.Verdict);
+        Assert.Equal("I can't help with that.", reply.Text);
+        Assert.Single(handler.Requests);
+    }
+
+    [Fact]
+    public async Task A_streamed_refusal_ends_refused_even_when_a_stop_follows()
+    {
+        const string sse = """
+            data: {"choices":[{"delta":{"refusal":"I can't "}}]}
+
+            data: {"choices":[{"delta":{"refusal":"help."}}]}
+
+            data: {"choices":[{"delta":{},"finish_reason":"stop"}]}
+
+            data: [DONE]
+
+            """;
+        var handler = new StubHttpHandler().Enqueue(HttpStatusCode.OK, sse, "text/event-stream");
+
+        var chunks = await Provider(handler).StreamAsync(Req).ToListAsync();
+
+        Assert.Equal(TextChunkKind.Error, chunks[^1].Kind);
+        Assert.Equal(ProviderVerdict.Refused, chunks[^1].Verdict);
+        Assert.DoesNotContain(chunks, c => c.Kind == TextChunkKind.Content);
+        Assert.Single(handler.Requests);
     }
 
     [Fact]
