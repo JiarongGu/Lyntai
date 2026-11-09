@@ -363,8 +363,15 @@ new decision overturns an old one, rewrite the old entry as a stub pointing here
 | [D291](#d291--a-scoring-verification-endorsecount-of-0-or-less-is-no-opinion-with-a-warning-at-composition-2026-11-09) | 2026-11-09 | a scoring verification `EndorseCount` of 0 or less is no opinion, with a warning at composition |
 | [D292](#d292--a-semantic-seed-filters-before-it-takes-2026-11-09) | 2026-11-09 | a semantic seed filters before it takes |
 | [D293](#d293--the-migration-passes-and-create-extension-run-under-a-lock-an-advisory-lock-on-postgres-a-named-mutex-on-sqlite-2026-11-09) | 2026-11-09 | the migration passes and `CREATE EXTENSION` run under a lock: an advisory lock on Postgres, a nam… |
+| [D294](#d294--the-in-memory-and-file-stores-recall-in-two-passes-as-the-sql-stores-do-2026-11-09) | 2026-11-09 | the in-memory and file stores recall in two passes, as the SQL stores do |
+| [D295](#d295--the-row-a-write-just-stored-is-never-evicted-2026-11-09) | 2026-11-09 | the row a write just stored is never evicted |
+| [D296](#d296--lyntai_memory_subjectnode_id-is-indexed-on-sqlite-where-the-plan-scanned-and-not-yet-on-postgres-where-it-was-not-measured-2026-11-09) | 2026-11-09 | `lyntai_memory_subject(node_id)` is indexed on SQLite, where the plan scanned, and not yet on Pos… |
+| [D297](#d297--usesqlitestorage-and-the-connection-factory-refuse-an-in-memory-database-2026-11-09) | 2026-11-09 | `UseSqliteStorage` and the connection factory refuse an in-memory database |
+| [D298](#d298--the-file-backends-prompt-save-keeps-its-two-writes-with-the-window-documented-and-a-cut-test-2026-11-09) | 2026-11-09 | the file backend's prompt save keeps its two writes, with the window documented and a cut test |
+| [D299](#d299--each-store-refuses-a-callers-null-key-before-sql-and-the-sqlite-table-rebuild-is-not-done-2026-11-09) | 2026-11-09 | each store refuses a caller's NULL key before SQL, and the SQLite table rebuild is not done |
+| [D300](#d300--sqliteconnectionfactorydbpath-is-documented-as-no-backup-and-no-checkpoint-method-is-offered-2026-11-09) | 2026-11-09 | `SqliteConnectionFactory.DbPath` is documented as no backup, and no checkpoint method is offered |
 
-**288 live decisions.** The rest are stubs — `D<n>` is a permanent identifier, so a number is never reused or renumbered (5): [D36](#d36--a-translation-between-two-verdict-taxonomies-gets-one-arm-per-member-gated-by-a-test-2026-08-05) → D136 · [D80](#d80--merged-into-d77-2026-08-16-folded-2026-08-17) → D77 · [D131](#d131--a-backends-produces-is-derived-from-its-configuration-so-a-modality-is-a-field-2026-09-14) → D133 · [D134](#d134--a-registration-names-the-backend-the-provider-suffix-is-gone-from-all-seventeen-2026-09-14) → D137 · [D145](#d145--the-microsoftextensionsai-module-is-a-bridge-not-a-provider-2026-09-15) → D146
+**295 live decisions.** The rest are stubs — `D<n>` is a permanent identifier, so a number is never reused or renumbered (5): [D36](#d36--a-translation-between-two-verdict-taxonomies-gets-one-arm-per-member-gated-by-a-test-2026-08-05) → D136 · [D80](#d80--merged-into-d77-2026-08-16-folded-2026-08-17) → D77 · [D131](#d131--a-backends-produces-is-derived-from-its-configuration-so-a-modality-is-a-field-2026-09-14) → D133 · [D134](#d134--a-registration-names-the-backend-the-provider-suffix-is-gone-from-all-seventeen-2026-09-14) → D137 · [D145](#d145--the-microsoftextensionsai-module-is-a-bridge-not-a-provider-2026-09-15) → D146
 
 <!-- index:end -->
 
@@ -7939,3 +7946,87 @@ recall and its write-back is already a silent skip).
 **Rejected.** Retrying a failed first run once (it hides the race rather than closing it, and a retry that meets a half-applied pass can fail for a reason no retry clears).
 
 **Re-opens** when a deployment migrates through a connection pooler that does not keep a session (transaction pooling drops a session advisory lock), which would want a transaction-level lock or the migration run outside the pooler.
+
+## D294 — the in-memory and file stores recall in two passes, as the SQL stores do (2026-11-09)
+
+**Standing.** A ruling on `TASKS.md` Part 496's third row, **the steward's under the owner's delegation, which the owner may reverse** — not the owner's words. Built; no public member moves.
+
+**Decided.** `MemoryEntryLog.Recall` matches on `SearchTerms.Extract` first, the whole query as one literal when that yields no term, and widens to `SubstringTerms` only when nothing hit and the query has a short spaceless term. A mixed fact, "客户 deploy", returns the row holding `deploy` and not the one holding only 客户, on every backend, and still finds that one when nothing holds `deploy`.
+
+**Why.** `IMemoryStore` says which entries a recall finds is the same everywhere, and **D55** made the staging deliberate on SQL. In process there is no index to protect, but the staging also decides WHICH entries a query finds, so a store that widens at once answers a query differently from the two the contract is held against.
+
+**Rejected.** Documenting the staging as a backend difference and keeping the single wide pass in process (the one reading of "the same entries" that a contract fact could not pin, for the saving of one list scan on a miss).
+
+**Re-opens** when the staging is dropped on the SQL side, which would make the wide pass the one everywhere.
+
+## D295 — the row a write just stored is never evicted (2026-11-09)
+
+**Standing.** A ruling on `TASKS.md` Part 496's fourth row, **the steward's under the owner's delegation, which the owner may reverse** — not the owner's words. Built; two overloads and no change to an existing member.
+
+**Decided.** `MemoryEviction.Survivors`, `ApplyAsync` and `CapEvictSql` each gain an overload naming the written row, which ranks first (`Survivors`) or is left out of the delete (`CapEvictSql`, which binds `@writtenId`, so the excess comes off the other rows and the scope still ends at its cap). Every store takes the id from `RETURNING id` on its upsert. A scope already over its cap, re-remembering its oldest fact on a fixed clock, keeps that fact. `Lru_recency_tie_broken_by_id` still holds: it writes a new, highest id.
+
+**Why.** A re-remembered fact keeps its old id, and on a recency tie the lowest id is evicted, so a write could delete the row it had just stored and report success. Only a coarse or injected clock over a scope that was already over its bound shows it, which is a cap lowered after the scope filled.
+
+**Rejected.** Breaking the tie toward the older id and leaving the write evictable (a remember that can erase itself is no remember).
+
+**Re-opens** when a policy wants a written row to be evictable, which a TTL of zero already says another way.
+
+## D296 — `lyntai_memory_subject(node_id)` is indexed on SQLite, where the plan scanned, and not yet on Postgres, where it was not measured (2026-11-09)
+
+**Standing.** A ruling on `TASKS.md` Part 496's fifth row, **the steward's under the owner's delegation, which the owner may reverse** — not the owner's words. Built on SQLite; Postgres waits on a measurement.
+
+**Decided.** The plan of the statement SQLite runs for the node cascade, `DELETE FROM lyntai_memory_subject WHERE node_id = ?`, is `SCAN lyntai_memory_subject` today and `SEARCH … USING COVERING INDEX … (node_id=?)` with an index on `node_id`. `M202611091017_MemorySubjectNodeIndex` adds it on SQLite, with a test that fails on a scan. Postgres gets no twin yet: Docker was down, so its plan was not read, and the key `(engine, node_id, subject)` cannot serve `node_id` alone before a version that skips a leading column.
+
+**Why.** The ruling was an index "only where the plan scans". SQLite's did, on a table every node delete visits whole. A Postgres twin written from the key's shape would be a migration shipped to every deployment on a plan nobody read.
+
+**Rejected.** A twin on both backends from reasoning alone (the index costs a write on every subject and the premise is a plan), and no index on either (the scan is per deleted node, so a prune pays it once per entry).
+
+**Re-opens** with Docker up: run `EXPLAIN` of the cascade on a populated Postgres table, and add the twin, numbered after this one, if it scans.
+
+## D297 — `UseSqliteStorage` and the connection factory refuse an in-memory database (2026-11-09)
+
+**Standing.** A ruling on `TASKS.md` Part 496's sixth row, **the steward's under the owner's delegation, which the owner may reverse** — not the owner's words. Built; the factory's constructor and `MigrationRunnerService` now throw where they used to accept.
+
+**Decided.** `SqliteConnectionFactory`'s constructor, and so every `UseSqliteStorage(path)` overload, and the migration runner throw `ArgumentException` (parameter `dbPath`) for `:memory:` and for a `file:` URI naming memory (`file::memory:`, `mode=memory`), shared cache included.
+
+**Why.** Lyntai opens a connection per operation beside the migrator's own, so each saw a private empty database: the schema the migrator built was gone when a store asked, and the first write failed with a missing table far from the call that chose the path.
+
+**Rejected.** A shared-cache named database held open by a keep-alive connection: a new capability (a lifetime the factory would own, and a cache mode with its own locking), which stays the owner's.
+
+**Re-opens** when a consumer needs an in-memory SQLite for tests, which the in-memory stores already serve.
+
+## D298 — the file backend's prompt save keeps its two writes, with the window documented and a cut test (2026-11-09)
+
+**Standing.** A ruling on `TASKS.md` Part 496's seventh row, **the steward's under the owner's delegation, which the owner may reverse** — not the owner's words. Behaviour unchanged.
+
+**Decided.** `FileSystemPromptVersionStore` still writes the revision and then the active pointer. A process killed between them leaves a revision in the history that was never active and the previous one active; the next save numbers past it and a rollback can activate it. The class says so, and `FileSystemPromptSaveCutTests` builds the disk state the kill leaves and reads it.
+
+**Why.** The cut leaves nothing wrong: the revision is whole, the pointer names a real revision, and no number is reused. A journal of the pair, as the graph store keeps, buys the removal of one extra history row at the price of a second file format and a recovery pass on every start.
+
+**Rejected.** Journaling the pair (the graph store journals because its change spans many files that must agree; a prompt's pair does not).
+
+**Re-opens** when a consumer reads "never active" off the history as an error, which would want the window closed.
+
+## D299 — each store refuses a caller's NULL key before SQL, and the SQLite table rebuild is not done (2026-11-09)
+
+**Standing.** A ruling on `TASKS.md` Part 496's eighth row, **the steward's under the owner's delegation, which the owner may reverse** — not the owner's words. Built; the table rebuild stays the owner's.
+
+**Decided.** Of the six `TEXT PRIMARY KEY` columns, `lyntai_usage.consumer` already refused null (`UsageTrackerSql.Consumer`) and `lyntai_message.id`, `lyntai_job.id` and `lyntai_usage_reservation.id` are generated by the store. The two a caller supplies are now refused with `ArgumentNullException` before any SQL, on SQLite and Postgres: `IResponseCache.SetAsync`'s key, and a graph write's `Engine` (and the import's engine), with a contract fact for each on every backend. The gap that remains is a NULL bound straight to SQL, outside a store.
+
+**Why.** SQLite accepts a NULL in a `TEXT PRIMARY KEY` column and Postgres refuses it, so a null key worked on one backend and threw on the other. The guard makes the backends agree where a caller could reach the column.
+
+**Rejected.** A table-rebuild migration for the six tables (SQLite cannot alter a key, so it copies each table, including the busiest, in a migration that ships to every deployment; the owner's call).
+
+**Re-opens** when a store binds a key it did not generate or guard, which the contract facts and the six-column list in `.agents/knowledge/storage.md` are there to catch.
+
+## D300 — `SqliteConnectionFactory.DbPath` is documented as no backup, and no checkpoint method is offered (2026-11-09)
+
+**Standing.** A ruling on `TASKS.md` Part 496's last ruled row, **the steward's under the owner's delegation, which the owner may reverse** — not the owner's words. Doc only.
+
+**Decided.** The `DbPath` doc no longer lists backup as a use. It says copying the `.db` alone loses commits still in the `-wal` file, and names the ways to back up: `VACUUM INTO`, SQLite's backup API, or the `.db` copied with its `-wal` and `-shm` while nothing writes.
+
+**Why.** The factory forces WAL on every connection, so the file a caller was pointed at for backup does not hold every commit.
+
+**Rejected.** A checkpoint-on-demand member on the factory (a new frozen public member, the owner's).
+
+**Re-opens** when a consumer asks for a supported backup call, which would be that member.

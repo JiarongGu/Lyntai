@@ -56,6 +56,13 @@ every addition.
   where a throwing first enricher skipped the rest. A graph export throws `InvalidDataException` before its first line for a non-finite number, an import accepts an empty scope or headline,
   `ScoringVerificationPolicy` with an `EndorseCount` of 0 or less reports no opinion without calling the backend and warns once, and `SemanticSeedSource` returns the live seeds a limit
   allows past a stale top match. A `tokenizer_config.json` whose root is not an object keeps the defaults, and a corrupt `tokenizer.json` (an invalid regex, a null piece or replacement) throws `InvalidDataException`.
+- **Storage: eight places where the stores raced, disagreed or took a wrong input now do not** (**D293**–**D300**). Both migration runners take a per-database lock
+  (a Postgres advisory lock, a SQLite named mutex), as does `PostgresVectorStore`'s `CREATE EXTENSION`, so two processes starting against an empty database take turns
+  where the second used to fail. The in-memory and file `IMemoryStore`s recall in two passes as the SQL stores do, so a query with a longer term and a short spaceless one finds
+  the same entries everywhere. A write never evicts the row it just stored (new `MemoryEviction.Survivors`, `ApplyAsync` and `CapEvictSql` overloads). A new SQLite migration indexes
+  `lyntai_memory_subject(node_id)`, where a node delete scanned the table; Postgres has none yet. **`UseSqliteStorage`, `SqliteConnectionFactory` and the SQLite migration runner throw
+  `ArgumentException` for `:memory:`** (each connection saw its own empty database), `IResponseCache.SetAsync` and a graph write refuse a null key or engine with
+  `ArgumentNullException`, the file backend's prompt-save window is documented, and `SqliteConnectionFactory.DbPath` no longer offers copying the `.db` alone as a backup.
 - **Five behaviours are now stated and pinned** (**D282**, **D284**, **D286**, **D289**, **D290**): a throwing `IScorer.Applies` surfaces, a failing prompt override renders the default and not the next layer,
   `TraceOrdinals.Stored` decides per step, `MemoryContentKey` hashes UTF-8 with a lone surrogate as U+FFFD, and a blend's explicit `Limit` wins over the authoritative tier.
 - **A stdio MCP server's variables no longer travel in Codex's argv, the agent doors wait 15 minutes of silence, and a rate limit on stderr holds the account** (**D267**, **D268**).

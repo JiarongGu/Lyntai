@@ -7,6 +7,20 @@ to `.agents/knowledge/pitfalls.md`; the release-facing line goes to `CHANGELOG.m
 
 ---
 
+## 2026-11-09 — two migrators racing on an empty database, a write evicting the row it stored, two recall answers for one query, a node delete scanning the subject table, and `:memory:` accepted into an empty database
+
+**Symptom.** None reported; filed by the 2026-11-08 review of the memory stores, migrations and connection lifecycle (`TASKS.md` Part 496, steward's rulings D293 to D300). Four SQLite runners started together on one fresh file failed with a loser's DDL error; a re-remembered fact in a scope already over its cap, on a fixed clock, could be the row evicted; "客户 deploy" returned the row holding only 客户 on the in-memory and file stores and not on SQLite or Postgres; `EXPLAIN` of the node cascade read `SCAN lyntai_memory_subject`.
+
+**Root cause.** The runners had no lock, so each read the version table as unapplied. A re-remembered fact keeps its old id and the count-cap statement breaks a recency tie toward the lowest id. The in-process log matched the widened term set at once where the SQL stores widen only on a miss (D55). The subject table's key and lookup index both lead with `engine`, so `node_id = ?` had no index. A `:memory:` path gave every connection its own empty database.
+
+**Fix.** A per-database lock (a Postgres advisory lock, a SQLite named mutex) around the passes and `CREATE EXTENSION` (D293); the written row named by `RETURNING id` and kept by `Survivors` and `CapEvictSql` (D295); the two-pass recall in `MemoryEntryLog` (D294); `M202611091017_MemorySubjectNodeIndex` on SQLite (D296); an `ArgumentException` for `:memory:` in the factory and the runner (D297); a null cache key or graph engine refused before SQL (D299).
+
+**Verify.** Failed before the change: `Runners_started_together_on_a_fresh_database_all_succeed_and_apply_each_migration_once`, `The_row_being_written_survives` on the in-memory, file and SQLite stores, `A_short_word_does_not_widen_a_recall_that_a_longer_term_hit` on the two in-process stores, the `SqliteInMemoryPathTests` cases, `A_reply_stored_under_no_key_is_refused` and `A_write_naming_no_engine_is_refused` on SQLite. Not run: every Postgres leg, since Docker was down.
+
+**Introduced by.** Not traced to a commit for each; the lock and the subject table date from the first migrations, the staging from D55.
+
+---
+
 ## 2026-11-09 — a throwing enricher skipped the rest after the row was stored, a score outside 0 to 1 reached the store, a half-written graph export, a stale seed that cost a live one, and a corrupt tokenizer file that escaped as the wrong exception
 
 **Symptom.** None reported; the rows were filed by the 2026-11-09 review of the scoring layer, the conversation stores, the tokenizers and the portable format (`docs/task-archive.md` Part 513). A first enricher that threw left the later ones unrun after `AppendMessageAsync` had stored its row, so a retry appended a duplicate. A BYO scorer's 1.7 was stored and averaged. A graph export with a non-finite number threw from the writer after earlier lines were out. A seed source with a stale top match and a limit of 1 returned nothing though a live match followed. `EndorseCount` of 0 judged every recall empty after a backend call. A corrupt `tokenizer.json` raised `RegexParseException` or `NullReferenceException`, and a `tokenizer_config.json` whose root was an array raised `InvalidOperationException`.
