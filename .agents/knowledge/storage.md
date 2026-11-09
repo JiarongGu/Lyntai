@@ -217,20 +217,22 @@ skipped). Use `dev.mjs new-migration` to get a unique monotonic number. **Backfi
 adds a structure** — a structure correct only for rows written after it shipped is a bug waiting for the
 first old row.
 
-**A fresh database applies 20 migrations on SQLite and 20 on POSTGRES, and the two sets differ by one each,
+**A fresh database applies 21 migrations on SQLite and 20 on POSTGRES, and the two sets differ,
 deliberately:**
 `M202608152310_MemoryHeadlineSearch` adds a trigram index on `headline` so a recall can match an authored
 one without a sequential scan, and SQLite needs no counterpart because its FTS5 mirror has indexed
 `headline, content` since the graph store shipped. `M202610281422_VectorBlob` adds a binary column to
 `lyntai_vector` and fills it, and Postgres needs none because `PostgresVectorStore` keeps pgvector's own column
-in a table it creates itself. Migrations are per-backend projects; forcing the numbers to match would mean
-shipping a migration that does nothing. `check-counts` holds the first number.
+in a table it creates itself. `M202611091017_MemorySubjectNodeIndex` indexes `lyntai_memory_subject(node_id)` for the
+cascade a node delete runs, and Postgres has none because its plan was not measured (**D296**). Migrations are
+per-backend projects; forcing the numbers to match would mean shipping a migration that does nothing.
+`check-counts` holds the first number.
 
 **Never renumber a shipped migration**: the number is recorded in `lyntai_version_info`, so a new one re-runs
 it against tables that already exist. Composite PKs and FKs go **inline at `Create.Table`** (SQLite has no
 `ALTER ADD CONSTRAINT`); raw `Execute.Sql` covers what the fluent API cannot (FTS tables, triggers,
-`ON DELETE CASCADE`). The runner applies migrations under WAL + `busy_timeout` (`MigrationRunnerService`) and
-is idempotent.
+`ON DELETE CASCADE`). The runner applies migrations under WAL + `busy_timeout` (`MigrationRunnerService`), is
+idempotent, and takes a per-database lock around its passes so two processes starting together take turns (**D293**).
 
 **Every migration carries `[Tags(nameof(StorageFeature.<Feature>), StorageFeatures.AllTag)]` — both tags,
 always.** The feature tag is what a SUBSET pass requests; `AllTag` is what the default `StorageFeature.All`
@@ -268,6 +270,14 @@ pgvector is not forced on consumers who never use semantic memory.
 
 - **`lyntai_` prefix on every table/index/trigger/FTS object** — Lyntai may share a database with the
   consumer's own schema; the prefix keeps them from colliding.
+- **A SQLite `TEXT PRIMARY KEY` accepts NULL where Postgres refuses it** (`lyntai_message.id`, `lyntai_job.id`,
+  `lyntai_response_cache.cache_key`, `lyntai_usage.consumer`, `lyntai_usage_reservation.id`,
+  `lyntai_memory_position.engine`). A store generates the key (the message, job and reservation ids) or refuses a
+  caller's null before the SQL (the cache key, the usage consumer, a graph write's engine); a new store binding a key
+  it did not generate does the same. The gap left is a NULL bound outside a store, and the table rebuild that would
+  close it is the owner's (**D299**).
+- **`:memory:` is refused** by `SqliteConnectionFactory` and the migration runner: each connection would open its
+  own empty database, so the schema the migrator built is not there for a store (**D297**).
 - Prefer `INSERT … RETURNING id` over `last_insert_rowid()` (the latter is per-connection and returns 0
   on a different pooled connection).
 - Parameterize every user value (`@param`); the only safe interpolation is a compile-time column-list

@@ -17,6 +17,14 @@ public static class ResponseCacheContract
     private static TextResponse Reply(string text) =>
         new(text, ProviderVerdict.Ok, new TextUsage(3, 4, CostUsd: 0.05));
 
+    /// <summary>A reply stored under no key is refused, on every backend: SQLite takes a NULL in a
+    /// <c>TEXT PRIMARY KEY</c> column where Postgres refuses it, so the store must say no before the SQL.</summary>
+    public static async Task A_reply_stored_under_no_key_is_refused(IResponseCache cache, string key)
+    {
+        _ = key;
+        await Assert.ThrowsAsync<ArgumentNullException>(() => cache.SetAsync(null!, Reply("keyless"), TimeSpan.FromMinutes(5)));
+    }
+
     /// <summary>A hit returns what was stored, USAGE included — the field a persistent backend is most
     /// likely to lose, since cost is a floating column and SQLite stores `1.0` as an INTEGER in the same
     /// column it stores `0.05` as a REAL (`storage.md`'s affinity trap).</summary>

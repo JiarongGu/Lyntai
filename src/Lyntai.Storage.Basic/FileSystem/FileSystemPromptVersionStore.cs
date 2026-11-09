@@ -6,7 +6,11 @@ namespace Lyntai.Storage.FileSystem;
 /// with the template as its body, plus <c>active.md</c> naming the revision in use.
 /// <para><b>The active revision is a POINTER file, not a flag on each revision</b>, so saving or rolling back
 /// rewrites exactly one file — a flag would need two writes, and a crash between them leaves no revision
-/// active or two.</para></summary>
+/// active or two.</para>
+/// <para><b>A save is still two writes, the revision and then the pointer</b>, and a process killed between them
+/// leaves a revision in the history that was never active, with the previous one still active. Nothing repairs
+/// it: the revision is whole, the next save numbers past it, and a rollback can activate it. A failure the
+/// process survives deletes the revision instead.</para></summary>
 internal sealed class FileSystemPromptVersionStore(FileSystemRoot root, Func<DateTimeOffset>? clock = null)
     : IPromptVersionStore
 {

@@ -149,6 +149,6 @@ public sealed class MemoryEvictionCandidateRow
     public DateTimeOffset? ExpiresAt { get; set; }
     public int Length { get; set; }
 
-    /// <summary>Project to the shape <see cref="MemoryEviction.Survivors"/> reads.</summary>
+    /// <summary>Project to the shape <c>MemoryEviction.Survivors</c> reads.</summary>
     public MemoryEviction.Row ToRow() => new(Id, CreatedAt, LastAccessedAt, ExpiresAt, Length);
 }

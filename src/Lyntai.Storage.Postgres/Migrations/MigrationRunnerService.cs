@@ -19,10 +19,23 @@ public static class MigrationRunnerService
     /// lands.</summary>
     public static void MigrateUp(string connectionString, StorageFeature features)
     {
+        RunPasses(connectionString, features, CancellationToken.None);
+    }
+
+    // The passes run under an advisory lock on the database, so a second migrator waits for the first rather
+    // than racing its DDL.
+    private static void RunPasses(string connectionString, StorageFeature features, CancellationToken ct)
+    {
         // the All-vs-subset tag dispatch lives in Core (StorageFeatures.TagPasses) so both backend
         // runners share the all-requested-tags-must-match semantics
-        foreach (var tags in StorageFeatures.TagPasses(features))
+        var passes = StorageFeatures.TagPasses(features).ToList();
+        if (passes.Count == 0) return;
+        using var _ = MigrationLock.Acquire(connectionString);
+        foreach (var tags in passes)
+        {
+            ct.ThrowIfCancellationRequested(); // a pass boundary is the last honest cancellation point
             RunPass(connectionString, tags);
+        }
     }
 
     /// <summary>Migrate every domain's schema, awaitable — for an app owning its schema
@@ -53,11 +66,7 @@ public static class MigrationRunnerService
         try
         {
             ct.ThrowIfCancellationRequested(); // before ANY work — the connection string is never dialled
-            foreach (var tags in StorageFeatures.TagPasses(features))
-            {
-                ct.ThrowIfCancellationRequested(); // a pass boundary is the last honest cancellation point
-                RunPass(connectionString, tags);
-            }
+            RunPasses(connectionString, features, ct);
             return Task.CompletedTask;
         }
         // no await point exists on this path, so faults would otherwise surface SYNCHRONOUSLY from a

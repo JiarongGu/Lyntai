@@ -5011,8 +5011,11 @@ sealed class Lyntai.Storage.MemoryEntry
     ToString() : String
 static class Lyntai.Storage.MemoryEviction
     static ApplyAsync(MemoryEvictionPolicy policy, DateTimeOffset now, Func<CancellationToken,Task<IReadOnlyList<Row>>> fetchScoped, Func<IReadOnlyList<Int64>,CancellationToken,Task> deleteByIds, CancellationToken ct = default) : Task
+    static ApplyAsync(MemoryEvictionPolicy policy, DateTimeOffset now, Func<CancellationToken,Task<IReadOnlyList<Row>>> fetchScoped, Func<IReadOnlyList<Int64>,CancellationToken,Task> deleteByIds, Nullable<Int64> writtenId, CancellationToken ct = default) : Task
     static CapEvictSql(MemoryEvictionMode mode) : String
+    static CapEvictSql(MemoryEvictionMode mode, Boolean excludeWritten) : String
     static Survivors(MemoryEvictionPolicy policy, IEnumerable<Row> rows, DateTimeOffset now) : HashSet<Int64>
+    static Survivors(MemoryEvictionPolicy policy, IEnumerable<Row> rows, DateTimeOffset now, Nullable<Int64> writtenId) : HashSet<Int64>
 struct Lyntai.Storage.MemoryEviction+Row
     .ctor(Int64 Id, DateTimeOffset CreatedAt, DateTimeOffset LastAccessedAt, Nullable<DateTimeOffset> ExpiresAt, Int32 Length)
     CreatedAt : DateTimeOffset { get; init; }

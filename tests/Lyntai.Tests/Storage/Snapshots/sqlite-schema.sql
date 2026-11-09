@@ -39,6 +39,9 @@ CREATE INDEX ix_lyntai_memory_review_engine_id ON lyntai_memory_review(engine, i
 CREATE INDEX ix_lyntai_memory_subject_lookup
 ON lyntai_memory_subject(engine, subject, task_key, scope, node_id DESC);
 
+-- index ix_lyntai_memory_subject_node
+CREATE INDEX ix_lyntai_memory_subject_node ON lyntai_memory_subject(node_id);
+
 -- index ix_lyntai_message_thread_seq
 CREATE UNIQUE INDEX ix_lyntai_message_thread_seq ON lyntai_message(thread_id, seq);
 

@@ -1,6 +1,7 @@
 using System.Globalization;
 using Dapper;
 using Lyntai.Memory;
+using Lyntai.Storage.Postgres.Migrations;
 using Lyntai.Storage.Relational;
 
 namespace Lyntai.Storage.Postgres;
@@ -178,6 +179,10 @@ public sealed class PostgresVectorStore(IDbConnectionFactory factory) : IListabl
         // caller (see EnsureSchemaAsync) — one caller's cancellation must not fault the schema task the
         // others are awaiting. The retry-on-fault gate re-creates it if it genuinely fails.
         await using var conn = await factory.OpenAsync(CancellationToken.None).ConfigureAwait(false);
+        // two processes creating the extension at once can fail the second, so the pair runs under the same
+        // advisory lock the migrations take, held on a connection of its own
+        await using var schemaLock = await MigrationLock.AcquireAsync(
+            await factory.OpenAsync(CancellationToken.None).ConfigureAwait(false)).ConfigureAwait(false);
         await conn.ExecuteAsync("CREATE EXTENSION IF NOT EXISTS vector").ConfigureAwait(false);
         await conn.ExecuteAsync("""
             CREATE TABLE IF NOT EXISTS lyntai_vector (

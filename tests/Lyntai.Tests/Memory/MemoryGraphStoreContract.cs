@@ -38,6 +38,15 @@ public static class MemoryGraphStoreContract
         store.UpsertAsync(new GraphNodeWrite(engine, key, "filler", "one large filler", "one large filler",
             MemoryGrade.Associative, Stability, advance, null));
 
+    /// <summary>A write naming no engine is refused, on every backend: SQLite takes a NULL in a
+    /// <c>TEXT PRIMARY KEY</c> column where Postgres refuses it, so the store must say no before the SQL.</summary>
+    public static async Task A_write_naming_no_engine_is_refused(IMemoryGraphStore store, string key)
+    {
+        await Assert.ThrowsAsync<ArgumentNullException>(() => store.UpsertAsync(Write(null!, key, "no engine")));
+
+        Assert.Empty(await store.SeedAsync("e", key, "s", "engine", 10));
+    }
+
     public static async Task Upsert_then_seed_by_single_token_substring(IMemoryGraphStore store, string key)
     {
         await store.UpsertAsync(Write("e", key, "the deploy pipeline requires manual approval"));

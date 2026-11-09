@@ -33,10 +33,12 @@ public sealed class PostgresMemoryStore(
 
         // dedup as a single ATOMIC upsert (via ux_lyntai_memory_dedup) — race-free. A refreshed fact bumps
         // recency + last-access + TTL.
-        await conn.ExecuteAsync(new CommandDefinition("""
+        // RETURNING names the row this write stored, which eviction below never removes
+        var writtenId = await conn.ExecuteScalarAsync<long>(new CommandDefinition("""
             INSERT INTO lyntai_memory_entry (task_key, scope, content, created_at, last_accessed_at, expires_at)
             VALUES (@taskKey, @scope, @content, @now, @now, @expiresAt)
             ON CONFLICT (task_key, scope, md5(content)) DO UPDATE SET created_at = @now, last_accessed_at = @now, expires_at = @expiresAt
+            RETURNING id
             """, new { taskKey, scope, content, now, expiresAt }, cancellationToken: ct)).ConfigureAwait(false);
 
         // Eviction: the COUNT-CAP case (common path) is a single ATOMIC DELETE — race-free, no scope fetch.
@@ -47,16 +49,16 @@ public sealed class PostgresMemoryStore(
                 c => FetchScopedAsync(conn, taskKey, scope, c),
                 (ids, c) => conn.ExecuteAsync(new CommandDefinition(
                     "DELETE FROM lyntai_memory_entry WHERE id = ANY(@ids)", new { ids = ids.ToArray() }, cancellationToken: c)),
-                ct).ConfigureAwait(false);
+                writtenId, ct).ConfigureAwait(false);
         else if (policy.MaxEntriesPerScope is int cap and > 0)
-            await CapEvictAsync(conn, taskKey, scope, cap, policy.Mode, now, ct).ConfigureAwait(false);
+            await CapEvictAsync(conn, taskKey, scope, cap, policy.Mode, now, writtenId, ct).ConfigureAwait(false);
     }
 
     // One atomic statement: race-free, and no scope fetch — which is why this exists beside ApplyAsync.
     private static Task CapEvictAsync(IDbConnection conn, string taskKey, string scope, int cap,
-        MemoryEvictionMode mode, DateTimeOffset now, CancellationToken ct) =>
-        conn.ExecuteAsync(new CommandDefinition(MemoryEviction.CapEvictSql(mode),
-            new { taskKey, scope, cap, now }, cancellationToken: ct));
+        MemoryEvictionMode mode, DateTimeOffset now, long writtenId, CancellationToken ct) =>
+        conn.ExecuteAsync(new CommandDefinition(MemoryEviction.CapEvictSql(mode, excludeWritten: true),
+            new { taskKey, scope, cap, now, writtenId }, cancellationToken: ct));
 
     private static async Task<IReadOnlyList<MemoryEviction.Row>> FetchScopedAsync(IDbConnection conn, string taskKey, string scope, CancellationToken ct)
     {

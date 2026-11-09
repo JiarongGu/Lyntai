@@ -60,6 +60,30 @@ public static class MemoryStoreContract
         Assert.Equal(2, hits.Count);
     }
 
+    /// <summary>A recall matches on the terms an index can serve first, and widens to a spaceless script's
+    /// two-character words only when nothing hit (<c>docs/DECISIONS.md</c> D55): "客户 deploy" finds the row
+    /// holding <c>deploy</c> and NOT the one holding only 客户, on every backend, as <see cref="IMemoryStore"/> says.</summary>
+    public static async Task A_short_word_does_not_widen_a_recall_that_a_longer_term_hit(IMemoryStore store, string key)
+    {
+        await store.RememberAsync(key, "notes", "deploy 完成了");
+        await store.RememberAsync(key, "notes", "客户回访记录");
+
+        var hits = await store.RecallAsync(key, query: "客户 deploy");
+
+        Assert.Equal(["deploy 完成了"], hits.Select(h => h.Content));
+    }
+
+    /// <summary>The widening above: with no row holding the longer term, the short word finds its row.</summary>
+    public static async Task A_short_word_finds_its_row_when_the_longer_term_hit_nothing(IMemoryStore store, string key)
+    {
+        await store.RememberAsync(key, "notes", "客户回访记录");
+        await store.RememberAsync(key, "notes", "无关的记录");
+
+        var hits = await store.RecallAsync(key, query: "客户 deploy");
+
+        Assert.Equal(["客户回访记录"], hits.Select(h => h.Content));
+    }
+
     public static async Task Scope_filter_applies(IMemoryStore store, string key)
     {
         await store.RememberAsync(key, "alpha", "fact in alpha scope");
