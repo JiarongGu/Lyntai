@@ -7053,3 +7053,11 @@ lines the doors' own tests pin. Landed in `08b41270`; the row stayed open in `TA
 
 - the code commits and their tests, one per ruling
 - D293 to D300, the changelog entry
+## Part 514 — the steward's rulings on `TASKS.md` Parts 497 and 498's eleven rows: the guard scripts, search terms, stored stability, burst state, metadata cells, an abandoned stream and two options maps (2026-11-09)
+
+✅ done 2026-11-09 — **Outcome:** eleven rows waited on a ruling and the steward ruled each under the owner's delegation while the owner is away (the owner may reverse them); `docs/DECISIONS.md` **D293** to **D303** record each with the side it rejected. **Built, test failing first:** a tracked file deleted from disk leaving the gates' file list (D293); the prose gates reading `/* */` and JSDoc lines (D294); a trx result outside passed, failed and skipped failing the run (D295); `check-options` scanning structs (D296); `check-backlog` reading `> **HANDOVER` and an indented `- [ ]` (D297); a spaced word losing the punctuation at its ends, one contract fact per store family on every backend (D298); the engine flooring stored stability (D299); `BurstDampenedAgePolicy` evicting an engine a window old (D300); an abandoned stream of a cancelled caller recording on its own bounded token (D302). **Kept and pinned or documented:** a malformed metadata cell failing the read, a test per SQL backend (D301); `PerConsumer` set before the first call (D303), documentation only, no test. Lanes `platform`, `memory`, `inference` and `storage`.
+<br>**Recall (D298):** `memory-language` over the same 5 arms, 7 shapes and 30 seeds, with every other change in and only `SearchTerms` swapped, printed identical miss and pollution figures before and after (only the wall clock moved). The corpus carries no edge punctuation, so this shows no recall lost and not a gain; the gain is the contract facts. **Not run:** the Postgres legs (Docker was down; `LYNTAI_ALLOW_POSTGRES_SKIP=1`).
+<br>**What stays:** a bound on a burst's length and a copy-on-write `PerConsumer` are the owner's; spaceless-script runs keep their edge punctuation.
+
+- the code commits and their tests, one per ruling
+- D293 to D303, the changelog entry
