@@ -22,7 +22,16 @@ internal static class CliPrompt
         {
             var sb = new StringBuilder();
             foreach (var m in req.Messages)
-                sb.Append('[').Append(m.Role).Append("]\n").Append(m.Content).Append("\n\n");
+            {
+                // a tool result names the call it answers, and an assistant turn lists the calls it made: without
+                // either, a replayed tool loop reads as an empty [assistant] followed by unattributed results
+                sb.Append('[').Append(m.Role);
+                if (m.ToolCallId is { Length: > 0 } answered) sb.Append(' ').Append(answered);
+                sb.Append("]\n").Append(m.Content).Append('\n');
+                foreach (var call in m.ToolCalls ?? [])
+                    sb.Append("[call ").Append(call.Id).Append("] ").Append(call.Name).Append(' ').Append(call.ArgumentsJson).Append('\n');
+                sb.Append('\n');
+            }
             prompt = sb.ToString().TrimEnd();
         }
 

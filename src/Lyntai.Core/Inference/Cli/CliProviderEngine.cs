@@ -133,13 +133,17 @@ public sealed class CliProviderEngine(
     public async Task<TextResponse> CompleteAsync(TextRequest req, CancellationToken ct = default)
     {
         WarnIfRequestToolsIgnored(req);
+        WarnIfAttachmentsDropped(req);
+        var prompt = backend.BuildPrompt(req);
+        if (FlagShapedArgument(prompt) is { } flagShaped)
+            return new TextResponse("", ProviderVerdict.Unsupported, Detail: flagShaped);
         // when a provisioner is registered, it stands up a tool host and hands back the CLI args; the
         // session is torn down after the process exits
         await using var session = provisioner is null
             ? null
             : await provisioner.ProvisionAsync(new CliToolRequest(req, backend.Id), ct).ConfigureAwait(false);
         var (exe, prefixArgs) = ResolveCommand();
-        var (argv, stdin) = BuildInvocation(req, prefixArgs, session?.ExtraArgs);
+        var (argv, stdin) = BuildInvocation(req, prompt, prefixArgs, session?.ExtraArgs);
 
         // `timeout` is an INACTIVITY window (a slow-but-alive turn keeps re-arming it); the backstop bounds a
         // chatty child that never stalls
@@ -225,13 +229,20 @@ public sealed class CliProviderEngine(
     public async IAsyncEnumerable<TextChunk> StreamAsync(TextRequest req, [EnumeratorCancellation] CancellationToken ct = default)
     {
         WarnIfRequestToolsIgnored(req);
+        WarnIfAttachmentsDropped(req);
+        var prompt = backend.BuildPrompt(req);
+        if (FlagShapedArgument(prompt) is { } flagShaped)
+        {
+            yield return TextChunk.Error(ProviderVerdict.Unsupported, flagShaped);
+            yield break;
+        }
         // the host lives for the whole stream (the CLI calls tools throughout); torn down when this iterator
         // is disposed
         await using var session = provisioner is null
             ? null
             : await provisioner.ProvisionAsync(new CliToolRequest(req, backend.Id), ct).ConfigureAwait(false);
         var (exe, prefixArgs) = ResolveCommand();
-        var (argv, stdin) = BuildInvocation(req, prefixArgs, session?.ExtraArgs);
+        var (argv, stdin) = BuildInvocation(req, prompt, prefixArgs, session?.ExtraArgs);
 
         var sawContent = false;
         string resultText = "";
@@ -304,9 +315,8 @@ public sealed class CliProviderEngine(
     /// <summary>Assemble argv + stdin for one call: prefix args, the backend's completion args, any tool-host
     /// args, and the prompt — which goes LAST when this CLI takes it positionally.</summary>
     private (List<string> Argv, string? Stdin) BuildInvocation(
-        TextRequest req, IReadOnlyList<string> prefixArgs, IReadOnlyList<string>? extraArgs)
+        TextRequest req, string prompt, IReadOnlyList<string> prefixArgs, IReadOnlyList<string>? extraArgs)
     {
-        var prompt = backend.BuildPrompt(req);
         // the tool-host args go THROUGH the backend, never around it: only the backend knows whether its
         // argv ends in options (append is fine) or in a positional (append feeds them to the model as
         // prompt text, and on codex a swallowed flag is a spent turn)
@@ -470,6 +480,26 @@ public sealed class CliProviderEngine(
         {
             return (null, ex.Message);
         }
+    }
+
+    /// <summary>A prompt that opens with <c>-</c> would be read as a flag by a CLI that takes it as a trailing ARGUMENT, so
+    /// nothing is spawned: the call is <see cref="ProviderVerdict.Unsupported"/> and the detail says why (D325). A prompt
+    /// delivered on stdin is never read as an option.</summary>
+    private string? FlagShapedArgument(string prompt) =>
+        backend.PromptDelivery == CliPromptDelivery.Argument && prompt.StartsWith('-')
+            ? $"{backend.Id} takes its prompt as an argument, and a prompt starting with '-' would be read as an option; nothing was run"
+            : null;
+
+    /// <summary>The flattened prompt is text, so an attachment on a message is dropped; say so rather than let the
+    /// model answer a question about an image it never saw.</summary>
+    private void WarnIfAttachmentsDropped(TextRequest req)
+    {
+        var dropped = req.Messages.Sum(m => m.Attachments?.Count ?? 0);
+        if (dropped > 0)
+            _logger.LogWarning(
+                "{Provider} sends a text prompt only ({Count} attachment(s) dropped) — this CLI provider's prompt " +
+                "carries no images or files.",
+                backend.Id, dropped);
     }
 
     /// <summary>A CLI that doesn't take request-level tool declarations must not drop them SILENTLY — a

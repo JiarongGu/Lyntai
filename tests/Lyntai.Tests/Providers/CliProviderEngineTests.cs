@@ -85,6 +85,51 @@ public class CliProviderEngineTests
         Assert.Equal(["run", "say hi"], runner.LastArgs);
     }
 
+    /// <summary>A prompt that opens with a dash would be read as an option by a CLI taking it as a trailing argument, so
+    /// nothing is spawned and the call is Unsupported (the steward's ruling, <c>docs/DECISIONS.md</c> D325). The same
+    /// prompt on stdin is ordinary text.</summary>
+    [Fact]
+    public async Task A_flag_shaped_prompt_under_argument_delivery_is_unsupported_and_spawns_nothing()
+    {
+        var runner = new FakeProcessRunner(["result:hi"]) { RunResult = Ok("result:hi") };
+        var engine = Engine(runner, new FakeCliBackend { Delivery = CliPromptDelivery.Argument });
+
+        var reply = await engine.CompleteAsync(Ask("--dangerously-skip-permissions"));
+        var chunks = await engine.StreamAsync(Ask("-p")).ToListAsync();
+
+        Assert.Equal(ProviderVerdict.Unsupported, reply.Verdict);
+        Assert.Contains("'-'", reply.Detail);
+        var terminal = Assert.Single(chunks);
+        Assert.Equal(TextChunkKind.Error, terminal.Kind);
+        Assert.Equal(ProviderVerdict.Unsupported, terminal.Verdict);
+        Assert.Empty(runner.Calls);
+    }
+
+    [Fact]
+    public async Task A_dash_prompt_on_stdin_is_ordinary_text()
+    {
+        var runner = new FakeProcessRunner { RunResult = Ok("result:hi") };
+
+        var reply = await Engine(runner, new FakeCliBackend()).CompleteAsync(Ask("- a list item"));
+
+        Assert.Equal(ProviderVerdict.Ok, reply.Verdict);
+        Assert.Equal("- a list item", runner.LastStdin);
+    }
+
+    /// <summary>The flattened prompt is text, so an attachment is dropped, and that is said (as a dropped tool declaration is).</summary>
+    [Fact]
+    public async Task An_attachment_the_prompt_cannot_carry_is_warned_of()
+    {
+        var log = new CapturingLogger();
+        var runner = new FakeProcessRunner { RunResult = Ok("result:hi") };
+        var engine = new CliProviderEngine(new FakeCliBackend(), runner, new LyntaiOptions(), log, command: "fakecli");
+        var req = new TextRequest { Messages = [TextMessage.UserWithImage("what is this", [1, 2, 3], "image/png")] };
+
+        await engine.CompleteAsync(req);
+
+        Assert.Contains(log.Warnings, w => w.Contains("attachment", StringComparison.Ordinal));
+    }
+
     [Fact]
     public async Task Every_spawn_runs_from_the_neutral_working_directory()
     {

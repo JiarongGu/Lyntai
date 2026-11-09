@@ -70,6 +70,26 @@ public class ClaudeCliProviderTests
         Assert.Equal(340, chunks[^1].Usage!.OutputTokens);
     }
 
+    /// <summary>A multi-turn call speaks in several assistant messages, and the streamed answer is all of them: the second
+    /// and later messages start after a blank line, so they do not run into the first ("I'll search.Answer"). The
+    /// buffered answer is the <c>result</c> line's text (the steward's ruling, <c>docs/DECISIONS.md</c> D324).</summary>
+    [Fact]
+    public async Task A_streamed_multi_turn_answer_separates_its_assistant_messages_with_a_blank_line()
+    {
+        var runner = new FakeProcessRunner([
+            """{"type":"assistant","message":{"content":[{"type":"text","text":"I'll search."}]}}""",
+            """{"type":"assistant","message":{"content":[{"type":"tool_use","id":"t1","name":"Grep","input":{}}]}}""",
+            """{"type":"assistant","message":{"content":[{"type":"text","text":"Answer"}]}}""",
+            """{"type":"result","result":"Answer"}""",
+        ]);
+        var provider = new ClaudeCliProvider(runner, new LyntaiOptions(), command: "claude");
+
+        var chunks = await provider.StreamAsync(Req("search")).ToListAsync();
+
+        Assert.Equal("I'll search.\n\nAnswer", string.Concat(chunks.Where(c => c.Kind == TextChunkKind.Content).Select(c => c.Text)));
+        Assert.Equal(TextChunkKind.Final, chunks[^1].Kind);
+    }
+
     [Fact]
     public async Task Content_without_a_result_line_still_ends_with_final()
     {

@@ -54,6 +54,28 @@ public class ClaudeArgsTests
         Assert.Contains("[user]\nhi", prompt);
     }
 
+    /// <summary>A replayed tool loop keeps what it said: the assistant turn lists its calls with their ids, and a
+    /// result names the call it answers (the steward's ruling, <c>docs/DECISIONS.md</c> D325).</summary>
+    [Fact]
+    public void Tool_calls_and_results_are_rendered_with_their_ids()
+    {
+        var req = new TextRequest
+        {
+            Messages =
+            [
+                TextMessage.User("weather in Paris?"),
+                TextMessage.AssistantToolCalls([new TextToolCall("call_1", "get_weather", """{"city":"Paris"}""")]),
+                TextMessage.ToolResult("call_1", "12 C"),
+            ],
+        };
+
+        var prompt = CliPrompt.Flatten(req);
+
+        Assert.Contains("""[call call_1] get_weather {"city":"Paris"}""", prompt);
+        Assert.Contains("[tool call_1]\n12 C", prompt);
+        Assert.DoesNotContain("[assistant]\n\n\n", prompt);
+    }
+
     [Fact]
     public void Json_schema_appends_the_structured_output_instruction()
     {

@@ -99,7 +99,25 @@ public sealed class ClaudeCliProvider : IModelProvider, IProviderUpdater,
 
     /// <inheritdoc/>
     public IAsyncEnumerable<TextChunk> StreamAsync(TextRequest req, CancellationToken ct = default) =>
-        _engine.StreamAsync(req, ct);
+        SeparatedMessages(_engine.StreamAsync(req, ct), ct);
+
+    /// <summary>Every content chunk is one assistant MESSAGE (the backend reads an <c>assistant</c> line whole), so the
+    /// second and later ones open with a blank line, where the streamed answer of a call that spoke between tool
+    /// uses ran them together (D324).</summary>
+    private static async IAsyncEnumerable<TextChunk> SeparatedMessages(
+        IAsyncEnumerable<TextChunk> chunks, [System.Runtime.CompilerServices.EnumeratorCancellation] CancellationToken ct)
+    {
+        var first = true;
+        await foreach (var chunk in chunks.WithCancellation(ct).ConfigureAwait(false))
+        {
+            if (chunk.Kind == TextChunkKind.Content && chunk.Text.Length > 0)
+            {
+                yield return first ? chunk : chunk with { Text = "\n\n" + chunk.Text };
+                first = false;
+            }
+            else yield return chunk;
+        }
+    }
 
     /// <summary>Report the installed CLI without running a turn (<c>claude --version</c>).</summary>
     /// <remarks><see cref="ProviderProbeResult.Model"/> is null against today's CLI — it has no turn-free way

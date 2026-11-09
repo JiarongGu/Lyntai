@@ -33,7 +33,7 @@ public sealed record TranscriptTurn
     public string? SystemPrompt { get; init; }
 
     /// <summary>The agent's last message: the terminal event's <see cref="SessionEnded.FinalText"/> when it has
-    /// one, else the text streamed after the turn's last tool step. Null when the agent said nothing. Never the
+    /// one (Codex's holds every agent message of the turn, a blank line between them), else the text streamed after the turn's last tool step. Null when the agent said nothing. Never the
     /// agent's thinking, and never a diagnostic.</summary>
     public string? LastMessage { get; init; }
 
