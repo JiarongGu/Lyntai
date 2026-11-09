@@ -62,6 +62,45 @@ public class McpToolsTests
     }
 
     [Fact]
+    public void ToText_describes_each_non_text_block_in_order_beside_the_text_with_its_media_type_and_size()
+    {
+        // a chart-drawing tool answers text AND a picture: the picture used to vanish whenever any text came with it
+        var result = new CallToolResult
+        {
+            Content =
+            [
+                new TextContentBlock { Text = "chart" },
+                ImageContentBlock.FromBytes(new byte[1500], "image/png"),
+                new TextContentBlock { Text = "and a clip" },
+                AudioContentBlock.FromBytes(new byte[3], "audio/wav"),
+                new EmbeddedResourceBlock { Resource = BlobResourceContents.FromBytes(new byte[2048], "file:///a.pdf", "application/pdf") },
+            ],
+        };
+
+        Assert.Equal(
+            "chart\n[image content: image/png, 1500 bytes]\nand a clip\n[audio content: audio/wav, 3 bytes]\n" +
+            "[resource content: file:///a.pdf, application/pdf, 2048 bytes]",
+            McpToolset.ToText(result));
+    }
+
+    [Fact]
+    public void ToText_describes_a_picture_alone_and_keeps_structured_content_ahead_of_it()
+    {
+        var alone = new CallToolResult { Content = [ImageContentBlock.FromBytes(new byte[10], "image/jpeg")] };
+        Assert.Equal("[image content: image/jpeg, 10 bytes]", McpToolset.ToText(alone));
+
+        var structured = new CallToolResult
+        {
+            Content = [ImageContentBlock.FromBytes(new byte[10], "image/jpeg")],
+            StructuredContent = System.Text.Json.JsonDocument.Parse("""{"w":4}""").RootElement,
+        };
+        Assert.Equal("""{"w":4}""" + "\n[image content: image/jpeg, 10 bytes]", McpToolset.ToText(structured));
+
+        var failed = new CallToolResult { IsError = true, Content = [ImageContentBlock.FromBytes(new byte[1], "image/png")] };
+        Assert.Equal("error: [image content: image/png, 1 byte]", McpToolset.ToText(failed));
+    }
+
+    [Fact]
     public async Task AddMcpTools_registers_them_so_the_loop_can_call_them()
     {
         var mcpTools = new ITool[]

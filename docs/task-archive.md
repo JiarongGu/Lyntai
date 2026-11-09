@@ -7061,6 +7061,14 @@ lines the doors' own tests pin. Landed in `08b41270`; the row stayed open in `TA
 
 - the code commits and their tests, one per ruling
 - D301 to D311, the changelog entry
+## Part 516 — the steward's rulings on `TASKS.md` Parts 475, 483 and 487: the kept run, the durable jobs, the MCP bridge and the scorers (2026-11-09)
+
+✅ done 2026-11-09 — **Outcome:** ten rows waited on a ruling (Part 475's one row held four) and the steward ruled each under the owner's delegation while the owner is away (the owner may reverse them); `docs/DECISIONS.md` **D312** to **D323** record each with the side it rejected. **Built, test failing first:** a word after `StopAsync` refused `Busy` with no prompt frame (D312); a forced dispose ending `run-disposed` with the kill in `Diagnostic` (D313); a reading never lifting a `RetryNotBefore` hold (D314); an interval counting from its due slot (D316); a cancel answered by another exception ending `Cancelled` (D317); a cron that never occurs refused at registration, the shipped store and the stored-schedule skip (D318); `RemoveAsync` keeping a shadowing schedule's next run (D319); each non-text MCP block described with media type and size (D320); the accept loop surviving an `HttpListenerException` through a static seam (D321); a judge off 0 to 1 or not finite unscored (D322); `TryParseObject` and `TryReadObject` trying up to eight braces (D323). **Documented:** a missing handler keeps `Failed`, with the mixed-fleet replay in `JobRunner` and the guide (D315). **Also fixed, no decision:** the woken-turn quiet timer reads `WokenQuietLeft` inside `_timerGate`, so a stale reading cannot be set after a newer one; a race, with no test, since no seam holds the two calls apart. Lanes `inference`, `platform` and `tools`.
+<br>**A premise narrowed:** `1e999` did not throw (`GetDouble` returned infinity and the old test pinned it clamped to 1.0), so D322 changed a clamp, not an exception. The `JobSchedulerTests` facts that hand a Feb 30 cron to the scheduler directly still hold, as the backstop for a schedule that skipped registration; the new facts cover registration, the store and a stored schedule. **Not run:** Docker was down, so every Postgres leg skipped (`LYNTAI_ALLOW_POSTGRES_SKIP=1`).
+<br>**What stays the owner's:** `TASKS.md` Part 483's partition FIFO (a shared claim predicate and a migration), and bytes or a resolvable link for an MCP image or blob (a multimodal observation shape, `TASKS.md` Part 487).
+
+- the code commits and their tests, one per part
+- D312 to D323, the changelog entry
 
 ## Part 517 — the steward's rulings on `TASKS.md` Parts 488, 489, 491 and 495, and Part 481's Codex row: SQLite LIKE, the Postgres append, vectors, the HTTP wires, generation jobs and the agent hand-over (2026-11-09)
 

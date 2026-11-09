@@ -11,7 +11,8 @@ namespace Lyntai.Jobs;
 /// (no background threads are started for you). Each schedule's next-run time is persisted (via
 /// <see cref="IKeyValueStore"/>) so a restart resumes the cadence instead of re-anchoring; with no key-value
 /// store wired it falls back to in-memory (cadence resets on restart). If the ticker was down across one or
-/// more slots, the missed runs are COALESCED into a single enqueue — not replayed as a burst.
+/// more slots, the missed runs are COALESCED into a single enqueue — not replayed as a burst. An interval's slots
+/// are anchored to the first one, so a late tick fires late but does not move the ones after it.
 /// <para>Firing is <b>at-least-once</b>: each tick enqueues the due job first, then persists the advanced
 /// next-run. A crash in that window (or a failed <c>SetNextAsync</c>) leaves the slot due, so the next
 /// tick fires it again — one slot can enqueue more than one job. This mirrors the durable-job
@@ -126,7 +127,7 @@ public sealed class JobScheduler : IJobScheduler
             _logger.LogDebug("scheduler: enqueued '{Name}' ({Type})", s.Name, s.Type);
 
             // advance to the next slot strictly after now — missed slots coalesce into this ONE run
-            if (NextAfter(s, now) is { } following) await SetNextAsync(s.Name, following, ct).ConfigureAwait(false);
+            if (NextAfter(s, now, next.Value) is { } following) await SetNextAsync(s.Name, following, ct).ConfigureAwait(false);
             return true;
         }
         catch (OperationCanceledException) when (ct.IsCancellationRequested) { throw; }
@@ -154,12 +155,20 @@ public sealed class JobScheduler : IJobScheduler
         }
     }
 
-    /// <summary>The next fire time strictly after <paramref name="from"/> — the cron's next occurrence, or
-    /// the interval advanced past <paramref name="from"/> (so a lapsed ticker coalesces to one slot); null for a cron that
-    /// never occurs.</summary>
-    private DateTimeOffset? NextAfter(JobSchedule s, DateTimeOffset from)
+    /// <summary>The next fire time strictly after <paramref name="from"/> — the cron's next occurrence, or an
+    /// interval's slot. An interval counts from its <paramref name="due"/> slot (next = due + k·interval, the first after
+    /// <paramref name="from"/>, so a late tick does not push the grid and a lapsed ticker coalesces to one slot), and from
+    /// <paramref name="from"/> itself where there is no slot yet (first sight, a changed trigger). Null for a cron that never
+    /// occurs.</summary>
+    private DateTimeOffset? NextAfter(JobSchedule s, DateTimeOffset from, DateTimeOffset? due = null)
     {
-        if (Cron(s) is not { } cron) return from + s.Interval!.Value;
+        if (Cron(s) is not { } cron)
+        {
+            var interval = s.Interval!.Value;
+            if (due is not { } slot || slot > from) return from + interval;
+            return slot + TimeSpan.FromTicks(interval.Ticks * ((from - slot).Ticks / interval.Ticks + 1));
+        }
+
         try { return cron.Next(from); }
         catch (InvalidOperationException ex) // an expression with no occurrence (Feb 30) stays that way, so it is said once
         {

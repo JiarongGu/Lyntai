@@ -138,8 +138,8 @@ public sealed record AgentSeatTaken(bool Permitted, IReadOnlyList<AgentLease> Le
 /// another account's scope, discharges nothing.</param>
 /// <param name="MeasuredAt">When the evidence was taken. It must be strictly after the hold was observed.</param>
 /// <param name="Answers">The recovery kinds this evidence answers, which the host names: a reading of an allowance's room
-/// answers <see cref="RecoveryKind.ResetAt"/> and <see cref="RecoveryKind.RetryNotBefore"/>, and no reading answers an owner
-/// action unless the host says so.</param>
+/// answers <see cref="RecoveryKind.ResetAt"/> (the pool names no other for a reading), and no reading answers an owner
+/// action or a service's <see cref="RecoveryKind.RetryNotBefore"/> unless the host says so.</param>
 public sealed record AgentPoolEvidence(
     string HoldId, long Revision, string SubjectKey, DateTimeOffset MeasuredAt, IReadOnlyCollection<RecoveryKind> Answers);
 

@@ -35,18 +35,16 @@ public static class McpToolset
         return ToText(result);
     }
 
-    /// <summary>Flatten a tool result to the observation string the loop feeds back: the text of every text block
-    /// and embedded text resource and the address of every resource link, in order, or the structured content as
-    /// JSON; prefixed <c>error:</c> when the server flagged an error. A blob or an image is described, never read.</summary>
+    /// <summary>Flatten a tool result to the observation string the loop feeds back, block by block in order: the text
+    /// of a text block and of an embedded text resource, the address of a resource link, and for an image, an audio clip
+    /// or a blob a line naming its kind, media type and size in bytes — described, never read. The structured content as
+    /// JSON leads where no block holds text. Prefixed <c>error:</c> when the server flagged an error.</summary>
     internal static string ToText(CallToolResult result)
     {
-        var text = string.Join("\n", result.Content.Select(TextOf).OfType<string>());
-        if (text.Length == 0 && result.StructuredContent is { } structured)
-            text = structured.GetRawText();
-        // no text and no structured content, but non-text blocks (image/audio/resource) — don't feed an
-        // EMPTY observation back (the model would think the tool produced nothing); describe the blocks
-        if (text.Length == 0 && result.Content.Count > 0)
-            text = string.Join("\n", result.Content.Select(b => $"[{b.Type} content]"));
+        var lines = result.Content.Select(b => TextOf(b) ?? Describe(b)).ToList();
+        if (result.Content.All(b => TextOf(b) is null) && result.StructuredContent is { } structured)
+            lines.Insert(0, structured.GetRawText());
+        var text = string.Join("\n", lines);
         if (result.IsError == true)
             return ToolObservations.Error(text.Length > 0 ? text : "tool reported an error with no message");
         return text;
@@ -59,6 +57,28 @@ public static class McpToolset
         ResourceLinkBlock l => $"[resource link: {l.Name} {l.Uri}]",
         _ => null,
     };
+
+    // what the model is told of a block it cannot be shown, so a tool answering a picture is not read as having answered nothing
+    private static string Describe(ContentBlock block) => block switch
+    {
+        ImageContentBlock image => Placeholder("image", null, image.MimeType, () => image.DecodedData.Length),
+        AudioContentBlock audio => Placeholder("audio", null, audio.MimeType, () => audio.DecodedData.Length),
+        EmbeddedResourceBlock { Resource: BlobResourceContents blob } =>
+            Placeholder("resource", blob.Uri, blob.MimeType, () => blob.DecodedData.Length),
+        _ => $"[{block.Type} content]",
+    };
+
+    private static string Placeholder(string kind, string? address, string? mediaType, Func<int> size)
+    {
+        int? bytes;
+        try { bytes = size(); }
+        catch (FormatException) { bytes = null; }   // a payload that is not base64 has no size to state
+        var parts = new List<string>();
+        if (!string.IsNullOrEmpty(address)) parts.Add(address);
+        parts.Add(string.IsNullOrEmpty(mediaType) ? "no media type" : mediaType);
+        parts.Add(bytes is { } n ? $"{n} {(n == 1 ? "byte" : "bytes")}" : "size unknown");
+        return $"[{kind} content: {string.Join(", ", parts)}]";
+    }
 
     /// <summary>JSON arguments string → the dictionary the MCP call wants (values kept as detached
     /// <see cref="JsonNode"/>s — the SDK serializes them on the wire), through the same

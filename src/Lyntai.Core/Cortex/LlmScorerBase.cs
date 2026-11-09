@@ -8,7 +8,8 @@ namespace Lyntai.Cortex;
 /// Base for LLM-judge scorers: one-shot call through the front door (the configured default
 /// candidates), expecting a <c>{"score": 0..1, "reason": "…"}</c> verdict. Extraction + the
 /// one-retry-on-parse-failure contract come from <see cref="TextStructuredExtensions.CompleteJsonAsync"/>;
-/// anything unusable → null (the dimension is skipped, never sinks the evaluation).
+/// anything unusable → null (the dimension is skipped, never sinks the evaluation), a <c>score</c> outside 0..1 or
+/// not finite included: it is never clamped into one.
 /// </summary>
 public abstract class LlmScorerBase(ITextClient llm) : IScorer
 {
@@ -77,7 +78,8 @@ public abstract class LlmScorerBase(ITextClient llm) : IScorer
         {
             if (!doc.RootElement.TryGetProperty("score", out var scoreEl) || scoreEl.ValueKind != JsonValueKind.Number)
                 return false;
-            var score = Math.Clamp(scoreEl.GetDouble(), 0.0, 1.0);
+            // a judge on another scale ({"score": 7} from a 0 to 10 one) is no verdict: clamping would read it as a perfect one
+            if (!scoreEl.TryGetDouble(out var score) || !double.IsFinite(score) || score is < 0.0 or > 1.0) return false;
             var reason = doc.RootElement.TryGetProperty("reason", out var reasonEl) && reasonEl.ValueKind == JsonValueKind.String
                 ? reasonEl.GetString()
                 : null;

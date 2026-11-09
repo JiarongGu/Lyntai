@@ -384,7 +384,7 @@ public sealed class LyntaiBuilder
     /// <exception cref="ArgumentException">The name is blank, or the schedule sets both triggers or
     /// neither.</exception>
     /// <exception cref="ArgumentOutOfRangeException">The interval is not positive.</exception>
-    /// <exception cref="FormatException">The cron does not parse.</exception>
+    /// <exception cref="FormatException">The cron does not parse, or never occurs (Feb 30).</exception>
     /// <exception cref="InvalidOperationException">A schedule of the same name is already registered: the
     /// name keys the persisted next-run, so only one of the two would ever fire.</exception>
     public LyntaiBuilder AddJobSchedule(JobSchedule schedule)
