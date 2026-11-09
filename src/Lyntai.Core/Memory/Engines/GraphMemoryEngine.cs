@@ -8,6 +8,7 @@ using Lyntai.Memory.Ranking;
 using Lyntai.Memory.Salience;
 using Lyntai.Memory.Seeding;
 using Lyntai.Memory.Verification;
+using Lyntai.Storage;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 
@@ -340,7 +341,7 @@ public sealed class GraphMemoryEngine(
         var (signals, salienceProvenance) = CollectSignals(write, Probe(write, search, _options.MinSimilarity));
 
         var node = new GraphNodeWrite(Name, write.TaskKey, write.Scope, headline, write.Content, grade,
-            _policy.InitialStability * Ordinary(tick.Encoding), Ordinary(tick.Position),
+            StoredStability(tick.Encoding), Ordinary(tick.Position),
             write.Metadata, signals,
             ProvenanceRetrievability: (long)_policy.Provenance,
             ProvenanceSalience: salienceProvenance,
@@ -2123,6 +2124,14 @@ public sealed class GraphMemoryEngine(
     /// </summary>
     private static double Ordinary(double component) =>
         double.IsFinite(component) ? Math.Max(0, component) : 1;
+
+    /// <summary>The stability a write stores: the policy's initial one scaled by the tick's encoding, never
+    /// below <see cref="MemoryGraphSql.MinimumStabilityValue"/>. A BYO age policy returning
+    /// <c>Encoding = 0</c> would otherwise store 0, which the retrievability curve reads as
+    /// <see cref="IMemoryRetrievabilityPolicy.InitialStability"/> and the store's prune reads as the floor, so
+    /// the two disagreed on whether the entry could be recalled.</summary>
+    private double StoredStability(double encoding) =>
+        Math.Max(_policy.InitialStability * Ordinary(encoding), MemoryGraphSql.MinimumStabilityValue);
 
     /// <summary>Resolves <see cref="MemoryQuery.RankingPolicyName"/> against this engine's own
     /// <see cref="_namedRanking"/> catalog — null takes <see cref="_ranking"/>, the engine's configured
