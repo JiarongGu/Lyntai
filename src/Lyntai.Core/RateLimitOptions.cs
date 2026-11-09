@@ -20,7 +20,10 @@ public sealed class RateLimitOptions
     public TimeSpan MaxWait { get; set; } = TimeSpan.FromSeconds(10);
 
     /// <summary>Per-consumer rates, checked instead of the global one for a listed consumer (the more
-    /// specific limit wins). A consumer absent from the map uses the global rate.</summary>
+    /// specific limit wins). A consumer absent from the map uses the global rate.
+    /// <para><b>Set every entry before the first call.</b> The map is a plain <see cref="Dictionary{TKey, TValue}"/>
+    /// the limiter reads on every acquire, so an entry added, replaced or removed while calls run races those
+    /// reads and is not safe. The scalar settings above are the ones that retune live.</para></summary>
     public Dictionary<string, ConsumerRate> PerConsumer { get; } = new(StringComparer.OrdinalIgnoreCase);
 }
 

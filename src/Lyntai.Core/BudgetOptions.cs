@@ -34,7 +34,10 @@ public sealed class BudgetOptions
     /// <summary>Per-consumer caps checked against that consumer's own running total, in addition to the
     /// global caps. A consumer absent from the map is bound only by the global caps. Consumer identity is
     /// case-INSENSITIVE end-to-end: this lookup, the rate limiter's buckets, and the usage trackers'
-    /// per-consumer totals all fold case, so "Chat"/"chat" share one cap and one total.</summary>
+    /// per-consumer totals all fold case, so "Chat"/"chat" share one cap and one total.
+    /// <para><b>Set every entry before the first call.</b> The map is a plain <see cref="Dictionary{TKey, TValue}"/>
+    /// the gate reads on every call, so an entry added, replaced or removed while calls run races those reads
+    /// and is not safe.</para></summary>
     public Dictionary<string, ConsumerBudget> PerConsumer { get; } = new(StringComparer.OrdinalIgnoreCase);
 }
 
