@@ -84,6 +84,15 @@ public enum MemoryDetail
     /// as a pointer to itself. Costs what the extra text costs — <see cref="MemoryQuery.CharBudget"/> prices
     /// it and will therefore admit fewer items for the same budget.</summary>
     Full = 1,
+
+    /// <summary>The PASSAGE that matched the query, in <see cref="MemoryItem.Span"/>, and no content: an entry
+    /// of any length costs about <see cref="MemoryQuery.SpanChars"/> characters beside its headline. A recall
+    /// of associative material therefore returns what <see cref="Headline"/> does plus the matching excerpt;
+    /// authoritative content stays whole, because it is never returned truncated.
+    /// <para>An entry nothing in the query matches by its words — one reached by meaning or by a link — carries
+    /// no span. Only a graph engine cuts one; an expansion has no query to match and reads as
+    /// <see cref="Headline"/>.</para></summary>
+    Matching = 2,
 }
 
 /// <summary>What to recall.</summary>
@@ -134,7 +143,27 @@ public sealed record MemoryQuery(
     /// ended entries can return fewer than <see cref="Limit"/> — never an ended one.
     /// <para>An engine that holds no valid time ignores it: its entries are untimed, valid at every instant.</para></summary>
     public MemoryValidityReading Validity { get; init; }
+
+    /// <summary>How long a <see cref="MemoryDetail.Matching"/> passage may be, in characters; a passage is cut at
+    /// word boundaries and may come back a little shorter. Defaults to <see cref="MemoryLimits.DefaultSpanChars"/>,
+    /// and anything below one throws <see cref="ArgumentOutOfRangeException"/>. Read only under that detail.</summary>
+    public int SpanChars
+    {
+        get;
+        init => field = value >= 1
+            ? value
+            : throw new ArgumentOutOfRangeException(nameof(SpanChars), value, "A passage of no characters shows nothing.");
+    } = MemoryLimits.DefaultSpanChars;
 }
+
+/// <summary>The part of an entry's content that matched a query: what <see cref="MemoryDetail.Matching"/> returns
+/// instead of the whole entry.</summary>
+/// <param name="Text">The passage, cut at word boundaries and no longer than the query's
+/// <see cref="MemoryQuery.SpanChars"/> unless one matched word is.</param>
+/// <param name="Start">Where it begins in the entry's content, in characters; greater than zero means text precedes it.</param>
+/// <param name="ContentLength">The whole content's length, so <c>Start + Text.Length</c> below it means text follows, and a caller
+/// can tell how much of the entry it is not reading.</param>
+public sealed record MemorySpan(string Text, int Start, int ContentLength);
 
 /// <summary>One recalled entry.</summary>
 /// <param name="Reference">Its address, carrying the owning engine.</param>
@@ -171,6 +200,23 @@ public sealed record MemoryItem(
     int Degree,
     IReadOnlyDictionary<string, string>? Metadata = null)
 {
+    /// <summary>How much of the query this entry covers, 0..1, or null where the engine computes none or the query has no
+    /// words. Unlike <see cref="Relevance"/>, which is a rank position and is 1 for the top hit of every recall, this
+    /// means the same thing in every recall: <b>1 is an entry holding every distinctive word of the query</b>, 0.3 one
+    /// holding a third of what mattered, 0 one that holds none of its words (reached by meaning or by a link).
+    /// <para>Each query word counts by how rare it is among the entries the recall considered (a word every one of them holds
+    /// weighs almost nothing, so <c>what</c> and <c>did</c> do not make a weak hit strong), and an identifier-shaped word
+    /// (<c>D123</c>, <c>ABC1d</c>) counts only where it stands whole and in the same case, so <c>D12</c> is not
+    /// covered by <c>D123</c>. It is lexical and ignores the ranking: a paraphrase found by an embedding reads low, and
+    /// a high score is evidence of coverage, not of an answer. Compare it with a threshold the caller chose by looking
+    /// at its own recalls; the library fixes none.</para></summary>
+    public double? Score { get; init; }
+
+    /// <summary>The passage of the content that matched, present only under <see cref="MemoryDetail.Matching"/> and only where
+    /// the content holds a word of the query; null otherwise. A match in the headline alone leaves it null, since the
+    /// headline is already returned.</summary>
+    public MemorySpan? Span { get; init; }
+
     /// <summary>When the fact held in the world and what superseded it, or null for an untimed entry and for an
     /// engine that holds no valid time. A recall under <see cref="MemoryValidityReading.History"/> or an
     /// earlier reading returns entries that are no longer current; this is how a caller, and
@@ -202,6 +248,9 @@ public static class MemoryLimits
 
     /// <summary>The longest operation key (<see cref="MemoryWrite.OperationKey"/>), in characters.</summary>
     public const int MaxOperationKeyChars = 200;
+
+    /// <summary>The default <see cref="MemoryQuery.SpanChars"/>: a few sentences, about 100 tokens.</summary>
+    public const int DefaultSpanChars = 400;
 }
 
 /// <summary>The result of a recall, with the tiers that actually ran.</summary>

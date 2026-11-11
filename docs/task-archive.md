@@ -7077,3 +7077,12 @@ lines the doors' own tests pin. Landed in `08b41270`; the row stayed open in `TA
 
 - the code commits and their tests, one per Part
 - D324 to D339, the changelog entry
+
+## Part 518 — Daoris's request `DOCDIET1`: a graph recall that finds by identifier, scores a hit, returns the passage and bounds an entry (2026-11-12)
+
+Daoris measured plain files against Lyntai's memory as the home of a repository's history on 36 questions (by identifier 11 of 14 against 4 of 14, by words 17 of 22 against 4, about 2 KB an answer against 9.6 KB) and asked for four things. Built, each off until asked for: an identifier channel that pins (D340), `MemoryItem.Score` (D341), `MemoryDetail.Matching` with `MemoryItem.Span` (D342), and `GraphMemoryOptions.MaxContentChars` with `MemoryChunks.Split` (D343).
+<br>**Not measured:** the 36 questions are Daoris's and were not run here; the tests pin the behaviour on small corpora, so whether the top hit by identifier and by words reaches what files gave is Daoris's to measure on a release. Ranking by words was not changed beyond the score and the passage.
+<br>**Not done:** an engine that splits at write (D343), a semantic hit's score (D341), and the Postgres legs, which are shared code with the SQLite ones and were not run where Docker was down.
+
+- the code commit and `tests/Lyntai.Tests/Memory/MemoryExactRecallTests.cs`
+- D340 to D343, `docs/memory.md` §Find an entry by its identifier, the changelog entry

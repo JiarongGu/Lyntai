@@ -282,6 +282,15 @@ every addition.
 
 ### Added
 
+- **A graph memory recall can find an entry by its identifier, say how strong the hit is, return the matching passage, and refuse an
+  entry too long to read** (**D340** to **D343**). `AddMemoryIdentifierSeeds()` registers `IdentifierSeedSource`: an identifier-shaped
+  word of the query (`D123`, `ABC1d`, `ISSUE-42`) is looked up alone, and an entry that holds it whole and in the same case leads the
+  recall, the entry about it (headline, then shortest) above one that cites it. A new `IMemorySeedSource.Pins` (default `false`) is how a
+  channel asks for that. `MemoryItem.Score` is how much of the query the entry covers, 0 to 1, weighted by how rare each word is among
+  the recall's candidates, so it means the same in every recall, where `Relevance` is a rank position. `MemoryDetail.Matching` returns
+  `MemoryItem.Span` (the passage, its start and the content's length) of about `MemoryQuery.SpanChars` (400) in place of the content, and
+  the character budget prices it. `GraphMemoryOptions.MaxContentChars` (default none) refuses a longer write, and `MemoryChunks.Split`
+  cuts text into parts that each fit. All of it is off or null until asked for, and no existing recall changes.
 - **`LyntaiOptions.ToolLoopMaxCallsPerTurn`** (default 32, `LYNTAI_TOOL_LOOP_MAX_CALLS_PER_TURN`) bounds the calls one native tool-loop turn runs (**D256**).
   Through 3.5.3 a turn of N calls ran all N. A call past the cap is not run and is answered with an `error:` observation, so the transcript
   keeps a result per call id; below 1 means no cap, and the prompt protocol, which makes one call a turn, is unchanged.

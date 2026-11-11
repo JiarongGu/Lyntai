@@ -259,6 +259,7 @@ public sealed class GraphMemoryEngine(
         // a write returns the reference it stored, so a blank claim has no honest skip: it is refused, as the write tool refuses it
         ArgumentException.ThrowIfNullOrWhiteSpace(write.Content);
 
+        CheckLength(write);
         // Valid time is checked FIRST, before any embed or annotation call: a refused write has cost nothing.
         var predecessors = await ResolvePredecessorsAsync(write, ct).ConfigureAwait(false);
         var relations = await ResolveRelationsAsync(write, ct).ConfigureAwait(false);
@@ -492,6 +493,15 @@ public sealed class GraphMemoryEngine(
         && !IsThisWrite(node, write)
         && MemoryValidityReading.Current.Admits(node.Validity, now);
 
+    /// <summary>A write longer than <see cref="GraphMemoryOptions.MaxContentChars"/> is refused, never shortened.</summary>
+    private void CheckLength(MemoryWrite write)
+    {
+        if (_options.MaxContentChars is { } max && write.Content.Length > max)
+            throw new ArgumentException(
+                $"Content is {write.Content.Length} characters and engine '{Name}' keeps entries of at most {max}; split it " +
+                $"with {nameof(MemoryChunks)}.{nameof(MemoryChunks.Split)} and write each part.", nameof(write));
+    }
+
     /// <summary>A re-check is bounded and needs a store that can hold it, or the write would lose it silently.</summary>
     private void CheckRecheck(MemoryWrite write)
     {
@@ -622,6 +632,7 @@ public sealed class GraphMemoryEngine(
             if (!expected.ContainsKey(id)) ids.Add(id);
             expected[id] = revision;
         }
+        CheckLength(write);
         CheckRecheck(write);
 
         // a repeat answers its receipt BEFORE the checks that read the world, which a later change (a predecessor removed since)
@@ -1334,7 +1345,8 @@ public sealed class GraphMemoryEngine(
             .Select(f => new MemoryCandidate(f.Node, Retrievability(f.Node), f.Hop) { Ranks = f.Ranks })
             .ToList();
 
-        var ranked = ranking.Rank(candidates, new MemoryRankingContext(limit, Name));
+        var ranked = PinFirst(ranking.Rank(candidates, new MemoryRankingContext(limit, Name)),
+            found.Where(f => f.Pin is not null).ToDictionary(f => f.Node.Id, f => f.Pin!.Value));
         if (ranked.Count == 0 && candidates.Count == 0) return nothing;
 
         var (reserved, ordinary) = ReserveAuthoritative(candidates, ranked, limit);
@@ -1380,7 +1392,9 @@ public sealed class GraphMemoryEngine(
             // among itself. Null when nothing judged, so the shipped default (no verifier) never reports
             // `false` and a consumer abstaining on `false` does not abstain on everything.
             // a filter that emptied the page still says a judge looked: `false`, never the null of "no judge"
-            var items = scored.Count > 0 ? ToItems(scored, query) : [];
+            var items = scored.Count > 0
+                ? ToItems(scored, query, MemoryQueryMatcher.Create(query.Query, [.. candidates.Select(c => (c.Node.Headline, c.Node.Content))]))
+                : [];
             recall = scored.Count > 0
                 ? new MemoryRecall(
                     await WithRelationsAsync(query.TaskKey, items, ct).ConfigureAwait(false),
@@ -1411,6 +1425,15 @@ public sealed class GraphMemoryEngine(
             }
             : recall;
     }
+
+    /// <summary>Entries a pinning channel matched (<see cref="IMemorySeedSource.Pins"/>) lead the ranking, best pin first, and the
+    /// rest follow in the policy's order. Reorders only: the policy still decides what is dropped, and a ranking a
+    /// pinning channel did not touch comes back as it was.</summary>
+    private static IReadOnlyList<RankedMemory> PinFirst(IReadOnlyList<RankedMemory> ranked, Dictionary<long, double> pins) =>
+        pins.Count == 0
+            ? ranked
+            : [.. ranked.Where(r => pins.ContainsKey(r.Candidate.Node.Id)).OrderByDescending(r => pins[r.Candidate.Node.Id]),
+               .. ranked.Where(r => !pins.ContainsKey(r.Candidate.Node.Id))];
 
     /// <summary>What <see cref="MemoryQuery.Explain"/> attaches: each candidate's outcome, read off the sets
     /// the recall already built — in <paramref name="order"/>, the floored after it — so explaining adds no
@@ -1551,8 +1574,10 @@ public sealed class GraphMemoryEngine(
     }
 
     /// <summary>What the caller actually receives: each surviving candidate projected onto a
-    /// <see cref="MemoryItem"/>, then trimmed to the query's character budget.</summary>
-    private List<MemoryItem> ToItems(IReadOnlyList<RankedMemory> scored, MemoryQuery query)
+    /// <see cref="MemoryItem"/>, then trimmed to the query's character budget. <paramref name="matcher"/> reads the
+    /// query against the whole candidate set, so a score means the same for every item of one recall; null where the query
+    /// has no usable word.</summary>
+    private List<MemoryItem> ToItems(IReadOnlyList<RankedMemory> scored, MemoryQuery query, MemoryQueryMatcher? matcher)
     {
         var items = scored
             .Select(x => new MemoryItem(
@@ -1560,7 +1585,9 @@ public sealed class GraphMemoryEngine(
                 x.Candidate.Node.Headline, ProjectContent(x.Candidate.Node, query.Detail),
                 x.Candidate.Node.Grade, x.Candidate.Node.Relevance, x.Candidate.Retrievability,
                 x.Candidate.Node.Degree, x.Candidate.Node.Metadata) { Validity = x.Candidate.Node.Validity, Revision = RevisionOf(x.Candidate.Node),
-                Recheck = x.Candidate.Node.Recheck, ConfirmedAt = x.Candidate.Node.ConfirmedAt })
+                Recheck = x.Candidate.Node.Recheck, ConfirmedAt = x.Candidate.Node.ConfirmedAt,
+                Score = matcher?.Score(x.Candidate.Node.Headline, x.Candidate.Node.Content),
+                Span = query.Detail == MemoryDetail.Matching ? matcher?.Span(x.Candidate.Node.Content, query.SpanChars) : null })
             .ToList();
 
         // applied AFTER ranking, so the budget cuts the weakest tail rather than changing what wins
@@ -2194,7 +2221,12 @@ public sealed class GraphMemoryEngine(
 
     /// <summary>One gathered candidate: the entry, how far out it was reached, and which sources matched it
     /// at what rank. A hop neighbour carries <see cref="MemorySeedRanks.Empty"/>.</summary>
-    private readonly record struct GatheredCandidate(GraphNode Node, int Hop, MemorySeedRanks Ranks);
+    /// <param name="Node">The entry.</param>
+    /// <param name="Hop">How far out it was reached.</param>
+    /// <param name="Ranks">Which sources matched it, at what rank.</param>
+    /// <param name="Pin">The best <see cref="GraphNode.Relevance"/> a source that <see cref="IMemorySeedSource.Pins"/> gave
+    /// it, or null when none did.</param>
+    private readonly record struct GatheredCandidate(GraphNode Node, int Hop, MemorySeedRanks Ranks, double? Pin = null);
 
     /// <summary>
     /// One source's ELIGIBLE nodes, ranked by that source's OWN <see cref="GraphNode.Relevance"/> gradient —
@@ -2290,6 +2322,7 @@ public sealed class GraphMemoryEngine(
         var found = new List<(GraphNode Node, int Hop)>();
         var seen = new HashSet<long>();
         var ranks = new Dictionary<long, List<MemorySeedRank>>();
+        var pins = new Dictionary<long, double>();
         var cutShort = false;
 
         foreach (var source in _seedSources)
@@ -2315,6 +2348,10 @@ public sealed class GraphMemoryEngine(
 
             if (produced.Count >= window && admittedHere < fromThisSource.Count && admittedHere < wanted)
                 cutShort = true;
+
+            if (source.Pins)
+                foreach (var node in eligible)
+                    pins[node.Id] = pins.TryGetValue(node.Id, out var held) ? Math.Max(held, node.Relevance) : node.Relevance;
 
             var assigned = SourceRanks(eligible);
             for (var i = 0; i < assigned.Length; i++)
@@ -2349,7 +2386,8 @@ public sealed class GraphMemoryEngine(
         }
 
         return ([.. found.Select(f => new GatheredCandidate(f.Node, f.Hop,
-            ranks.TryGetValue(f.Node.Id, out var r) ? new MemorySeedRanks(r) : MemorySeedRanks.Empty))], cutShort);
+            ranks.TryGetValue(f.Node.Id, out var r) ? new MemorySeedRanks(r) : MemorySeedRanks.Empty,
+            pins.TryGetValue(f.Node.Id, out var pin) ? pin : null))], cutShort);
     }
 
     /// <summary>Asks the verifier which of these actually answered the query, fail-open in every direction
