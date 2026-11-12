@@ -204,6 +204,10 @@ sealed class Lyntai.Agents.AgentChoice
     Model : String { get; init; }
     Provider : String { get; init; } required
     ToString() : String
+enum Lyntai.Agents.AgentConflict
+    ConversationHeld : AgentConflict const
+    None : AgentConflict const
+    value__ : Int32
 sealed class Lyntai.Agents.AgentConversationSource
     .ctor(String ProviderId, String DoorId, String Account = null)
     Account : String { get; init; }
@@ -238,6 +242,7 @@ sealed class Lyntai.Agents.AgentFailure
     .ctor(AgentFailureKind Kind, String By)
     AccessReadings : AgentAccessReadings { get; init; }
     By : String { get; init; }
+    Conflict : AgentConflict { get; init; }
     Deconstruct(AgentFailureKind& Kind, String& By) : Void
     Delivery : AgentDelivery { get; init; }
     Equals(AgentFailure other) : Boolean

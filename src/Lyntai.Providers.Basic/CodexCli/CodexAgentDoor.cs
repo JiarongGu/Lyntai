@@ -49,8 +49,12 @@ internal static class CodexAgentDoor
                         SideEffects = UsageAgentProvider.ServerStart,
                     },
                     Declared(AgentAbilities.PermissionRequests, AgentSupport.Unsupported, "a turn is one non-interactive process: the sandbox decides, and no request reaches the host"),
-                    Declared(AgentAbilities.PermissionMode, AgentSupport.Unsupported, "its gate is the sandbox option (CodexAgentOptions.SandboxMode), not a permission mode"),
-                    Declared(AgentAbilities.Effort, AgentSupport.Unsupported, "no flag or override for an effort is measured here"),
+                    Declared(AgentAbilities.PermissionMode, AgentSupport.Supported,
+                        "the sandbox, as --sandbox with a word codex exec --help lists: " + string.Join(", ", CodexAgentArgs.SandboxModes)
+                        + "; no approval word, since exec asks no one (its approval policy is never) and any other word refuses the turn"),
+                    Declared(AgentAbilities.Effort, AgentSupport.Supported,
+                        "-c model_reasoning_effort with a level from the maker's configuration reference, never run here: " + string.Join(", ", CodexAgentArgs.EffortLevels)
+                        + "; any other refuses the turn, and a level the model does not take is the agent's own failure"),
                     Declared(AgentAbilities.Plugins, AgentSupport.Unsupported, "no plugin flag is measured here"),
                     Declared(AgentAbilities.Environment, AgentSupport.Supported, "the turn's variables in the child's environment, over the registration's and beneath the MCP bearer variables and the account's; a null removes one"),
                     Declared(AgentAbilities.KeptRun, AgentSupport.Unsupported, "exec takes its prompt once; a resume is a new process (read from the source, never run)"),

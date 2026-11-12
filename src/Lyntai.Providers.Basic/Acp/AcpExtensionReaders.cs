@@ -15,7 +15,9 @@ public static class AcpExtensionReaders
     /// Claude category in an error's <c>data.errorKind</c>.</summary>
     public static IAcpExtensionReader Claude { get; } = new ClaudeExtensions();
 
-    /// <summary><c>codex-acp</c>: an error's <c>data.codexErrorInfo</c>, a word or an object keyed by its variant.</summary>
+    /// <summary><c>codex-acp</c>: an error's <c>data.codexErrorInfo</c>, a word or an object keyed by its variant, and its
+    /// <c>data.reason</c> of <c>thread_active_writer</c>, a conversation another Codex client holds
+    /// (<see cref="AgentConflict.ConversationHeld"/>).</summary>
     public static IAcpExtensionReader Codex { get; } = new CodexExtensions();
 
     /// <summary>The <c>sessionFailure</c> field of the AIR extension (<c>_meta.jetbrains.air</c>) the door declares at
@@ -49,8 +51,14 @@ public static class AcpExtensionReaders
 
     private sealed class CodexExtensions : IAcpExtensionReader
     {
-        public AgentFailure? ReadError(JsonElement error, TimeProvider time) =>
-            WireJson.Object(error, "data") is { } data && data.TryGetProperty("codexErrorInfo", out var info) ? FromInfo(info) : null;
+        public AgentFailure? ReadError(JsonElement error, TimeProvider time)
+        {
+            if (WireJson.Object(error, "data") is not { } data) return null;
+            // the structured reason and never the sentence beside it
+            if (WireJson.String(data, "reason") == "thread_active_writer")
+                return new AgentFailure(AgentFailureKind.Fatal, "acp.data.reason=thread_active_writer") { Conflict = AgentConflict.ConversationHeld };
+            return data.TryGetProperty("codexErrorInfo", out var info) ? FromInfo(info) : null;
+        }
 
         // a word, or an object keyed by the variant that holds its details (an HTTP status among them); a word
         // that says nothing ("other") reads as nothing, so the sentence may

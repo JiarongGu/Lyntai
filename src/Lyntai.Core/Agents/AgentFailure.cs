@@ -217,6 +217,20 @@ public enum AccessReason
     CredentialRefused,
 }
 
+/// <summary>A state of the world a door states beside a failure, read from a field the door defines and never from words. It rides
+/// on <see cref="AgentFailure.Conflict"/> beside the kind, which stays what the fields and words decided, so a host that reads only
+/// <see cref="AgentFailure.Kind"/> sees what it saw before.</summary>
+public enum AgentConflict
+{
+    /// <summary>No conflict was stated. The default.</summary>
+    None = 0,
+
+    /// <summary>Another process holds the conversation and the agent will not open it for this one, so the open was refused
+    /// before the prompt. A later attempt may find it free and nothing in the door says when; the library never retries it, since
+    /// resuming over a live writer is the host's decision.</summary>
+    ConversationHeld,
+}
+
 /// <summary>The two readings of an access failure, kept apart: there is no winner and no rule choosing between
 /// them, since a field and a sentence disagree in practice and either may be the right one for a host. Each is
 /// null when its source said nothing about which.</summary>
@@ -241,6 +255,11 @@ public sealed record AgentFailure(AgentFailureKind Kind, string By)
     /// <summary>For an <see cref="AgentFailureKind.Access"/> failure, what a field and the words each said of it;
     /// null for every other kind. <see cref="Kind"/> stays what the fields decided.</summary>
     public AgentAccessReadings? AccessReadings { get; init; }
+
+    /// <summary>A state of the world the door stated beside the failure; <see cref="AgentConflict.None"/> where it stated none.
+    /// <see cref="Kind"/> is unchanged by it (a held conversation is <see cref="AgentFailureKind.Fatal"/> to the retry decorator and
+    /// holds nothing in the pool), so a host that resumes a conversation reads this member and not the kind.</summary>
+    public AgentConflict Conflict { get; init; }
 
     /// <summary>Whether the prompt was delivered. The door's session loop sets it from what the turn showed
     /// before it failed; a reader that builds a failure of its own leaves the default.</summary>

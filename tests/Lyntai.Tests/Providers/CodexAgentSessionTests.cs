@@ -523,26 +523,108 @@ public class CodexAgentSessionTests
         Assert.DoesNotContain("--disallowed-tools", runner.LastArgs!);   // codex has no such flag to invent
     }
 
-    [Theory]
-    [InlineData("permission-mode")]
-    [InlineData("effort")]
-    [InlineData("plugins")]
-    public async Task A_mode_an_effort_or_a_plugin_folder_is_refused_before_a_spawn_where_the_door_states_it_unsupported(string ability)
+    [Fact]
+    public async Task A_plugin_folder_is_refused_before_a_spawn_where_the_door_states_it_unsupported()
     {
         var runner = new FakeProcessRunner(MeasuredSuccess);
-        var options = ability switch
-        {
-            "permission-mode" => Ask() with { PermissionMode = "plan" },
-            "effort" => Ask() with { Effort = "high" },
-            _ => Ask() with { PluginDirectories = [Path.GetFullPath("plugin-a")] },
-        };
 
-        var ended = Assert.IsType<SessionEnded>(Assert.Single(await Session(runner).StreamAsync(options).ToListAsync()));
+        var ended = Assert.IsType<SessionEnded>(Assert.Single(await Session(runner)
+            .StreamAsync(Ask() with { PluginDirectories = [Path.GetFullPath("plugin-a")] }).ToListAsync()));
 
         Assert.Equal((ProviderVerdict.Unsupported, AgentProvider.OptionRefusedSubtype), (ended.Verdict, ended.Subtype));
-        Assert.Contains(ability, ended.Diagnostic);
+        Assert.Contains("plugins", ended.Diagnostic);
         Assert.Empty(runner.Calls);
-        Assert.Equal(AgentSupport.Unsupported, CodexAgentDoor.Describe("codex-cli").Doors[0].SupportFor(ability));
+        Assert.Equal(AgentSupport.Unsupported, CodexAgentDoor.Describe("codex-cli").Doors[0].SupportFor("plugins"));
+    }
+
+    [Theory] // the sandbox is the agent's own word for what a turn may do; the three are the measured --sandbox values
+    [InlineData("read-only")]
+    [InlineData("workspace-write")]
+    [InlineData("danger-full-access")]
+    public async Task A_permission_mode_is_the_sandbox_word_and_beats_the_tool_policys_mapping(string mode)
+    {
+        var runner = new FakeProcessRunner(MeasuredSuccess);
+
+        await Session(runner).StreamAsync(Ask() with { ToolPolicy = AgentToolPolicy.ReadOnly, PermissionMode = mode }).ToListAsync();
+
+        var args = runner.LastArgs!.ToList();
+        Assert.Equal(mode, args[args.IndexOf("--sandbox") + 1]);
+        Assert.Single(args, "--sandbox");
+    }
+
+    [Theory]
+    [InlineData("plan")]                 // another agent's word
+    [InlineData("on-request")]           // an approval word: exec asks no one, so no approval mode is carried
+    public async Task A_permission_mode_that_is_no_sandbox_word_is_refused_before_a_spawn_and_names_the_words(string mode)
+    {
+        var runner = new FakeProcessRunner(MeasuredSuccess);
+
+        var ended = Assert.IsType<SessionEnded>(Assert.Single(await Session(runner).StreamAsync(Ask() with { PermissionMode = mode }).ToListAsync()));
+
+        Assert.Equal((ProviderVerdict.Unsupported, AgentProvider.OptionRefusedSubtype), (ended.Verdict, ended.Subtype));
+        Assert.Contains("read-only, workspace-write, danger-full-access", ended.Diagnostic);
+        Assert.Empty(runner.Calls);
+    }
+
+    [Fact]
+    public async Task A_permission_mode_beside_a_different_explicit_sandbox_is_refused_as_a_contradiction_and_beside_the_same_one_is_not()
+    {
+        var refused = new FakeProcessRunner(MeasuredSuccess);
+        var ended = Assert.IsType<SessionEnded>(Assert.Single(await Session(refused).StreamAsync(
+            new CodexAgentOptions { Prompt = "hi", PermissionMode = "read-only", SandboxMode = "workspace-write" }).ToListAsync()));
+        Assert.Equal(AgentProvider.OptionRefusedSubtype, ended.Subtype);
+        Assert.Empty(refused.Calls);
+
+        var agreed = new FakeProcessRunner(MeasuredSuccess);
+        await Session(agreed).StreamAsync(new CodexAgentOptions { Prompt = "hi", PermissionMode = "read-only", SandboxMode = "read-only" }).ToListAsync();
+        Assert.Equal("read-only", agreed.LastArgs![agreed.LastArgs.ToList().IndexOf("--sandbox") + 1]);
+    }
+
+    [Theory]
+    [InlineData("minimal")]
+    [InlineData("low")]
+    [InlineData("medium")]
+    [InlineData("high")]
+    [InlineData("xhigh")]
+    public async Task An_effort_is_a_reasoning_effort_override_before_the_positionals_on_a_fresh_and_a_resumed_turn(string effort)
+    {
+        var fresh = new FakeProcessRunner(MeasuredSuccess);
+        var resumed = new FakeProcessRunner(MeasuredSuccess);
+
+        await Session(fresh).StreamAsync(Ask() with { Effort = effort }).ToListAsync();
+        await Session(resumed).StreamAsync(Ask() with { Effort = effort, ResumeToken = "t-9" }).ToListAsync();
+
+        foreach (var runner in new[] { fresh, resumed })
+        {
+            var args = runner.LastArgs!.ToList();
+            var at = args.IndexOf("-c");
+            Assert.Equal($"model_reasoning_effort=\"{effort}\"", args[at + 1]);
+            Assert.True(at + 1 < args.Count - 1, "the override sits before the `-` that reads stdin");
+            Assert.Equal("-", args[^1]);
+        }
+    }
+
+    [Fact]
+    public async Task An_effort_the_door_does_not_carry_is_refused_before_a_spawn_and_names_the_levels()
+    {
+        var runner = new FakeProcessRunner(MeasuredSuccess);
+
+        var ended = Assert.IsType<SessionEnded>(Assert.Single(await Session(runner).StreamAsync(Ask() with { Effort = "max" }).ToListAsync()));
+
+        Assert.Equal((ProviderVerdict.Unsupported, AgentProvider.OptionRefusedSubtype), (ended.Verdict, ended.Subtype));
+        Assert.Contains("minimal, low, medium, high, xhigh", ended.Diagnostic);
+        Assert.Empty(runner.Calls);
+    }
+
+    [Fact]
+    public void The_door_states_what_it_carries()
+    {
+        var door = CodexAgentDoor.Describe("codex-cli").Doors[0];
+
+        Assert.Equal(AgentSupport.Supported, door.SupportFor("permission-mode"));
+        Assert.Equal(AgentSupport.Supported, door.SupportFor("effort"));
+        Assert.Contains("sandbox", door.Abilities.Single(a => a.Name == "permission-mode").Evidence);
+        Assert.Contains("approval", door.Abilities.Single(a => a.Name == "permission-mode").Evidence);
     }
 
     [Fact]

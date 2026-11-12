@@ -132,11 +132,16 @@ public sealed class CodexAgentSession : IAgentSession
             yield break;
         }
 
-        // no codex flag is measured for these, so none is dropped: the door states them unsupported and so does this path
-        var unhonoured = AgentAbilities.Needed(options).Where(a => a is AgentAbilities.PermissionMode or AgentAbilities.Effort or AgentAbilities.Plugins).ToList();
-        if (unhonoured.Count > 0)
+        // no codex flag is measured for a plugin folder, so none is dropped: the door states it unsupported and so does this path
+        if (AgentAbilities.Needed(options).Contains(AgentAbilities.Plugins))
         {
-            yield return CliAgentLoop.Refused(AgentProvider.OptionRefusedSubtype, $"the codex door cannot honour: {string.Join(", ", unhonoured)}");
+            yield return CliAgentLoop.Refused(AgentProvider.OptionRefusedSubtype, $"the codex door cannot honour: {AgentAbilities.Plugins}");
+            yield break;
+        }
+
+        if (CodexAgentArgs.Refusal(options) is { } optionRefusal)
+        {
+            yield return CliAgentLoop.Refused(AgentProvider.OptionRefusedSubtype, optionRefusal);
             yield break;
         }
 

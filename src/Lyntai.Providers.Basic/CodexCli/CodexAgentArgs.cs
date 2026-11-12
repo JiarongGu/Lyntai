@@ -37,6 +37,8 @@ internal static class CodexAgentArgs
         out string? refusal)
     {
         var mcpArgs = CodexMcpConfig.Build(options.McpServers, out var mcpEnvironment);
+        if (options.Effort is { } effort)
+            mcpArgs = ["-c", $"model_reasoning_effort=\"{effort}\"", .. mcpArgs];   // the level is one of EffortLevels, so nothing needs escaping
         environment = mcpEnvironment;
         args = [];
 
@@ -53,15 +55,48 @@ internal static class CodexAgentArgs
         return true;
     }
 
-    /// <summary>The <c>--sandbox</c> value: an explicit <see cref="CodexAgentOptions.SandboxMode"/> wins,
-    /// otherwise the neutral <see cref="AgentToolPolicy"/> maps onto codex's measured sandbox values. The
-    /// mapping is Lyntai's choice; the VALUES are measured.</summary>
+    /// <summary>The words <see cref="AgentSessionOptions.PermissionMode"/> carries on this door: codex's own <c>--sandbox</c>
+    /// values, the three <c>codex exec --help</c> lists. <b>No approval word is carried</b>: <c>exec</c> is non-interactive and its
+    /// approval policy is <c>never</c> (a host's audit of codex-cli 0.160.0 read "approval policy is never"), so a word that asked
+    /// for approval would be one the process cannot honour, and the turn is refused before a spawn rather than the word dropped.</summary>
+    internal static readonly IReadOnlyList<string> SandboxModes =
+        [CodexExecArgs.ReadOnlySandbox, CodexExecArgs.WorkspaceWriteSandbox, "danger-full-access"];
+
+    /// <summary>The levels <see cref="AgentSessionOptions.Effort"/> carries, sent as the <c>model_reasoning_effort</c> config
+    /// override. Declared from the maker's configuration reference, never run here: a level the chosen model does not take is the
+    /// agent's own refusal, read as the turn's failure.</summary>
+    internal static readonly IReadOnlyList<string> EffortLevels = ["minimal", "low", "medium", "high", "xhigh"];
+
+    /// <summary>Why the turn's <see cref="AgentSessionOptions.PermissionMode"/> or <see cref="AgentSessionOptions.Effort"/>
+    /// cannot be carried, or null when both can: a word outside the lists above, or a mode that names a different sandbox
+    /// from <see cref="CodexAgentOptions.SandboxMode"/>.</summary>
+    public static string? Refusal(AgentSessionOptions options)
+    {
+        if (options.PermissionMode is { } mode)
+        {
+            if (!SandboxModes.Contains(mode, StringComparer.Ordinal))
+                return $"permission mode '{mode}' is not one the codex exec door carries (its sandbox words): {string.Join(", ", SandboxModes)}";
+            if ((options as CodexAgentOptions)?.SandboxMode is { Length: > 0 } sandbox && !string.Equals(sandbox, mode, StringComparison.Ordinal))
+                return $"permission mode '{mode}' contradicts the explicit sandbox '{sandbox}'";
+        }
+
+        return options.Effort is { } effort && !EffortLevels.Contains(effort, StringComparer.Ordinal)
+            ? $"effort '{effort}' is not one the codex exec door carries: {string.Join(", ", EffortLevels)}"
+            : null;
+    }
+
+    /// <summary>The <c>--sandbox</c> value: an explicit <see cref="CodexAgentOptions.SandboxMode"/> wins, then a named
+    /// <see cref="AgentSessionOptions.PermissionMode"/> (the host's own gate, as on the Claude door), otherwise the neutral
+    /// <see cref="AgentToolPolicy"/> maps onto codex's measured sandbox values. The mapping is Lyntai's choice; the VALUES
+    /// are measured.</summary>
     private static string SandboxFor(AgentSessionOptions options) =>
         (options as CodexAgentOptions)?.SandboxMode is { Length: > 0 } explicitMode
             ? explicitMode
-            : options.ToolPolicy == AgentToolPolicy.Write
-                ? CodexExecArgs.WorkspaceWriteSandbox
-                : CodexExecArgs.ReadOnlySandbox;
+            : options.PermissionMode is { } mode
+                ? mode
+                : options.ToolPolicy == AgentToolPolicy.Write
+                    ? CodexExecArgs.WorkspaceWriteSandbox
+                    : CodexExecArgs.ReadOnlySandbox;
 
     /// <summary>The stdin payload. <c>codex exec</c> has no measured append-system-prompt flag, so a system
     /// prompt travels as a leading block of the prompt itself — the honest option, since inventing a flag
