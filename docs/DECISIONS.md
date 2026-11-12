@@ -409,16 +409,16 @@ new decision overturns an old one, rewrite the old entry as a stub pointing here
 | [D337](#d337--a-flag-shaped-argument-prompt-is-unsupported-and-the-flattened-prompt-keeps-tool-calls-and-says-it-dropped-attachments-2026-11-09) | 2026-11-09 | a flag-shaped argument prompt is Unsupported, and the flattened prompt keeps tool calls and says… |
 | [D338](#d338--a-hand-over-resumes-only-over-its-own-newest-turn-2026-11-09) | 2026-11-09 | a hand-over resumes only over its own newest turn |
 | [D339](#d339--the-recorder-keeps-only-the-hosts-request-from-a-prompt-a-hand-over-built-2026-11-09) | 2026-11-09 | the recorder keeps only the host's request from a prompt a hand-over built |
-| [D340](#d340--an-entry-holding-the-querys-identifier-whole-leads-the-recall-by-a-channel-that-pins-2026-11-12) | 2026-11-12 | an entry holding the query's identifier whole leads the recall, by a channel that pins |
-| [D341](#d341--a-recall-items-score-is-the-share-of-the-query-it-covers-weighted-by-rarity-among-the-candidates-2026-11-12) | 2026-11-12 | a recall item's score is the share of the query it covers, weighted by rarity among the candidates |
-| [D342](#d342--the-matching-passage-is-memoryitemspan-under-memorydetailmatching-and-content-stays-whole-where-it-is-shown-2026-11-12) | 2026-11-12 | the matching passage is `MemoryItem.Span` under `MemoryDetail.Matching`, and content stays whole… |
-| [D343](#d343--a-long-write-is-refused-by-a-bound-and-split-by-a-helper-not-split-by-the-engine-2026-11-12) | 2026-11-12 | a long write is refused by a bound and split by a helper, not split by the engine |
 | [D340](#d340--a-conversation-another-client-holds-is-agentfailureconflict-beside-a-fatal-kind-2026-11-12) | 2026-11-12 | a conversation another client holds is `AgentFailure.Conflict`, beside a Fatal kind |
 | [D341](#d341--on-the-codex-exec-door-a-permission-mode-is-a-sandbox-word-an-effort-a-reasoning-effort-override-and-no-approval-word-is-carried-2026-11-12) | 2026-11-12 | on the Codex exec door a permission mode is a sandbox word, an effort a reasoning-effort override… |
 | [D342](#d342--an-accounts-sign-in-is-an-optional-capability-found-by-type-test-and-a-login-hands-its-lines-to-the-host-while-it-waits-2026-11-12) | 2026-11-12 | an account's sign-in is an optional capability found by type test, and a login hands its lines to… |
 | [D343](#d343--no-door-reads-a-child-agent-as-a-session-of-its-own-and-each-states-so-2026-11-12) | 2026-11-12 | no door reads a child agent as a session of its own, and each states so |
+| [D344](#d344--an-entry-holding-the-querys-identifier-whole-leads-the-recall-by-a-channel-that-pins-2026-11-12) | 2026-11-12 | an entry holding the query's identifier whole leads the recall, by a channel that pins |
+| [D345](#d345--a-recall-items-score-is-the-share-of-the-query-it-covers-weighted-by-rarity-among-the-candidates-2026-11-12) | 2026-11-12 | a recall item's score is the share of the query it covers, weighted by rarity among the candidates |
+| [D346](#d346--the-matching-passage-is-memoryitemspan-under-memorydetailmatching-and-content-stays-whole-where-it-is-shown-2026-11-12) | 2026-11-12 | the matching passage is `MemoryItem.Span` under `MemoryDetail.Matching`, and content stays whole… |
+| [D347](#d347--a-long-write-is-refused-by-a-bound-and-split-by-a-helper-not-split-by-the-engine-2026-11-12) | 2026-11-12 | a long write is refused by a bound and split by a helper, not split by the engine |
 
-**338 live decisions.** The rest are stubs — `D<n>` is a permanent identifier, so a number is never reused or renumbered (5): [D36](#d36--a-translation-between-two-verdict-taxonomies-gets-one-arm-per-member-gated-by-a-test-2026-08-05) → D136 · [D80](#d80--merged-into-d77-2026-08-16-folded-2026-08-17) → D77 · [D131](#d131--a-backends-produces-is-derived-from-its-configuration-so-a-modality-is-a-field-2026-09-14) → D133 · [D134](#d134--a-registration-names-the-backend-the-provider-suffix-is-gone-from-all-seventeen-2026-09-14) → D137 · [D145](#d145--the-microsoftextensionsai-module-is-a-bridge-not-a-provider-2026-09-15) → D146
+**342 live decisions.** The rest are stubs — `D<n>` is a permanent identifier, so a number is never reused or renumbered (5): [D36](#d36--a-translation-between-two-verdict-taxonomies-gets-one-arm-per-member-gated-by-a-test-2026-08-05) → D136 · [D80](#d80--merged-into-d77-2026-08-16-folded-2026-08-17) → D77 · [D131](#d131--a-backends-produces-is-derived-from-its-configuration-so-a-modality-is-a-field-2026-09-14) → D133 · [D134](#d134--a-registration-names-the-backend-the-provider-suffix-is-gone-from-all-seventeen-2026-09-14) → D137 · [D145](#d145--the-microsoftextensionsai-module-is-a-bridge-not-a-provider-2026-09-15) → D146
 
 <!-- index:end -->
 
@@ -8547,53 +8547,6 @@ recall and its write-back is already a silent skip).
 
 **Re-opens** when a host's own request legitimately begins with the header and holds the marker.
 
-## D340 — an entry holding the query's identifier whole leads the recall, by a channel that pins (2026-11-12)
-
-**Standing.** Built on a request from Daoris's development (`DOCDIET1`), which measured plain files against Lyntai's memory for a repository's history: by identifier the top hit was right 11 of 14 times against 4 of 14. The working agent's reading of how, which the owner may reverse — not the owner's words.
-
-**Decided.** `IdentifierSeedSource`, registered by `AddMemoryIdentifierSeeds()`, looks up each identifier-shaped word of the query alone, keeps the entries that hold it whole and in the same case, and orders them by headline, then occurrences, then shortness. `IMemorySeedSource.Pins` (default false) makes the engine put what a pinning channel matched ahead of the rest, in that channel's order, after the ranking policy has run; the policy still decides what is dropped. A query with no identifier makes no read.
-
-**Why.** A text channel finds `D123` by substring and ranks by recurrence, so `D1234` and a long entry citing it outrank the short entry about it. The channel was first one more fusion vote, and the long entry that tops the text ranking and cites the identifier once stayed ahead of the short entry about it (`MemoryExactRecallTests.As_one_more_rank_fusion_vote_the_channel_does_not_put_the_entry_about_an_identifier_first`).
-
-**Rejected.** A per-source weight in `ReciprocalRankFusionOptions` (every ranking policy would learn it, and the consumer must set it beside the channel). Always on (a store read per identifier on every recall, `docs/memory.md` §3). Folding case (a base-62 row id tells `ABC1d` from `ABC1D`). A regex option for the shape (a knob nobody asked for; the default covers letters with digits, underscores, inner capitals and dotted names).
-
-**Re-opens** when a corpus's identifiers are not of those shapes, or when a pinned entry must still be outranked by something.
-
-## D341 — a recall item's score is the share of the query it covers, weighted by rarity among the candidates (2026-11-12)
-
-**Standing.** As D340, request `DOCDIET1`; the working agent's reading, which the owner may reverse — not the owner's words.
-
-**Decided.** `MemoryItem.Score` (null when the engine computes none or the query has no usable word) is `Σ weight of the query's words the entry holds ÷ Σ weight of all of them`, a word weighing its BM25 inverse document frequency over the recall's candidates, and a word no candidate holds weighing what one every candidate holds does. An identifier counts only whole and in the same case (D340). It is lexical and independent of the ranking.
-
-**Why.** `Relevance` is a rank position and is 1 for the top hit of every recall, so a caller cannot tell a strong hit from a weak one. Rarity is what keeps `what` and `did` from making a weak hit strong; a word nobody holds is as likely filler as a distinctive word nobody wrote, and weighing it high capped every natural-language query's best score near a third.
-
-**Rejected.** The fused rank score (a narrow band of reciprocal ranks, meaningless across recalls). bm25 (store-specific, unbounded). A model judge (`Answered` already is one, and costs a call). Coverage unweighted (stop words count as much as an identifier).
-
-**Re-opens** when a semantic hit must read strong, which needs the cosine carried onto the item.
-
-## D342 — the matching passage is `MemoryItem.Span` under `MemoryDetail.Matching`, and content stays whole where it is shown (2026-11-12)
-
-**Standing.** As D340, request `DOCDIET1`; the working agent's reading, which the owner may reverse — not the owner's words.
-
-**Decided.** `MemoryDetail.Matching` returns no content for associative material and `Span` instead: the window of at most `MemoryQuery.SpanChars` (400) holding the most weight of the query's words, cut at a line start or a space, with its start and the content's length. An authoritative entry still carries its whole content, and a match in the headline alone or by meaning leaves `Span` null. The character budget prices headline plus span.
-
-**Why.** An entry read whole costs its length; Daoris measured 9.6 KB an answer against 2 KB from files.
-
-**Rejected.** Putting the passage in `Content` (the contract says it is the whole content, and an authoritative fact is never truncated). A lead excerpt when nothing matches (bytes with no evidence they help).
-
-**Re-opens** when a caller needs more than one passage of an entry.
-
-## D343 — a long write is refused by a bound and split by a helper, not split by the engine (2026-11-12)
-
-**Standing.** As D340, request `DOCDIET1`; the working agent's reading, which the owner may reverse — not the owner's words.
-
-**Decided.** `GraphMemoryOptions.MaxContentChars` (default none) makes `RememberAsync` and `SupersedeAsync` throw `ArgumentException` before anything is stored, embedded or annotated, naming `MemoryChunks.Split`. `MemoryChunks.Split(text, max)` returns contiguous slices that join back to the text, cut after a blank line, a line break, a sentence end, a space, and only then between characters. The host writes the parts.
-
-**Why.** A write has one `Reference`. A split engine would return n, and a supersession, a forget, a valid-time stamp and a receipt would each have to name all of them (`MemoryWriteResult` is frozen, D70) with a deletion that must be complete (D90). The host knows the headline, the links and which part a supersession ends.
-
-**Rejected.** Splitting inside `RememberAsync`. Truncating (a shortened entry is confidently wrong). A bound that pins `Authoritative` only.
-
-**Re-opens** when a write must be one call for a caller that cannot split, with a result that can carry many references.
 ## D340 — a conversation another client holds is `AgentFailure.Conflict`, beside a Fatal kind (2026-11-12)
 
 **Standing.** A ruling on Daoris's third request, A-LQ20 (`docs/agent-provider-daoris-study.md` §12), read by the agent that built it; the owner may reverse it. Built.
@@ -8641,3 +8594,51 @@ recall and its write-back is already a silent skip).
 **Rejected.** Declaring it by default. Leaving the absence unstated (the host would read `Unknown` as "not measured").
 
 **Re-opens** when a host-enabled option to declare it is built (`TASKS.md`'s child-sessions row), whose reader needs the child's frames read by session id.
+
+## D344 — an entry holding the query's identifier whole leads the recall, by a channel that pins (2026-11-12)
+
+**Standing.** Built on a request from Daoris's development (`DOCDIET1`), which measured plain files against Lyntai's memory for a repository's history: by identifier the top hit was right 11 of 14 times against 4 of 14. The working agent's reading of how, which the owner may reverse — not the owner's words.
+
+**Decided.** `IdentifierSeedSource`, registered by `AddMemoryIdentifierSeeds()`, looks up each identifier-shaped word of the query alone, keeps the entries that hold it whole and in the same case, and orders them by headline, then occurrences, then shortness. `IMemorySeedSource.Pins` (default false) makes the engine put what a pinning channel matched ahead of the rest, in that channel's order, after the ranking policy has run; the policy still decides what is dropped. A query with no identifier makes no read.
+
+**Why.** A text channel finds `D123` by substring and ranks by recurrence, so `D1234` and a long entry citing it outrank the short entry about it. The channel was first one more fusion vote, and the long entry that tops the text ranking and cites the identifier once stayed ahead of the short entry about it (`MemoryExactRecallTests.As_one_more_rank_fusion_vote_the_channel_does_not_put_the_entry_about_an_identifier_first`).
+
+**Rejected.** A per-source weight in `ReciprocalRankFusionOptions` (every ranking policy would learn it, and the consumer must set it beside the channel). Always on (a store read per identifier on every recall, `docs/memory.md` §3). Folding case (a base-62 row id tells `ABC1d` from `ABC1D`). A regex option for the shape (a knob nobody asked for; the default covers letters with digits, underscores, inner capitals and dotted names).
+
+**Re-opens** when a corpus's identifiers are not of those shapes, or when a pinned entry must still be outranked by something.
+
+## D345 — a recall item's score is the share of the query it covers, weighted by rarity among the candidates (2026-11-12)
+
+**Standing.** As D344, request `DOCDIET1`; the working agent's reading, which the owner may reverse — not the owner's words.
+
+**Decided.** `MemoryItem.Score` (null when the engine computes none or the query has no usable word) is `Σ weight of the query's words the entry holds ÷ Σ weight of all of them`, a word weighing its BM25 inverse document frequency over the recall's candidates, and a word no candidate holds weighing what one every candidate holds does. An identifier counts only whole and in the same case (D344). It is lexical and independent of the ranking.
+
+**Why.** `Relevance` is a rank position and is 1 for the top hit of every recall, so a caller cannot tell a strong hit from a weak one. Rarity is what keeps `what` and `did` from making a weak hit strong; a word nobody holds is as likely filler as a distinctive word nobody wrote, and weighing it high capped every natural-language query's best score near a third.
+
+**Rejected.** The fused rank score (a narrow band of reciprocal ranks, meaningless across recalls). bm25 (store-specific, unbounded). A model judge (`Answered` already is one, and costs a call). Coverage unweighted (stop words count as much as an identifier).
+
+**Re-opens** when a semantic hit must read strong, which needs the cosine carried onto the item.
+
+## D346 — the matching passage is `MemoryItem.Span` under `MemoryDetail.Matching`, and content stays whole where it is shown (2026-11-12)
+
+**Standing.** As D344, request `DOCDIET1`; the working agent's reading, which the owner may reverse — not the owner's words.
+
+**Decided.** `MemoryDetail.Matching` returns no content for associative material and `Span` instead: the window of at most `MemoryQuery.SpanChars` (400) holding the most weight of the query's words, cut at a line start or a space, with its start and the content's length. An authoritative entry still carries its whole content, and a match in the headline alone or by meaning leaves `Span` null. The character budget prices headline plus span.
+
+**Why.** An entry read whole costs its length; Daoris measured 9.6 KB an answer against 2 KB from files.
+
+**Rejected.** Putting the passage in `Content` (the contract says it is the whole content, and an authoritative fact is never truncated). A lead excerpt when nothing matches (bytes with no evidence they help).
+
+**Re-opens** when a caller needs more than one passage of an entry.
+
+## D347 — a long write is refused by a bound and split by a helper, not split by the engine (2026-11-12)
+
+**Standing.** As D344, request `DOCDIET1`; the working agent's reading, which the owner may reverse — not the owner's words.
+
+**Decided.** `GraphMemoryOptions.MaxContentChars` (default none) makes `RememberAsync` and `SupersedeAsync` throw `ArgumentException` before anything is stored, embedded or annotated, naming `MemoryChunks.Split`. `MemoryChunks.Split(text, max)` returns contiguous slices that join back to the text, cut after a blank line, a line break, a sentence end, a space, and only then between characters. The host writes the parts.
+
+**Why.** A write has one `Reference`. A split engine would return n, and a supersession, a forget, a valid-time stamp and a receipt would each have to name all of them (`MemoryWriteResult` is frozen, D70) with a deletion that must be complete (D90). The host knows the headline, the links and which part a supersession ends.
+
+**Rejected.** Splitting inside `RememberAsync`. Truncating (a shortened entry is confidently wrong). A bound that pins `Authoritative` only.
+
+**Re-opens** when a write must be one call for a caller that cannot split, with a result that can carry many references.

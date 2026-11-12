@@ -283,7 +283,7 @@ every addition.
 ### Added
 
 - **A graph memory recall can find an entry by its identifier, say how strong the hit is, return the matching passage, and refuse an
-  entry too long to read** (**D340** to **D343**). `AddMemoryIdentifierSeeds()` registers `IdentifierSeedSource`: an identifier-shaped
+  entry too long to read** (**D344** to **D347**). `AddMemoryIdentifierSeeds()` registers `IdentifierSeedSource`: an identifier-shaped
   word of the query (`D123`, `ABC1d`, `ISSUE-42`) is looked up alone, and an entry that holds it whole and in the same case leads the
   recall, the entry about it (headline, then shortest) above one that cites it. A new `IMemorySeedSource.Pins` (default `false`) is how a
   channel asks for that. `MemoryItem.Score` is how much of the query the entry covers, 0 to 1, weighted by how rare each word is among

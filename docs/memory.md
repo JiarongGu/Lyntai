@@ -855,7 +855,7 @@ is evidence, keep the shipped weights.
 A history archive is asked by NAME as often as by meaning: *what did D123 decide*, *what became of row ABC1d*. The text
 channel matches by substring and ranks by how often the query's words recur, so `D123` also fetches `D1234`, and a long
 entry that cites it outranks the short one about it. The identifier channel reads each identifier-shaped word of the query
-alone and puts the entries that hold it **whole and in the same case** ahead of every other (**D340**):
+alone and puts the entries that hold it **whole and in the same case** ahead of every other (**D344**):
 
 ```csharp
 services.AddLyntai(cfg => cfg
@@ -880,8 +880,8 @@ entries the test then drops; raise it for such a corpus.
 ### Read an entry by its passage, and tell a strong hit from a weak one
 
 `MemoryDetail.Matching` returns the passage of the content that matched instead of the content, so an entry of any length costs about
-`SpanChars` (400) beside its headline, and the character budget prices it so (**D342**). `MemoryItem.Score` says how much of the query
-the entry covers (**D341**):
+`SpanChars` (400) beside its headline, and the character budget prices it so (**D346**). `MemoryItem.Score` says how much of the query
+the entry covers (**D345**):
 
 ```csharp
 var passages = await engine.RecallAsync(
@@ -905,7 +905,7 @@ look at your own recalls to choose one; `MemoryRecall.Answered` is the judged si
 
 A long entry dilutes its own ranking and costs its length wherever it is read whole. `GraphMemoryOptions.MaxContentChars` makes a write
 past it throw before anything is stored, embedded or annotated, and `MemoryChunks.Split` cuts the text into parts that each fit, after a blank
-line, a line break, a sentence or a space (**D343**). The host writes the parts, because it knows their headlines and which one a
+line, a line break, a sentence or a space (**D347**). The host writes the parts, because it knows their headlines and which one a
 supersession ends; the engine does not split for it, since a write has one `Reference`:
 
 <!-- compile-given: string longText = null!; string title = null!; -->
