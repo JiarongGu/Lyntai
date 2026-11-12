@@ -291,6 +291,18 @@ every addition.
   `MemoryItem.Span` (the passage, its start and the content's length) of about `MemoryQuery.SpanChars` (400) in place of the content, and
   the character budget prices it. `GraphMemoryOptions.MaxContentChars` (default none) refuses a longer write, and `MemoryChunks.Split`
   cuts text into parts that each fit. All of it is off or null until asked for, and no existing recall changes.
+- **A conversation another client holds is a stated outcome, the Codex exec door carries a sandbox word and an effort, and an account's sign-in
+  has an optional ability** (**D340**–**D343**). `AgentFailure.Conflict` (`AgentConflict.ConversationHeld`) is set by the protocol door
+  when `codex-acp` refuses an open with `data.reason` `thread_active_writer`; the kind stays `Fatal`, so the retry decorator never resends
+  over a live writer, and the open ends `NeverSent`. On the Codex exec door `AgentSessionOptions.PermissionMode` is one of
+  `read-only`, `workspace-write` and `danger-full-access` (sent as `--sandbox`, ahead of the tool policy's mapping) and `Effort` one of
+  `minimal`, `low`, `medium`, `high` and `xhigh` (sent as `-c model_reasoning_effort`); any other word, an approval word included, refuses
+  the turn before a spawn, and the door states both abilities `Supported` where they were `Unsupported`. `IAgentAuthSource`, found by type
+  test on a CLI provider, reads whether an account is signed in and starts its sign-in under the account's home with the commands the
+  inference provider already drives, handing each line the program prints to the host while the login waits; a refused account or a failed
+  program is a value. The new abilities `sign-in` and `child-sessions` are stated by every door (`AgentAbilities.All` gains two members),
+  the second `Unsupported` everywhere with the claim naming where a child's work shows instead, `ParentCallId`.
+  **A host's own provider adds a claim for each of the two.**
 - **`LyntaiOptions.ToolLoopMaxCallsPerTurn`** (default 32, `LYNTAI_TOOL_LOOP_MAX_CALLS_PER_TURN`) bounds the calls one native tool-loop turn runs (**D256**).
   Through 3.5.3 a turn of N calls ran all N. A call past the cap is not run and is answered with an `error:` observation, so the transcript
   keeps a result per call id; below 1 means no cap, and the prompt protocol, which makes one call a turn, is unchanged.

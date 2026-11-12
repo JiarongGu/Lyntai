@@ -70,6 +70,8 @@ internal static class DialectStandIn
                         Claim(AgentAbilities.ModelReask, AgentSupport.Unknown, AgentAbilitySource.Declared),
                         Claim(AgentAbilities.ReplayTold, AgentSupport.Unknown, AgentAbilitySource.Declared),
                         Claim(AgentAbilities.RepeatableOpen, AgentSupport.Unsupported, AgentAbilitySource.Declared),
+                        Claim(AgentAbilities.SignIn, AgentSupport.Unsupported, AgentAbilitySource.Declared),
+                        Claim(AgentAbilities.ChildSessions, AgentSupport.Unsupported, AgentAbilitySource.Declared),
                     ],
                 },
             ],

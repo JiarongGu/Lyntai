@@ -388,3 +388,51 @@ re-open condition (a host that needs a word taken mid-turn) met and unserved, wh
 AG46 (the type, the open, a turn, a stop and the abilities of §11.1, on the Claude protocol door), then AG47 (a word taken mid-turn
 and the refusals above) and AG48 (the woken turn and background work read until it ends), archived as `docs/task-archive.md` Parts 469 to 471. Their captures are
 SOURCE-DERIVED from Daoris's notes, which a real one replaces when it arrives, and none spends an account.
+
+## 12. Daoris's third request: A-LQ18 to A-LQ24, Part 481's frames and a release (**D340** to **D343**)
+
+Daoris read the layer at `master` `fa54381f` and asked for seven needs and a release. Each was read against the code and the records it names
+in Daoris's checkout, and put to the generic-library test with the asker struck. Four are built, three are planned as rows (`TASKS.md`
+Part 518), and the release is prepared and stays the owner's (**D19**). The rows' captures are read from Daoris's notes and none was run:
+no signed-in agent and no installed `codex` was used.
+
+| Need | Answer | Where |
+|---|---|---|
+| **A-LQ18** words that cut into the running turn, on a kept run | **planned**: an optional member beside `IAgentRun`, answering `injected`, `startedNewTurn` or left to the host; `claude-agent-acp` 0.84.0 is the only record | AG49 |
+| **A-LQ19** a kept run on `codex-acp` and dsh | **planned, blocked on the records Daoris will send**; the §11.1 cells stay `Unknown` until then | AG50 |
+| **A-LQ20** another writer told apart | **built**: `AgentFailure.Conflict` `ConversationHeld`, read from `data.reason` and never the sentence | **D340** |
+| **A-LQ21** a Claude CLI kept run with stdin held | **planned**, design first: its measured frames are two turns on one process and an interrupt, and the rest was never run | AG51 |
+| **A-LQ22** Codex's sandbox, approval and effort on the exec door | **built in part**: the sandbox as `PermissionMode` and the effort; **the approval half is declined** because `exec` asks no one | **D341** |
+| **A-LQ23** sign-in state and sign-in per account home | **built**: `IAgentAuthSource`, a login handing its lines over while it waits; **ports declined** as the host's; a device-code flag is a row | **D342**; `TASKS.md` Part 518's last row |
+| **A-LQ24** child sessions declared, or their absence stated | **built as a statement**: `child-sessions` `Unsupported` on every door, naming the reading to rely on; declaring them as an option is a row | **D343**, AG52 |
+| **Part 481** rejected limit never cleared inside a turn | **waiting**: the ruling needs the frames in turn order, and none had arrived; Daoris's checkout holds a single `allowed` frame per turn on the native door and a rejection followed by an error, never both in one turn | `TASKS.md` Part 481 |
+| **A-LQ1** a release that carries the agent layer | **prepared** (below) | **D19** |
+
+### 12.1 What each reading rests on
+
+- **A-LQ20.** The protocol door's Codex reader read `codexErrorInfo` alone, so `{"reason":"thread_active_writer"}` fell to the code's reading, `Fatal`
+  from `-32600`. Daoris's record is `codex-acp`'s refusal of a resume another client holds (`-32600`, `data.reason`, `invalidRequest`, a sentence naming the
+  Codex app, the CLI or an IDE), never run here. The sentence is not read, and the same words without the field state no conflict (a test).
+- **A-LQ22.** The door's argv already carried `--sandbox` from the tool policy and `CodexAgentOptions.SandboxMode`; a host composing through the registry with
+  neutral options could not name `danger-full-access`. The sandbox words are the three `codex exec --help` lists, measured in this repository. **Approval** is not carried: a host's
+  audit of codex-cli 0.160.0 read an MCP call refused with "approval policy is never", so `exec` fixes it and `-c approval_policy` would be a claim no
+  record shows. **Effort** is `-c model_reasoning_effort`, a key the host's own tests write into a config and the maker's reference lists; its five levels
+  were not run here, so the claim is `Declared` and a level a model does not take is the agent's own failure.
+- **A-LQ23.** The inference providers had `StatusAsync` and `LoginAsync` with both parsers, fixed to one environment. The agent door needs the same under an
+  account's home, which is the account mapping the turn already uses, so the answer is the same engine under a merged environment. The inference `LoginAsync` returns its output at
+  the end, which is too late for a device code, so the agent one reads the program's lines as they come. **Not carried**: the ports (where a browser runs relative to the
+  process is the deployment's), a logout, and a device-code flag (not measured).
+- **A-LQ24 and which reading to rely on.** With neither declared, `claude-agent-acp` keeps the spawning `Agent` call in the parent's stream and stamps a child's calls and
+  words `_meta.claudeCode.parentToolUseId`; the Claude CLI door's `parent_tool_use_id` is the same fact, and both read as `ParentCallId`, a child's start being its first stamped
+  event and its end the task's end else the call's result (§10.1). With `nativeSubagentSessions` declared the child is a session of its own: `subagent_spawned` and
+  `subagent_state_update` on the parent, the child's updates routed by `params.sessionId`, **and the spawning call removed from the parent's stream** (Daoris's console2 record of
+  0.79.0). **A host should rely on the stamp reading** unless it keeps a surface per child, which is a host's choice the library offers as AG52 and does not make for it.
+- **Part 481's frames.** The row asks whether an `allowed` frame can follow a `rejected` one in a turn. Daoris's notes hold 117 `allowed` frames on ordinary turns and a rejection read from
+  source, so neither order is shown yet; the row waits for Daoris's recorded frames.
+
+### 12.2 The release (A-LQ1)
+
+Every entry for the layer is under `## Unreleased`, and the tree is ready for the owner to cut it: `doctor` is green against 3.5.3, the changelog's `### Breaking` entries disclose their actions (**D161**), and a
+disclosed break ships in a minor (**D18**), so the owner starts the release workflow with `bump` set to `minor` and the pipeline decides the number. **Nothing here names it or stamps it** (**D19**): the
+`## Unreleased` heading, `VersionPrefix` and the notes are the workflow's. After it publishes, §9 of this study stops being true (no version carries the layer, the host's local pack and its condition go), and
+the steward then rewrites that section to say which release carries what. Daoris's own pin and its `DaorisLyntaiLayer` condition move when it reads that release; that is its repository's change.

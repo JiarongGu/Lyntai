@@ -97,11 +97,13 @@ public static class ClaudeCliBuilderExtensions
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(id);
         ArgumentException.ThrowIfNullOrWhiteSpace(agent ?? id, nameof(agent));
-        builder.AddAgentProvider(ClaudeAgentDoor.Describe(id, agent), sp => new UsageAgentProvider(
+        builder.AddAgentProvider(ClaudeAgentDoor.Describe(id, agent), sp => new CliAgentProvider(
             new AgentProvider(ClaudeAgentDoor.Describe(id, agent), _ => sp.GetRequiredKeyedService<IAgentSession>(id)),
             new CliUsageSource(new ClaudeUsageDialect(id), sp.GetRequiredService<IProcessRunner>(),
                 sp.GetService<AgentUsageReadingOptions>(), sp.GetService<ILogger<CliUsageSource>>(), command, environment,
-                sp.GetService<TimeProvider>(), agent)));
+                sp.GetService<TimeProvider>(), agent),
+            new CliAuthSource(new ClaudeCliBackend(), ClaudeAgentDoor.Mapping, id, agent, sp.GetRequiredService<IProcessRunner>(),
+                sp.GetRequiredService<LyntaiOptions>(), sp.GetService<ILogger<CliAuthSource>>(), command, environment)));
         builder.Services.AddSingleton<IAgentSession>(sp => CreateSession(sp, command, environment));
         builder.Services.AddKeyedSingleton<IAgentSession>(id, (sp, _) => CreateSession(sp, command, environment));
         return builder;

@@ -15,6 +15,8 @@ public sealed record CodexAgentOptions : AgentSessionOptions
     /// <see cref="AgentToolPolicy.Write"/> → <c>workspace-write</c>. Set it to escape that mapping — most
     /// usefully to <c>danger-full-access</c>, which lets the agent act outside its workspace and is exactly
     /// as dangerous as it sounds. The three values are the ones codex-cli 0.146.0's <c>--help</c> lists; an
-    /// unknown value is passed through and the CLI rejects it.</summary>
+    /// unknown value is passed through and the CLI rejects it. The neutral <see cref="AgentSessionOptions.PermissionMode"/>
+    /// carries the same three words for a host that holds no <see cref="CodexAgentOptions"/>; naming both with different
+    /// words refuses the turn.</summary>
     public string? SandboxMode { get; init; }
 }
