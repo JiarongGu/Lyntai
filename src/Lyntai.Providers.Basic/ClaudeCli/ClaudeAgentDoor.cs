@@ -46,7 +46,7 @@ internal static class ClaudeAgentDoor
                         Evidence = "get_usage control request to `claude -p --input-format stream-json`, no model request; "
                             + "a start wrote .claude.json, backups, plugins and sessions into the home",
                         AppliesTo = string.Join(", ", ClaudeUsageDialect.Validated.Order(StringComparer.Ordinal)),
-                        SideEffects = UsageAgentProvider.ServerStart,
+                        SideEffects = CliAgentProvider.ServerStart,
                     },
                     Claim(AgentAbilities.PermissionRequests, AgentSupport.Unsupported, "a turn is one non-interactive process: the tool policy and the deny list decide, and no request reaches the host"),
                     Claim(AgentAbilities.PermissionMode, AgentSupport.Supported,
@@ -62,6 +62,7 @@ internal static class ClaudeAgentDoor
                     Claim(AgentAbilities.ModelReask, AgentSupport.Unknown, "no run is built"),
                     Claim(AgentAbilities.ReplayTold, AgentSupport.Unknown, "no run is built"),
                     Claim(AgentAbilities.RepeatableOpen, AgentSupport.Unsupported, "the CLI has no open to repeat: a new open is a new process"),
+                    Claim(AgentAbilities.SignIn, AgentSupport.Supported, "claude auth status --json and claude auth login, under the account's CLAUDE_CONFIG_DIR, as the inference provider drives them"),
                 ],
             },
         ],

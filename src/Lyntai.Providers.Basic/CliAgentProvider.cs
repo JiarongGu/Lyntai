@@ -1,11 +1,13 @@
 using Lyntai.Agents;
+using Lyntai.Inference;
 
 namespace Lyntai.Providers.Basic;
 
-/// <summary>A CLI door's <see cref="IAgentProvider"/> that is also an <see cref="IAgentUsageSource"/>, so a host finds
-/// the ability by type test on the provider it already resolved. Describing and opening are the wrapped provider's
-/// own: this adds a member and changes none.</summary>
-internal sealed class UsageAgentProvider(AgentProvider inner, CliUsageSource usage) : IAgentProvider, IAgentUsageSource
+/// <summary>A CLI door's <see cref="IAgentProvider"/> that is also an <see cref="IAgentUsageSource"/> and an
+/// <see cref="IAgentAuthSource"/>, so a host finds each ability by type test on the provider it already resolved. Describing and
+/// opening are the wrapped provider's own: this adds members and changes none.</summary>
+internal sealed class CliAgentProvider(AgentProvider inner, CliUsageSource usage, CliAuthSource auth)
+    : IAgentProvider, IAgentUsageSource, IAgentAuthSource
 {
     // concrete parameter types on purpose: this is an ability added beside a provider, not a decorator of the
     // interfaces, and the decorated-interface scan (D67) reads a parameter of the interface's own type as one
@@ -22,4 +24,11 @@ internal sealed class UsageAgentProvider(AgentProvider inner, CliUsageSource usa
 
     public Task<AgentAllowanceReading> ReadAllowanceAsync(AgentAccount account, CancellationToken ct = default) =>
         usage.ReadAllowanceAsync(account, ct);
+
+    public Task<ProviderAuthStatus> StatusAsync(AgentAccount? account = null, CancellationToken ct = default) =>
+        auth.StatusAsync(account, ct);
+
+    public Task<ProviderAuthResult> LoginAsync(
+        AgentAccount? account = null, ProviderLoginRequest? request = null, Action<string>? onOutput = null, CancellationToken ct = default) =>
+        auth.LoginAsync(account, request, onOutput, ct);
 }

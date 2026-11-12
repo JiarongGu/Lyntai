@@ -46,7 +46,7 @@ internal static class CodexAgentDoor
                         Evidence = "account/rateLimits/read on `codex app-server`, no model request; a start created state "
                             + "databases and skills in the home and made a network request",
                         AppliesTo = string.Join(", ", CodexUsageDialect.Validated.Order(StringComparer.Ordinal)),
-                        SideEffects = UsageAgentProvider.ServerStart,
+                        SideEffects = CliAgentProvider.ServerStart,
                     },
                     Declared(AgentAbilities.PermissionRequests, AgentSupport.Unsupported, "a turn is one non-interactive process: the sandbox decides, and no request reaches the host"),
                     Declared(AgentAbilities.PermissionMode, AgentSupport.Supported,
@@ -63,6 +63,7 @@ internal static class CodexAgentDoor
                     Declared(AgentAbilities.ModelReask, AgentSupport.Unknown, "no run exists to ask again"),
                     Declared(AgentAbilities.ReplayTold, AgentSupport.Unknown, "no run exists"),
                     Declared(AgentAbilities.RepeatableOpen, AgentSupport.Unsupported, "a new open is a new process"),
+                    Declared(AgentAbilities.SignIn, AgentSupport.Supported, "codex login status (prose, measured) and codex login, under the account's CODEX_HOME, as the inference provider drives them"),
                 ],
             },
         ],

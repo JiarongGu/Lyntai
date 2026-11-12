@@ -59,6 +59,7 @@ internal static class AcpAgentDoor
                         { Evidence = "per agent from session/new: a config option of category thought_level, set by session/set_config_option before the prompt; none ends the turn before the prompt" },
                     Declared(AgentAbilities.Plugins, AgentSupport.Unsupported, "the protocol names no plugin folder; the agent loads what its own configuration says"),
                     Declared(AgentAbilities.Environment, AgentSupport.Supported, "the turn's variables in the agent process's environment, over the registration's and beneath the account's; a null removes one"),
+                    Declared(AgentAbilities.SignIn, AgentSupport.Unsupported, "the protocol's authenticate call is not made: an agent that wants a sign-in ends the turn as an access failure, and the host signs in through the agent's own program"),
                     .. KeptRunClaims(keptRun),
                 ],
             },

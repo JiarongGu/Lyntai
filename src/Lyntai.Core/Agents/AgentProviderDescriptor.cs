@@ -261,10 +261,15 @@ public static class AgentAbilities
     /// run, and the host opens another one. Needs <see cref="KeptRun"/>.</summary>
     public const string RepeatableOpen = "repeatable-open";
 
+    /// <summary>Report whether an account is signed in and start its sign-in under its own home, through
+    /// <see cref="IAgentAuthSource"/>. Not something a turn asks for. A door states it <see cref="AgentSupport.Supported"/> only where
+    /// the vendor's program has a status and a login command the inference provider already drives.</summary>
+    public const string SignIn = "sign-in";
+
     /// <summary>Every ability a provider states, in a fixed order.</summary>
     public static IReadOnlyList<string> All { get; } =
         [Resume, ReadOnlyGate, McpServers, DisallowedTools, SystemPrompt, Model, Steering, PlanEvents, LiveUsage, TypedFailures, Accounts, UsageReading, PermissionRequests,
-            PermissionMode, Effort, Plugins, Environment, KeptRun, QueuedWords, KeepingStop, ModelReask, ReplayTold, RepeatableOpen];
+            PermissionMode, Effort, Plugins, Environment, KeptRun, QueuedWords, KeepingStop, ModelReask, ReplayTold, RepeatableOpen, SignIn];
 
     /// <summary>The abilities <paramref name="options"/> asks a door for. Only the option-shaped ones appear:
     /// an event ability (plan events, live usage) is something a door emits, not something a turn asks for.</summary>

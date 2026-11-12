@@ -22,6 +22,7 @@ static class Lyntai.Agents.AgentAbilities
     RepeatableOpen : String const
     ReplayTold : String const
     Resume : String const
+    SignIn : String const
     Steering : String const
     SystemPrompt : String const
     TypedFailures : String const
@@ -879,6 +880,9 @@ interface Lyntai.Agents.IAgentAccountPolicy
     Select(IReadOnlyList<AgentSeat> admissible) : AgentSeat
 interface Lyntai.Agents.IAgentAllowanceSource
     AllowanceOf(AgentAccount account) : AgentAllowance
+interface Lyntai.Agents.IAgentAuthSource
+    LoginAsync(AgentAccount account = null, ProviderLoginRequest request = null, Action<String> onOutput = null, CancellationToken ct = default) : Task<ProviderAuthResult>
+    StatusAsync(AgentAccount account = null, CancellationToken ct = default) : Task<ProviderAuthStatus>
 interface Lyntai.Agents.IAgentProvider
     Describe() : AgentProviderDescriptor
     Open(String doorId) : IAgentSession
