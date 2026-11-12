@@ -1126,7 +1126,7 @@ an unknown id throws `KeyNotFoundException` naming the ids that exist. `Describe
 `AgentProviderDescriptor`: its doors (`Id`, `Kind`) and, per door, one claim for EACH ability in `AgentAbilities.All`
 (resume, read-only gate, MCP servers, disallowed tools, system prompt, model, steering, plan events, live usage, typed
 failures, accounts, usage reading, permission requests, permission mode, effort, plugins, environment, and the six of a kept run: kept run,
-queued words, keeping stop, model re-ask, replay told, repeatable open). A claim is `Supported`, `Unsupported` or `Unknown`, with a `Source` (`Declared`, `Negotiated`,
+queued words, keeping stop, model re-ask, replay told, repeatable open, and, after them, sign-in and child sessions). A claim is `Supported`, `Unsupported` or `Unknown`, with a `Source` (`Declared`, `Negotiated`,
 `Measured`) and its `Evidence`; an ability nobody measured is `Unknown`, which a host reads as not promised, never
 as not possible. Ask the descriptor rather than branching on an id. `Open(doorId)` returns the door's session, and
 that session refuses an option its door states `Unsupported` before anything is spawned — one `SessionEnded` with
@@ -1157,10 +1157,16 @@ the agent's own word, passed through and never interpreted, with an ability a do
 folder (a repeat dropped, the contents never read); any other word, a relative folder, or a mode beside `SkipAllPermissions`
 ends the turn before a spawn with `option-unsupported` and names what the door carries. **A named mode is your own gate:**
 the turn's `ToolPolicy` mapping (`acceptEdits`) and its read-only write-tool denial are not applied beside it, while
-`DisallowedTools` and the tools a headless turn always denies stand. The codex and HTTP doors state all three
+`DisallowedTools` and the tools a headless turn always denies stand. **The codex door carries a mode and an effort** (**D341**): a mode is a sandbox word, `read-only`, `workspace-write` or `danger-full-access`, sent as `--sandbox` ahead of the tool policy's mapping (and refused beside a `CodexAgentOptions.SandboxMode` that names another), and an effort is `minimal`, `low`, `medium`, `high` or `xhigh`, sent as `-c model_reasoning_effort`; any other word, an approval word included (`exec` asks no one), ends the turn before a spawn. The levels are declared from the maker's reference and were not run here. The codex door states plugins and the HTTP door all three
 `Unsupported` and refuse a turn that names one; the protocol door states a mode and an effort `Unknown`, `Negotiated` (a mode is
 set through `session/set_mode` with an id the open's `modes` offers, an effort through the config option of category
 `thought_level`, and an agent that refuses either, or offers none, ends the turn before the prompt) and plugins `Unsupported`; `AgentPick.Apply` sets `Effort` from the pool choice's.
+
+**A conversation another client holds** (`AgentFailure.Conflict`, **D340**). When `codex-acp` refuses a resume with `data.reason` `thread_active_writer`, the turn ends before its prompt with `Conflict` `ConversationHeld` and `Delivery` `NeverSent`. The kind stays `Fatal`, so `AddAgentRetry` never resends over a live writer and the pool holds nothing; the host decides whether to wait, ask the person or start another conversation. The words of the refusal without that field state no conflict.
+
+**An account's sign-in** (`IAgentAuthSource`, **D342**). A provider a CLI door registers is also an `IAgentAuthSource`, found by type test as `IAgentUsageSource` is, and its door states `sign-in`. `StatusAsync(account)` answers whether the account's home is signed in and as whom, with the program's own status command, and `LoginAsync(account, request, onOutput)` starts the program's sign-in under that home and calls `onOutput` with each line as it is printed, so a device code or an address reaches your UI while the call still waits; the state it left is read afterwards. A refused account (another provider's) or a failed program is a result, never a throw, and nothing is spawned for a refusal. The library reads no line (an address, a code or a port is the vendor's wording and where a browser runs is your deployment's), offers no logout here, and carries no device-code flag, which is not measured.
+
+**Child agents** (`child-sessions`, **D343**). Every door states it `Unsupported`: a child's work shows among the session's own events with `ParentCallId` set to the call that spawned it, on the Claude CLI door and the protocol door alike, and the spawning call stays in the parent's stream. Rely on that stamp for lineage.
 
 **A turn's own variables** (`AgentSessionOptions.Environment`, **D244**). A turn can hand its child variables of its own, a null
 removing one it would inherit. They sit over the registration's `environment` and beneath the account's, so a pool's account home
