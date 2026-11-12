@@ -150,6 +150,20 @@ public class AcpAgentSessionTests
         Assert.All(blocks, b => Assert.Equal("text", b!["type"]!.GetValue<string>()));
     }
 
+    [Fact] // holds the door's child-sessions claim: nothing declared at initialize turns a child into a session of its own
+    public async Task The_initialize_never_declares_the_child_sessions_extension()
+    {
+        var log = NewLog();
+
+        await Run(Stub(log: log), Ask());
+
+        var declared = Request(Sent(log), "initialize").ToJsonString();
+        Assert.DoesNotContain("nativeSubagentSessions", declared);
+        Assert.DoesNotContain("\"subagents\"", declared);
+        Assert.Equal(AgentSupport.Unsupported,
+            AcpAgentDoor.Describe("acp-test", null).Doors[0].SupportFor(AgentAbilities.ChildSessions));
+    }
+
     // ── load or resume, by what the agent states ─────────────────────────────
 
     [Fact] // SOURCE-DERIVED
@@ -824,6 +838,40 @@ public class AcpAgentSessionTests
         Assert.Equal("acp.error.code=-32000", ended.Failure.By);
         Assert.Equal(AgentDelivery.NeverSent, ended.Failure.Delivery);
         Assert.DoesNotContain(runner.Exchanged, l => Method(JsonNode.Parse(l)!) == "session/prompt");
+    }
+
+    [Fact] // SOURCE-DERIVED: codex-acp refuses a resume another client holds with -32600 and data.reason (a host's record, never run here)
+    public async Task A_conversation_another_client_holds_is_a_stated_conflict_and_the_prompt_is_never_sent()
+    {
+        var runner = Agent(new()
+        {
+            ["initialize"] = _ => [RealCodexInitialize],
+            ["session/resume"] = _ => ["""{"jsonrpc":"2.0","id":2,"error":{"code":-32600,"message":"Invalid request","data":{"reason":"thread_active_writer","message":"This Codex session is in use by another Codex client."}}}"""],
+        });
+
+        var events = await Run(Scripted(runner), Ask() with { ResumeToken = "conv-1" });
+
+        var ended = Assert.IsType<SessionEnded>(Assert.Single(events.Where(e => e is not AgentOffers)));
+        Assert.True(ended.IsError);
+        Assert.Equal(AgentConflict.ConversationHeld, ended.Failure!.Conflict);
+        Assert.Equal(AgentFailureKind.Fatal, ended.Failure.Kind);
+        Assert.Equal("acp.data.reason=thread_active_writer", ended.Failure.By);
+        Assert.Equal(AgentDelivery.NeverSent, ended.Failure.Delivery);
+        Assert.DoesNotContain(runner.Exchanged, l => Method(JsonNode.Parse(l)!) == "session/prompt");
+    }
+
+    [Fact] // the sentence beside the field states nothing: a refusal with the same words and no reason is no conflict
+    public async Task The_words_of_a_held_conversation_without_the_field_state_no_conflict()
+    {
+        var runner = Agent(new()
+        {
+            ["initialize"] = _ => [RealCodexInitialize],
+            ["session/resume"] = _ => ["""{"jsonrpc":"2.0","id":2,"error":{"code":-32600,"message":"Invalid request","data":{"message":"This Codex session is in use by another Codex client."}}}"""],
+        });
+
+        var ended = Ended(await Run(Scripted(runner), Ask() with { ResumeToken = "conv-1" }));
+
+        Assert.Equal(AgentConflict.None, ended.Failure!.Conflict);
     }
 
     // ── a failed turn, read from the agent's own fields ──────────────────────

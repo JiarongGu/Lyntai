@@ -409,8 +409,12 @@ new decision overturns an old one, rewrite the old entry as a stub pointing here
 | [D337](#d337--a-flag-shaped-argument-prompt-is-unsupported-and-the-flattened-prompt-keeps-tool-calls-and-says-it-dropped-attachments-2026-11-09) | 2026-11-09 | a flag-shaped argument prompt is Unsupported, and the flattened prompt keeps tool calls and says… |
 | [D338](#d338--a-hand-over-resumes-only-over-its-own-newest-turn-2026-11-09) | 2026-11-09 | a hand-over resumes only over its own newest turn |
 | [D339](#d339--the-recorder-keeps-only-the-hosts-request-from-a-prompt-a-hand-over-built-2026-11-09) | 2026-11-09 | the recorder keeps only the host's request from a prompt a hand-over built |
+| [D340](#d340--a-conversation-another-client-holds-is-agentfailureconflict-beside-a-fatal-kind-2026-11-12) | 2026-11-12 | a conversation another client holds is `AgentFailure.Conflict`, beside a Fatal kind |
+| [D341](#d341--on-the-codex-exec-door-a-permission-mode-is-a-sandbox-word-an-effort-a-reasoning-effort-override-and-no-approval-word-is-carried-2026-11-12) | 2026-11-12 | on the Codex exec door a permission mode is a sandbox word, an effort a reasoning-effort override… |
+| [D342](#d342--an-accounts-sign-in-is-an-optional-capability-found-by-type-test-and-a-login-hands-its-lines-to-the-host-while-it-waits-2026-11-12) | 2026-11-12 | an account's sign-in is an optional capability found by type test, and a login hands its lines to… |
+| [D343](#d343--no-door-reads-a-child-agent-as-a-session-of-its-own-and-each-states-so-2026-11-12) | 2026-11-12 | no door reads a child agent as a session of its own, and each states so |
 
-**334 live decisions.** The rest are stubs — `D<n>` is a permanent identifier, so a number is never reused or renumbered (5): [D36](#d36--a-translation-between-two-verdict-taxonomies-gets-one-arm-per-member-gated-by-a-test-2026-08-05) → D136 · [D80](#d80--merged-into-d77-2026-08-16-folded-2026-08-17) → D77 · [D131](#d131--a-backends-produces-is-derived-from-its-configuration-so-a-modality-is-a-field-2026-09-14) → D133 · [D134](#d134--a-registration-names-the-backend-the-provider-suffix-is-gone-from-all-seventeen-2026-09-14) → D137 · [D145](#d145--the-microsoftextensionsai-module-is-a-bridge-not-a-provider-2026-09-15) → D146
+**338 live decisions.** The rest are stubs — `D<n>` is a permanent identifier, so a number is never reused or renumbered (5): [D36](#d36--a-translation-between-two-verdict-taxonomies-gets-one-arm-per-member-gated-by-a-test-2026-08-05) → D136 · [D80](#d80--merged-into-d77-2026-08-16-folded-2026-08-17) → D77 · [D131](#d131--a-backends-produces-is-derived-from-its-configuration-so-a-modality-is-a-field-2026-09-14) → D133 · [D134](#d134--a-registration-names-the-backend-the-provider-suffix-is-gone-from-all-seventeen-2026-09-14) → D137 · [D145](#d145--the-microsoftextensionsai-module-is-a-bridge-not-a-provider-2026-09-15) → D146
 
 <!-- index:end -->
 
@@ -8538,3 +8542,51 @@ recall and its write-back is already a silent skip).
 **Rejected.** Documenting that a host records before `Apply` (the recording decorator sees the options after it).
 
 **Re-opens** when a host's own request legitimately begins with the header and holds the marker.
+
+## D340 — a conversation another client holds is `AgentFailure.Conflict`, beside a Fatal kind (2026-11-12)
+
+**Standing.** A ruling on Daoris's third request, A-LQ20 (`docs/agent-provider-daoris-study.md` §12), read by the agent that built it; the owner may reverse it. Built.
+
+**Decided.** `AgentFailure` gains `Conflict` (`AgentConflict`: `None`, `ConversationHeld`). The protocol door's Codex reader sets `ConversationHeld` from `data.reason == "thread_active_writer"` on a refused open and never from the sentence beside it; the kind stays `Fatal`, so the retry decorator never resends and a pool holds nothing, and the open ends before the prompt as `NeverSent`.
+
+**Why.** A host that resumes a conversation must tell "another process holds it" from every other refusal, and a typed member is the one place it can read that. The kind is not the place: `Transient` would invite the retry decorator to resend over a live writer, and `Limit` or `Access` say something false.
+
+**Rejected.** A new `AgentFailureKind` member (every exhaustive reading of the kind, the pool and the retry decorator among them, would change meaning for a distinction one field carries; the `84a17f99` reasoning). Reading the sentence (**D219**: only a field classifies).
+
+**Re-opens** when a second agent states a held conversation in another field, which is a second reader setting the same member, or when a host needs the writer's identity, which no record shows an agent stating.
+
+## D341 — on the Codex exec door a permission mode is a sandbox word, an effort a reasoning-effort override, and no approval word is carried (2026-11-12)
+
+**Standing.** A ruling on Daoris's third request, A-LQ22, read by the agent that built it; the owner may reverse it. Built.
+
+**Decided.** `PermissionMode` on the Codex exec door carries one of `read-only`, `workspace-write` and `danger-full-access` and is sent as `--sandbox`, beating the tool policy's mapping and refusing a different `CodexAgentOptions.SandboxMode`. `Effort` carries `minimal`, `low`, `medium`, `high` or `xhigh` and is sent as `-c model_reasoning_effort="<level>"` before the positionals, on a fresh turn and a resumed one. Any other word refuses the turn before a spawn, naming the words. The door states both abilities `Supported`, `Declared`.
+
+**Why.** The need is the host's own gate and effort without constructing a Codex-specific option type, and the Claude door already reads a mode as the agent's word. An approval word is not carried because `exec` asks no one: a host's audit of codex-cli 0.160.0 read "approval policy is never", so a word asking for approval is one the process cannot honour, and **D243** is refusal before dropping.
+
+**Rejected.** `-c approval_policy` (no record shows exec reading it; carrying it would be a claim nobody measured). A second neutral option for the sandbox beside `PermissionMode` (a new public member for what the existing one carries).
+
+**Re-opens** when a record shows `exec` honouring an approval policy, or the effort words are measured against a signed-in binary: the levels are declared from the maker's configuration reference and were never run here.
+
+## D342 — an account's sign-in is an optional capability found by type test, and a login hands its lines to the host while it waits (2026-11-12)
+
+**Standing.** A ruling on Daoris's third request, A-LQ23, read by the agent that built it; the owner may reverse it. Built.
+
+**Decided.** `IAgentAuthSource` (`StatusAsync(account)`, `LoginAsync(account, request, onOutput)`) is found by type test on the provider a CLI door registers, as `IAgentUsageSource` is, and the door states `sign-in`. It runs the commands the inference provider already drives (the backend's status args, its parser and its login args) under the account's home, with the status the inference engine's own answer. `LoginAsync` hands each output line to `onOutput` as it is printed and reads the state afterwards. A refused account or a failed program is a value; only cancellation throws. Logout is not offered.
+
+**Why.** Daoris reads both programs' answers with its own patterns per account home, and a device-code flow prints its code and then waits for a person, so the code must reach the host while the call is still blocked. The library never reads a line: an address, a code or a port is the vendor's wording.
+
+**Rejected.** Members on `IAgentProvider` (every BYO provider would break). Returning the output only at the end, as the inference `LoginAsync` does (the code arrives after the flow is over). Declaring ports: where a browser runs relative to the process is a fact only the deployment knows (**generic-library** rule 7), so the host keeps `SignInPorts`. A device-code flag: `codex login --device-auth` and its Claude counterpart are not measured here, so neither is invented into `ProviderLoginRequest`.
+
+**Re-opens** when a flag for a device flow is measured on a binary, or a host needs a logout through the agent layer.
+
+## D343 — no door reads a child agent as a session of its own, and each states so (2026-11-12)
+
+**Standing.** A ruling on Daoris's third request, A-LQ24, read by the agent that built it; the owner may reverse it. Built.
+
+**Decided.** The ability `child-sessions` is `Unsupported` on all four doors, each claim naming where a child's work shows instead: the Claude stream's `parent_tool_use_id` and the protocol door's `_meta.claudeCode.parentToolUseId`, both read as `ParentCallId`, with the spawning call kept in the parent's stream. A test pins that the protocol door's `initialize` never declares `nativeSubagentSessions` or `subagents`. **A host that wants lineage by call id relies on the stamp reading**, the one both doors share.
+
+**Why.** The two readings are not interchangeable: with the extension declared the adapter removes the spawning call from the parent's stream and routes a child's updates by session id (a host's record of `claude-agent-acp` 0.79.0), so a transcript, a permission surface or a hand-over brief that reads the call would lose it. Declaring it is a choice a host with a console per child makes, not one the library makes for every host.
+
+**Rejected.** Declaring it by default. Leaving the absence unstated (the host would read `Unknown` as "not measured").
+
+**Re-opens** when a host-enabled option to declare it is built (`TASKS.md`'s child-sessions row), whose reader needs the child's frames read by session id.

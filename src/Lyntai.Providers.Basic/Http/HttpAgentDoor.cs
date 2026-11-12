@@ -47,6 +47,8 @@ internal static class HttpAgentDoor
                     Declared(AgentAbilities.ModelReask, AgentSupport.Unsupported, "no run is kept; the next turn's request names its own model"),
                     Declared(AgentAbilities.ReplayTold, AgentSupport.Unsupported, "no run is kept and no conversation is loaded from the endpoint"),
                     Declared(AgentAbilities.RepeatableOpen, AgentSupport.Unsupported, "the door opens nothing"),
+                    Declared(AgentAbilities.ChildSessions, AgentSupport.Unsupported, "the tool loop starts no child agent"),
+                    Declared(AgentAbilities.SignIn,AgentSupport.Unsupported, "the endpoint takes a key, which the library never holds (D20); there is no sign-in to drive"),
                 ],
             },
         ],

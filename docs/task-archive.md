@@ -7077,3 +7077,11 @@ lines the doors' own tests pin. Landed in `08b41270`; the row stayed open in `TA
 
 - the code commits and their tests, one per Part
 - D324 to D339, the changelog entry
+
+## Part 518 — Daoris's third request to the agent layer: a held conversation, Codex's sandbox and effort, an account's sign-in and the child-session claim (2026-11-12)
+
+✅ done 2026-11-12 — **Outcome:** four of Daoris's needs built, test failing first, and the rest answered in `docs/agent-provider-daoris-study.md` §12. **Built:** A-LQ20, `AgentFailure.Conflict` set from `codex-acp`'s `data.reason` `thread_active_writer` with the kind staying `Fatal` (**D340**); A-LQ22, the Codex exec door's `PermissionMode` as a sandbox word and `Effort` as `-c model_reasoning_effort`, **the approval half declined** (**D341**); A-LQ23, `IAgentAuthSource` on the CLI providers, status and sign-in under an account's home with a login's lines handed over while it waits, **ports declined as the host's** (**D342**); A-LQ24, the `child-sessions` ability `Unsupported` on every door with the reading to rely on stated, and a test that the door never declares the extension (**D343**). The abilities `sign-in` and `child-sessions` are new on every door.
+<br>**What stays open (`TASKS.md` Part 518):** AG49 steering on a kept run, AG50 a kept run on `codex-acp` and dsh (blocked on Daoris's records), AG51 a Claude CLI kept run, AG52 child sessions as a host's option, and a device-code flag. Part 481's rejected-limit row still waits for the recorded frames. **The release (A-LQ1)** is prepared and the owner's to cut: no version is named and nothing is stamped (**D19**).
+
+- the code commits and their tests, one per need
+- D340 to D343, the changelog entry

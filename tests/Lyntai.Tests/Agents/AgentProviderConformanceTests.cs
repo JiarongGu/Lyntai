@@ -78,7 +78,8 @@ public class AgentProviderConformanceTests
             AgentAbilities.DisallowedTools => options with { DisallowedTools = ["Bash"] },
             AgentAbilities.SystemPrompt => options with { SystemPrompt = "be brief" },
             AgentAbilities.Model => options with { Model = "model-1" },
-            AgentAbilities.PermissionMode => options with { PermissionMode = "plan" },
+            // a mode is the agent's own word: the codex exec door's are its sandbox words, so the same word cannot serve every door
+            AgentAbilities.PermissionMode => options with { PermissionMode = providerId == "codex-cli" ? "workspace-write" : "plan" },
             AgentAbilities.Effort => options with { Effort = "high" },
             AgentAbilities.Plugins => options with { PluginDirectories = [Path.GetFullPath("plugin-a")] },
             AgentAbilities.Environment => options with { Environment = new Dictionary<string, string?> { ["TURN_VAR"] = "v" } },

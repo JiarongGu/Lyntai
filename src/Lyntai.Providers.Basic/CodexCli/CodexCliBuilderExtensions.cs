@@ -86,11 +86,13 @@ public static class CodexCliBuilderExtensions
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(id);
         ArgumentException.ThrowIfNullOrWhiteSpace(agent ?? id, nameof(agent));
-        builder.AddAgentProvider(CodexAgentDoor.Describe(id, agent), sp => new UsageAgentProvider(
+        builder.AddAgentProvider(CodexAgentDoor.Describe(id, agent), sp => new CliAgentProvider(
             new AgentProvider(CodexAgentDoor.Describe(id, agent), _ => sp.GetRequiredKeyedService<IAgentSession>(id)),
             new CliUsageSource(new CodexUsageDialect(id), sp.GetRequiredService<IProcessRunner>(),
                 sp.GetService<AgentUsageReadingOptions>(), sp.GetService<ILogger<CliUsageSource>>(), command, environment,
-                sp.GetService<TimeProvider>(), agent)));
+                sp.GetService<TimeProvider>(), agent),
+            new CliAuthSource(new CodexCliBackend(), CodexAgentDoor.Mapping, id, agent, sp.GetRequiredService<IProcessRunner>(),
+                sp.GetRequiredService<LyntaiOptions>(), sp.GetService<ILogger<CliAuthSource>>(), command, environment)));
         builder.Services.AddSingleton<IAgentSession>(sp => CreateSession(sp, command, environment));
         builder.Services.AddKeyedSingleton<IAgentSession>(id, (sp, _) => CreateSession(sp, command, environment));
         return builder;

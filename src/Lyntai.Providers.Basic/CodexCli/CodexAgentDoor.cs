@@ -46,11 +46,15 @@ internal static class CodexAgentDoor
                         Evidence = "account/rateLimits/read on `codex app-server`, no model request; a start created state "
                             + "databases and skills in the home and made a network request",
                         AppliesTo = string.Join(", ", CodexUsageDialect.Validated.Order(StringComparer.Ordinal)),
-                        SideEffects = UsageAgentProvider.ServerStart,
+                        SideEffects = CliAgentProvider.ServerStart,
                     },
                     Declared(AgentAbilities.PermissionRequests, AgentSupport.Unsupported, "a turn is one non-interactive process: the sandbox decides, and no request reaches the host"),
-                    Declared(AgentAbilities.PermissionMode, AgentSupport.Unsupported, "its gate is the sandbox option (CodexAgentOptions.SandboxMode), not a permission mode"),
-                    Declared(AgentAbilities.Effort, AgentSupport.Unsupported, "no flag or override for an effort is measured here"),
+                    Declared(AgentAbilities.PermissionMode, AgentSupport.Supported,
+                        "the sandbox, as --sandbox with a word codex exec --help lists: " + string.Join(", ", CodexAgentArgs.SandboxModes)
+                        + "; no approval word, since exec asks no one (its approval policy is never) and any other word refuses the turn"),
+                    Declared(AgentAbilities.Effort, AgentSupport.Supported,
+                        "-c model_reasoning_effort with a level from the maker's configuration reference, never run here: " + string.Join(", ", CodexAgentArgs.EffortLevels)
+                        + "; any other refuses the turn, and a level the model does not take is the agent's own failure"),
                     Declared(AgentAbilities.Plugins, AgentSupport.Unsupported, "no plugin flag is measured here"),
                     Declared(AgentAbilities.Environment, AgentSupport.Supported, "the turn's variables in the child's environment, over the registration's and beneath the MCP bearer variables and the account's; a null removes one"),
                     Declared(AgentAbilities.KeptRun, AgentSupport.Unsupported, "exec takes its prompt once; a resume is a new process (read from the source, never run)"),
@@ -59,6 +63,8 @@ internal static class CodexAgentDoor
                     Declared(AgentAbilities.ModelReask, AgentSupport.Unknown, "no run exists to ask again"),
                     Declared(AgentAbilities.ReplayTold, AgentSupport.Unknown, "no run exists"),
                     Declared(AgentAbilities.RepeatableOpen, AgentSupport.Unsupported, "a new open is a new process"),
+                    Declared(AgentAbilities.ChildSessions, AgentSupport.Unsupported, "a host's audit of exec --json saw no child's lines, only a wait with no receivers; nothing here reads one"),
+                    Declared(AgentAbilities.SignIn,AgentSupport.Supported, "codex login status (prose, measured) and codex login, under the account's CODEX_HOME, as the inference provider drives them"),
                 ],
             },
         ],
