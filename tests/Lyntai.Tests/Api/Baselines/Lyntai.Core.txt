@@ -4,6 +4,7 @@ enum Lyntai.Agents.AccessReason
     value__ : Int32
 static class Lyntai.Agents.AgentAbilities
     Accounts : String const
+    ChildSessions : String const
     DisallowedTools : String const
     Effort : String const
     Environment : String const

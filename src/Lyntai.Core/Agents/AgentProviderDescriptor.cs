@@ -266,10 +266,15 @@ public static class AgentAbilities
     /// the vendor's program has a status and a login command the inference provider already drives.</summary>
     public const string SignIn = "sign-in";
 
+    /// <summary>Read a child agent's conversation as a session of its own, with its own id, rather than as lines stamped with the call
+    /// that spawned it (<see cref="ToolCall.ParentCallId"/>). Not something a turn asks for. A door that states it <see cref="AgentSupport.Unsupported"/>
+    /// still shows a child's work by that stamp, and says in the claim where.</summary>
+    public const string ChildSessions = "child-sessions";
+
     /// <summary>Every ability a provider states, in a fixed order.</summary>
     public static IReadOnlyList<string> All { get; } =
         [Resume, ReadOnlyGate, McpServers, DisallowedTools, SystemPrompt, Model, Steering, PlanEvents, LiveUsage, TypedFailures, Accounts, UsageReading, PermissionRequests,
-            PermissionMode, Effort, Plugins, Environment, KeptRun, QueuedWords, KeepingStop, ModelReask, ReplayTold, RepeatableOpen, SignIn];
+            PermissionMode, Effort, Plugins, Environment, KeptRun, QueuedWords, KeepingStop, ModelReask, ReplayTold, RepeatableOpen, SignIn, ChildSessions];
 
     /// <summary>The abilities <paramref name="options"/> asks a door for. Only the option-shaped ones appear:
     /// an event ability (plan events, live usage) is something a door emits, not something a turn asks for.</summary>

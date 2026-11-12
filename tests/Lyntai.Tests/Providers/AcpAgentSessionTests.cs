@@ -150,6 +150,20 @@ public class AcpAgentSessionTests
         Assert.All(blocks, b => Assert.Equal("text", b!["type"]!.GetValue<string>()));
     }
 
+    [Fact] // holds the door's child-sessions claim: nothing declared at initialize turns a child into a session of its own
+    public async Task The_initialize_never_declares_the_child_sessions_extension()
+    {
+        var log = NewLog();
+
+        await Run(Stub(log: log), Ask());
+
+        var declared = Request(Sent(log), "initialize").ToJsonString();
+        Assert.DoesNotContain("nativeSubagentSessions", declared);
+        Assert.DoesNotContain("\"subagents\"", declared);
+        Assert.Equal(AgentSupport.Unsupported,
+            AcpAgentDoor.Describe("acp-test", null).Doors[0].SupportFor(AgentAbilities.ChildSessions));
+    }
+
     // ── load or resume, by what the agent states ─────────────────────────────
 
     [Fact] // SOURCE-DERIVED
