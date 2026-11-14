@@ -7,6 +7,20 @@ to `.agents/knowledge/pitfalls.md`; the release-facing line goes to `CHANGELOG.m
 
 ---
 
+## 2026-11-15 — a killed live-stdin run closed the child's stdin before the kill, so a server that ends on its EOF left its children running off Windows
+
+**Symptom.** `AgentUsageProcessTests.Cancellation_rethrows_and_leaves_no_process_behind` and `A_server_that_never_answers_is_ended_with_its_children_when_the_time_runs_out` failed on Linux (`mcr.microsoft.com/dotnet/sdk:10.0`, with and without an init) with "process N, started by this test, is still running": the stand-in's grandchild in state `S` with parent 1 after the read ended (`docs/task-archive.md` Part 534 closes the row). On Windows the stand-in saw stdin's end before the kill on every cancelled exchange, and one exchange ended by its ceiling returned as a clean exit.
+
+**Root cause.** On a cancel or a timeout, `StreamCoreAsync`'s live-stdin writer stopped (`writerCts` is linked to the kill token, and a producer watching the caller's token ends by itself) and its `finally` closed stdin at once, while the tree kill ran only after `Process.Kill(entireProcessTree)` had scanned every process. A server that ends on stdin's EOF exited 0 first; off Windows its children were reparented to init, and the Unix tree kill, which finds descendants by parent pid, could not reach them. Logged in a container: stdin closed, then the kill, server exit 0 rather than 137, grandchild already parented to 1.
+
+**Fix.** While the run is being killed (the caller's or the kill token cancelled), `WriteStdinLinesAsync` holds stdin open until the child has exited, bounded at 2 s, then closes it; a run not being killed closes stdin at once, as before. Two test corrections ride with it: the exits-by-itself test asserts only the server (a child a server orphans by exiting is beyond any tree kill on Linux), and the probe reads a `/proc` zombie as ended. The trap is in `.agents/knowledge/pitfalls.md`.
+
+**Verify.** Failed before the change: `A_cancelled_exchange_kills_the_child_before_it_sees_stdin_end` and `An_exchange_ended_by_its_ceiling_kills_the_child_before_it_sees_stdin_end` on Windows, and the two usage facts above on Linux; all pass after, on Windows and on Linux with `--init`, with `dotnet test` as PID 1 and with a PID 1 that never reaps. **Not fixed:** two `ProcessRunnerTests` grandchild-holding-the-pipes facts fail on Linux before and after (`TASKS.md` Part 495).
+
+**Introduced by.** `d26224e1` (2026-10-28), the live-stdin writer added for the protocol door; unreleased, so no changelog line.
+
+---
+
 ## 2026-11-15 — a kept-run stop test raced the second answer it never waited for
 
 **Symptom.** `AcpAgentRunTests.A_stop_with_a_word_on_its_way_sends_nothing` failed about once in six runs under load, at its last `StopAsync` (true where false was expected), seen by two builders the same day; green standalone.

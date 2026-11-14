@@ -343,7 +343,8 @@ public sealed class ProcessRunner : IProcessRunner
             var stdinTask = stdinLines is null
                 ? WriteStdinAsync(process, stdin, onStdinProgress, timeoutCts.Token)
                 : WriteStdinLinesAsync(process, stdinLines, onStdinProgress, writerCts.Token,
-                    onFault: fault => { producerFault ??= fault; KillTree(process); });
+                    onFault: fault => { producerFault ??= fault; KillTree(process); },
+                    killing: () => ct.IsCancellationRequested || timeoutCts.IsCancellationRequested, exited);
 
             while (!timedOut && !timeoutCts.IsCancellationRequested)
             {
@@ -637,8 +638,12 @@ public sealed class ProcessRunner : IProcessRunner
         }
     }
 
+    /// <summary>How long a run being killed holds the child's stdin open for the kill to end the child, before closing
+    /// it anyway.</summary>
+    private static readonly TimeSpan KillBeforeEndBound = TimeSpan.FromSeconds(2);
+
     private static async Task WriteStdinLinesAsync(System.Diagnostics.Process process, IAsyncEnumerable<string> lines,
-        Action? onProgress, CancellationToken ct, Action<Exception> onFault)
+        Action? onProgress, CancellationToken ct, Action<Exception> onFault, Func<bool> killing, Task exited)
     {
         try
         {
@@ -659,6 +664,9 @@ public sealed class ProcessRunner : IProcessRunner
         }
         finally
         {
+            // a killed run's child must meet the kill before stdin's end: one that ends on the end goes first, and off
+            // Windows its own children are reparented to init the moment it exits, out of the tree kill's reach
+            if (killing()) await Task.WhenAny(exited, Task.Delay(KillBeforeEndBound)).ConfigureAwait(false);
             try { process.StandardInput.Close(); } catch (IOException) { }
         }
     }

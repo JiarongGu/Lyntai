@@ -28,9 +28,9 @@ _Edit a marker, never this table — `verify` fails the moment the two disagree.
 | 252 | 417 | MC8 — run the wrong-end instrument on an adjudicated corpus, with a bar wri… | blocked · decision+data | two reviewers' independent labels on a sample of the pairs, and a bar a per… |
 | 275 | 481 | A rejected limit is never cleared inside a turn | blocked · data | a capture of the CLI sending a rejected rate_limit_event and then an allowe… |
 | 286 | 485 | How long a quiet Codex step runs is unmeasured | blocked · env | one real Codex turn on an account with room: re-checked 2026-11-15, the own… |
-| 298 | 495 | Two usage-process lifetime facts fail on Linux | startable |  |
-| 307 | 518 | AG50 — a kept run on `codex-acp` and dsh (A-LQ19) | blocked · data | Daoris's recorded Codex sitting and dsh probe frames; re-checked 2026-11-15… |
-| 309 | 518 | AG53 — the replay echo that would tell a word folded into a running CLI tur… | blocked · data | a host's STEER3 streaming-step row re-run on held stdin with --replay-user-… |
+| 298 | 495 | Two process-runner grandchild facts fail on Linux | startable |  |
+| 308 | 518 | AG50 — a kept run on `codex-acp` and dsh (A-LQ19) | blocked · data | Daoris's recorded Codex sitting and dsh probe frames; re-checked 2026-11-15… |
+| 310 | 518 | AG53 — the replay echo that would tell a word folded into a running CLI tur… | blocked · data | a host's STEER3 streaming-step row re-run on held stdin with --replay-user-… |
 
 <!-- open-items:end -->
 
@@ -295,10 +295,11 @@ was filed. Three closed in that Part. What stays needs a measurement against a r
 _Opened by `docs/task-archive.md` **Part 497**: a read-only review of `CliProviderEngine` and the Claude and Codex ONE-SHOT providers, the usage source and the hand-over brief, each finding read against the code, none run.
 The certain and small findings closed in that Part. The `.cmd` shim re-parsing argv through `cmd.exe` is already `TASKS.md` Part 485's first row and is not filed again. Lanes `inference` and `platform`._
 
-- [ ] **Two usage-process lifetime facts fail on Linux.** `AgentUsageProcessTests.A_server_that_exits_by_itself_without_answering_reads_unknown` and <!-- item: state=startable -->
-  `Cancellation_rethrows_and_leaves_no_process_behind` fail in `mcr.microsoft.com/dotnet/sdk:10.0` ("process N, started by this test, is still running"), with or without
-  the folder-mode fix (`docs/FIXES.md` 2026-11-15), and a third fails under `docker --init`. The suite is green on Windows. First step: decide whether the test's process
-  probe or the source's process-tree end is what differs on Linux; Docker is the Unix run.
+- [ ] **Two process-runner grandchild facts fail on Linux.** `ProcessRunnerTests.A_buffered_run_returns_when_a_grandchild_keeps_the_pipes_open_after_the_child_exited` <!-- item: state=startable -->
+  and its streamed twin fail in `mcr.microsoft.com/dotnet/sdk:10.0` before and after the stdin-order fix (`docs/FIXES.md` 2026-11-15): a detached grandchild whose parent
+  exited by itself is reparented to init, beyond the tree kill (`.agents/knowledge/pitfalls.md`, the Unix tree-kill trap). Green on Windows. First step: decide whether the
+  runner should end such a grandchild (a process group or session kill on Unix) or the test asserts what Windows alone can promise; `AssertGrandchildGone` has the same
+  zombie-blind probe the usage tests had. The scratch harness is `devtools/_usage-linux/` (untracked).
 
 ## Part 518 — what Daoris's third request to the agent layer left to build (A-LQ18, A-LQ19, A-LQ21 and A-LQ24's half)
 

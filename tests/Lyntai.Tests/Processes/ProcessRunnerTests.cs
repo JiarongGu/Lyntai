@@ -779,6 +779,51 @@ public class ProcessRunnerTests
         Assert.True(sw.Elapsed < TimeSpan.FromSeconds(30), $"took {sw.Elapsed} — kill didn't work");
     }
 
+    // Exits 0 on stdin's end after noting it in the file argv[1] names, as a server that ends on stdin's EOF does, and
+    // says 'ready' once that handler is in place.
+    private const string EndsOnStdinEnd =
+        "process.stdin.on('end', () => { require('fs').writeFileSync(process.argv[1], 'eof'); process.exit(0); });" +
+        "process.stdin.resume(); console.log('ready'); setTimeout(() => {}, 60000);";
+
+    // A child that ends on stdin's EOF ahead of the tree kill orphans its own children, and off Windows an orphan is
+    // reparented to init, out of the kill's reach: so a killed exchange's child must meet the kill first.
+    [Fact]
+    public async Task A_cancelled_exchange_kills_the_child_before_it_sees_stdin_end()
+    {
+        using var scratch = new ScratchDir("exchange-kill");
+        var eof = scratch.Combine("eof.txt");
+        var outbox = System.Threading.Channels.Channel.CreateUnbounded<string>();   // never completed
+        using var cts = new CancellationTokenSource();
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(async () =>
+        {
+            // the producer watches the caller's token too, as the usage read's does
+            await foreach (var line in _runner.ExchangeLinesAsync("node", ["-e", EndsOnStdinEnd, eof],
+                               outbox.Reader.ReadAllAsync(cts.Token), ct: cts.Token))
+                if (line == "ready") await cts.CancelAsync();
+        }).WaitAsync(TimeSpan.FromSeconds(30));
+
+        Assert.False(File.Exists(eof), "the child saw stdin's end before the kill");
+    }
+
+    [Fact]
+    public async Task An_exchange_ended_by_its_ceiling_kills_the_child_before_it_sees_stdin_end()
+    {
+        using var scratch = new ScratchDir("exchange-kill");
+        var eof = scratch.Combine("eof.txt");
+        var outbox = System.Threading.Channels.Channel.CreateUnbounded<string>();   // never completed
+        var clock = new ManualTimeProvider();
+        var runner = new ProcessRunner { CeilingClock = clock };
+
+        await Assert.ThrowsAsync<ProcessTimeoutException>(async () =>
+        {
+            await foreach (var line in runner.ExchangeLinesAsync("node", ["-e", EndsOnStdinEnd, eof],
+                               outbox.Reader.ReadAllAsync(), maxDuration: TimeSpan.FromSeconds(3)))
+                if (line == "ready") clock.Advance(TimeSpan.FromSeconds(3));
+        }).WaitAsync(TimeSpan.FromSeconds(30));
+
+        Assert.False(File.Exists(eof), "the child saw stdin's end before the kill");
+    }
+
     // ---- A grandchild holding the pipes, and a stdin producer that throws -------------------------------
 
     // The parent prints its detached grandchild's pid and exits at once; the grandchild inherits stdout and stderr

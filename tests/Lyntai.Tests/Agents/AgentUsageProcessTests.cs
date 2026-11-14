@@ -11,8 +11,9 @@ namespace Lyntai.Tests.Agents;
 
 /// <summary>The usage read against the shipped <see cref="ProcessRunner"/> and a real <c>node</c> stand-in for the
 /// vendor's server: one that ends the moment its stdin closes (as codex's does), one that never answers, one that
-/// exits by itself, and one that holds a grandchild. Every path is checked for the same thing — no process the test
-/// started is left running — and the test ends ONLY processes it started, by the pids the stand-in wrote.</summary>
+/// exits by itself, and one that holds a grandchild. Every path is checked for the same thing — no process the read
+/// ends is left running, which is the whole tree unless the server exited by itself — and the test ends ONLY processes
+/// it started, by the pids the stand-in wrote.</summary>
 public class AgentUsageProcessTests
 {
     // Writes "<pid> <grandchild pid>" to argv[3] first, so a test can find what to look for even when the read throws;
@@ -128,11 +129,24 @@ public class AgentUsageProcessTests
 
     private static bool Alive(int pid)
     {
-        try { using var p = Process.GetProcessById(pid); return !p.HasExited; }
+        try { using var p = Process.GetProcessById(pid); return !p.HasExited && !Zombie(pid); }
         catch (ArgumentException) { return false; }
     }
 
-    private static async Task AssertNoneAlive(List<int> pids)
+    // A zombie has exited and waits only for its parent to collect it. A killed grandchild is reparented to PID 1, and
+    // in a container whose PID 1 never reaps it stays one, which HasExited (does the pid exist?) reads as running.
+    private static bool Zombie(int pid)
+    {
+        if (!OperatingSystem.IsLinux()) return false;
+        try
+        {
+            var stat = File.ReadAllText($"/proc/{pid}/stat");
+            return stat[(stat.LastIndexOf(')') + 2)..] is ['Z' or 'X', ..];
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or ArgumentOutOfRangeException) { return false; }
+    }
+
+    private static async Task AssertNoneAlive(List<int> pids, List<int>? alsoEnd = null)
     {
         try
         {
@@ -143,7 +157,7 @@ public class AgentUsageProcessTests
         finally
         {
             // only the pids this test's stand-in wrote: a regression must not leave them for the next run
-            foreach (var pid in pids.Where(Alive))
+            foreach (var pid in pids.Concat(alsoEnd ?? []).Where(Alive))
                 try { using var p = Process.GetProcessById(pid); p.Kill(entireProcessTree: true); } catch { /* gone */ }
         }
     }
@@ -291,7 +305,10 @@ public class AgentUsageProcessTests
         var reading = await source.ReadAllowanceAsync(Account("/homes/work"));
 
         Assert.Equal(AgentAllowanceUnknown.NoAnswer, reading.UnknownReason);
-        await AssertNoneAlive(await Pids(pidFile));
+        // only the server is the read's: the child it left by exiting is reparented to init off Windows, out of any
+        // tree kill's reach, and on Windows node's own job object ends it, so neither outcome is the read's doing
+        var pids = await Pids(pidFile);
+        await AssertNoneAlive([pids[0]], alsoEnd: [pids[1]]);
     }
 
     [Fact]

@@ -7263,3 +7263,14 @@ becoming the next turn after a streaming step; the record that would re-open it 
 
 - `tests/Lyntai.Tests/Providers/ClaudeCliAgentRunTests.cs`, seven `StreamJsonAgentReaderTests`
 - D375, the changelog entry
+
+## Part 534 — `TASKS.md` Part 495: the usage-process lifetime facts that failed on Linux (2026-11-15)
+
+✅ done 2026-11-15 — **Outcome:** a real defect, found in Docker with logging: a killed live-stdin run closed the child's stdin before
+the tree kill, so a server that ends on EOF exited first and its children, reparented to init, escaped the Unix tree kill; Windows hid
+it only through node. `ProcessRunner` now holds stdin open while a kill is in progress (bounded at 2 s), red first on Windows and on
+Linux (`docs/FIXES.md` 2026-11-15, the trap in `.agents/knowledge/pitfalls.md`). Two test corrections ride with it. Two other Linux
+failures (a self-exited parent's detached grandchild) are the new `TASKS.md` Part 495 row.
+
+- `tests/Lyntai.Tests/Processes/ProcessRunnerTests.cs`, `tests/Lyntai.Tests/Agents/AgentUsageProcessTests.cs`
+- the fix entry and the trap
