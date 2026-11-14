@@ -115,7 +115,8 @@ Rules specific to this path:
 - **Never forward a free-form value into argv.** `TryBuildLoginArgs`/`TryBuildInstallArgs` must REFUSE a
   mode the backend doesn't have and a flag-shaped value (`FlagShaped` on the base) — `ArgumentList` stops
   shell injection, not the backend's own option parser.
-- **Map an in-band failure to `CliOutputEvent.Failure`, and ONLY the terminal one.** A CLI can report a failed
+- **Map an in-band failure to `CliOutputEvent.Failure(message, usage)`, and ONLY the terminal one**, passing the usage
+  the line reports, since a failed turn's bill is still the account's (**D350**). A CLI can report a failed
   turn in its output and still exit 0 (codex does). But error-ish lines that aren't terminal — a retry notice,
   a warning item — must stay `Ignored`, or healthy calls fail on retries they recovered from.
 - **Check what your CLI assumes about its working directory.** The engine spawns from a neutral temp dir; codex
@@ -167,8 +168,8 @@ Non-negotiables (see `llm-and-router.md` for why — the router trusts every pro
   `StreamAsync` (a zero-content stream must let the router fall over, not report a clean empty answer).
 - **Streaming iterates `GuardedStream.ReadAll`**, whose inactivity clock is the timeout — never a single
   `CancelAfter` over the whole stream (`llm-and-router.md` §Provider streaming timeout).
-- **Only yield `TextChunk.Content` for non-empty text**; end with exactly one `Final` (with usage) or
-  `Error`.
+- **Only yield `TextChunk.Content` for non-empty text**; end with exactly one `Final` or `Error`, each carrying
+  the usage the backend reported (**D350**).
 - Spawning a CLI? Go through `ProcessRunner` (ArgumentList only, prompt via stdin, BOM-less UTF-8,
   kill-tree). Never build a provider that shells out directly.
 - **Declare what you serve.** A text backend's `Produces` lists `ProviderKinds.Text` (**D178**), and
@@ -372,6 +373,8 @@ answered with an empty list would silently get **no subject seeding** at all (**
 subject handles in use under a task and scope, most-used first. **And an id is never reissued**, not after a
 delete, a forget or a restart — a SQL backend gets that from `AUTOINCREMENT` or an identity column, where a plain
 rowid would hand the deleted top id out again, and an in-process one from a persisted high-water mark.
+**An upsert honours `GraphNodeWrite.KeepStoredMetadata`** (**D372**): set, a write landing on a held node keeps the bag
+stored there, and only a new node takes the write's; `MemoryGraphStoreContract` pins it.
 **Beside it sit OPTIONAL interfaces.** `ICountableMemoryGraphStore` (**D202**): `CountAsync` reports entries,
 authoritative entries, edges and distinct subjects per engine, task and scope, leaving `Buried` null — the engine
 judges burial. Skip it and `GraphMemoryEngine.CountAsync` answers `null`; every shipped store implements it, and
@@ -383,7 +386,8 @@ one already held (`MemoryGraphSql.ImportLink`). Skip it and the engine refuses t
 `ITemporalMemoryGraphStore`: valid time. You owe the four `GraphNode` members (`ValidFrom`, `ValidTo`, `SupersededBy`,
 `SupersededAt`) on every read, the `ValidFrom`/`ValidTo`/`ValidFromIfUnset` inputs of `GraphNodeWrite` and the three
 `GraphNodeImport` ones, `ValidFrom`/`ValidTo`/`SupersededAt` (a STATED bound replaces and an unstated one keeps what
-is stored; `ValidFromIfUnset` never moves a held start), and `SupersedeAsync` — which changes only those fields (no age, stability or position),
+is stored; `ValidFromIfUnset` never moves a held start; a refresh never moves the bounds of a node carrying `EndedReason`,
+**D362**), and `SupersedeAsync` — which changes only those fields (no age, stability or position),
 writes over no live successor but the same one, and returns how many it wrote (`MemoryGraphSql.Supersede`). Store
 all four NULLABLE and leave old rows NULL, which reads as untimed. **Skip it and the engine REFUSES a write that
 states valid time, or an import of one, rather than store it open-ended** — a store that never heard of it reads
@@ -402,7 +406,12 @@ things the contract facts pin: `CuratedMemory.Revision` starts at 1 and EVERY wr
 update included; the check and the write are ONE atomic step (`… AND revision = @expected` with the row count on
 SQL, the store's lock in process); and a stale call writes nothing. Skip it and report `Revision` 0.
 
-**`IUsageTracker` has one OPTIONAL interface, `IReservingUsageTracker`** (**D206**): `ReserveAsync` holds an amount
+**`IUsageTracker` has two OPTIONAL interfaces.** The first is **`IIdempotentUsageTracker`** (**D371**): `RecordOnceAsync`
+records a spend once per key. You owe: the key and the spend written as ONE step; keys compared ordinally across
+consumers; keys kept through `ResetAsync`; and none removed but by `PruneRecordKeysAsync`. Skip it and every fetch of a
+queued render is billed. `IdempotentUsageContract` pins it.
+
+The second is **`IReservingUsageTracker`** (**D206**): `ReserveAsync` holds an amount
 against `UsageCaps`, and `ReconcileAsync` swaps the hold for what the call spent. You owe: the admission check and
 the hold written as ONE step (SQLite's `BEGIN IMMEDIATE`, Postgres advisory locks, the tracker's lock in process),
 judged by `UsageCaps.ExceededBy`; holds folded by consumer case like the totals; an expired hold ignored; and holds

@@ -91,7 +91,7 @@ public static class ChatClientBackend
             }
             catch (Exception ex) when (ex is not OperationCanceledException || !ct.IsCancellationRequested)
             {
-                failure = TextChunk.Error(ProviderVerdictClassifier.FromException(ex), ex.Message);
+                failure = TextChunk.Error(ProviderVerdictClassifier.FromException(ex), ex.Message) with { Usage = usage };
             }
             if (failure is not null)
             {
@@ -119,11 +119,12 @@ public static class ChatClientBackend
             }
             if (update.FinishReason == ChatFinishReason.ContentFilter)
             {
-                yield return TextChunk.Error(ProviderVerdict.Refused, "content filter");
+                yield return TextChunk.Error(ProviderVerdict.Refused, "content filter") with { Usage = usage };
                 yield break;
             }
         }
-        yield return produced ? TextChunk.Final(usage) : TextChunk.Error(ProviderVerdict.Failed, "empty stream");
+        // a failed stream still reports what the backend billed (D350)
+        yield return produced ? TextChunk.Final(usage) : TextChunk.Error(ProviderVerdict.Failed, "empty stream") with { Usage = usage };
     }
 
     private static IEnumerable<ChatMessage> ToMessages(TextRequest req) => req.Messages.Select(m => m.Role switch
@@ -198,7 +199,8 @@ What Lyntai does around it, each pinned by `ChatClientBackendTests`:
 - **Cancellation and timeout.** The caller's token reaches the client and a cancel propagates, never becoming a
   verdict. `LyntaiOptions.ProviderTimeout` (or the request's own) bounds a completion and each stream read; a
   client that hangs is told to stop and the router advances. That bound is `AddBridgeProvider`'s own.
-- **Usage.** Input, output and cached-input tokens come back on `TextUsage`, so the budget and the ledger see them.
+- **Usage.** Input, output and cached-input tokens come back on `TextUsage`, a failed stream's included (**D350**), so
+  the budget and the ledger see them.
   A client that reports none reports none; Lyntai never prices one.
 - **Tools and schema.** A `TextTool` becomes an `AIFunctionDeclaration`; the client's `FunctionCallContent` comes
   back whole as a `TextToolCall`. A `JsonSchema` becomes the response format. With `RequireNativeSupport`, a backend

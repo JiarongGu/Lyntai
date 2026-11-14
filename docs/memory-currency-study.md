@@ -58,7 +58,8 @@ drift.
 `AddMemoryTools` stays read-only, and a host that wants an agent to write calls a second registration, so an agent
 that could only read still can only read (**D218**). **MC2 proposes `AddMemoryWriteTools(name, taskKey, scope?, prefix?,
 options?)`**, registering `<prefix>_remember` (content, optional headline, `supersedes` refs, `validFrom`, `validTo`) and
-`<prefix>_end` (a ref, a reason, optionally the `by` ref and `at`), from MC1. **As built**, `supersedes` and `<prefix>_end` also
+`<prefix>_end` (a ref, a reason, optionally the `by` ref and `at`), from MC1. **As built**, `validFrom` and `validTo` are
+offered only where the host sets `MemoryWriteToolOptions.ModelMayStateValidity` (**D361**), and `supersedes` and `<prefix>_end` also
 take the `revision` the model read off a recall and go through `MemoryChangeGate` and the host's `IMemoryChangeApprover`
 (MC6, `docs/task-archive.md` Part 421): with no approver nothing ends and a successor lands live and unlinked. `_remember`
 also takes `disputes` and `amends` (§5).
@@ -66,11 +67,13 @@ also takes `disputes` and `amends` (§5).
 - **The task is never an argument**: it is `MemoryToolScope.Resolve`'s, as the read tools' is. The scope is the host's
   unless its options let the model name one, because a scope is a namespace and never authorization (**D92**).
 - **There is no grade argument.** A tool write is always `Associative`, and no option raises it. Nothing a model
-  supplies can make an entry exempt from decay.
+  supplies can make an entry exempt from decay. **As built**, a write landing on a held entry keeps that entry's grade, so
+  a model cannot demote what the host made authoritative either (**D361**).
 - **A refusal reads as a result the model can act on**, not an exception: *"entry 7 was already superseded by entry 9;
   supersede entry 9 instead"* is the engine's own message, rendered as `{"error": …}`.
 - The host's `Metadata` stamp (for example which agent wrote it) rides on every write, so a later reader sees where an
-  entry came from without a reserved key in the app-owned bag.
+  entry came from without a reserved key in the app-owned bag. **As built**, it lands on a new entry only, and a held
+  entry keeps its own bag (**D372**).
 
 ## 4. A write is shown the live entries it may update (LQ17, MC3)
 

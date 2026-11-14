@@ -47,7 +47,7 @@ paragraph says, and its status read and cancel report the render still `Running`
 backend that names `TimeoutSeconds` still gets one.
 
 **For a queue backend the deadline bounds one HTTP call, never the render** — the render outlives every call,
-and bounding it is the durable job's retry budget. One consequence: a **submit whose outcome is unknown** — no
+and bounding it is `GenerationPipelineJobOptions.MaxPollDuration` (§8), since a poll spends no retry. One consequence: a **submit whose outcome is unknown** — no
 answer before the deadline, a connection dropped after the request was sent, or a 2xx answer carrying no
 operation id — comes back `Failed` **and `Inconclusive`**, and the router *surfaces* it rather than trying the
 next backend, because that queue may already hold a billable render and the next candidate would buy the same
@@ -433,7 +433,8 @@ checkpoint; and a result carrying more inline bytes than `GenerationPipelineJobO
 `StageIndex`, a redelivery replacing what that key holds: the latest is the one the next stage chained. A queued
 stage's bill is keyed by its backend and operation, so a worker that reclaims a job after its fetch was billed
 fetches again without billing again, on a ledger that records once per key (`IIdempotentUsageTracker`, which the
-in-memory, SQLite and Postgres trackers implement; any other tracker records every fetch).
+in-memory, SQLite and Postgres trackers implement; any other tracker records every fetch). Keys are kept until the host
+calls `PruneRecordKeysAsync(before)`, and a key pruned while its operation can still be fetched bills that fetch again.
 
 **A render that never ends, and one you want stopped.** A queued stage polls for as long as its backend says the run
 is going. `GenerationPipelineJobOptions.MaxPollDuration` (null, unbounded, by default) fails the job, naming the

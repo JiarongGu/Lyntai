@@ -630,7 +630,7 @@ decorated interface fails the tests until it is listed here, and so does a row n
 | --- | --- | --- |
 | `ITextClient` | `DelegatingTextClient` (derive from it), `BudgetedTextClient`, `CachingTextClient`, `RateLimitedTextClient`, `GuardedTextClient`, `RefusalScreeningTextClient` | every member, `GetCapabilitiesAsync` included |
 | `IMediaRouter` | `BudgetedMediaRouter`, `RateLimitedMediaRouter` | all three doors, each one governed: the compiler cannot tell a governed door from a pass-through |
-| `IAgentSession` | `RetryingAgentSession` (`AddAgentRetry`), `RecordingAgentSession` | `StreamAsync`, forwarding the options as given or with a resumed turn's prompt and token |
+| `IAgentSession` | `RetryingAgentSession` (`AddAgentRetry`), `RecordingAgentSession` | `StreamAsync`, forwarding the options as given or with a resumed turn's prompt and token, and `ContinuesTurn` set on a resumed turn (**D349**) |
 | `IConversationStore` | `EnrichingConversationStore` | every member |
 | `IDbConnectionFactory` | `LazyMigratingConnectionFactory` | `Open`, and `OpenAsync`, whose default loses the inner factory's async open |
 | `IMemoryEngine` | `CompositeMemoryEngine`, over its members | every member |
@@ -1101,7 +1101,8 @@ update. Codex and the ACP doors emit no `AgentTaskUpdated`. What to show of a ta
 
 **A subagent's words and life** (D245). A subagent's complete message yields one `TextDelta` or `Thinking` per block, each with
 the `ParentCallId` of the call that spawned it (null on the session's own, which arrive as stream deltas, or whole from their message when no delta preceded it), and never a plan, a
-usage tick or the session's fallback text. No `ChildStarted` or `ChildEnded` event exists, by design (**D245**, **D253**): a child
+usage tick or the session's fallback text. This door emits no child start or end event, by design (**D245**, **D253**); only a
+protocol door registered with `childSessions:` yields `ChildSessionStarted` and `ChildSessionEnded` (**D346**). Here a child
 **starts** at the `AgentTaskStarted` whose `Kind` is the agent's word `local_agent` (else at its first event with a parent), and
 **ends** at the `AgentTaskEnded` of that task, else at the `ToolResult` of the call itself (a synchronous child opens no task). The
 start states the lineage the frame did: `CallId` (the `ParentCallId` of the child's own events), `ParentTaskId`, `Depth`,
@@ -1371,7 +1372,8 @@ with `end_turn` and no field reads as a clean end, because nothing on its wire s
 `session/request_permission` follows `ToolPolicy`: read-only rejects every request, write allows each once and never
 for good, and an agent in a mode that asks for nothing is gated by its mode. A write turn's requests go to a person
 instead where the registration passes a `permissionApprover:` (below); a read-only turn never asks it. The door offers no filesystem and no
-terminal, and answers any other request `method not found`. `DisallowedTools` and steering are `Unsupported`;
+terminal, and answers any other request `method not found`. `DisallowedTools` is `Unsupported`, and so is steering
+unless the registration keeps a run (`keptRun:`, above);
 `SystemPrompt` is a leading text block; plan events are `Unknown` until a real agent's plan is recorded. Cancelling
 the token sends `session/cancel` and waits for the agent's answer for `AcpAgentSession.DefaultCancelGrace` (5 s)
 before killing the process, and the cancellation then propagates. `accountHomeVariable` is `CLAUDE_CONFIG_DIR` for

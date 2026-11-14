@@ -62,4 +62,5 @@ database someone else edited has no shape it expects.
   document grants it, and the column set changes with migrations. **Not confirmed** whether any consumer
   does so; Aurelia, the one confirmed consumer, would say.
 - **Not confirmed**: a downgrade path. Each migration defines `Down()`, but `MigrationRunnerService`
-  exposes only `MigrateUp` / `MigrateUpAsync`, and no document promises a downgrade.
+  exposes only `MigrateUp` / `MigrateUpAsync`, and no document promises a downgrade. A secret written since
+  **D355** is bound to its name, and an older build cannot read it.

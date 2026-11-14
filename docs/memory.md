@@ -681,7 +681,9 @@ Each of these cost a real measurement to find.
 - **A re-remember applies several update rules to the fields around the content**, and they are worth
   knowing together. **The rule for everything you supply is the same: say it and it lands, leave it out and
   what is stored survives.** `Headline` and `Grade` are overwritten only when you NAME one; `Metadata` and
-  `Signals` (and salience) keep what is stored when you supply nothing and REPLACE it wholesale when you do;
+  `Signals` (and salience) keep what is stored when you supply nothing and REPLACE it wholesale when you do —
+  unless the write sets `MemoryWrite.KeepStoredGrade` or `KeepStoredMetadata`, when a stated grade or bag lands on a new
+  entry only (**D361**, **D372**);
   `Difficulty` changes only when the signals bag names one; and `Stability`, `provenance_retrievability` and
   `CreatedAt` are never revisited — stability is what the retention policy has learned, and a re-remember is
   not a review.
@@ -1065,9 +1067,10 @@ graph engine and a blend implement it): `EndAsync(taskKey, entry, new MemoryEndi
 once — `EndedReason` is set, a second end reports `AlreadyEnded` and the entry is no longer due — and the entry reads current
 until that instant and ended from it. Only a host schedules one; the end tool refuses a model's. **An end is valid-time state beside the decay seam
 (D241), never a decay input**: it is out of `Current` however the entry ranks, read back under `History` as
-`MemoryValidity.EndedReason`, and no recall, expansion or touch restores it, nor does a re-remember that states no
-validity. **A confirmer's approval is bound to a revision**: every `MemoryItem` carries an opaque `Revision` that
-advances when a write changes the entry, an end lands or a supersession does, and nothing a recall does moves it;
+`MemoryValidity.EndedReason`, and no recall, expansion or touch restores it, nor does any re-remember, whatever validity
+it states (**D362**). **A confirmer's approval is bound to a revision**: every `MemoryItem` carries an opaque `Revision` that
+advances when a write lands on the entry (on the SQL stores any refresh, on the in-process stores one that changes it),
+an end lands or a supersession does, and nothing a recall does moves it;
 passing it as `ExpectedRevision` makes the end apply only if it is still current, in one statement on the SQL stores and
 under the lock on the others. A rewrite that keeps the validity and changes the headline, the grade or the metadata
 mismatches, and the call returns `MemoryEndOutcome.Changed` with the revision found, writing nothing — the approval is

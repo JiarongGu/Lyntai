@@ -135,7 +135,8 @@ every addition.
   `env` is passed to codex by name (`env_vars`) with the values in its environment, and the bearer variable is now `LYNTAI_MCP_TOKEN_<NAME>`. `LyntaiOptions.AgentTimeout`
   (15 minutes) is the inactivity window of the Codex, Claude and ACP doors when a turn names none; text calls keep two. A stderr `429` is a `Limit` failure, not `Fatal`.
 - **A run ends when a grandchild holds the pipes after the child exited, and a throwing stdin producer ends the exchange with its own fault** (**D266**). The runner waits
-  2 s of silence, kills the tree and returns what it read; a producer's exception closes stdin, kills the child and is rethrown.
+  2 s of silence, kills the tree and returns what it read; a producer's exception closes stdin, kills the child and is rethrown. The kill
+  ends that grandchild on Windows; off Windows it was reparented to init when the child exited, and nothing reaches it (**D376**).
 - **Local inference: a RoBERTa-family export reads 512 where it declared 514, a forward pass is at most 128 rows, and a Model2Vec vocabulary longer than its table no longer dilutes the mean** (**D269**, **D270**).
 - **The media router advances past a submit that never reached its backend, and its stream door is traced, struck and billed like the others** (**D271**–**D275**).
   A `SubmitAsync` throw that provably never left the process (a refused connection, a failed name lookup) used to escape the router and skip the remaining candidates; it now strikes the host,

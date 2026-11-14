@@ -1,6 +1,6 @@
 # The agent-provider layer against Daoris's accepted provider design — a study
 
-**Status: a study (`docs/documents.md`), 2026-10-29; every row it files is built and archived: AG10 to AG20; §10 answers a later request, A-LQ3 to A-LQ17, by rows AG25 to AG45 (A-LQ10 is declined and has none); §11 designs the run kept across turns (AG39, **D251**) and files AG46 to AG48.** It reads Lyntai's layer
+**Status: a study (`docs/documents.md`), 2026-10-29; every row it files is built and archived: AG10 to AG20; §10 answers a later request, A-LQ3 to A-LQ17, by rows AG25 to AG45 (A-LQ10 is declined and has none); §11 designs the run kept across turns (AG39, **D251**) and files AG46 to AG48; §12 answers a third, A-LQ18 to A-LQ24, and files AG49 to AG53, of which AG50 and AG53 wait on records (`TASKS.md` Part 518).** It reads Lyntai's layer
 (`docs/agent-provider-layer.md`, **D219**, rows AG1 to AG9 closed in `docs/task-archive.md`) against two designs
 Daoris has since accepted, and files what a host that runs coding agents still needs from the layer as rows AG10 to
 AG20 in `TASKS.md` (all closed in `docs/task-archive.md` since) and **D233**. AG20 was ruled and built as **D234**, and §9 states how a host
@@ -329,7 +329,7 @@ protocol door was split into several files since), so the evidence is cited by n
 | Capability | Claude protocol door | Claude CLI, stdin held open | Codex protocol door | Codex CLI (`exec`) | dsh over the protocol |
 |---|---|---|---|---|---|
 | **Turns in one process** | Supported, REAL (a second prompt on one process, steer note) | Supported, REAL (two turns, one process, stream-json note); built (AG51) | Unknown | **Unsupported**, SOURCE-DERIVED: the prompt is taken once; a resume is a new process | Unknown (one scripted prompt then close, REAL) |
-| **A word taken mid-turn** | Supported, REAL: queued and folded at the next step; the earlier prompt answers `end_turn` with every usage count 0 | Unknown, REAL on 2.1.322 (steer note §8) and step-dependent: a line with no priority folds into a tool step but is the next turn after a streaming step, and only the replay echo, recorded for the tool step alone, tells which; a run refuses it (AG51) | **Unsupported by a second prompt**, SOURCE-DERIVED (it replaces the tracked one); its `_session/steering` is advertised and never run, so Unknown | Unsupported (no input after the start) | Unknown |
+| **A word taken mid-turn** | Supported, REAL: queued and folded at the next step; the earlier prompt answers `end_turn` with every usage count 0 | Unknown, REAL on 2.1.322 (steer note §8) and step-dependent: a line with no priority folds into a tool step but is the next turn after a streaming step, and only the replay echo, recorded for the tool step alone, tells which; a run refuses it (AG51) | **Unsupported by a second prompt**, SOURCE-DERIVED (it replaces the tracked one); its `_session/steering` is recorded (STEER3) but a run on it is not (AG50), so Unknown | Unsupported (no input after the start) | Unknown |
 | **A stop that keeps the conversation** | Unknown: a cancelled turn's zero counts are REAL, a usable next turn is not recorded, and cancel with a word on its way loses its answer (SOURCE-DERIVED) | Supported, REAL (an interrupt, then an ordinary turn); built as `StopAsync` (AG51) | Unknown | Unknown | Unknown (SOURCE-DERIVED mapping only) |
 | **The model re-asked between turns** | Unknown: REAL only after `session/new` and before the first prompt | Unknown, not offered (the launch's `--model`) | Unknown: the same, before the first prompt | Unknown | Not offered |
 | **Background work read until it ends** | Supported, REAL (the task frames, and a subagent as a session of its own) | Unknown: on `-p` the binary ends it with the turn (REAL); held stdin never probed, and a run carries a task's line seen between turns into the next turn (AG51) | Unknown | Unknown | Unknown |
@@ -393,8 +393,9 @@ SOURCE-DERIVED from Daoris's notes, which a real one replaces when it arrives, a
 ## 12. Daoris's third request: A-LQ18 to A-LQ24, Part 481's frames and a release (**D340** to **D343**)
 
 Daoris read the layer at `master` `fa54381f` and asked for seven needs and a release. Each was read against the code and the records it names
-in Daoris's checkout, and put to the generic-library test with the asker struck. Four are built, three are planned as rows (`TASKS.md`
-Part 518), and the release is prepared and stays the owner's (**D19**). The rows' captures are read from Daoris's notes and none was run:
+in Daoris's checkout, and put to the generic-library test with the asker struck. Four were built at once and three were planned as rows;
+A-LQ18 and A-LQ21 are built since (AG49, AG51), with A-LQ24's half (AG52), and A-LQ19 (AG50) waits on records in `TASKS.md` Part 518.
+The release is prepared and stays the owner's (**D19**). The rows' captures are read from Daoris's notes and none was run:
 no signed-in agent and no installed `codex` was used.
 
 | Need | Answer | Where |
@@ -402,9 +403,9 @@ no signed-in agent and no installed `codex` was used.
 | **A-LQ18** words that cut into the running turn, on a kept run | **built as AG49**: `IAgentRunSteering` beside `IAgentRun`, answering `injected`, `startedNewTurn` (read as a woken turn) or left to the host; `claude-agent-acp` 0.84.0 is the only record | **D347** |
 | **A-LQ19** a kept run on `codex-acp` and dsh | **planned, blocked on the records Daoris will send**; the §11.1 cells stay `Unknown` until then | AG50 |
 | **A-LQ20** another writer told apart | **built**: `AgentFailure.Conflict` `ConversationHeld`, read from `data.reason` and never the sentence | **D340** |
-| **A-LQ21** a Claude CLI kept run with stdin held | **built as AG51**: a turn per user line and a stop by the interrupt, both REAL on 2.1.281; a word on a busy run is refused, since the steer note's §8 shows it fold or become the next turn by the step, and the §11.1 column states the rest | AG51 |
+| **A-LQ21** a Claude CLI kept run with stdin held | **built as AG51**: a turn per user line and a stop by the interrupt, both REAL on 2.1.281; a word on a busy run is refused, since the steer note's §8 shows it fold or become the next turn by the step, and the §11.1 column states the rest | AG51, **D375**; a word on a busy run waits on AG53's record (`TASKS.md` Part 518) |
 | **A-LQ22** Codex's sandbox, approval and effort on the exec door | **built in part**: the sandbox as `PermissionMode` and the effort; **the approval half is declined** because `exec` asks no one | **D341** |
-| **A-LQ23** sign-in state and sign-in per account home | **built**: `IAgentAuthSource`, a login handing its lines over while it waits; **ports declined** as the host's; a device-code flag is a row | **D342**; the device-code flag is **D345** |
+| **A-LQ23** sign-in state and sign-in per account home | **built**: `IAgentAuthSource`, a login handing its lines over while it waits; **ports declined** as the host's; a device-code flag is built since as `ProviderLoginRequest.DeviceCode`, which Codex carries and Claude refuses | **D342**; the device-code flag is **D345** |
 | **A-LQ24** child sessions declared, or their absence stated | **built as a statement**: `child-sessions` `Unsupported` on every door, naming the reading to rely on; declaring them as an option is built as AG52 | **D343**, **D346** |
 | **Part 481** rejected limit never cleared inside a turn | **waiting**: the ruling needs the frames in turn order, and none had arrived; Daoris's checkout holds a single `allowed` frame per turn on the native door and a rejection followed by an error, never both in one turn | `TASKS.md` Part 481 |
 | **A-LQ1** a release that carries the agent layer | **prepared** (below) | **D19** |
@@ -422,7 +423,7 @@ no signed-in agent and no installed `codex` was used.
 - **A-LQ23.** The inference providers had `StatusAsync` and `LoginAsync` with both parsers, fixed to one environment. The agent door needs the same under an
   account's home, which is the account mapping the turn already uses, so the answer is the same engine under a merged environment. The inference `LoginAsync` returns its output at
   the end, which is too late for a device code, so the agent one reads the program's lines as they come. **Not carried**: the ports (where a browser runs relative to the
-  process is the deployment's), a logout, and a device-code flag (not measured).
+  process is the deployment's) and a logout. A device-code flag, not measured here, is carried since (**D345**).
 - **A-LQ24 and which reading to rely on.** With neither declared, `claude-agent-acp` keeps the spawning `Agent` call in the parent's stream and stamps a child's calls and
   words `_meta.claudeCode.parentToolUseId`; the Claude CLI door's `parent_tool_use_id` is the same fact, and both read as `ParentCallId`, a child's start being its first stamped
   event and its end the task's end else the call's result (§10.1). With `nativeSubagentSessions` declared the child is a session of its own: `subagent_spawned` and

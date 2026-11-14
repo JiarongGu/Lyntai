@@ -64,7 +64,7 @@ public static class ChatClientBackend
             }
             catch (Exception ex) when (ex is not OperationCanceledException || !ct.IsCancellationRequested)
             {
-                failure = TextChunk.Error(ProviderVerdictClassifier.FromException(ex), ex.Message);
+                failure = TextChunk.Error(ProviderVerdictClassifier.FromException(ex), ex.Message) with { Usage = usage };
             }
             if (failure is not null)
             {
@@ -92,11 +92,12 @@ public static class ChatClientBackend
             }
             if (update.FinishReason == ChatFinishReason.ContentFilter)
             {
-                yield return TextChunk.Error(ProviderVerdict.Refused, "content filter");
+                yield return TextChunk.Error(ProviderVerdict.Refused, "content filter") with { Usage = usage };
                 yield break;
             }
         }
-        yield return produced ? TextChunk.Final(usage) : TextChunk.Error(ProviderVerdict.Failed, "empty stream");
+        // a failed stream still reports what the backend billed (D350)
+        yield return produced ? TextChunk.Final(usage) : TextChunk.Error(ProviderVerdict.Failed, "empty stream") with { Usage = usage };
     }
 
     private static IEnumerable<ChatMessage> ToMessages(TextRequest req) => req.Messages.Select(m => m.Role switch
