@@ -12,8 +12,8 @@ public interface IViewableMemory
 
     /// <summary>A view of <paramref name="taskKey"/>. It reads what the owner wrote and moves nothing of the owner's.</summary>
     /// <param name="taskKey">The one task the view reads.</param>
-    /// <param name="check">Asked once per expansion and once per revision read, before anything is read; null permits every reference of
-    /// the task.</param>
+    /// <param name="check">Asked about the named reference once per expansion and once per revision read, before anything is read — not
+    /// about a recall's results or an expansion's neighbours; null permits every reference of the task.</param>
     /// <exception cref="NotSupportedException">The engine holds no view.</exception>
     IMemoryView ViewOf(string taskKey, IMemoryViewCheck? check = null);
 }
@@ -58,8 +58,12 @@ public interface IMemoryView
     Task<string?> RevisionOfAsync(MemoryRef reference, CancellationToken ct = default);
 }
 
-/// <summary>A host's per-reference check before a view expands it. A call, not a grant: the library keeps no owners, grants or log,
-/// so who may read what is whatever the host answers here. A check that throws propagates and nothing was read.</summary>
+/// <summary>A host's check on the reference a caller NAMES, before a view expands it or reads its revision. A call, not a grant: the
+/// library keeps no owners, grants or log, so who may read what is whatever the host answers here. A check that throws propagates and
+/// nothing was read.
+/// <para><b>It gates the named reference, never what the task returns: it is not a filter.</b> A recall is not asked about, and
+/// neither is a neighbour an expansion returns, so an entry this check refuses by name can come back from a recall or as the neighbour
+/// of one it permits. The view is of a task the host chose to share; an entry no reader may see belongs in another task.</para></summary>
 public interface IMemoryViewCheck
 {
     /// <summary>Whether <paramref name="reference"/> may be expanded through the view.</summary>

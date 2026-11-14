@@ -660,11 +660,19 @@ every addition.
 - **An agent can write and end what it remembers through tools the host registers: `AddMemoryWriteTools`** (**D239**, **D241**).
   `<engine>_remember` and `<engine>_end`; `AddMemoryTools` is unchanged, so no existing agent gains a write. The host owns the
   task, the grade (always associative), the scope and a metadata stamp (`MemoryWriteToolOptions`). A write returns `mayUpdate`;
-  `disputes` and `amends` apply alone; `supersedes` and the end tool go through the approver, bound to the revision read.
+  `disputes` and `amends` apply alone; `supersedes` and the end tool go through the approver, bound to the revision read. A remember
+  that lands on a held entry keeps its grade (`MemoryWrite.KeepStoredGrade`), the tool states no `validFrom` or `validTo` unless
+  `MemoryWriteToolOptions.ModelMayStateValidity` (a call passing one is refused, naming the end tool), and the end tool refuses an `at`
+  after now by `MemoryWriteToolOptions.Clock` (**D361**, **D363**). An ended entry stays ended: a refresh keeps its bounds, and a
+  supersession whose successor has ended applies nothing, refusing every predecessor (**D362**).
 - **A proposed supersession or end can be put to an approver: `IMemoryChangeApprover`, `AddMemoryChangeApprover` and
   `MemoryChangeGate`** (**D241**). Each proposal names the exact references, the claim, the evidence and the revision read; with no
   approver registered nothing ends, an approver that throws or answers nothing refuses, and an approval applies only to that
-  revision (otherwise `Changed`). The library ships no approver that approves by itself.
+  revision (otherwise `Changed`). The library ships no approver that approves by itself. `MemoryChangeRequest` carries the
+  `Successor`, the `At` and the successor's `Write`, everything that applies, and the gate refuses an instant before a target began, or
+  a successor that has ended, before any approver is asked (**D363**). The file store journals a keyed end's or confirmation's receipt
+  before its effect and drops, at load, one whose effect never landed; receipts expire by the calling engine's clock on every store
+  (**D364**, **D366**). A view's `IMemoryViewCheck` gates the reference named, not what an expansion returns (**D365**).
 - **Two live entries that may disagree can be marked by their writer: `MemoryWrite.Disputes` and `MemoryWrite.Amends`, or
   `IRelatableMemory.RelateAsync`** (**D240**, **D241**). Neither ends anything. A recall reports `MemoryItem.Relations` where the
   other end is in the same reading, as the writer's attributed assertion; the memory tools and a rendered memory say so in fixed

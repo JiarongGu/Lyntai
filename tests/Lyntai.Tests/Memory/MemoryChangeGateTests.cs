@@ -172,6 +172,72 @@ public class MemoryChangeGateTests
     }
 
     [Fact]
+    public async Task Approver_SeesBySuccessorAtAndTheSuccessorsWrite()
+    {
+        var engine = Build();
+        await engine.RememberAsync(Fact("the client lives in Paris"));
+        await engine.RememberAsync(Fact("the client's dog lives with them"));
+        var paris = await ReadAsync(engine, "the client lives in Paris");
+        var dog = await ReadAsync(engine, "the client's dog lives with them");
+        var approver = new Recording(_ => MemoryChangeDecision.Approve);
+        var gate = new MemoryChangeGate([approver]);
+        var berlin = Fact("the client lives in Berlin") with
+        {
+            Headline = "Berlin", Metadata = new Dictionary<string, string> { ["by"] = "agent-7" }, ValidFrom = Jan.AddMonths(2),
+        };
+
+        var superseded = await gate.SupersedeAsync(engine, berlin, [new MemoryChangeTarget(paris.Ref, paris.Revision)], "moved");
+        var at = Jan.AddMonths(3);
+        var ended = await gate.EndAsync(engine, "t", dog.Ref, dog.Revision, "rehomed", by: superseded.Successor, at: at);
+
+        Assert.Equal((MemoryChangeStatus.Applied, MemoryChangeStatus.Applied), (superseded.Status, ended.Status));
+        var (supersede, end) = (approver.Seen[0], approver.Seen[1]);
+        Assert.Equal((superseded.Successor, (DateTimeOffset?)null), (supersede.Successor, supersede.At));
+        Assert.Same(berlin, supersede.Write);
+        Assert.Equal((superseded.Successor, (DateTimeOffset?)at, (MemoryWrite?)null), (end.Successor, end.At, end.Write));
+    }
+
+    [Fact]
+    public async Task End_AtBeforeTheTargetBegan_IsRefusedBeforeAnyApproverIsAsked()
+    {
+        var engine = Build();
+        await engine.RememberAsync(Fact("the client lives in Paris"));
+        var paris = await ReadAsync(engine, "the client lives in Paris");
+        var approver = new Recording(_ => MemoryChangeDecision.Approve);
+        var gate = new MemoryChangeGate([approver]);
+
+        var result = await gate.EndAsync(engine, "t", paris.Ref, paris.Revision, "moved", at: Jan.AddDays(-1));
+
+        Assert.Equal(MemoryChangeStatus.Refused, result.Status);
+        Assert.Contains("before it", result.Message, StringComparison.Ordinal);
+        Assert.Empty(approver.Seen);
+        Assert.Equal(["the client lives in Paris"], Live(await engine.RecallAsync(Ask())));
+    }
+
+    // A status that flips open, closed, open: the third claim's content is the first entry's, which the second ended. Restating it
+    // lands on that ended entry, which cannot take over, so nothing is put to the approver and the closed status stays current.
+    [Fact]
+    public async Task Supersede_OfAFlippedStatus_IsRefusedBeforeApproval()
+    {
+        var engine = Build();
+        await engine.RememberAsync(Fact("the client lives in Paris"));
+        var open = await ReadAsync(engine, "the client lives in Paris");
+        var approver = new Recording(_ => MemoryChangeDecision.Approve);
+        var gate = new MemoryChangeGate([approver]);
+        var closed = await gate.SupersedeAsync(engine, Fact("the client lives in Berlin"), [new MemoryChangeTarget(open.Ref, open.Revision)], "moved");
+        Assert.Equal(MemoryChangeStatus.Applied, closed.Status);
+        var berlin = await ReadAsync(engine, "the client lives in Berlin");
+
+        var reopened = await gate.SupersedeAsync(engine, Fact("the client lives in Paris"),
+            [new MemoryChangeTarget(berlin.Ref, berlin.Revision)], "moved back");
+
+        Assert.Equal(MemoryChangeStatus.Refused, reopened.Status);
+        Assert.Equal(open.Ref, reopened.Successor);
+        Assert.Single(approver.Seen);   // only the first proposal was asked about
+        Assert.Equal(["the client lives in Berlin"], Live(await engine.RecallAsync(Ask())));
+    }
+
+    [Fact]
     public void The_library_ships_no_approver_that_approves_by_itself()
     {
         // every package the suite gates, not Core alone, and a struct counts as much as a class

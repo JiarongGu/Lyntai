@@ -14,7 +14,8 @@ public enum GraphPredecessorStanding
     Unmoved,
     /// <summary>Not at the revision read, or already ended.</summary>
     Changed,
-    /// <summary>It has a different live successor, or the successor would start before it did.</summary>
+    /// <summary>It has a different live successor, or the successor would start before it did, or the successor has ended by its own
+    /// start (an end recorded with a reason, or a supersession or stated end at or before it), which refuses every predecessor.</summary>
     Refused,
     /// <summary>The store holds no such entry under that engine.</summary>
     Missing,
@@ -46,7 +47,8 @@ public interface ISupersedingMemoryGraphStore : IKeyedMemoryGraphStore
 {
     /// <summary>Store <paramref name="successor"/> and end every predecessor by it, at the successor's own start where it holds
     /// one and else <paramref name="at"/>, each with <paramref name="reason"/>. A predecessor that would end before it began is
-    /// <see cref="GraphPredecessorStanding.Refused"/>.</summary>
+    /// <see cref="GraphPredecessorStanding.Refused"/>, and so is every predecessor when the successor's content lands on an entry that
+    /// has ended. A refresh of the successor never moves the bounds of an entry that carries an end's reason.</summary>
     /// <param name="successor">The node to store.</param>
     /// <param name="predecessors">What it ends; at least one, each id once. The successor among them is
     /// <see cref="GraphPredecessorStanding.Refused"/>, whatever revision its refresh left it at.</param>

@@ -630,6 +630,24 @@ public class MemoryValidityTests
         Assert.Equal(Jun, (await rig.Store.GetAsync(Name, Id(paris)))!.SupersededAt);
     }
 
+    // Paris → Berlin → "lives in Paris" again: the restated claim is the Paris entry (its content is its identity), which Berlin
+    // ended, so it cannot take over. The write lands on it, Paris stays ended, and Berlin is left current — loudly.
+    [Fact]
+    public async Task A_write_superseding_with_an_ended_entrys_text_ends_nothing_and_says_so()
+    {
+        var rig = Build();
+        var (paris, berlin) = await MoveAsync(rig);
+
+        var refused = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            rig.Engine.RememberAsync(Fact("lives in Paris", from: Jun, supersedes: berlin)));
+
+        Assert.Contains("nothing was ended", refused.Message, StringComparison.Ordinal);
+        Assert.Null((await rig.Store.GetAsync(Name, Id(berlin)))!.SupersededAt);
+        var held = (await rig.Store.GetAsync(Name, Id(paris)))!;
+        Assert.Equal((Id(berlin), Mar), (held.SupersededBy, held.SupersededAt));
+        Assert.Equal(["lives in Berlin"], Contents(await rig.Engine.RecallAsync(Ask())));
+    }
+
     [Fact]
     public async Task A_blend_with_no_member_that_holds_valid_time_refuses_and_so_does_a_fan_out_with_one_that_cannot()
     {

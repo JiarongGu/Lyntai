@@ -345,7 +345,8 @@ public sealed class GraphMemoryEngine(
             write.Metadata, signals,
             ProvenanceRetrievability: (long)_policy.Provenance,
             ProvenanceSalience: salienceProvenance,
-            GradeStated: stated, HeadlineStated: write.Headline is not null)
+            // a grade the writer keeps for new entries only lands as stated there, and an entry already held keeps its own
+            GradeStated: stated && !write.KeepStoredGrade, HeadlineStated: write.Headline is not null)
         {
             ValidFrom = write.ValidFrom, ValidTo = write.ValidTo,
             // a write that supersedes starts when it is written unless it says otherwise — and only where it holds
@@ -425,7 +426,14 @@ public sealed class GraphMemoryEngine(
         CancellationToken ct)
     {
         var temporal = (ITemporalMemoryGraphStore)store;   // ResolvePredecessorsAsync refused any other
-        var at = (await store.GetAsync(Name, successor, ct).ConfigureAwait(false))?.ValidFrom ?? _clock();
+        var stored = await store.GetAsync(Name, successor, ct).ConfigureAwait(false);
+        var at = stored?.ValidFrom ?? _clock();
+        // the write's content may name an entry that has ended: it lands on that entry (its identity), which takes nothing over
+        if (stored?.Validity is { } validity && validity.HasEndedBy(at))
+            throw new InvalidOperationException(
+                $"This write's content is entry '{successor}', which has ended" +
+                (validity.EndedReason is { } why ? $" (\"{why}\")" : "") + ", so it cannot supersede anything; nothing was ended. " +
+                "An ended entry stays ended: state the claim in other words, or end the entries without a successor.");
         // the start the write STATED was checked before it; one it did not is only known now, from the stored entry
         if (!startStated)
             foreach (var id in predecessors)
@@ -545,6 +553,10 @@ public sealed class GraphMemoryEngine(
         return held;
     }
 
+    // the grade as the call stated it; a grade kept for new entries only is another statement, and folding it in leaves every other
+    // call's fingerprint as it was
+    private static object StatedGrade(MemoryWrite write) => write.KeepStoredGrade ? $"{write.Grade}/new-only" : write.Grade;
+
     private static void RequireKeyText(string key)
     {
         if (string.IsNullOrWhiteSpace(key) || key.Length > MemoryLimits.MaxOperationKeyChars)
@@ -573,7 +585,7 @@ public sealed class GraphMemoryEngine(
                 "A keyed write states no supersession or relation: each is its own call with its own receipt — " +
                 $"{nameof(ISupersedingMemory.SupersedeAsync)} and {nameof(IKeyedMemory.RelateKeyedAsync)}. Nothing was written.", nameof(write));
         var (keyed, key) = Keyed(new KeyedCall(operationKey, MemoryOperationKind.Remember, MemoryFingerprint.Of(
-            MemoryOperationKind.Remember, Name, write.TaskKey, write.Scope, write.Content, write.Headline, write.Grade,
+            MemoryOperationKind.Remember, Name, write.TaskKey, write.Scope, write.Content, write.Headline, StatedGrade(write),
             MemoryFingerprint.Bag(write.Metadata), write.ValidFrom, write.ValidTo, write.Recheck)), write.TaskKey);
         var held = await keyed.ReceiptAsync(Name, write.TaskKey, operationKey, key.At, ct).ConfigureAwait(false);
         if (held is null) return (keyed, key, null);
@@ -630,7 +642,7 @@ public sealed class GraphMemoryEngine(
         if (supersession.OperationKey is { } operationKey)
         {
             var (_, made) = Keyed(new KeyedCall(operationKey, MemoryOperationKind.Supersede, MemoryFingerprint.Of(
-                MemoryOperationKind.Supersede, Name, write.TaskKey, write.Scope, write.Content, write.Headline, write.Grade,
+                MemoryOperationKind.Supersede, Name, write.TaskKey, write.Scope, write.Content, write.Headline, StatedGrade(write),
                 MemoryFingerprint.Bag(write.Metadata), write.ValidFrom, write.ValidTo, write.Recheck, supersession.Reason.Trim(),
                 string.Join(',', ids.Select(i => FormattableString.Invariant($"{i}@{expected[i]}"))))), write.TaskKey);
             key = made;

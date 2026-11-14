@@ -6,9 +6,10 @@ using Lyntai.Text;
 namespace Lyntai.Memory;
 
 /// <summary>What <see cref="MemoryEngineBuilderExtensions.AddMemoryWriteTools"/> lets an agent do, and how far.
-/// <para>The host owns the task (the tools take it from <see cref="MemoryToolScope"/>, never an argument), the grade (a tool
-/// write is always <see cref="MemoryGrade.Associative"/>, with no grade argument a model's words could use to escape decay)
-/// and the stamp every write carries.</para></summary>
+/// <para>The host owns the task (the tools take it from <see cref="MemoryToolScope"/>, never an argument), the grade (a new entry
+/// a tool writes is <see cref="MemoryGrade.Associative"/>, one already held keeps the grade it has, and no grade argument lets a
+/// model's words escape decay or demote what the host made authoritative), valid time (unless <see cref="ModelMayStateValidity"/>)
+/// and the stamp every write carries. A model states no instant after now.</para></summary>
 public sealed class MemoryWriteToolOptions
 {
     /// <summary>Metadata stamped on every entry a tool writes — the host's own vocabulary (who wrote it, from where), so a
@@ -26,6 +27,15 @@ public sealed class MemoryWriteToolOptions
 
     /// <summary>Whether a model may name the scope of a write. Off by default: the scope is the host's, as the task is.</summary>
     public bool ModelMayNameScope { get; init; }
+
+    /// <summary>Whether a model may state when a fact held — <c>validFrom</c> and <c>validTo</c> on the remember tool. Off by
+    /// default: the tool's schema omits both, and a call that passes either is refused with an error naming the end tool, never
+    /// stored without them. A stated bound replaces a live entry's stored one (D91), so on, a model can end or reopen an entry no
+    /// approver saw; an entry already ended keeps its bounds either way.</summary>
+    public bool ModelMayStateValidity { get; init; }
+
+    /// <summary>The clock the end tool reads now by, to refuse an <c>at</c> after it. Default <see cref="TimeProvider.System"/>.</summary>
+    public TimeProvider Clock { get; init; } = TimeProvider.System;
 
     /// <summary>How many entries <c>mayUpdate</c> lists after a write: the live entries it may update, which the writer
     /// confirms through <c>supersedes</c> or the end tool. Default 10, the measured default of
@@ -70,6 +80,15 @@ internal static partial class MemoryTools
         return result;
     }
 
+    /// <summary>The first of <paramref name="names"/> the model passed a value for, or null.</summary>
+    private static string? Stated(JsonElement root, params string[] names) =>
+        names.FirstOrDefault(n => root.TryGetProperty(n, out var value) && value.ValueKind != JsonValueKind.Null);
+
+    // the remember tool's two valid-time properties, in its schema only where the host lets a model state them
+    private const string ValidityProperties =
+        "\"validFrom\":{\"type\":\"string\",\"description\":\"When it started holding, ISO 8601.\"}," +
+        "\"validTo\":{\"type\":\"string\",\"description\":\"When it stopped holding, ISO 8601.\"},";
+
     /// <summary>A refusal naming the first text argument over the bound, or null: every text a model passes is stored verbatim.</summary>
     private static string? TooLong(JsonElement root, MemoryWriteToolOptions settings, params string[] names)
     {
@@ -110,14 +129,20 @@ internal static partial class MemoryTools
                     var amends = ReadRefs(root, "amends", out var badAmends);
                     var bad = badSupersedes ?? badDisputes ?? badAmends;
                     if (bad is not null) return Error($"'{bad}' is not a ref returned by the matching recall tool");
+                    // refused, never dropped: a bound the model believes it stated, silently ignored, is a claim it cannot see failed
+                    if (!settings.ModelMayStateValidity && Stated(root, "validFrom", "validTo") is { } stated)
+                        return Error($"'{stated}' is not taken here: when a fact held is the host's to state. To say an entry no " +
+                            $"longer holds, call '{prefix}_end' with its 'ref', 'revision' and a 'reason'.");
 
+                    // the grade is the host's: a new entry is associative, and one already held keeps the grade it has
                     var write = new MemoryWrite(task, writeScope, content, JsonExtract.StringProperty(root, "headline"),
                         MemoryGrade.Associative, settings.Metadata)
                     {
-                        ValidFrom = ReadInstant(root, "validFrom"),
-                        ValidTo = ReadInstant(root, "validTo"),
+                        ValidFrom = settings.ModelMayStateValidity ? ReadInstant(root, "validFrom") : null,
+                        ValidTo = settings.ModelMayStateValidity ? ReadInstant(root, "validTo") : null,
                         Disputes = disputes?.Select(r => r.Ref).ToList(),
                         Amends = amends?.Select(r => r.Ref).ToList(),
+                        KeepStoredGrade = true,
                     };
                     try
                     {
@@ -151,8 +176,7 @@ internal static partial class MemoryTools
             {"type":"object","required":["content"],"properties":{
               "content":{"type":"string","description":"The fact, stated on its own."},
               "headline":{"type":"string","description":"Optional one-line form."},
-              "validFrom":{"type":"string","description":"When it started holding, ISO 8601."},
-              "validTo":{"type":"string","description":"When it stopped holding, ISO 8601."},
+            """ + (settings.ModelMayStateValidity ? ValidityProperties : "") + """
               "supersedes":{"type":"array","description":"Entries this replaces, each as its ref and the revision you read.","items":{"type":"object","required":["ref","revision"],"properties":{"ref":{"type":"string"},"revision":{"type":"string"}}}},
               "reason":{"type":"string","description":"Why it replaces them; required with supersedes."},
               "evidence":{"type":"string","description":"What supports it."},
@@ -199,27 +223,34 @@ internal static partial class MemoryTools
     }
 
     /// <summary>The end tool: proposes that an entry stops being current. It is applied only if a registered approver approves,
-    /// and only to the revision the model read.</summary>
+    /// and only to the revision the model read; an <c>at</c> after now is refused, since a scheduled end is the host's to make.</summary>
     internal static ITool End(IMemoryEngine engine, MemoryChangeGate gate, string prefix, string taskKey, string? scope,
-        MemoryWriteToolOptions? options = null) =>
-        new FunctionTool(
+        MemoryWriteToolOptions? options = null)
+    {
+        var settings = options ?? DefaultWriteOptions;
+        return new FunctionTool(
             $"{prefix}_end",
             async (argumentsJson, ct) =>
             {
                 if (Root(argumentsJson, out var doc) is not { } root) return Error("pass a JSON object with 'ref', 'revision' and 'reason'");
                 using (doc)
                 {
-                    if (TooLong(root, options ?? DefaultWriteOptions, "reason", "evidence") is { } tooLong) return tooLong;
+                    if (TooLong(root, settings, "reason", "evidence") is { } tooLong) return tooLong;
                     if (Parse(JsonExtract.StringProperty(root, "ref")) is not { } target)
                         return Error("pass the 'ref' of an item returned by the matching recall tool");
                     var by = JsonExtract.StringProperty(root, "by");
                     if (by is not null && Parse(by) is null) return Error($"'{by}' is not a ref returned by the matching recall tool");
+                    var at = ReadInstant(root, "at");
+                    var now = settings.Clock.GetUtcNow();
+                    if (at > now)
+                        return Error($"'at' is {at.Value:O}, after now ({now:O}): say when it stopped holding, which has happened. " +
+                            "Leave 'at' out for now.");
                     var (task, _) = MemoryToolScope.Resolve(taskKey, scope);
                     try
                     {
                         var result = await gate.EndAsync(engine, task, target, JsonExtract.StringProperty(root, "revision") ?? "",
                             JsonExtract.StringProperty(root, "reason") ?? "", JsonExtract.StringProperty(root, "evidence"),
-                            by is null ? null : Parse(by), ReadInstant(root, "at"), ct).ConfigureAwait(false);
+                            by is null ? null : Parse(by), at, ct).ConfigureAwait(false);
                         return JsonExtract.WriteObject(w =>
                         {
                             w.WriteString("status", result.Status.ToString());
@@ -247,8 +278,9 @@ internal static partial class MemoryTools
               "revision":{"type":"string","description":"The 'revision' of the item as you read it."},
               "reason":{"type":"string","description":"Why it is no longer true."},
               "by":{"type":"string","description":"Optional ref of the item that replaced it."},
-              "at":{"type":"string","description":"Optional ISO 8601 instant it stopped holding."},
+              "at":{"type":"string","description":"Optional ISO 8601 instant it stopped holding, not after now."},
               "evidence":{"type":"string","description":"What supports ending it."}
             }}
             """);
+    }
 }

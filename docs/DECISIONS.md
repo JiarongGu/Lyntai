@@ -430,8 +430,14 @@ new decision overturns an old one, rewrite the old entry as a stub pointing here
 | [D358](#d358--a-trace-steps-ordinal-is-32-bit-on-every-backend-and-one-past-it-is-refused-before-any-write-2026-11-15) | 2026-11-15 | a trace step's ordinal is 32-bit on every backend, and one past it is refused before any write |
 | [D359](#d359--a-nul-is-stored-as-ufffd-by-every-backend-as-a-lone-surrogate-is-and-a-query-keeps-its-nul-2026-11-15) | 2026-11-15 | a NUL is stored as U+FFFD by every backend, as a lone surrogate is, and a query keeps its NUL |
 | [D360](#d360--postgres-indexes-a-curated-metadata-value-by-its-first-256-characters-2026-11-15) | 2026-11-15 | Postgres indexes a curated metadata value by its first 256 characters |
+| [D361](#d361--a-write-tools-remember-keeps-a-held-entrys-grade-and-states-no-valid-time-unless-the-host-allows-it-2026-11-15) | 2026-11-15 | a write tool's remember keeps a held entry's grade, and states no valid time unless the host allo… |
+| [D362](#d362--an-ended-entry-stays-ended-a-restated-claim-neither-reopens-it-nor-takes-anything-over-2026-11-15) | 2026-11-15 | an ended entry stays ended: a restated claim neither reopens it nor takes anything over |
+| [D363](#d363--an-approver-sees-what-applies-and-is-never-asked-about-what-cannot-and-a-model-states-no-instant-after-now-2026-11-15) | 2026-11-15 | an approver sees what applies and is never asked about what cannot, and a model states no instant… |
+| [D364](#d364--the-file-store-journals-a-keyed-ends-or-confirmations-receipt-first-and-a-load-drops-one-whose-effect-never-landed-2026-11-15) | 2026-11-15 | the file store journals a keyed end's or confirmation's receipt first, and a load drops one whose… |
+| [D365](#d365--a-views-check-gates-the-named-reference-never-what-the-task-returns-2026-11-15) | 2026-11-15 | a view's check gates the named reference, never what the task returns |
+| [D366](#d366--a-receipt-expires-by-the-calling-engines-clock-on-every-store-2026-11-15) | 2026-11-15 | a receipt expires by the calling engine's clock on every store |
 
-**355 live decisions.** The rest are stubs — `D<n>` is a permanent identifier, so a number is never reused or renumbered (5): [D36](#d36--a-translation-between-two-verdict-taxonomies-gets-one-arm-per-member-gated-by-a-test-2026-08-05) → D136 · [D80](#d80--merged-into-d77-2026-08-16-folded-2026-08-17) → D77 · [D131](#d131--a-backends-produces-is-derived-from-its-configuration-so-a-modality-is-a-field-2026-09-14) → D133 · [D134](#d134--a-registration-names-the-backend-the-provider-suffix-is-gone-from-all-seventeen-2026-09-14) → D137 · [D145](#d145--the-microsoftextensionsai-module-is-a-bridge-not-a-provider-2026-09-15) → D146
+**361 live decisions.** The rest are stubs — `D<n>` is a permanent identifier, so a number is never reused or renumbered (5): [D36](#d36--a-translation-between-two-verdict-taxonomies-gets-one-arm-per-member-gated-by-a-test-2026-08-05) → D136 · [D80](#d80--merged-into-d77-2026-08-16-folded-2026-08-17) → D77 · [D131](#d131--a-backends-produces-is-derived-from-its-configuration-so-a-modality-is-a-field-2026-09-14) → D133 · [D134](#d134--a-registration-names-the-backend-the-provider-suffix-is-gone-from-all-seventeen-2026-09-14) → D137 · [D145](#d145--the-microsoftextensionsai-module-is-a-bridge-not-a-provider-2026-09-15) → D146
 
 <!-- index:end -->
 
@@ -8811,3 +8817,75 @@ recall and its write-back is already a silent skip).
 **Rejected.** An `md5(value)` index (it errors on a FIPS-mode server). Refusing a large value everywhere (it narrows three backends to one engine's index limit). A stated cap (the limit is after compression, so no honest number exists).
 
 **Re-opens** when a metadata key that long is needed, or a plan read shows the expression index unused.
+
+## D361 — a write tool's remember keeps a held entry's grade, and states no valid time unless the host allows it (2026-11-15)
+
+**Standing.** A ruling on a row closed as `docs/task-archive.md` Part 528 (the write tools' bounds and grade), read by the agent that built it with a Fable design agent; the owner may reverse it. Built.
+
+**Decided.** `<prefix>_remember` writes `MemoryWrite.KeepStoredGrade`, so its fixed associative grade lands on a new entry only and a write that lands on a held entry keeps that entry's grade. `MemoryWriteToolOptions.ModelMayStateValidity` (default off) gates `validFrom` and `validTo`: off, the schema omits both and a call passing either is refused, naming `<prefix>_end`, never dropped.
+
+**Why.** An entry's identity is its content (**D241**), so a model's restatement lands on the host's entry, and a stated grade or bound demoted, ended or reopened it with no approver and no revision guard; an end belongs to the gated end tool. `ModelMayNameScope` is the precedent for a value that is the host's being off by default.
+
+**Rejected.** Keeping a stated end and a stronger grade in the stores themselves (a new store field on four stores and the implementer contract, not the smallest fix). The tool writing an inherited grade (an annotator's suggestion could make a first write authoritative). Dropping a stated bound silently (the model would believe it held).
+
+**Re-opens** when a host needs a model to state valid time by default, or the tool's metadata stamp on a held entry is ruled (it still replaces the stored bag, `TASKS.md` Part 479).
+
+## D362 — an ended entry stays ended: a restated claim neither reopens it nor takes anything over (2026-11-15)
+
+**Standing.** A ruling on a row closed as `docs/task-archive.md` Part 528 (an ended successor), read by the agent that built it with a Fable design agent; the owner may reverse it. Built.
+
+**Decided.** A refresh never moves the bounds of an entry carrying `EndedReason`, on every store. A successor that has ended by its start (`EndedReason`, or `SupersededAt` or `ValidTo` at or before it) applies nothing: `SupersedeWithAsync` refuses every predecessor (`Refused`, as it refuses one with another live successor), a write with `Supersedes` throws with nothing ended, and `MemoryChangeGate` refuses before any approver is asked.
+
+**Why.** Content is identity, so a status that flips open, closed, open restates an ended entry, and ending the current one by it left nothing current while `Applied` said true.
+
+**Rejected.** Reviving the ended entry (it erases the history **D241** keeps whole). Several validity intervals per entry (a storage-format change, major-only). A new standing member (`Refused` already says "cannot be ended by this successor", and a member widens an enum every reader switches on).
+
+**Re-opens** when a host needs a recurring state to recur as the same entry: a reopen with its own approval.
+
+## D363 — an approver sees what applies and is never asked about what cannot, and a model states no instant after now (2026-11-15)
+
+**Standing.** A ruling on two rows closed as `docs/task-archive.md` Part 528 (what the approver sees, and a future `at`), read by the agent that built it with a Fable design agent; the owner may reverse it. Built.
+
+**Decided.** `MemoryChangeRequest` carries `Successor`, `At` and the successor's `Write`, as init properties. The gate refuses an instant before a target began, and an ended successor, before any approver is asked, reading both through `IViewableMemory`, which moves nothing. The end tool refuses an `at` after now by `MemoryWriteToolOptions.Clock`; the engine keeps a host's scheduled end, which reads current until its instant with its reason already recorded.
+
+**Why.** An approval of the claim alone approved `by`, `at` and the successor's validity unseen, and the engine refused an early `at` only after the approval was spent. A model's future instant is a prediction that sets an end nobody observes until it fires.
+
+**Rejected.** New positional members (a break of the record's constructor). Refusing a future instant in the engine (a host's scheduled end is a use it allows, and a skewed clock would throw). Clamping to now (a silent change).
+
+**Re-opens** when a host needs a model to schedule an end, behind a measured bound.
+
+## D364 — the file store journals a keyed end's or confirmation's receipt first, and a load drops one whose effect never landed (2026-11-15)
+
+**Standing.** A ruling on a row closed as `docs/task-archive.md` Part 528 (the receipt's crash window), read by the agent that built it with a Fable design agent; the owner may reverse it. Built.
+
+**Decided.** `JournalReceiptThenEffect` appends the receipt line, then writes the memory file; a receipt that cannot be journaled takes no effect, and a file that cannot be written drops the change and compacts the journal. `MemoryGraphState.Restore` drops, and returns, a receipt whose revision is above its entry's, and `Load` compacts that journal. Not closed: that compaction failing too, a later write reaching the receipt's revision, then a restart.
+
+**Why.** A crash between effect and receipt left a guarded retry reading `Changed`, and **D242** says a receipt exists exactly when its effect does; a receipt ahead of its effect is detectable by revision at load, an effect without one is not.
+
+**Rejected.** Accepting and documenting the window (it leaves a named exception to **D242**). A journal line carrying an end's fields (it does not fit the supersession's line, and the revision check needs none). Writing the receipt first with no landed check (a receipt for an effect that never landed).
+
+**Re-opens** when the residual is observed, or a keyed refresh, whose receipt still follows its file harmlessly, needs the same order.
+
+## D365 — a view's check gates the named reference, never what the task returns (2026-11-15)
+
+**Standing.** A ruling on a row closed as `docs/task-archive.md` Part 528 (an expansion's neighbours), read by the agent that built it with a Fable design agent; the owner may reverse it. Built.
+
+**Decided.** No behaviour change. `IMemoryViewCheck` is not a filter: a recall and an expansion's neighbours are not asked about, which its documentation now says and a test pins.
+
+**Why.** A view is of a task the host chose to share, and a recall through it is not checked either, so filtering neighbours would promise a confidentiality the view never had, at a call per neighbour (**D242**: a call, not a grant).
+
+**Rejected.** Checking each neighbour (a call each, a changed expansion, and still open through recall). Checking recall too (a grant system **D242** rejected).
+
+**Re-opens** when a host must hide entries inside a shared task, which is a new seam rather than this check.
+
+## D366 — a receipt expires by the calling engine's clock on every store (2026-11-15)
+
+**Standing.** A ruling on a row closed as `docs/task-archive.md` Part 528 (the receipt's clock), read by the agent that built it with a Fable design agent; the owner may reverse it. Built.
+
+**Decided.** The file store's restore judges no expiry: it drops only receipts whose entry is gone, and those **D364** drops. Every live check and the purge filter by the caller's instant, as the SQL stores do; hosts sharing a store share its skew.
+
+**Why.** Expiry is an instant the engine names and returns to its caller, every other stamp is the engine's clock seam, and only the restore used the store's own, so a restart dropped receipts a caller still counted live.
+
+**Rejected.** The store's clock (SQLite has none, and the backends would diverge). A skew tolerance (a deployment's number the library would invent).
+
+**Re-opens** when hosts with divergent clocks share a store and need retention independent of skew.

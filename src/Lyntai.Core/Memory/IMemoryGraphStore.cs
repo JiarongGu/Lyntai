@@ -251,7 +251,9 @@ public sealed record GraphNodeWrite(
 {
     /// <summary>When the fact started holding, as the caller states it. Null is "no opinion": an INSERT stores
     /// none and a refresh keeps what is stored, the rule every optional field here follows (D91); a stated
-    /// value replaces. Only a store implementing <see cref="ITemporalMemoryGraphStore"/> may be handed one.</summary>
+    /// value replaces — except on an entry carrying <see cref="GraphNode.EndedReason"/>, whose bounds a refresh never moves (this,
+    /// <see cref="ValidTo"/> and <see cref="ValidFromIfUnset"/> alike), so a restated claim never reopens an ended one. Only a store
+    /// implementing <see cref="ITemporalMemoryGraphStore"/> may be handed one.</summary>
     public DateTimeOffset? ValidFrom { get; init; }
 
     /// <summary>When the fact stopped holding, exclusive; null is "no opinion", as <see cref="ValidFrom"/>.</summary>

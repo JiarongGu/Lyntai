@@ -914,14 +914,18 @@ one another entry already ended throws `InvalidOperationException` before anythi
 newer entry instead, or bound the older with `ValidTo`. A successor that was later forgotten does not reopen what it
 ended, and a new write may then take over. **An entry cannot be superseded before it began**: a stated start earlier
 than the entry's own throws `ArgumentException` before anything is written, and an unstated one that turns out
-earlier throws `InvalidOperationException` with the successor stored and nothing ended. What the engine will not do
+earlier throws `InvalidOperationException` with the successor stored and nothing ended. **A restated claim never succeeds
+through an ended entry**: a write whose content is an entry that has ended by its start — a status that flips open, closed, open restates
+the first entry — lands on that entry, ends nothing and throws `InvalidOperationException`; `SupersedeAsync` and the gate
+refuse it too, so the entry it would have ended stays current. State the claim in other words. What the engine will not do
 is guess: near-identical text is never a supersession, and an entry nobody named stays valid.
 
 **Valid time is the world's clock, so a late write may name an earlier instant.** A fact learned in April that held
 from February is written with `ValidFrom` in February; where that overlaps an entry written earlier, both are valid
 at the overlap and both are returned — a conflict is shown, never hidden. A re-remember of identical content
 replaces a bound the write states and keeps one it does not (D91), so a corrected start lands and a bare refresh
-changes nothing.
+changes nothing. **An entry an end recorded keeps its bounds whatever a write states**: its content is its identity, so a
+restated claim lands on that entry and never reopens it.
 
 **An engine that cannot hold valid time refuses it.** A write that states any throws `NotSupportedException` on a
 lexical, semantic or curated engine, and on a graph engine whose store does not implement
@@ -963,7 +967,12 @@ material as current checks the revision then. A store that cannot hold a re-chec
 entry, revision, reason, evidence)` and `SupersedeAsync(engine, write, targets, reason, evidence)`, each target carrying the
 `MemoryItem.Revision` the proposer read. **The library ships no approver that approves by itself** (D241): with none registered
 nothing ends (`MemoryChangeStatus.NoApprover`), and a supersession's successor is stored live and unlinked, since an observation
-is not a confirmation. Every approver must approve, the first refusal decides, and one that throws or answers null refuses. An
+is not a confirmation. Every approver must approve, the first refusal decides, and one that throws or answers null refuses.
+**The approver is shown what applies**: beside the targets, claim, reason and evidence, `MemoryChangeRequest` carries the
+`Successor` each target would be ended by, the `At` the proposer stated and, for a supersession, the successor's whole `Write`
+(scope, headline, validity, metadata). **What the engine would refuse is refused before any approver is asked**
+(`MemoryChangeStatus.Refused`): a successor whose content is an entry that has ended, and an instant before a target began —
+both read through the engine's view, which moves nothing, so an engine without one is left to its own `EndAsync` after approval. An
 approval applies through `EndAsync` with that revision, so an entry rewritten after it was read changes nothing and returns
 `Changed` with the revision found (`MemoryChangeResult.Revisions`) — read again, propose again; the guard is never dropped. A
 reference the engine did not issue for this task is `Refused` in words the proposer can act on, and a retried supersession finds
@@ -985,7 +994,9 @@ relation is an edge of its own kind, so a recall's co-activation does not streng
 graph engine and a blend implement it): `EndAsync(taskKey, entry, new MemoryEnding("moved away"))`, with an optional
 `At` (the engine's clock, or the successor's start), an optional `Successor` of this engine, and an optional
 `ExpectedRevision`. It refuses what a supersession refuses, and an end already recorded returns
-`MemoryEndOutcome.AlreadyEnded` with the first reason standing. **An end is valid-time state beside the decay seam
+`MemoryEndOutcome.AlreadyEnded` with the first reason standing. **An `At` after now schedules the end**: it is recorded at
+once — `EndedReason` is set, a second end reports `AlreadyEnded` and the entry is no longer due — and the entry reads current
+until that instant and ended from it. Only a host schedules one; the end tool refuses a model's. **An end is valid-time state beside the decay seam
 (D241), never a decay input**: it is out of `Current` however the entry ranks, read back under `History` as
 `MemoryValidity.EndedReason`, and no recall, expansion or touch restores it, nor does a re-remember that states no
 validity. **A confirmer's approval is bound to a revision**: every `MemoryItem` carries an opaque `Revision` that
@@ -1007,6 +1018,11 @@ that changed nothing leaves no receipt** (a stale revision, an entry already end
 same key with other content, or for another kind of call, throws `MemoryKeyConflictException` and applies nothing. `IKeyedMemory.ReceiptAsync(taskKey, key)`
 reads a receipt without effect. A receipt names its expiry (`GraphMemoryOptions.ReceiptRetention`, thirty days) and a later keyed
 write purges the expired ones — the library runs no timer — so a repeat after it is a new call, which the revision guard answers.
+**Retention is by the calling engine's clock**, never the store's (the file store judges none when it starts), so hosts sharing a
+store share its skew: one whose clock runs ahead purges receipts another still counts live. The file store journals a keyed end's
+or confirmation's receipt before its memory file, and a restart drops — and compacts away — one whose effect never landed, so the
+repeat applies; not closed is a memory file that cannot be written whose compaction then also fails, after which a later write
+reaching the receipt's revision and a restart would let it answer.
 Removing an entry removes the receipts that name it. **An engine over a store that cannot hold receipts refuses a keyed call**
 (`IKeyedMemoryGraphStore`, which all four shipped stores implement; the portable line does not carry receipts), and a lexical, semantic
 or curated engine refuses one; an un-keyed call is unchanged on every store. A keyed write states no `Supersedes`, `Disputes` or `Amends`: each
@@ -1037,8 +1053,9 @@ owner's engine, never a copy. Each `MemoryViewItem` carries the `MemoryItem` (re
 `History` reading returns the ended entry with who superseded it. `RevisionOfAsync(reference)` is one read by id. A reference of another
 task, another engine or none reads as a missing one. **The host's `IMemoryViewCheck` is asked about the named reference before an
 expansion or a `RevisionOfAsync` reads anything**, and a refusal returns nothing (a null revision); it is a call, not a grant — owners, grants and the change log stay the host's.
-A recall is not checked per reference, and an expansion's neighbours are not asked about: the view is of a task the host already chose
-to share. `CompositeMemoryEngine.Views` recalls from views beside its members (each in its own task, no scope) and routes `ExpandAsync`
+**It gates the reference a caller names, never what the task returns — it is not a filter**: a recall is not checked per reference,
+and an expansion's neighbours are not asked about, so an entry the check refuses by name can come back as a neighbour of one it
+permits. The view is of a task the host already chose to share; a host that must hide an entry keeps it in another task. `CompositeMemoryEngine.Views` recalls from views beside its members (each in its own task, no scope) and routes `ExpandAsync`
 by `MemoryRef.Engine`; `LinkAsync`, `RelateAsync`, `EndAsync`, `ConfirmAsync` on a view's reference throw `NotSupportedException`, and the
 views are not members, so removal, re-embedding and export never visit them. `ExpandInTaskAsync` reaches a view only for the view's own
 task. A reader that relies on a shared fact stores a citation with a `Recheck` (MC5) and adds no cross-task link (**D92**). An engine with no
@@ -1092,9 +1109,13 @@ services.AddLyntai(cfg => cfg
 
 **To let it write and end what it learns, add `AddMemoryWriteTools(name, taskKey, scope, options: …)`** — a second registration
 that `AddMemoryTools` never makes, so no existing agent gains a write it did not choose. It adds `<engine>_remember` and
-`<engine>_end`. The HOST owns the task (from `MemoryToolScope`, never an argument), the grade (always associative, with no
-argument to change it), the scope (unless `ModelMayNameScope`) and a metadata stamp, and `MaxContentChars` bounds what a call
-may write (its `content`, `headline`, `reason` and `evidence`), as `MaxRefs` bounds each list of refs. `_remember` returns its `ref` and `mayUpdate` — the live entries it may update, each with its `revision` — and
+`<engine>_end`. The HOST owns the task (from `MemoryToolScope`, never an argument), the grade (a new entry is associative, and a
+remember landing on an entry already held keeps that entry's grade — `MemoryWrite.KeepStoredGrade` — so restating a fact never
+demotes one the host made authoritative), the scope (unless `ModelMayNameScope`), valid time (unless `ModelMayStateValidity`: the
+schema omits `validFrom` and `validTo`, and a call passing either is refused with an error naming `<engine>_end`, never stored
+without them) and a metadata stamp, and `MaxContentChars` bounds what a call may write (its `content`, `headline`, `reason` and
+`evidence`), as `MaxRefs` bounds each list of refs. **A model states no instant after now**: the end tool refuses a later `at`
+by `MemoryWriteToolOptions.Clock`. `_remember` returns its `ref` and `mayUpdate` — the live entries it may update, each with its `revision` — and
 applies none. `disputes` and `amends` end nothing and apply alone; `supersedes` (each entry a ref and the revision read, with a
 `reason`) and `_end` go through `MemoryChangeGate`, so **with no approver registered the write lands live and unlinked and the
 end is refused as a result the model reads**, and an approval applies only to the revision the model read. An engine's refusal

@@ -219,6 +219,29 @@ public class MemoryEndTests
             blend.EndAsync("t", new MemoryRef("blend/lex", "1"), new MemoryEnding("x")));
     }
 
+    // A host may end an entry at an instant to come (docs/memory.md §9): the end is recorded now, so a second end is AlreadyEnded,
+    // and the entry reads current until that instant and ended from it.
+    [Fact]
+    public async Task A_hosts_scheduled_end_reads_current_until_its_instant()
+    {
+        var now = Jul;
+        var engine = new GraphMemoryEngine(Name, new InMemoryMemoryGraphStore(), null,
+            new GraphMemorySeams { AgePolicies = [new PerWriteAgePolicy()], Clock = () => now });
+        var paris = (await engine.RememberAsync(Fact("lives in Paris"))).Reference;
+        var moving = Jul.AddMonths(1);
+
+        Assert.Equal(MemoryEndOutcome.Ended, (await engine.EndAsync("t", paris, new MemoryEnding("moving in August") { At = moving })).Outcome);
+
+        var before = (await engine.RecallAsync(Ask())).Items.Single();
+        Assert.Equal(("moving in August", moving), (before.Validity!.EndedReason, before.Validity.End));
+        Assert.Equal(MemoryEndOutcome.AlreadyEnded, (await engine.EndAsync("t", paris, new MemoryEnding("another reason"))).Outcome);
+        now = moving.AddTicks(-1);
+        Assert.Single((await engine.RecallAsync(Ask())).Items);
+        now = moving;
+        Assert.Empty((await engine.RecallAsync(Ask())).Items);
+        Assert.Single((await engine.RecallAsync(Ask(MemoryValidityReading.History))).Items);
+    }
+
     [Fact]
     public async Task An_end_and_its_reason_travel_through_an_export()
     {

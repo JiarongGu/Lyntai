@@ -557,10 +557,10 @@ public class FileSystemGraphRestartTests : IDisposable
         Assert.Equal(("reworded", MemoryOperationOutcome.Refreshed), ((await reopened.GetAsync("e", id))!.Headline, again.Receipt!.Outcome));
     }
 
-    // The end's memory file is written before its receipt; when the receipt cannot be appended this process still takes the end, so
-    // it does not stand behind the disk until a restart.
+    // A keyed end or confirmation journals its receipt BEFORE its memory file: a receipt that cannot be journaled leaves the call
+    // untaken, in this process and after a restart, so its repeat is a new call that applies.
     [Fact]
-    public async Task A_keyed_end_whose_receipt_cannot_be_appended_is_still_taken_by_this_process_and_a_repeat_is_not_replayed()
+    public async Task A_keyed_end_whose_receipt_cannot_be_journaled_takes_no_effect()
     {
         var store = Open(_temp.Root);
         var id = await store.UpsertAsync(Write("lives in Paris"));
@@ -574,9 +574,113 @@ public class FileSystemGraphRestartTests : IDisposable
         }
         finally { File.SetAttributes(JournalPath, FileAttributes.Normal); }
 
-        Assert.Equal("moved", (await store.GetAsync("e", id))!.EndedReason);
+        Assert.Null((await store.GetAsync("e", id))!.EndedReason);
         Assert.Null(await store.ReceiptAsync("e", "task", "k1", _now));
-        Assert.Equal("moved", (await Open(_temp.Reopen()).GetAsync("e", id))!.EndedReason);
+        var reopened = Open(_temp.Reopen());
+        Assert.Null((await reopened.GetAsync("e", id))!.EndedReason);
+        var again = await reopened.EndKeyedAsync("e", new GraphEnd(id, "moved", _now, null, revision), Keyed("k1", MemoryOperationKind.End));
+        Assert.Equal((GraphEndOutcome.Ended, false), (again.Value.Outcome, again.Replayed));
+    }
+
+    // The receipt's line is journaled and the memory file then refuses the end: this process drops the change and compacts the
+    // journal, so the line that would answer for an end that never landed is gone before any restart reads it.
+    [Fact]
+    public async Task A_keyed_end_whose_file_cannot_be_written_takes_no_effect_and_its_receipt_line_is_compacted_away()
+    {
+        var store = Open(_temp.Root);
+        var id = await store.UpsertAsync(Write("lives in Paris"));
+        var revision = (await store.GetAsync("e", id))!.Revision!.Value;
+        var file = FileHolding("lives in Paris");
+        var before = File.ReadAllText(file);
+        File.Delete(file);
+        Directory.CreateDirectory(file);   // the rename onto it cannot land
+
+        await Assert.ThrowsAnyAsync<Exception>(() =>
+            store.EndKeyedAsync("e", new GraphEnd(id, "moved", _now, null, revision), Keyed("k1", MemoryOperationKind.End)));
+
+        Assert.Null((await store.GetAsync("e", id))!.EndedReason);
+        Assert.Null(await store.ReceiptAsync("e", "task", "k1", _now));
+        Assert.DoesNotContain("{\"receipt\"", File.ReadAllText(JournalPath), StringComparison.Ordinal);
+        Directory.Delete(file);
+        File.WriteAllText(file, before);
+        var again = await Open(_temp.Reopen()).EndKeyedAsync("e", new GraphEnd(id, "moved", _now, null, revision),
+            Keyed("k1", MemoryOperationKind.End));
+        Assert.Equal((GraphEndOutcome.Ended, false), (again.Value.Outcome, again.Replayed));
+    }
+
+    // A crash after a keyed call's receipt line and before its memory file, modelled by putting the file back as it was: the receipt
+    // names a revision the entry never reached, so a restart drops it and the repeat applies.
+    private async Task<(FileSystemMemoryGraphStore Store, long Id, long Revision, string File, string Before)> HeldEntry()
+    {
+        var store = Open(_temp.Root);
+        var id = await store.UpsertAsync(Write("lives in Paris"));
+        var file = FileHolding("lives in Paris");
+        return (store, id, (await store.GetAsync("e", id))!.Revision!.Value, file, File.ReadAllText(file));
+    }
+
+    [Fact]
+    public async Task KeyedEnd_CrashAfterReceiptBeforeFile_RestartHoldsNoReceiptAndTheRepeatEnds()
+    {
+        var (store, id, revision, file, before) = await HeldEntry();
+        Assert.Equal(GraphEndOutcome.Ended, (await store.EndKeyedAsync("e", new GraphEnd(id, "moved", _now, null, revision),
+            Keyed("k1", MemoryOperationKind.End))).Value.Outcome);
+        File.WriteAllText(file, before);
+
+        var reopened = Open(_temp.Reopen());
+
+        Assert.Null(await reopened.ReceiptAsync("e", "task", "k1", _now));
+        Assert.Null((await reopened.GetAsync("e", id))!.EndedReason);
+        var again = await reopened.EndKeyedAsync("e", new GraphEnd(id, "moved", _now, null, revision), Keyed("k1", MemoryOperationKind.End));
+        Assert.Equal((GraphEndOutcome.Ended, false), (again.Value.Outcome, again.Replayed));
+        Assert.Equal("moved", (await reopened.GetAsync("e", id))!.EndedReason);
+    }
+
+    [Fact]
+    public async Task KeyedConfirm_CrashAfterReceiptBeforeFile_RestartHoldsNoReceiptAndTheRepeatStamps()
+    {
+        var (store, id, revision, file, before) = await HeldEntry();
+        Assert.Equal(GraphConfirmOutcome.Stamped, (await store.ConfirmKeyedAsync("e", new GraphConfirm(id, _now, revision),
+            Keyed("c1", MemoryOperationKind.Confirm))).Value.Outcome);
+        File.WriteAllText(file, before);
+
+        var reopened = Open(_temp.Reopen());
+
+        Assert.Null(await reopened.ReceiptAsync("e", "task", "c1", _now));
+        Assert.Null((await reopened.GetAsync("e", id))!.ConfirmedAt);
+        var again = await reopened.ConfirmKeyedAsync("e", new GraphConfirm(id, _now, revision), Keyed("c1", MemoryOperationKind.Confirm));
+        Assert.Equal((GraphConfirmOutcome.Stamped, false), (again.Value.Outcome, again.Replayed));
+    }
+
+    // The restart that drops an orphan receipt compacts it out of the journal, so a later write that brings the entry to the revision
+    // the orphan named cannot make it answer at the next start.
+    [Fact]
+    public async Task OrphanReceipt_DoesNotAnswerAfterALaterWriteReachesItsRevision()
+    {
+        var (store, id, revision, file, before) = await HeldEntry();
+        var orphan = (await store.EndKeyedAsync("e", new GraphEnd(id, "moved", _now, null, revision),
+            Keyed("k1", MemoryOperationKind.End))).Value.Revision;
+        File.WriteAllText(file, before);
+
+        var reopened = Open(_temp.Reopen());
+        Assert.Null(await reopened.ReceiptAsync("e", "task", "k1", _now));
+        await reopened.UpsertAsync(Write("lives in Paris", headline: "reworded"));
+        Assert.Equal(orphan, (await reopened.GetAsync("e", id))!.Revision);
+
+        Assert.Null(await Open(_temp.Reopen()).ReceiptAsync("e", "task", "k1", _now));
+    }
+
+    // A receipt expires by the clock of the engine that asks (docs/memory.md §9): a store whose own clock runs ahead keeps, across a
+    // restart, a receipt the caller still counts live.
+    [Fact]
+    public async Task FileStore_Restart_KeepsAReceiptTheCallersClockStillCountsLive()
+    {
+        var first = await Open(_temp.Root).UpsertKeyedAsync(Write("lives in Paris"), Keyed("k1", MemoryOperationKind.Remember));
+        var caller = _now.AddDays(1);
+        _now = _now.AddDays(60);   // past the receipt's thirty days, by the store's clock only
+
+        var held = await Open(_temp.Reopen()).ReceiptAsync("e", "task", "k1", caller);
+
+        Assert.Equal(first.Value, held?.NodeId);
     }
 
     // A refreshed successor's file takes its refresh BEFORE the commit line, so a torn commit leaves the refresh and not the

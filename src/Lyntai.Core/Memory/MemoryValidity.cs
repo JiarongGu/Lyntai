@@ -30,6 +30,11 @@ public sealed record MemoryValidity(
     /// before <see cref="End"/>.</summary>
     /// <param name="at">The instant asked about.</param>
     public bool IsValidAt(DateTimeOffset at) => (From is not { } from || from <= at) && (End is not { } end || at < end);
+
+    /// <summary>Whether the entry has ended by <paramref name="start"/>, the instant it would take another over: an end recorded with a
+    /// reason, whenever its instant falls, or an end that has come by then. Such an entry is never a successor (the stores judge the
+    /// same predicate).</summary>
+    internal bool HasEndedBy(DateTimeOffset start) => EndedReason is not null || End is { } end && end <= start;
 }
 
 /// <summary>Which entries a read admits by their valid time (<see cref="MemoryQuery.Validity"/>). The default

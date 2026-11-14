@@ -2507,6 +2507,28 @@ public static class MemoryGraphStoreContract
         Assert.False(node.Validity!.IsValidAt(Mar));
     }
 
+    /// <summary><b>A refresh never moves the bounds of an entry an end recorded</b>: a write of its content that STATES a start, an
+    /// end or a start-if-unset lands on the entry (its identity) and leaves the interval the end closed, so a restated claim never
+    /// reopens it. A live entry's stated bound still replaces (<see cref="Temporal_refresh_replaces_a_stated_bound_and_keeps_an_unstated_one"/>).</summary>
+    public static async Task Refresh_OfAnEndedEntry_KeepsItsEnd(IMemoryGraphStore store, string key)
+    {
+        var endable = Assert.IsAssignableFrom<IEndableMemoryGraphStore>(store);
+        const string engine = "tv-refresh-ended";
+        var id = await store.UpsertAsync(Write(engine, key, "lives in Paris") with { ValidFrom = Jan });
+        var untimed = await store.UpsertAsync(Write(engine, key, "likes tea"));
+        await endable.EndAsync(engine, new GraphEnd(id, "moved away", Mar));
+        await endable.EndAsync(engine, new GraphEnd(untimed, "stopped", Mar));
+
+        await store.UpsertAsync(Write(engine, key, "lives in Paris") with { ValidFrom = Mar, ValidTo = Jun.AddMonths(6) });
+        await store.UpsertAsync(Write(engine, key, "likes tea") with { ValidFromIfUnset = Jun });
+
+        var paris = (await store.GetAsync(engine, id))!;
+        Assert.Equal((Jan, Mar, "moved away"), (paris.ValidFrom, paris.ValidTo, paris.EndedReason));
+        Assert.False(paris.Validity!.IsValidAt(Jun));
+        var tea = (await store.GetAsync(engine, untimed))!;
+        Assert.Equal(((DateTimeOffset?)null, Mar), (tea.ValidFrom, tea.ValidTo));
+    }
+
     /// <summary><b>Two ends racing one entry land exactly one.</b> The test and the write are one statement, or one
     /// critical section, so the loser reports <see cref="GraphEndOutcome.AlreadyEnded"/> or
     /// <see cref="GraphEndOutcome.Changed"/> rather than a second write.</summary>
@@ -3007,6 +3029,35 @@ public static class MemoryGraphStoreContract
         // refused whatever revision the refresh left it at (a SQL refresh advances it), and never ended
         Assert.Equal(GraphPredecessorStanding.Refused, itself.Predecessors.Single().Standing);
         Assert.Null((await store.GetAsync(engine, romeId))!.EndedReason);
+    }
+
+    /// <summary><b>A successor that has already ended takes nothing over</b>: a status that flips open, closed, open restates the first
+    /// entry's content, which IS that entry (its identity, D241), and it was ended by the second. Each predecessor is refused, nothing is
+    /// stored or ended, the refresh moves none of the ended entry's bounds, and the key stays free.</summary>
+    public static async Task Supersede_WithAnEndedSuccessor_AppliesNothing(IMemoryGraphStore store, string key)
+    {
+        var atomic = Assert.IsAssignableFrom<ISupersedingMemoryGraphStore>(store);
+        const string engine = "tv-atomic-ended-successor";
+        var open = await store.UpsertAsync(Write(engine, key, "status open") with { ValidFrom = Jan });
+        var closing = await atomic.SupersedeWithAsync(Write(engine, key, "status closed") with { ValidFrom = Mar },
+            [new GraphPredecessor(open, await Revision(store, engine, open))], "closed", Mar, null);
+        Assert.True(closing.Applied);
+        var closed = closing.SuccessorId!.Value;
+        var (openBefore, closedBefore) = ((await store.GetAsync(engine, open))!, (await store.GetAsync(engine, closed))!);
+
+        var reopening = await atomic.SupersedeWithAsync(Write(engine, key, "status open") with { ValidFrom = Jun },
+            [new GraphPredecessor(closed, closedBefore.Revision!.Value)], "reopened", Jun,
+            Op("reopen", key, MemoryOperationKind.Supersede, "fp-s", Jun));
+
+        Assert.False(reopening.Applied);
+        Assert.Null(reopening.SuccessorId);
+        Assert.Equal(GraphPredecessorStanding.Refused, reopening.Predecessors.Single().Standing);
+        var (openAfter, closedAfter) = ((await store.GetAsync(engine, open))!, (await store.GetAsync(engine, closed))!);
+        Assert.Equal((closedBefore.EndedReason, closedBefore.SupersededBy, closedBefore.Revision),
+            (closedAfter.EndedReason, closedAfter.SupersededBy, closedAfter.Revision));
+        Assert.Equal((Jan, "closed", closed, Mar), (openAfter.ValidFrom, openAfter.EndedReason, openAfter.SupersededBy, openAfter.SupersededAt));
+        Assert.Equal(openBefore.Revision, openAfter.Revision);
+        Assert.Null(await atomic.ReceiptAsync(engine, key, "reopen", Jun));
     }
 
     /// <summary><b>A supersession names at least one predecessor and each only once</b>: an empty list would store a successor that

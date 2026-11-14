@@ -136,9 +136,14 @@ public sealed class SqliteMemoryGraphStore(
                               provenance_salience = CASE WHEN @signals IS NULL THEN lyntai_memory_node.provenance_salience
                                                           ELSE @provenanceSalience END,
                               -- valid time follows the same rule: a STATED bound replaces, an unstated one keeps
-                              -- what is stored, and a start only a superseding write offered never moves a held one
-                              valid_from = COALESCE(@validFrom, lyntai_memory_node.valid_from, @validFromIfUnset),
-                              valid_to = COALESCE(@validTo, lyntai_memory_node.valid_to),
+                              -- what is stored, and a start only a superseding write offered never moves a held one;
+                              -- an entry an end recorded keeps the interval it closed, so a restated claim never reopens it
+                              valid_from = CASE WHEN lyntai_memory_node.ended_reason IS NULL
+                                                THEN COALESCE(@validFrom, lyntai_memory_node.valid_from, @validFromIfUnset)
+                                                ELSE lyntai_memory_node.valid_from END,
+                              valid_to = CASE WHEN lyntai_memory_node.ended_reason IS NULL
+                                              THEN COALESCE(@validTo, lyntai_memory_node.valid_to)
+                                              ELSE lyntai_memory_node.valid_to END,
                               -- any write that lands on the entry advances its revision (IEndableMemoryGraphStore)
                               revision = lyntai_memory_node.revision + 1,
                               -- an ABSENT re-check keeps the stored one, and the stamp is never touched by a refresh

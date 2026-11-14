@@ -1,3 +1,5 @@
+using System.Globalization;
+
 namespace Lyntai.Memory;
 
 /// <summary>Puts a proposed supersession or end to the registered <see cref="IMemoryChangeApprover"/>s and applies it only
@@ -7,7 +9,12 @@ namespace Lyntai.Memory;
 /// supersession's successor is still stored, live and unlinked, because an observation is not a confirmation. An approver
 /// that throws or answers null refuses. An approval applies through <see cref="IEndableMemory.EndAsync"/> with the revision
 /// the proposal named, so an entry rewritten after it was read changes nothing and needs a fresh approval; the guard is
-/// never dropped to repair a partial outcome.</para></summary>
+/// never dropped to repair a partial outcome.</para>
+/// <para><b>An approver is shown what would apply</b> (<see cref="MemoryChangeRequest.Successor"/>, <see cref="MemoryChangeRequest.At"/>,
+/// <see cref="MemoryChangeRequest.Write"/>), and never asked about what could not: a successor whose content is an entry that has
+/// ended, or an instant before a target began, is <see cref="MemoryChangeStatus.Refused"/> first. Those two are read through
+/// <see cref="IViewableMemory"/>, which moves nothing; an engine without a view is left to its own <see cref="IEndableMemory.EndAsync"/>
+/// after approval.</para></summary>
 /// <param name="approvers">The registered approvers, in registration order.</param>
 public sealed class MemoryChangeGate(IEnumerable<IMemoryChangeApprover> approvers)
 {
@@ -21,7 +28,8 @@ public sealed class MemoryChangeGate(IEnumerable<IMemoryChangeApprover> approver
     /// <param name="reason">Why it ended, as the proposer states it.</param>
     /// <param name="evidence">What the proposer offers for it.</param>
     /// <param name="by">The entry of this engine that replaced it, or null for an end that names none.</param>
-    /// <param name="at">When it stopped holding; null is now, or the successor's start.</param>
+    /// <param name="at">When it stopped holding; null is now, or the successor's start. One before the entry began is refused before
+    /// any approver is asked.</param>
     /// <param name="ct">Cancellation.</param>
     public Task<MemoryChangeResult> EndAsync(IMemoryEngine engine, string taskKey, MemoryRef entry, string revision,
         string reason, string? evidence = null, MemoryRef? by = null, DateTimeOffset? at = null,
@@ -30,7 +38,8 @@ public sealed class MemoryChangeGate(IEnumerable<IMemoryChangeApprover> approver
             by, at, ct);
 
     /// <summary>Propose that <paramref name="write"/> replaces <paramref name="targets"/>. The write is stored live and
-    /// unlinked first, so its identity is the same on a retry; the targets end only on approval.</summary>
+    /// unlinked first, so its identity is the same on a retry; the targets end only on approval. A write whose content is an entry
+    /// that has ended lands on that entry, which cannot replace anything: refused before any approver is asked.</summary>
     /// <param name="engine">The engine the entries belong to.</param>
     /// <param name="write">The successor; its <see cref="MemoryWrite.Supersedes"/> must be empty.</param>
     /// <param name="targets">The entries it replaces, each with the revision read.</param>
@@ -67,7 +76,15 @@ public sealed class MemoryChangeGate(IEnumerable<IMemoryChangeApprover> approver
         if (write is not null)
             successor = (await engine.RememberAsync(write, ct).ConfigureAwait(false)).Reference;
 
-        var request = new MemoryChangeRequest(kind, taskKey, targets, write?.Content, reason.Trim(), evidence);
+        // what the engine would refuse after an approval is refused before one is asked for, so no approver reviews what cannot apply
+        if (await RefusalAsync(engine, taskKey, targets, successor, write is null ? null : successor, at, ct).ConfigureAwait(false)
+            is { } refused)
+            return new MemoryChangeResult(MemoryChangeStatus.Refused, refused, successor);
+
+        var request = new MemoryChangeRequest(kind, taskKey, targets, write?.Content, reason.Trim(), evidence)
+        {
+            Successor = successor, At = at, Write = write,
+        };
         if (_approvers.Count == 0)
             return new MemoryChangeResult(MemoryChangeStatus.NoApprover,
                 "No approver is registered, so nothing was ended" + (write is null ? "." : "; the new entry is stored, live, and replaces nothing."),
@@ -92,6 +109,40 @@ public sealed class MemoryChangeGate(IEnumerable<IMemoryChangeApprover> approver
 
         return await ApplyAsync(engine, taskKey, targets, successor, reason.Trim(), at, ct).ConfigureAwait(false);
     }
+
+    /// <summary>Why the engine would refuse the proposal after an approval, or null: a stored successor that has ended (its content
+    /// named an entry an earlier change ended), or an instant before a target began. Read through a view, which moves nothing; an
+    /// engine that holds no view is left to its own end after approval.</summary>
+    private static async Task<string?> RefusalAsync(IMemoryEngine engine, string taskKey, IReadOnlyList<MemoryChangeTarget> targets,
+        MemoryRef? successor, MemoryRef? storedSuccessor, DateTimeOffset? at, CancellationToken ct)
+    {
+        if (engine is not IViewableMemory { HoldsView: true } viewable) return null;
+        var view = viewable.ViewOf(taskKey);
+        var next = successor is { } named ? await ReadAsync(view, named, ct).ConfigureAwait(false) : null;
+        // ended by now, or by its own start (which the stores judge); one that starts later is a scheduled successor and passes
+        if (storedSuccessor is { } stored && next?.Item.Validity is { } validity
+            && (next.Standing == MemoryStanding.Ended || validity.HasEndedBy(validity.From ?? DateTimeOffset.MinValue)))
+            return $"The new claim is entry '{stored.Id}', already held, and it has ended" +
+                (validity.EndedReason is { } why ? $" (\"{why}\")" : "") + ", so it cannot replace anything. Nothing was ended and no " +
+                "approver was asked. An ended entry stays ended: state the claim in other words.";
+
+        // the instant the engine would end each target at: the one stated, else the successor's start, else now
+        var instant = at ?? next?.Item.Validity?.From;
+        foreach (var target in targets)
+        {
+            if (await ReadAsync(view, target.Reference, ct).ConfigureAwait(false) is not { } held
+                || held.Item.Validity?.From is not { } began) continue;
+            if (instant is { } end ? end < began : held.Standing == MemoryStanding.NotYetValid)
+                return $"Entry '{target.Reference.Id}' began at {began:O}, after the {(instant is { } i ? i.ToString("O", CultureInfo.InvariantCulture) : "now")} " +
+                    "this would end it: an entry cannot end before it started. Nothing was ended and no approver was asked.";
+        }
+        return null;
+    }
+
+    // one entry by reference, whatever its validity, through a view: no reinforcement, no walk
+    private static async Task<MemoryViewItem?> ReadAsync(IMemoryView view, MemoryRef reference, CancellationToken ct) =>
+        (await view.ExpandAsync(reference, hops: 0, validity: MemoryValidityReading.History, ct: ct).ConfigureAwait(false))
+            .Items.FirstOrDefault();
 
     private static async Task<MemoryChangeResult> ApplyAsync(IMemoryEngine engine, string taskKey,
         IReadOnlyList<MemoryChangeTarget> targets, MemoryRef? successor, string reason, DateTimeOffset? at, CancellationToken ct)

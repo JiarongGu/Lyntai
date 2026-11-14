@@ -20,7 +20,7 @@ internal sealed class MemoryGraphState(Func<DateTimeOffset> clock)
     private readonly Dictionary<long, MemoryReview> _reviews = [];
     // MemoryReviewLogPacing's per-engine counters: in-process only, so a restart resets them (a SOFT cap)
     private readonly Dictionary<string, long> _reviewCounters = new(StringComparer.Ordinal);
-    // a keyed call's answer, by (engine, task, key); expiry is judged by the caller's clock, never here
+    // a keyed call's answer, by (engine, task, key); expiry is judged by the caller's clock, never here, nor on a restore
     private readonly Dictionary<(string Engine, string TaskKey, string Key), GraphReceipt> _receipts = [];
     private long _nextId = 1;
     private long _nextReview = 1;
@@ -132,6 +132,8 @@ internal sealed class MemoryGraphState(Func<DateTimeOffset> clock)
     {
         var (record, state) = (existing.Record, existing.State);
         var opinion = MemorySignalsJson.Serialize(write.Signals) is not null;
+        // an entry an end recorded keeps the interval it closed: a restated claim lands on it and never reopens it
+        var ended = record.EndedReason is not null;
         var refreshed = record with
             {
                 // only a CALLER-NAMED grade overwrites, or a re-remember silently demotes an authoritative fact
@@ -142,8 +144,8 @@ internal sealed class MemoryGraphState(Func<DateTimeOffset> clock)
                 Metadata = write.Metadata is null || write.Metadata.Count == 0 ? record.Metadata : write.Metadata,
                 // a STATED bound replaces and an unstated one keeps what is stored; the start a superseding write
                 // stamps goes only where none is held, so repeating it moves nothing
-                ValidFrom = Utc(write.ValidFrom) ?? record.ValidFrom ?? Utc(write.ValidFromIfUnset),
-                ValidTo = Utc(write.ValidTo) ?? record.ValidTo,
+                ValidFrom = ended ? record.ValidFrom : Utc(write.ValidFrom) ?? record.ValidFrom ?? Utc(write.ValidFromIfUnset),
+                ValidTo = ended ? record.ValidTo : Utc(write.ValidTo) ?? record.ValidTo,
                 // an ABSENT re-check keeps the stored one; the confirmation stamp is not a write's to move
                 Recheck = write.Recheck ?? record.Recheck,
             };
@@ -438,7 +440,7 @@ internal sealed class MemoryGraphState(Func<DateTimeOffset> clock)
 
     /// <summary>Store a successor and end every predecessor by it, as ONE change: the successor's upsert, each predecessor's end and
     /// the key's receipt, or nothing at all. Each predecessor is judged as <see cref="PlanEnd"/> judges one — missing, changed,
-    /// refused — plus a successor that would start before it began. A change comes back only when every predecessor ends, so the
+    /// refused — plus a successor that would start before it began, or that has itself ended. A change comes back only when every predecessor ends, so the
     /// caller applies (or journals) all of it or none, and a stale revision leaves the successor absent and the position where it was.</summary>
     public GraphChange PlanSupersedeWith(GraphNodeWrite successor, IReadOnlyList<GraphPredecessor> predecessors, string reason,
         DateTimeOffset at, GraphOperationKey? key, out GraphSupersedeResult result)
@@ -459,6 +461,8 @@ internal sealed class MemoryGraphState(Func<DateTimeOffset> clock)
         var change = PlanUpsert(successor);
         var (_, after) = change.Nodes[0];
         var start = after.Record.ValidFrom ?? Utc(at)!.Value;
+        // the successor's content may name an entry that has ended; it takes nothing over, so every predecessor is refused
+        var successorEnded = EndedBy(after.Record, start);
         var results = new List<GraphPredecessorResult>(predecessors.Count);
         var ended = new List<(GraphRow? Before, GraphRow After)>();
         foreach (var p in predecessors)
@@ -470,7 +474,8 @@ internal sealed class MemoryGraphState(Func<DateTimeOffset> clock)
             }
             var held2 = row.Record;
             var standing =
-                p.Id == after.Id ? GraphPredecessorStanding.Refused   // an entry is never its own successor, whatever revision it holds
+                // an entry is never its own successor, whatever revision it holds, nor succeeded by an ended one
+                p.Id == after.Id || successorEnded ? GraphPredecessorStanding.Refused
                 : p.ExpectedRevision != held2.Revision || held2.EndedReason is not null ? GraphPredecessorStanding.Changed
                 : (held2.SupersededBy is { } existing && existing != after.Id && _nodes.ContainsKey(existing))
                     || (held2.ValidFrom is { } began && start < began) ? GraphPredecessorStanding.Refused
@@ -505,6 +510,11 @@ internal sealed class MemoryGraphState(Func<DateTimeOffset> clock)
         result = new GraphSupersedeResult(true, after.Id, after.Record.Revision, results, false, receipt);
         return change;
     }
+
+    // ended at or before the instant it would take over: an end recorded with a reason, or a supersession or stated end that has
+    // come by then. GraphSupersedeSql holds the same predicate.
+    private static bool EndedBy(GraphNodeRecord r, DateTimeOffset start) =>
+        r.EndedReason is not null || r.SupersededAt <= start || r.ValidTo <= start;
 
     /// <summary>The entries that carry a re-check, are valid at <paramref name="now"/>, and were last confirmed before
     /// <paramref name="since"/> or never — never-confirmed first, then longest unconfirmed.</summary>
@@ -662,11 +672,20 @@ internal sealed class MemoryGraphState(Func<DateTimeOffset> clock)
         foreach (var (engine, receipt) in change.Receipts) _receipts[(engine, receipt.TaskKey, receipt.Key)] = receipt;
     }
 
-    /// <summary>Restore receipts read from disk, dropping those that expired or concern an entry that is gone.</summary>
-    public void Restore(IEnumerable<(string Engine, GraphReceipt Receipt)> receipts, DateTimeOffset now)
+    /// <summary>Restore receipts read from disk. One whose entry is gone is dropped; one naming a revision its entry never reached is
+    /// an effect that did not land (its line was journaled first) and is dropped and RETURNED, so the caller can compact it away before
+    /// a later write brings the entry to that revision. Expiry is not judged here: a receipt expires by the clock of the engine that
+    /// asks (<see cref="LiveReceipt"/>, <see cref="PlanPurge"/>).</summary>
+    public IReadOnlyList<(string Engine, GraphReceipt Receipt)> Restore(IEnumerable<(string Engine, GraphReceipt Receipt)> receipts)
     {
+        var unlanded = new List<(string, GraphReceipt)>();
         foreach (var (engine, r) in receipts)
-            if (r.ExpiresAt > now && Holds(engine, r.NodeId)) _receipts[(engine, r.TaskKey, r.Key)] = r;
+        {
+            if (!Holds(engine, r.NodeId)) continue;
+            if (r.Revision > _nodes[r.NodeId].Record.Revision) unlanded.Add((engine, r));
+            else _receipts[(engine, r.TaskKey, r.Key)] = r;
+        }
+        return unlanded;
     }
 
     private static (string, string, string, string) Identity(GraphNodeRecord r) => (r.Engine, r.TaskKey, r.Scope, r.Content);

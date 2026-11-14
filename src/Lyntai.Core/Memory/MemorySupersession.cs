@@ -28,7 +28,8 @@ public enum MemoryPredecessorOutcome
     Unmoved,
     /// <summary>It is not at the revision read; it needs a fresh review.</summary>
     Changed,
-    /// <summary>It already has a different live successor, or would end before it began.</summary>
+    /// <summary>It already has a different live successor, or would end before it began — or the successor itself has ended (its
+    /// content is an entry an earlier change ended, which stays ended), which refuses every predecessor.</summary>
     Refused,
     /// <summary>The store holds no such entry under that engine.</summary>
     Missing,

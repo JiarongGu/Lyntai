@@ -4,7 +4,9 @@ namespace Lyntai.Memory;
 /// <param name="Reason">Why it ended — required, read back as <see cref="MemoryValidity.EndedReason"/>.</param>
 public sealed record MemoryEnding(string Reason)
 {
-    /// <summary>When it stopped holding; null is now by the engine's clock, or the successor's start where there is one.</summary>
+    /// <summary>When it stopped holding; null is now by the engine's clock, or the successor's start where there is one. An instant
+    /// after now SCHEDULES the end: it is recorded at once (the reason is set, and a second end is already ended), and the entry reads
+    /// current until that instant.</summary>
     public DateTimeOffset? At { get; init; }
 
     /// <summary>The entry of THIS engine that replaced it, or null for an end that names none. A successor records the

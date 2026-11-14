@@ -7189,3 +7189,15 @@ added the scrub to the parallel builder's `SetIfAbsentAsync`, red first. The thr
 
 - `JobStoreContract`, `TraceStoreContract`, the five store contracts' `A_NUL_is_stored_as_U_FFFD`, `CuratedMemoryStoreContract`
 - D357 to D360, the changelog entries; `.agents/knowledge/storage.md` §Migrations counts
+
+## Part 528 — `TASKS.md` Part 479's seven memory-currency rows, ruled and built (2026-11-15)
+
+✅ done 2026-11-15 — **Outcome:** the seven decision-only rows ruled with a Fable design agent and built test first in a builder's
+worktree, the Postgres legs run. A write tool's remember keeps a held entry's grade and states no valid time unless the host allows it
+(**D361**); an ended entry stays ended (**D362**); the approver sees the successor, the instant and the write, and a model states no
+future `at` (**D363**); the file store journals a keyed receipt first and drops, at load, one whose effect never landed (**D364**); a
+view's check gates the named reference only (**D365**); a receipt expires by the engine's clock (**D366**). All of it amends unreleased
+entries, so nothing is `### Breaking`. Two findings of the build are new rows in `TASKS.md` Part 479.
+
+- `MemoryWriteToolsTests`, `MemoryChangeGateTests`, `FileSystemGraphRestartTests`, `MemoryViewTests`, the graph store contract
+- D361 to D366, the changelog entries amended

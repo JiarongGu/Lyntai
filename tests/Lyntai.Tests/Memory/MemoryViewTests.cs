@@ -185,6 +185,23 @@ public class MemoryViewTests
         Assert.Contains("GetAsync", calls);
     }
 
+    // The check gates the reference a caller NAMES; it is not a filter on what the task returns. A neighbour an expansion reaches is
+    // not asked about, so one the check would refuse by name comes back — the view is of a task the host already chose to share.
+    [Fact]
+    public async Task Expand_ReturnsANeighbourTheCheckWouldRefuse_AsDocumented()
+    {
+        var (store, owner, paris, london) = await Seed();
+        await owner.LinkAsync(paris, london, symmetric: true);
+        var asked = new List<MemoryRef>();
+        var view = Build(store).ViewOf("owned", new Check(r => { asked.Add(r); return r != london; }));
+
+        var expanded = await view.ExpandAsync(paris, hops: 1);
+
+        Assert.Equal([paris, london], expanded.Items.Select(i => i.Item.Reference));
+        Assert.Equal([paris], asked);
+        Assert.Equal(MemoryViewRecall.Empty, await view.ExpandAsync(london));   // named, it is refused
+    }
+
     [Fact]
     public async Task The_owner_s_end_is_read_at_the_reader_s_next_recall_through_a_blend_that_routes_by_engine()
     {

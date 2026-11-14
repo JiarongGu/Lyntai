@@ -15,35 +15,30 @@ LLM-ops layer (prompt registry, scoring, traces, memory). `AddLyntai(...)` and g
 
 <!-- open-items:begin — GENERATED. Edit the per-item `item:` markers, never this table. -->
 
-## Open items — 22 across 12 Parts: 2 startable, 7 blocked, 1 watch, 12 decision-only
+## Open items — 17 across 12 Parts: 2 startable, 7 blocked, 1 watch, 7 decision-only
 
 _Generated from the per-item `<!-- item: … -->` markers by `node devtools/dev.mjs check-backlog --write`._
 _Edit a marker, never this table — `verify` fails the moment the two disagree._
 
 | line | Part | item | state | waiting on |
 | ---: | ---: | --- | --- | --- |
-| 123 | 33 | GEN-VERIFY-FAL, the last line — the Hugging Face route | blocked · env | an hf_ token for the router route; re-checked 2026-11-15, none on this mach… |
-| 164 | 75 | Decide what an aggregator's in-band `code` means | blocked · env+data | two or three real aggregators to measure an in-band code against; re-checke… |
-| 191 | 99 | `verify`'s test step intermittently fails EXACTLY 9 tests, and once aborted… | watch · data | the same nine tests to recur — the fix is unconfirmed as the cure, and a gr… |
-| 265 | 417 | MC8 — run the wrong-end instrument on an adjudicated corpus, with a bar wri… | blocked · decision+data | two reviewers' independent labels on a sample of the pairs, and a bar a per… |
-| 288 | 479 | The write tools let a model end, revive or demote an entry the approver nev… | decision-only | a ruling: whether the tool may state validity and a grade at all, or the re… |
-| 294 | 479 | A supersession whose successor is an entry that already ended leaves nothin… | decision-only | a ruling: may a restated claim revive an ended entry, or does the supersess… |
-| 298 | 479 | What the approver is shown is not all that is applied | decision-only | a ruling: which of by, at, validity and scope the request must carry, or a … |
-| 301 | 479 | A keyed end or confirmation's file is written before its receipt, so a cras… | decision-only | a ruling: accept and document the window (a guarded repeat then reads Chang… |
-| 305 | 479 | A host's `IMemoryViewCheck` is asked about an expansion's root only, not th… | decision-only | a ruling: whether the check also filters each neighbour an expansion return… |
-| 308 | 479 | A future `at` on an end or a confirmation sets `EndedReason` while recall s… | decision-only | a ruling: may an end or a failed check state an instant after now, or does … |
-| 310 | 479 | A receipt expires by the caller's clock and the purge runs on it | decision-only | a ruling: whether a receipt expires by the store's clock or the caller's (D… |
-| 321 | 481 | A rejected limit is never cleared inside a turn | blocked · data | a capture of the CLI sending a rejected rate_limit_event and then an allowe… |
-| 332 | 485 | How long a quiet Codex step runs is unmeasured | blocked · env | one real Codex turn on an account with room: re-checked 2026-11-15, the own… |
-| 344 | 486 | The HTTP chat engine's own failures still drop the usage its wire read | startable |  |
-| 353 | 490 | `Model2VecProvider` embeds and counts an unknown token | decision-only | a ruling: skip the unknown id, which changes every vector already stored fr… |
-| 355 | 490 | A `ContextSize` past the model's trained context is not refused | decision-only | a ruling: refuse a ContextSize past the model's trained context (read from … |
-| 363 | 491 | A ComfyUI run lost to a server restart polls for ever | decision-only | a ruling: consult /queue and fail or call it inconclusive when the id is in… |
-| 365 | 491 | Cancelling a durable generation job does not cancel the backend render | decision-only | a ruling: a best-effort CancelAsync when a cancel is seen with an operation… |
-| 366 | 491 | `generate_fetch` bills and delivers again on every call, and the job engine… | decision-only | a ruling: whether the spend ledger or the tool owns de-duplication per (bac… |
-| 374 | 495 | The usage read's scratch folder is created with the default mode | blocked · env | a Unix run: the mode is not observable on Windows, so a test of the fix can… |
-| 380 | 518 | AG50 — a kept run on `codex-acp` and dsh (A-LQ19) | blocked · data | Daoris's recorded Codex sitting and dsh probe frames; re-checked 2026-11-15… |
-| 382 | 518 | AG51 — a kept run on the Claude CLI with stdin held (A-LQ21) | startable |  |
+| 118 | 33 | GEN-VERIFY-FAL, the last line — the Hugging Face route | blocked · env | an hf_ token for the router route; re-checked 2026-11-15, none on this mach… |
+| 159 | 75 | Decide what an aggregator's in-band `code` means | blocked · env+data | two or three real aggregators to measure an in-band code against; re-checke… |
+| 186 | 99 | `verify`'s test step intermittently fails EXACTLY 9 tests, and once aborted… | watch · data | the same nine tests to recur — the fix is unconfirmed as the cure, and a gr… |
+| 260 | 417 | MC8 — run the wrong-end instrument on an adjudicated corpus, with a bar wri… | blocked · decision+data | two reviewers' independent labels on a sample of the pairs, and a bar a per… |
+| 285 | 479 | A write tool's metadata stamp replaces a held entry's stored bag on a refre… | decision-only | a ruling: keep a held entry's stored metadata on a refresh (the shape of D3… |
+| 288 | 479 | A stated but malformed `validFrom`, `validTo` or `at` is read as absent | decision-only | a ruling: refuse a stated instant that does not parse, naming the field, or… |
+| 298 | 481 | A rejected limit is never cleared inside a turn | blocked · data | a capture of the CLI sending a rejected rate_limit_event and then an allowe… |
+| 309 | 485 | How long a quiet Codex step runs is unmeasured | blocked · env | one real Codex turn on an account with room: re-checked 2026-11-15, the own… |
+| 321 | 486 | The HTTP chat engine's own failures still drop the usage its wire read | startable |  |
+| 330 | 490 | `Model2VecProvider` embeds and counts an unknown token | decision-only | a ruling: skip the unknown id, which changes every vector already stored fr… |
+| 332 | 490 | A `ContextSize` past the model's trained context is not refused | decision-only | a ruling: refuse a ContextSize past the model's trained context (read from … |
+| 340 | 491 | A ComfyUI run lost to a server restart polls for ever | decision-only | a ruling: consult /queue and fail or call it inconclusive when the id is in… |
+| 342 | 491 | Cancelling a durable generation job does not cancel the backend render | decision-only | a ruling: a best-effort CancelAsync when a cancel is seen with an operation… |
+| 343 | 491 | `generate_fetch` bills and delivers again on every call, and the job engine… | decision-only | a ruling: whether the spend ledger or the tool owns de-duplication per (bac… |
+| 351 | 495 | The usage read's scratch folder is created with the default mode | blocked · env | a Unix run: the mode is not observable on Windows, so a test of the fix can… |
+| 357 | 518 | AG50 — a kept run on `codex-acp` and dsh (A-LQ19) | blocked · data | Daoris's recorded Codex sitting and dsh probe frames; re-checked 2026-11-15… |
+| 359 | 518 | AG51 — a kept run on the Claude CLI with stdin held (A-LQ21) | startable |  |
 
 <!-- open-items:end -->
 
@@ -285,31 +280,13 @@ supersession runners, the file and in-process stores, and the engine, the gate, 
 against the code before it was filed. The certain and small ones closed with a test in that Part. What stays needs a design
 choice, or is a crash window to close with a store test of its own. Lanes `memory` and `storage`._
 
-- [ ] **The write tools let a model end, revive or demote an entry the approver never sees.** `<prefix>_remember` states `validTo` and <!-- item: state=decision-only needs="a ruling: whether the tool may state validity and a grade at all, or the refresh must keep a stated end and a stronger grade (D241)" -->
-  `validFrom` from the model and always writes `Associative`; a write of a live entry's exact text refreshes it, a stated bound
-  replaces the stored one (`MemoryGraphState.Refresh` and the SQL upserts) and a stated grade replaces the stored one. So a
-  `validTo` in the past ends an entry with no approver and no revision, a later one reopens an entry the approver ended (recall
-  reads only the bounds and `SupersededAt`, not `EndedReason`), and the host's `Authoritative` entry is demoted and made prunable.
-  Each is arguable from **D241** ("an end a confirmer applies"), so none is a code change before a ruling.
-- [ ] **A supersession whose successor is an entry that already ended leaves nothing current**, on every store: the successor is <!-- item: state=decision-only needs="a ruling: may a restated claim revive an ended entry, or does the supersession refuse an ended successor (D242, D241)" -->
-  matched by its content, refreshed and keeps its end, and the predecessor is ended by it, so `Applied` is true with both ended
-  (a status that flips open, closed, open does this). The gate's store-first path ends the same way. Whether a restated claim may
-  revive an ended one is an identity question.
-- [ ] **What the approver is shown is not all that is applied.** `MemoryChangeRequest` carries the kind, task, targets, claim text, <!-- item: state=decision-only needs="a ruling: which of by, at, validity and scope the request must carry, or a refusal of a model-stated instant before the target's start" -->
-  reason and evidence, while the model's `by`, `at` and the successor's validity, scope and headline are applied after it says yes.
-  An `at` before the target began, or a successor whose `validTo` has passed, is approved unseen.
-- [ ] **A keyed end or confirmation's file is written before its receipt, so a crash between leaves the effect with no receipt.** A <!-- item: state=decision-only needs="a ruling: accept and document the window (a guarded repeat then reads Changed, an unguarded one AlreadyEnded), or journal the effect in a line a restart catches up, as a supersession's is (D242)" -->
-  guarded retry of the call the crash cut gets `Changed`. Reversing the order would leave a receipt for an effect that never landed, and
-  the end's fields (`ValidTo`, no `EndedLine`) do not fit the line a supersession uses. `FileSystemMemoryGraphStore.ApplyEffectThenReceipt`
-  states the window; closing it is a design choice about the journal.
-- [ ] **A host's `IMemoryViewCheck` is asked about an expansion's root only, not the neighbours it returns.** `IMemoryView.ExpandAsync` <!-- item: state=decision-only needs="a ruling: whether the check also filters each neighbour an expansion returns, or the host's refusal of the root is all it promises (D242)" -->
-  documents that its neighbours are not asked about, so a reference the host refuses can come back as a neighbour of one it permits.
-  Filtering them costs one call per neighbour and changes what an expansion returns.
-- [ ] **A future `at` on an end or a confirmation sets `EndedReason` while recall still shows the entry until then.** <!-- item: state=decision-only needs="a ruling: may an end or a failed check state an instant after now, or does the engine refuse it (D241, D242)" -->
-  A scheduled end is a use the engine allows, and the end tool lets a model state the instant; a refusal narrows both.
-- [ ] **A receipt expires by the caller's clock and the purge runs on it.** A host whose clock runs ahead purges receipts another <!-- item: state=decision-only needs="a ruling: whether a receipt expires by the store's clock or the caller's (D242), which shortens or lengthens retention by the skew" -->
-  host's clock still counts live, and the file store's `Restore` judges expiry by its own clock where every live check uses the
-  caller's. Retention is shortened or lengthened by the skew in either case.
+_The seven rows it opened with are built (`docs/task-archive.md` Part 528, **D361** to **D366**); the two below were found by that build._
+
+- [ ] **A write tool's metadata stamp replaces a held entry's stored bag on a refresh.** `MemoryGraphState.Refresh` takes the write's <!-- item: state=decision-only needs="a ruling: keep a held entry's stored metadata on a refresh (the shape of D361's grade rule), merge the stamp into it, or keep replacing it as documented" -->
+  non-empty `Metadata` over the stored one, and the SQL upserts `COALESCE(@metadata, …)`, so a model restating a host entry's text overwrites
+  the host's metadata and moves its revision, which makes a pending review stale. **D361** kept the grade for the same reason and left this.
+- [ ] **A stated but malformed `validFrom`, `validTo` or `at` is read as absent.** The write tools parse an instant leniently, so a model's <!-- item: state=decision-only needs="a ruling: refuse a stated instant that does not parse, naming the field, or keep reading it as absent and say so in the schema" -->
+  unparseable `at` on the end tool becomes "now" and an unparseable bound becomes "unbounded", with no error back to the model.
 
 ## Part 481 — what the 2026-11-08 review of the Claude door and the agent core found and did not fix yet
 

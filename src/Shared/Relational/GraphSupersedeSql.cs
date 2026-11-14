@@ -8,14 +8,15 @@ namespace Lyntai.Storage.Relational;
 /// <summary>A supersession applied as ONE transaction on a relational store, once for both dialects (<c>docs/DECISIONS.md</c> D242):
 /// the successor's upsert, each predecessor's end and the key's receipt commit together or not at all.
 /// <para>Each predecessor is judged and then ended in turn, in the order <see cref="IEndableMemoryGraphStore.EndAsync"/> judges one —
-/// missing, changed, a different live successor — plus a successor that would start before the predecessor began and the successor
-/// itself. They are ALL judged even after one fails, so the result says which moved; a failure rolls the transaction back, which takes
+/// missing, changed, a different live successor — plus a successor that would start before the predecessor began, a successor that
+/// has itself ended, and the successor itself. They are ALL judged even after one fails, so the result says which moved; a failure rolls the transaction back, which takes
 /// the successor, the position it advanced and the ends already made with it. Each end is <see cref="MemoryGraphSql.End"/> itself, so a
 /// rewrite landing between the judgement and the end still matches no row.</para></summary>
 internal static class GraphSupersedeSql
 {
     private const string State = """
         SELECT revision AS Revision, ended_reason AS EndedReason, superseded_by AS SupersededBy, valid_from AS ValidFrom,
+               valid_to AS ValidTo, superseded_at AS SupersededAt,
                CASE WHEN EXISTS (SELECT 1 FROM lyntai_memory_node s WHERE s.id = lyntai_memory_node.superseded_by)
                     THEN 1 ELSE 0 END AS SuccessorLives
         FROM lyntai_memory_node WHERE id = @id AND engine = @engine
@@ -27,6 +28,8 @@ internal static class GraphSupersedeSql
         public string? EndedReason { get; set; }
         public long? SupersededBy { get; set; }
         public DateTimeOffset? ValidFrom { get; set; }
+        public DateTimeOffset? ValidTo { get; set; }
+        public DateTimeOffset? SupersededAt { get; set; }
         public int SuccessorLives { get; set; }
     }
 
@@ -55,10 +58,13 @@ internal static class GraphSupersedeSql
         }
 
         var (id, revision) = await upsert(conn, tx).ConfigureAwait(false);
-        var start = (await StateOfAsync(conn, tx, engine, id, ct).ConfigureAwait(false))?.ValidFrom ?? at;
+        var stored = await StateOfAsync(conn, tx, engine, id, ct).ConfigureAwait(false);
+        var start = stored?.ValidFrom ?? at;
+        // the successor's content may name an entry that has ended; it takes nothing over, so every predecessor is refused
+        var successorEnded = stored is not null && EndedBy(stored, start);
         var results = new List<GraphPredecessorResult>(predecessors.Count);
         foreach (var p in predecessors)
-            results.Add(await EndOneAsync(conn, tx, engine, id, p, reason, start, ct).ConfigureAwait(false));
+            results.Add(await EndOneAsync(conn, tx, engine, id, p, reason, start, successorEnded, ct).ConfigureAwait(false));
 
         if (results.Any(r => r.Standing != GraphPredecessorStanding.Ended))
         {
@@ -90,13 +96,18 @@ internal static class GraphSupersedeSql
         return new GraphSupersedeResult(true, id, revision, results, false, receipt);
     }
 
+    // ended at or before the instant it would take over: an end recorded with a reason, or a supersession or stated end that has
+    // come by then. MemoryGraphState holds the same predicate.
+    private static bool EndedBy(StateRow s, DateTimeOffset start) =>
+        s.EndedReason is not null || s.SupersededAt <= start || s.ValidTo <= start;
+
     private static async Task<GraphPredecessorResult> EndOneAsync(IDbConnection conn, IDbTransaction tx, string engine, long successor,
-        GraphPredecessor p, string reason, DateTimeOffset start, CancellationToken ct)
+        GraphPredecessor p, string reason, DateTimeOffset start, bool successorEnded, CancellationToken ct)
     {
         var state = await StateOfAsync(conn, tx, engine, p.Id, ct).ConfigureAwait(false);
         if (state is null) return new GraphPredecessorResult(p.Id, GraphPredecessorStanding.Missing, null);
-        // an entry is never its own successor, whatever revision the successor's refresh moved it to
-        if (p.Id == successor) return new GraphPredecessorResult(p.Id, GraphPredecessorStanding.Refused, state.Revision);
+        // an entry is never its own successor, whatever revision the successor's refresh moved it to, nor succeeded by an ended one
+        if (p.Id == successor || successorEnded) return new GraphPredecessorResult(p.Id, GraphPredecessorStanding.Refused, state.Revision);
         if (p.ExpectedRevision != state.Revision || state.EndedReason is not null)
             return new GraphPredecessorResult(p.Id, GraphPredecessorStanding.Changed, state.Revision);
         if ((state.SupersededBy is { } other && other != successor && state.SuccessorLives == 1)

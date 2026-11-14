@@ -25,7 +25,19 @@ public sealed record MemoryChangeTarget(MemoryRef Reference, string Revision);
 /// <param name="Reason">Why, as the proposer stated it.</param>
 /// <param name="Evidence">What the proposer offered for it, or null.</param>
 public sealed record MemoryChangeRequest(MemoryChangeKind Kind, string TaskKey, IReadOnlyList<MemoryChangeTarget> Targets,
-    string? Claim, string Reason, string? Evidence);
+    string? Claim, string Reason, string? Evidence)
+{
+    /// <summary>The entry each target would be ended BY: for <see cref="MemoryChangeKind.Supersede"/> the successor already stored
+    /// (live, and replacing nothing until approved); for an <see cref="MemoryChangeKind.End"/> the one the proposer named, or null.</summary>
+    public MemoryRef? Successor { get; init; }
+
+    /// <summary>The instant the proposer says the targets stopped holding, or null — then the successor's start, else the engine's now.</summary>
+    public DateTimeOffset? At { get; init; }
+
+    /// <summary>For <see cref="MemoryChangeKind.Supersede"/>, the successor's write as stored: its scope, headline, validity, metadata
+    /// and grade, which <see cref="Claim"/> alone does not show. Null for an end.</summary>
+    public MemoryWrite? Write { get; init; }
+}
 
 /// <summary>An <see cref="IMemoryChangeApprover"/>'s answer: <see cref="Approve"/>, or <see cref="Deny"/> with the reason the
 /// proposer is told.</summary>
@@ -76,7 +88,8 @@ public enum MemoryChangeStatus
     Changed,
     /// <summary>An end was already recorded for an entry; nothing more was written for it.</summary>
     AlreadyEnded,
-    /// <summary>A reference was not one this engine issued for this task, or the engine cannot end an entry; nothing ended.</summary>
+    /// <summary>A reference was not one this engine issued for this task, the engine cannot end an entry, the successor has ended,
+    /// or an end would precede a target's start; nothing ended.</summary>
     Refused,
 }
 

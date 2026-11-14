@@ -110,9 +110,13 @@ public sealed class PostgresMemoryGraphStore(
                               difficulty = CASE WHEN @hasDifficultySignal THEN @difficulty ELSE lyntai_memory_node.difficulty END,
                               provenance_salience = CASE WHEN @signals::jsonb IS NULL THEN lyntai_memory_node.provenance_salience
                                                           ELSE @provenanceSalience END,
-                              valid_from = COALESCE(@validFrom::timestamptz, lyntai_memory_node.valid_from,
-                                                    @validFromIfUnset::timestamptz),
-                              valid_to = COALESCE(@validTo::timestamptz, lyntai_memory_node.valid_to),
+                              valid_from = CASE WHEN lyntai_memory_node.ended_reason IS NULL
+                                                THEN COALESCE(@validFrom::timestamptz, lyntai_memory_node.valid_from,
+                                                              @validFromIfUnset::timestamptz)
+                                                ELSE lyntai_memory_node.valid_from END,
+                              valid_to = CASE WHEN lyntai_memory_node.ended_reason IS NULL
+                                              THEN COALESCE(@validTo::timestamptz, lyntai_memory_node.valid_to)
+                                              ELSE lyntai_memory_node.valid_to END,
                               -- any write that lands on the entry advances its revision (IEndableMemoryGraphStore)
                               revision = lyntai_memory_node.revision + 1,
                               -- an ABSENT re-check keeps the stored one, and the stamp is never touched by a refresh

@@ -32,7 +32,6 @@ internal sealed class FileSystemMemoryGraphStore(FileSystemRoot root, Func<DateT
 
     private readonly Lock _lock = new();
     private readonly string _directory = root.Combine("graph");
-    private readonly Func<DateTimeOffset> _clock = clock ?? (() => DateTimeOffset.UtcNow);
     private readonly MemoryGraphState _graph = new(clock ?? (() => DateTimeOffset.UtcNow));
     private readonly Dictionary<string, EngineFiles> _byDirectory = new(StringComparer.Ordinal);
     private readonly Dictionary<string, EngineFiles> _byEngine = new(StringComparer.Ordinal);
@@ -143,8 +142,8 @@ internal sealed class FileSystemMemoryGraphStore(FileSystemRoot root, Func<DateT
         restore.Reviews.AddRange(reviews.Values.OrderBy(r => r.Id));
 
         _graph.Apply(restore);
-        // a receipt answers only while it is live and its entry is held: Restore drops the rest, and a compaction forgets them
-        _graph.Restore(receipts.Values, _clock());
+        // a receipt answers only while its entry is held and reached its revision; expiry is the asking engine's to judge
+        var unlanded = _graph.Restore(receipts.Values);
         _graph.Reserve(
             new[] { highWater }.Concat(states.Keys.Select(k => k.Id)).Concat(onDisk).Concat(records.Select(r => r.Record.Id))
                 .Concat(edges.Keys.SelectMany(k => new[] { k.From, k.To })).Max(),
@@ -156,6 +155,8 @@ internal sealed class FileSystemMemoryGraphStore(FileSystemRoot root, Func<DateT
         }
         _loaded = true;
         FlushStale();
+        // a receipt whose effect never landed is compacted away NOW: a later write could bring its entry to the revision it names
+        foreach (var engine in unlanded.Select(u => u.Engine).Distinct(StringComparer.Ordinal)) Compact(FilesOf(engine));
     }
 
     // Memory files that lag the graph: a supersession is committed by ONE journal line and its predecessors' files are rewritten
@@ -455,7 +456,7 @@ internal sealed class FileSystemMemoryGraphStore(FileSystemRoot root, Func<DateT
         {
             Load();
             var change = _graph.PlanConfirmKeyed(engine, confirm, key, out var result);
-            ApplyEffectThenReceipt(change);
+            JournalReceiptThenEffect(change);
             return Task.FromResult(result);
         }
     }
@@ -469,26 +470,29 @@ internal sealed class FileSystemMemoryGraphStore(FileSystemRoot root, Func<DateT
         {
             Load();
             var change = _graph.PlanEndKeyed(engine, end, key, out var result);
-            ApplyEffectThenReceipt(change);
+            JournalReceiptThenEffect(change);
             return Task.FromResult(result);
         }
     }
 
-    // The memory file first, as an un-keyed end or confirmation writes it, then the receipt's line: a crash between leaves the
-    // effect without its receipt, so a repeat is a new call — an unguarded end reports AlreadyEnded and a confirmation Unchanged, but
-    // a call guarded by the revision it reviewed reports Changed, because the effect moved that revision.
-    private void ApplyEffectThenReceipt(GraphChange change)
+    /// <summary>A keyed end's or confirmation's disk steps: the receipt's journal line FIRST, then the memory file the un-keyed call
+    /// writes. A crash between leaves a receipt naming a revision its entry never reached, which the next start drops and compacts
+    /// away, so the repeat applies; a receipt that cannot be journaled leaves the call untaken. A memory file that cannot be written
+    /// drops the change in this process and compacts the journal from the graph, which never took the receipt.
+    /// <para><b>Not closed:</b> if that compaction also fails, the receipt's line stays in the journal, and a later write bringing the
+    /// entry to the revision it names, then a restart, would let it answer for an effect that never landed.</para></summary>
+    private void JournalReceiptThenEffect(GraphChange change)
     {
         if (change.Receipts.Count == 0) return;
-        foreach (var (_, after) in change.Nodes)
-            root.Write(_files[after.Id][^1], MemoryFile(after.Record));
-        List<EngineFiles> journaled;
-        try { journaled = JournalReceipts(change); }
+        var journaled = JournalReceipts(change);
+        try
+        {
+            foreach (var (_, after) in change.Nodes)
+                root.Write(_files[after.Id][^1], MemoryFile(after.Record));
+        }
         catch
         {
-            // the effect is on disk, so this process takes it; only the receipt is lost
-            change.Receipts.Clear();
-            ApplyAndCompact(change, []);
+            foreach (var files in journaled) Compact(files);
             throw;
         }
         ApplyAndCompact(change, journaled);

@@ -2,8 +2,12 @@ using System.Text.Json;
 using Lyntai.Agents;
 using Lyntai.Memory;
 using Lyntai.Storage;
+using Lyntai.Storage.FileSystem;
 using Lyntai.Storage.InMemory;
+using Lyntai.Storage.Sqlite;
 using Lyntai.Tests.Fakes;
+using Lyntai.Tests.Storage;
+using Lyntai.Tests.Storage.FileSystem;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace Lyntai.Tests.Memory;
@@ -13,16 +17,47 @@ namespace Lyntai.Tests.Memory;
 /// D241). The host owns the task, the grade and the stamp; <c>disputes</c> and <c>amends</c> apply alone, while
 /// <c>supersedes</c> and the end tool go through the approver and apply only to the revision the model read.
 /// </summary>
-public class MemoryWriteToolsTests
+public class MemoryWriteToolsTests : IDisposable
 {
     private const string Engine = "project/graph";
+    private static readonly DateTimeOffset Jan = new(2026, 1, 1, 0, 0, 0, TimeSpan.Zero);
+    private readonly List<IDisposable> _owned = [];
+
+    public void Dispose()
+    {
+        foreach (var owned in _owned) owned.Dispose();
+        GC.SuppressFinalize(this);
+    }
+
+    // a graph engine over each store that needs no container; the SQL stores' own rules are MemoryGraphStoreContract's
+    private IMemoryGraphStore Store(string kind)
+    {
+        switch (kind)
+        {
+            case "file":
+                var root = new TempRoot();
+                _owned.Add(root);
+                return new FileSystemMemoryGraphStore(root.Root);
+            case "sqlite":
+                var db = new TempDb();
+                _owned.Add(db);
+                return new SqliteMemoryGraphStore(db.Factory);
+            default:
+                return new InMemoryMemoryGraphStore();
+        }
+    }
+
+    private sealed class FixedTime(DateTimeOffset now) : TimeProvider
+    {
+        public override DateTimeOffset GetUtcNow() => now;
+    }
 
     private static ServiceProvider Build(Action<LyntaiBuilder>? more = null, MemoryWriteToolOptions? options = null,
-        bool writeTools = true)
+        bool writeTools = true, IMemoryGraphStore? store = null)
     {
         var services = new ServiceCollection();
         services.AddSingleton<IMemoryStore>(new FakeMemoryStore());
-        services.AddSingleton<IMemoryGraphStore>(new InMemoryMemoryGraphStore());
+        services.AddSingleton(store ?? new InMemoryMemoryGraphStore());
         services.AddLyntai(b =>
         {
             b.AddProvider(_ => new FakeTextProvider("p"));
@@ -250,5 +285,112 @@ public class MemoryWriteToolsTests
         var superseded = await CallAsync(sp, "project_graph_remember",
             $$"""{"content":"the client lives in Rome","reason":"moved","supersedes":[{"ref":"{{MemoryTools.Format(elsewhere)}}","revision":"1"}]}""");
         Assert.DoesNotContain("other-task", superseded.ToString(), StringComparison.Ordinal);
+    }
+
+    // A model restating a fact the host made authoritative lands on that entry (its content is its identity, D241), and the tool's
+    // fixed grade applies to a new entry only.
+    [Theory]
+    [InlineData("memory")]
+    [InlineData("file")]
+    [InlineData("sqlite")]
+    public async Task Remember_OfAnAuthoritativeEntrysText_KeepsItsGrade(string store)
+    {
+        using var sp = Build(store: Store(store));
+        var engine = sp.GetRequiredService<IMemoryEngineFactory>().Get(Engine);
+        await engine.RememberAsync(new MemoryWrite("t", "s", "the client's deploy key rotates monthly", Grade: MemoryGrade.Authoritative));
+
+        await CallAsync(sp, "project_graph_remember", """{"content":"the client's deploy key rotates monthly"}""");
+        await CallAsync(sp, "project_graph_remember", """{"content":"the client's office is in Oslo"}""");
+
+        var held = (await engine.RecallAsync(new MemoryQuery("t", "s", "client", Detail: MemoryDetail.Full))).Items;
+        Assert.Equal(MemoryGrade.Authoritative, held.Single(i => i.Content!.Contains("deploy", StringComparison.Ordinal)).Grade);
+        Assert.Equal(MemoryGrade.Associative, held.Single(i => i.Content!.Contains("Oslo", StringComparison.Ordinal)).Grade);
+    }
+
+    [Theory]
+    [InlineData("memory")]
+    [InlineData("file")]
+    [InlineData("sqlite")]
+    public async Task Remember_StatingValidity_IsRefusedByDefault(string store)
+    {
+        using var sp = Build(store: Store(store));
+        var engine = sp.GetRequiredService<IMemoryEngineFactory>().Get(Engine);
+        await engine.RememberAsync(new MemoryWrite("t", "s", "the client lives in Paris") { ValidFrom = Jan });
+
+        var schema = Tool(sp, "project_graph_remember").ParametersJsonSchema!;
+        Assert.DoesNotContain("\"validFrom\"", schema, StringComparison.Ordinal);
+        Assert.DoesNotContain("\"validTo\"", schema, StringComparison.Ordinal);
+
+        // a past end on a live entry's text, and a start on a new one: each refused, naming the tool that ends an entry
+        foreach (var stated in new[]
+                 {
+                     """{"content":"the client lives in Paris","validTo":"2026-02-01T00:00:00Z"}""",
+                     """{"content":"the client lives in Rome","validFrom":"2026-02-01T00:00:00Z"}""",
+                 })
+            Assert.Contains("project_graph_end", (await CallAsync(sp, "project_graph_remember", stated)).GetProperty("error").GetString()!,
+                StringComparison.Ordinal);
+
+        var history = (await engine.RecallAsync(new MemoryQuery("t", "s", "client") { Validity = MemoryValidityReading.History })).Items;
+        var paris = Assert.Single(history);
+        Assert.Equal((Jan, (DateTimeOffset?)null), (paris.Validity!.From, paris.Validity.To));
+    }
+
+    [Theory]
+    [InlineData("memory")]
+    [InlineData("file")]
+    [InlineData("sqlite")]
+    public async Task Remember_StatingValidity_IsTakenWhenTheHostAllowsIt(string store)
+    {
+        using var sp = Build(options: new MemoryWriteToolOptions { ModelMayStateValidity = true }, store: Store(store));
+        var engine = sp.GetRequiredService<IMemoryEngineFactory>().Get(Engine);
+
+        var schema = Tool(sp, "project_graph_remember").ParametersJsonSchema!;
+        Assert.Contains("\"validFrom\"", schema, StringComparison.Ordinal);
+        Assert.Contains("\"validTo\"", schema, StringComparison.Ordinal);
+        var written = await CallAsync(sp, "project_graph_remember",
+            """{"content":"the client lives in Rome","validFrom":"2026-01-01T00:00:00Z","validTo":"2099-01-01T00:00:00Z"}""");
+
+        Assert.True(written.TryGetProperty("ref", out _));
+        var rome = (await engine.RecallAsync(new MemoryQuery("t", "s", "Rome"))).Items.Single();
+        Assert.Equal((Jan, new DateTimeOffset(2099, 1, 1, 0, 0, 0, TimeSpan.Zero)), (rome.Validity!.From, rome.Validity.To!.Value));
+    }
+
+    // The approver reviewed a revision; a model restating the entry's text afterwards must not make that review stale. A SQL store
+    // advances the revision on every write that lands (IEndableMemoryGraphStore), so this holds for the in-process stores.
+    [Theory]
+    [InlineData("memory")]
+    [InlineData("file")]
+    public async Task Remember_OfALiveEntrysText_LeavesItsRevision(string store)
+    {
+        using var sp = Build(b => b.AddMemoryChangeApprover<Approves>(), store: Store(store));
+        var engine = sp.GetRequiredService<IMemoryEngineFactory>().Get(Engine);
+        await engine.RememberAsync(new MemoryWrite("t", "s", "the client's deploy key rotates monthly", Grade: MemoryGrade.Authoritative)
+        { ValidFrom = Jan });
+        var read = await ReadAsync(sp, "deploy key");
+
+        await CallAsync(sp, "project_graph_remember", """{"content":"the client's deploy key rotates monthly"}""");
+
+        Assert.Equal(read.Revision, (await ReadAsync(sp, "deploy key")).Revision);
+        var ended = await CallAsync(sp, "project_graph_end", $$"""{"ref":"{{read.Ref}}","revision":"{{read.Revision}}","reason":"rotated weekly now"}""");
+        Assert.Equal("Applied", ended.GetProperty("status").GetString());
+    }
+
+    // A model states no instant after now: a scheduled end is the host's to make, through the engine.
+    [Fact]
+    public async Task End_WithAFutureAt_IsRefused()
+    {
+        var now = new DateTimeOffset(2026, 7, 1, 0, 0, 0, TimeSpan.Zero);
+        using var sp = Build(b => b.AddMemoryChangeApprover<Approves>(), new MemoryWriteToolOptions { Clock = new FixedTime(now) });
+        await CallAsync(sp, "project_graph_remember", """{"content":"the client lives in Paris"}""");
+        var paris = await ReadAsync(sp, "Paris");
+
+        var future = await CallAsync(sp, "project_graph_end",
+            $$"""{"ref":"{{paris.Ref}}","revision":"{{paris.Revision}}","reason":"moving in August","at":"2026-08-01T00:00:00Z"}""");
+
+        Assert.Contains("after now", future.GetProperty("error").GetString()!, StringComparison.Ordinal);
+        Assert.Equal(paris.Revision, (await ReadAsync(sp, "Paris")).Revision);
+        var past = await CallAsync(sp, "project_graph_end",
+            $$"""{"ref":"{{paris.Ref}}","revision":"{{paris.Revision}}","reason":"moved in June","at":"2026-06-01T00:00:00Z"}""");
+        Assert.Equal("Applied", past.GetProperty("status").GetString());
     }
 }

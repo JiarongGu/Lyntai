@@ -22,7 +22,8 @@ public sealed record MemoryWrite(
 {
     /// <summary>When this fact started holding in the world; null states nothing. Valid time is the writer's
     /// claim about the world, not when the engine heard of it, so a late write can name an instant before
-    /// earlier ones. On a re-remember a stated value replaces the stored one and an unstated one keeps it.
+    /// earlier ones. On a re-remember a stated value replaces the stored one and an unstated one keeps it — except on an entry an end
+    /// recorded (<see cref="MemoryValidity.EndedReason"/>), whose bounds stay as the end left them, whatever this write states.
     /// <para>An engine that cannot hold valid time THROWS <see cref="NotSupportedException"/> on a write that
     /// states any — storing it as open-ended would return an ended fact as current.</para></summary>
     public DateTimeOffset? ValidFrom { get; init; }
@@ -63,6 +64,13 @@ public sealed record MemoryWrite(
     /// characters (<see cref="IKeyedMemory"/>). A keyed write states no <see cref="Supersedes"/>, <see cref="Disputes"/> or
     /// <see cref="Amends"/> — those are other calls with their own receipts — and an engine that cannot hold a receipt refuses it.</summary>
     public string? OperationKey { get; init; }
+
+    /// <summary>Whether <see cref="Grade"/> applies to a NEW entry only: on a graph engine, a write landing on an entry already held
+    /// (the same content in the same task and scope) keeps the grade stored there, as an <see cref="MemoryGrade.Inherit"/> write does,
+    /// while a new entry takes <see cref="Grade"/>. False, the default, lets a stated grade replace the stored one. A writer whose grade
+    /// is fixed rather than chosen — the write tools' — sets it, so restating a fact never demotes one the host made authoritative. An
+    /// engine that refreshes nothing by content ignores it.</summary>
+    public bool KeepStoredGrade { get; init; }
 
     /// <summary>Whether this write states valid time at all — what an engine that cannot hold it refuses.</summary>
     public bool StatesValidity => ValidFrom is not null || ValidTo is not null || Supersedes is { Count: > 0 };
