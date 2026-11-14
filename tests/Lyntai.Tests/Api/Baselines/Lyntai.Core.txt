@@ -846,6 +846,46 @@ sealed class Lyntai.Agents.CliToolSession
     .ctor(IReadOnlyList<String> extraArgs, Func<ValueTask> dispose = null)
     DisposeAsync() : ValueTask
     ExtraArgs : IReadOnlyList<String> { get; }
+sealed class Lyntai.Agents.ContextFile
+    .ctor(String Name, String Text)
+    Deconstruct(String& Name, String& Text) : Void
+    Equals(ContextFile other) : Boolean
+    Equals(Object obj) : Boolean
+    GetHashCode() : Int32
+    Name : String { get; init; }
+    Text : String { get; init; }
+    ToString() : String
+enum Lyntai.Agents.ContextForm
+    Prompt : ContextForm const
+    Resume : ContextForm const
+    Seed : ContextForm const
+    value__ : Int32
+sealed class Lyntai.Agents.ContextHead
+    .ctor(String Text, Int32 Characters, Boolean WithinBound, ContextHeadOmitted Omitted, IReadOnlyList<ContextFile> Files)
+    Characters : Int32 { get; init; }
+    Deconstruct(String& Text, Int32& Characters, Boolean& WithinBound, ContextHeadOmitted& Omitted, IReadOnlyList`1& Files) : Void
+    Equals(ContextHead other) : Boolean
+    Equals(Object obj) : Boolean
+    Files : IReadOnlyList<ContextFile> { get; init; }
+    GetHashCode() : Int32
+    Omitted : ContextHeadOmitted { get; init; }
+    Text : String { get; init; }
+    ToString() : String
+    WithinBound : Boolean { get; init; }
+static class Lyntai.Agents.ContextHeadComposer
+    static Head(SessionContext context, Int32 maxCharacters) : ContextHead
+sealed class Lyntai.Agents.ContextHeadOmitted
+    .ctor(Int32 Found, Int32 Tree, Int32 Standing, Int32 Decided)
+    Decided : Int32 { get; init; }
+    Deconstruct(Int32& Found, Int32& Tree, Int32& Standing, Int32& Decided) : Void
+    Equals(ContextHeadOmitted other) : Boolean
+    Equals(Object obj) : Boolean
+    Found : Int32 { get; init; }
+    GetHashCode() : Int32
+    IsNone : Boolean { get; }
+    Standing : Int32 { get; init; }
+    ToString() : String
+    Tree : Int32 { get; init; }
 sealed class Lyntai.Agents.ContextReading
     .ctor(Nullable<Int64> UsedTokens, Nullable<Int64> WindowTokens, DateTimeOffset MeasuredAt)
     Deconstruct(Nullable`1& UsedTokens, Nullable`1& WindowTokens, DateTimeOffset& MeasuredAt) : Void
@@ -859,6 +899,64 @@ sealed class Lyntai.Agents.ContextReading
     ToString() : String
     UsedTokens : Nullable<Int64> { get; init; }
     WindowTokens : Nullable<Int64> { get; init; }
+sealed class Lyntai.Agents.ContextRefusal
+    .ctor(ContextForm Form, ContextRefusalKind Kind)
+    Deconstruct(ContextForm& Form, ContextRefusalKind& Kind) : Void
+    Equals(ContextRefusal other) : Boolean
+    Equals(Object obj) : Boolean
+    Form : ContextForm { get; init; }
+    GetHashCode() : Int32
+    Handover : Nullable<AgentHandoverReason> { get; init; }
+    Kind : ContextRefusalKind { get; init; }
+    ToString() : String
+enum Lyntai.Agents.ContextRefusalKind
+    ConversationNotResumable : ContextRefusalKind const
+    FormNotMeasured : ContextRefusalKind const
+    FormUnsupported : ContextRefusalKind const
+    NothingToSeed : ContextRefusalKind const
+    value__ : Int32
+sealed class Lyntai.Agents.ContextRenderRequest
+    .ctor(ContextForm Form, String DoorId)
+    Account : String { get; init; }
+    Deconstruct(ContextForm& Form, String& DoorId) : Void
+    DoorId : String { get; init; }
+    Equals(ContextRenderRequest other) : Boolean
+    Equals(Object obj) : Boolean
+    Form : ContextForm { get; init; }
+    GetHashCode() : Int32
+    History : SeedConversation { get; init; }
+    SeedSessionId : String { get; init; }
+    Seen : Int32 { get; init; }
+    ToString() : String
+    Transcript : AgentTranscript { get; init; }
+sealed class Lyntai.Agents.ContextRenderResult
+    Equals(ContextRenderResult other) : Boolean
+    Equals(Object obj) : Boolean
+    GetHashCode() : Int32
+    Refusal : ContextRefusal { get; }
+    Rendered : ContextRendered { get; }
+    ToString() : String
+    static Made(ContextRendered rendered) : ContextRenderResult
+    static Refused(ContextRefusal refusal) : ContextRenderResult
+sealed class Lyntai.Agents.ContextRendered
+    .ctor(ContextForm Form, String Text, Int32 Characters, Int32 Through)
+    Apply(AgentSessionOptions next) : AgentSessionOptions
+    Characters : Int32 { get; init; }
+    Deconstruct(ContextForm& Form, String& Text, Int32& Characters, Int32& Through) : Void
+    Equals(ContextRendered other) : Boolean
+    Equals(Object obj) : Boolean
+    Files : IReadOnlyList<ContextFile> { get; init; }
+    Form : ContextForm { get; init; }
+    GetHashCode() : Int32
+    Omitted : ContextHeadOmitted { get; init; }
+    ResumeToken : String { get; init; }
+    Text : String { get; init; }
+    Through : Int32 { get; init; }
+    ToString() : String
+    WithinBound : Boolean { get; init; }
+sealed class Lyntai.Agents.ContextRenderingOptions
+    .ctor()
+    PromptBudget : Int32 { get; set; }
 sealed class Lyntai.Agents.FunctionTool
     .ctor(String name, Func<String,CancellationToken,Task<String>> invoke, String description = null, String parametersJsonSchema = null)
     Description : String { get; }
@@ -911,6 +1009,16 @@ interface Lyntai.Agents.ICliAgentLineReader
 interface Lyntai.Agents.ICliToolProvisioner
     ProvisionAsync(CancellationToken ct = default) : Task<CliToolSession>
     ProvisionAsync(CliToolRequest request, CancellationToken ct = default) : Task<CliToolSession>
+interface Lyntai.Agents.IContextRendering
+    PromptBudget : Int32 { get; }
+    Provider : AgentProviderDescriptor { get; }
+    ReadBack(SessionContext context, TranscriptTurn turn) : SessionContext
+    Render(SessionContext context, ContextRenderRequest request) : ContextRenderResult
+    SupportFor(ContextForm form, String doorId) : AgentSupport
+interface Lyntai.Agents.IConversationSeedWriter
+    Read(SeededConversation seeded) : SeedConversation
+    SupportFor(String doorId) : AgentSupport
+    Write(SeedConversation conversation, String doorId, String sessionId) : SeededConversation
 interface Lyntai.Agents.IMcpCliConnector
     BuildArgsAsync(McpCliContext context, CancellationToken ct = default) : ValueTask<IReadOnlyList<String>>
     ProviderId : String { get; }
@@ -1022,6 +1130,137 @@ enum Lyntai.Agents.RestrictionSubject
 sealed class Lyntai.Agents.RetryingAgentSession
     .ctor(IAgentSession inner, AgentRetryOptions options, TimeProvider time = null, ILogger<RetryingAgentSession> logger = null)
     StreamAsync(AgentSessionOptions options, CancellationToken ct = default) : IAsyncEnumerable<AgentStreamEvent>
+sealed class Lyntai.Agents.SeedConversation
+    .ctor(IReadOnlyList<SeedMessage> Messages)
+    Deconstruct(IReadOnlyList`1& Messages) : Void
+    Equals(Object obj) : Boolean
+    Equals(SeedConversation other) : Boolean
+    GetHashCode() : Int32
+    Messages : IReadOnlyList<SeedMessage> { get; init; }
+    ToString() : String
+    static Empty : SeedConversation { get; }
+sealed class Lyntai.Agents.SeedMessage
+    .ctor(SeedRole Role, IReadOnlyList<SeedPart> Parts)
+    Deconstruct(SeedRole& Role, IReadOnlyList`1& Parts) : Void
+    Equals(Object obj) : Boolean
+    Equals(SeedMessage other) : Boolean
+    GetHashCode() : Int32
+    Parts : IReadOnlyList<SeedPart> { get; init; }
+    Role : SeedRole { get; init; }
+    Same(SeedMessage other) : Boolean
+    ToString() : String
+    static Agent(String text) : SeedMessage
+    static Host(String text) : SeedMessage
+abstract class Lyntai.Agents.SeedPart
+    .ctor()
+    .ctor(SeedPart original)
+    EqualityContract : Type { protected get; }
+    Equals(Object obj) : Boolean
+    Equals(SeedPart other) : Boolean
+    GetHashCode() : Int32
+    PrintMembers(StringBuilder builder) : Boolean
+    ToString() : String
+enum Lyntai.Agents.SeedRole
+    Agent : SeedRole const
+    Host : SeedRole const
+    Tool : SeedRole const
+    value__ : Int32
+sealed class Lyntai.Agents.SeedText
+    .ctor(String Text)
+    Deconstruct(String& Text) : Void
+    EqualityContract : Type { protected get; }
+    Equals(Object obj) : Boolean
+    Equals(SeedPart other) : Boolean
+    Equals(SeedText other) : Boolean
+    GetHashCode() : Int32
+    PrintMembers(StringBuilder builder) : Boolean
+    Text : String { get; init; }
+    ToString() : String
+sealed class Lyntai.Agents.SeedToolCall
+    .ctor(String CallId, String Name, String Arguments)
+    Arguments : String { get; init; }
+    CallId : String { get; init; }
+    Deconstruct(String& CallId, String& Name, String& Arguments) : Void
+    EqualityContract : Type { protected get; }
+    Equals(Object obj) : Boolean
+    Equals(SeedPart other) : Boolean
+    Equals(SeedToolCall other) : Boolean
+    GetHashCode() : Int32
+    Name : String { get; init; }
+    PrintMembers(StringBuilder builder) : Boolean
+    ToString() : String
+sealed class Lyntai.Agents.SeedToolResult
+    .ctor(String CallId, String Text, Boolean IsError = false)
+    CallId : String { get; init; }
+    Deconstruct(String& CallId, String& Text, Boolean& IsError) : Void
+    EqualityContract : Type { protected get; }
+    Equals(Object obj) : Boolean
+    Equals(SeedPart other) : Boolean
+    Equals(SeedToolResult other) : Boolean
+    GetHashCode() : Int32
+    IsError : Boolean { get; init; }
+    PrintMembers(StringBuilder builder) : Boolean
+    Text : String { get; init; }
+    ToString() : String
+static class Lyntai.Agents.SeedWriterConformance
+    static Check(IConversationSeedWriter writer, String doorId) : IReadOnlyList<String>
+    static Sample : SeedConversation { get; }
+sealed class Lyntai.Agents.SeededConversation
+    .ctor(String SessionId, IReadOnlyList<ContextFile> Files)
+    Deconstruct(String& SessionId, IReadOnlyList`1& Files) : Void
+    Equals(Object obj) : Boolean
+    Equals(SeededConversation other) : Boolean
+    Files : IReadOnlyList<ContextFile> { get; init; }
+    GetHashCode() : Int32
+    SessionId : String { get; init; }
+    ToString() : String
+sealed class Lyntai.Agents.SessionContext
+    Append(SessionContextNote note, SessionContextAuthor author) : SessionContext
+    Count : Int32 { get; }
+    Entries : IReadOnlyList<SessionContextEntry> { get; }
+    Find(String id) : SessionContextEntry
+    IsSuperseded(String id) : Boolean
+    Live : IReadOnlyList<SessionContextEntry> { get; }
+    Replaced : IReadOnlyList<SessionContextEntry> { get; }
+    Since(Int32 seen) : IReadOnlyList<SessionContextEntry>
+    SupersededBy(String id) : String
+    static Empty : SessionContext { get; }
+    static FromEntries(IEnumerable<SessionContextEntry> entries) : SessionContext
+enum Lyntai.Agents.SessionContextAuthor
+    Agent : SessionContextAuthor const
+    Host : SessionContextAuthor const
+    value__ : Int32
+sealed class Lyntai.Agents.SessionContextEntry
+    .ctor()
+    Author : SessionContextAuthor { get; init; } required
+    Equals(Object obj) : Boolean
+    Equals(SessionContextEntry other) : Boolean
+    GetHashCode() : Int32
+    Id : String { get; init; } required
+    Kind : SessionContextKind { get; init; } required
+    Subject : String { get; init; }
+    Supersedes : String { get; init; }
+    Text : String { get; init; } required
+    ToString() : String
+enum Lyntai.Agents.SessionContextKind
+    Decided : SessionContextKind const
+    Found : SessionContextKind const
+    Standing : SessionContextKind const
+    Tree : SessionContextKind const
+    Work : SessionContextKind const
+    value__ : Int32
+sealed class Lyntai.Agents.SessionContextNote
+    .ctor(SessionContextKind Kind, String Text)
+    Deconstruct(SessionContextKind& Kind, String& Text) : Void
+    Equals(Object obj) : Boolean
+    Equals(SessionContextNote other) : Boolean
+    GetHashCode() : Int32
+    Id : String { get; init; }
+    Kind : SessionContextKind { get; init; }
+    Subject : String { get; init; }
+    Supersedes : String { get; init; }
+    Text : String { get; init; }
+    ToString() : String
 sealed class Lyntai.Agents.SessionEnded
     .ctor(ProviderVerdict Verdict, Boolean IsError, String Subtype, String SessionId, String FinalText, String Diagnostic)
     Deconstruct(ProviderVerdict& Verdict, Boolean& IsError, String& Subtype, String& SessionId, String& FinalText, String& Diagnostic) : Void
@@ -1053,6 +1292,13 @@ sealed class Lyntai.Agents.SessionStarted
     PrintMembers(StringBuilder builder) : Boolean
     SessionId : String { get; init; }
     ToString() : String
+sealed class Lyntai.Agents.StandardContextRendering
+    .ctor(AgentProviderDescriptor provider, ContextRenderingOptions options = null, IConversationSeedWriter seedWriter = null)
+    PromptBudget : Int32 { get; }
+    Provider : AgentProviderDescriptor { get; }
+    ReadBack(SessionContext context, TranscriptTurn turn) : SessionContext
+    Render(SessionContext context, ContextRenderRequest request) : ContextRenderResult
+    SupportFor(ContextForm form, String doorId) : AgentSupport
 sealed class Lyntai.Agents.StatedRecoveryParts
     .ctor(StatedTimeShape Shape)
     Date : Nullable<DateOnly> { get; init; }
