@@ -242,6 +242,9 @@ section.
 | `SemanticSeedOptions.K` | not registered by default (`AddMemorySemanticSeeds`; `K` = 20 once added) | entries the query's embedding pulls into the candidate set |
 | `SubjectSeedOptions.K` | 5 (channel registered by `AddMemoryEngine`; `AddMemorySubjectSeeds` only configures it) | entries each SUBJECT the query names pulls into the candidate set |
 | `SubjectSeedOptions.Scan` | 256 | handles a recall matches its query against |
+| `IdentifierSeedOptions.MaxIdentifiers` | not registered by default (`AddMemoryIdentifierSeeds`; 8 once added) | identifier-shaped words of one query the channel looks up, a store read each |
+| `MaxContentChars` | `null` (no bound) | the longest content a write may state; a longer one throws |
+| `MemoryQuery.SpanChars` | 400 | the longest passage `MemoryDetail.Matching` returns |
 
 ### Learning
 
@@ -846,6 +849,70 @@ alone**: under the default ranking a wider pool lowers recall of the page (§7),
 nothing the seed's own ordering did not already give. Nothing is buried or deleted either way — this changes what
 a recall RANKS, not what is kept. It is a measured recipe for one kind of corpus, not a new default: where recency
 is evidence, keep the shipped weights.
+
+### Find an entry by its identifier
+
+A history archive is asked by NAME as often as by meaning: *what did D123 decide*, *what became of row ABC1d*. The text
+channel matches by substring and ranks by how often the query's words recur, so `D123` also fetches `D1234`, and a long
+entry that cites it outranks the short one about it. The identifier channel reads each identifier-shaped word of the query
+alone and puts the entries that hold it **whole and in the same case** ahead of every other (**D377**):
+
+```csharp
+services.AddLyntai(cfg => cfg
+    .UseSqliteStorage("history.db")
+    .AddMemoryEngine("history", e => e.UseGraph())
+    .AddMemoryIdentifierSeeds());
+
+var named = await engine.RecallAsync(new MemoryQuery("history", Query: "what did D123 decide about storage"));
+```
+
+An identifier-shaped word mixes letters and digits (`D123`, `ABC1d`, `ISSUE-42`, `v3.5.3`), joins words with an underscore, has an
+inner capital (`GraphMemoryEngine`) or is a dotted name (`Type.Member`, `README.md`). A bare number or a plain word is not one, and a query
+with none makes no read. Among the entries that hold it, the one whose headline does leads, then the one that holds it most
+often, then the shorter; the rest keep the ranking policy's order. **It is opt-in** because each identifier costs a store
+read (`IdentifierSeedOptions.MaxIdentifiers`, 8), and `Pin = false` leaves it as one more rank-fusion vote, which measured
+too weak: the entry that tops the text ranking and cites the identifier once stays first.
+
+**`IdentifierSeedOptions.Probe` (200) is how many of the store's matches for one identifier are read before the whole-word test.** The
+store matches by substring, so a short identifier that prefixes many others (`D1` against `D10` to `D19`) can fill a narrower window with
+entries the test then drops; raise it for such a corpus.
+
+### Read an entry by its passage, and tell a strong hit from a weak one
+
+`MemoryDetail.Matching` returns the passage of the content that matched instead of the content, so an entry of any length costs about
+`SpanChars` (400) beside its headline, and the character budget prices it so (**D379**). `MemoryItem.Score` says how much of the query
+the entry covers (**D378**):
+
+```csharp
+var passages = await engine.RecallAsync(
+    new MemoryQuery("history", Query: "ABC1d migrated", Detail: MemoryDetail.Matching) { SpanChars = 300 });
+foreach (var item in passages.Items)
+    Console.WriteLine($"{item.Score:P0} {item.Headline}: {item.Span?.Text}");
+```
+
+`Span` carries its `Start` in the content and the content's `ContentLength`, so a caller knows how much of the entry it is not reading
+and can expand for the rest. It is null when the content holds none of the query's words (a match in the headline, by meaning or by a
+link) and for an expansion; **an authoritative entry still comes back whole**, because it is never returned truncated. Only a graph
+engine fills it.
+
+**`Score` is not `Relevance`.** `Relevance` is a rank position, 1 for the top hit of every recall. `Score` is 1 for an entry holding every
+distinctive word of the query and 0 for one holding none, and a word counts by how rare it is among the entries the recall
+considered, so `what` and `did` do not make a weak hit strong. An identifier counts only whole and in the same case. It is
+lexical: a paraphrase found by an embedding reads low, and a high score is coverage, not an answer. **The library fixes no threshold** —
+look at your own recalls to choose one; `MemoryRecall.Answered` is the judged signal.
+
+### Keep entries short
+
+A long entry dilutes its own ranking and costs its length wherever it is read whole. `GraphMemoryOptions.MaxContentChars` makes a write
+past it throw before anything is stored, embedded or annotated, and `MemoryChunks.Split` cuts the text into parts that each fit, after a blank
+line, a line break, a sentence or a space (**D380**). The host writes the parts, because it knows their headlines and which one a
+supersession ends; the engine does not split for it, since a write has one `Reference`:
+
+<!-- compile-given: string longText = null!; string title = null!; -->
+```csharp
+foreach (var part in MemoryChunks.Split(longText, maxChars: 4000))
+    await engine.RememberAsync(new MemoryWrite("history", "log", part, Headline: title));
+```
 
 ### Keep a fact exactly, forever
 

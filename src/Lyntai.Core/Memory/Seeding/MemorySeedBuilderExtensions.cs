@@ -50,6 +50,28 @@ public static class MemorySeedBuilderExtensions
     }
 
     /// <summary>
+    /// Let a recall reach an entry by an IDENTIFIER the query names (<c>D123</c>, <c>ABC1d</c>) where the entry holds it
+    /// whole, and lead with the entry that is about it (<see cref="IdentifierSeedSource"/>).
+    ///
+    /// <para><b>Opt-in</b>: it adds one store read per identifier-shaped word of a query, and a query with none pays
+    /// nothing. Needs nothing beyond the store the engine already reads. Calling it twice yields ONE channel and the last
+    /// <paramref name="options"/> supplied wins, as <see cref="AddMemorySemanticSeeds"/> does.</para>
+    /// </summary>
+    /// <param name="builder">The Lyntai builder.</param>
+    /// <param name="options">Knobs; null takes the defaults, or an <see cref="IdentifierSeedOptions"/> already registered in
+    /// the container.</param>
+    public static LyntaiBuilder AddMemoryIdentifierSeeds(this LyntaiBuilder builder,
+        IdentifierSeedOptions? options = null)
+    {
+        ArgumentNullException.ThrowIfNull(builder);
+
+        if (options is not null) builder.Services.AddSingleton(options);
+        builder.Services.TryAddEnumerable(
+            ServiceDescriptor.Singleton<IMemorySeedSource, IdentifierSeedSource>());
+        return builder;
+    }
+
+    /// <summary>
     /// Configure the SUBJECT channel — the entries recorded under whichever annotated handles the query
     /// names, the only channel that reaches an entry through what it is ABOUT rather than through its own
     /// text.

@@ -381,6 +381,15 @@ every addition.
   `SeedWriterConformance.Check` is the test every writer calls: pure, files relative to the agent's home, read back equal.
   `StandardContextRendering` is the implementation a door without its own needs; its `ReadBack` maps a turn to one
   agent-claimed where-it-stands entry. A prompt a rendering composed is never recorded as the host's words. **No vendor's writer ships yet.**
+- **A graph memory recall can find an entry by its identifier, say how strong the hit is, return the matching passage, and refuse an
+  entry too long to read** (**D377** to **D380**). `AddMemoryIdentifierSeeds()` registers `IdentifierSeedSource`: an identifier-shaped
+  word of the query (`D123`, `ABC1d`, `ISSUE-42`) is looked up alone, and an entry that holds it whole and in the same case leads the
+  recall, the entry about it (headline, then shortest) above one that cites it. A new `IMemorySeedSource.Pins` (default `false`) is how a
+  channel asks for that. `MemoryItem.Score` is how much of the query the entry covers, 0 to 1, weighted by how rare each word is among
+  the recall's candidates, so it means the same in every recall, where `Relevance` is a rank position. `MemoryDetail.Matching` returns
+  `MemoryItem.Span` (the passage, its start and the content's length) of about `MemoryQuery.SpanChars` (400) in place of the content, and
+  the character budget prices it. `GraphMemoryOptions.MaxContentChars` (default none) refuses a longer write, and `MemoryChunks.Split`
+  cuts text into parts that each fit. All of it is off or null until asked for, and no existing recall changes.
 - **A conversation another client holds is a stated outcome, the Codex exec door carries a sandbox word and an effort, and an account's sign-in
   has an optional ability** (**D340**–**D343**). `AgentFailure.Conflict` (`AgentConflict.ConversationHeld`) is set by the protocol door
   when `codex-acp` refuses an open with `data.reason` `thread_active_writer`; the kind stays `Fatal`, so the retry decorator never resends

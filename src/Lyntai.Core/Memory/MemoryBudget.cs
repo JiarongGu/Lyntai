@@ -5,7 +5,7 @@ namespace Lyntai.Memory;
 internal static class MemoryBudget
 {
     /// <summary>Keep <paramref name="items"/>, in order, within <paramref name="budget"/> characters, costing
-    /// each by its content when present and its headline otherwise.
+    /// each by its content when present and otherwise by its headline plus the passage it carries.
     /// <para>Three rules. An item that does not fit is SKIPPED, not the end of the walk — one oversized item must
     /// not hide every shorter one behind it. An authoritative item is never dropped (design §5.7.0 objective (1)
     /// has no acceptable failure rate). The first item is always kept, so a budget smaller than one item still
@@ -18,7 +18,7 @@ internal static class MemoryBudget
         var kept = new List<MemoryItem>(items.Count);
         foreach (var item in items)
         {
-            var cost = item.Content?.Length ?? item.Headline.Length;
+            var cost = item.Content?.Length ?? item.Headline.Length + (item.Span?.Text.Length ?? 0);
             if (item.Grade != MemoryGrade.Authoritative && kept.Count > 0 && spent + cost > budget) continue;
             spent += cost;
             kept.Add(item);

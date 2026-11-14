@@ -7291,3 +7291,12 @@ probe moved into the shared `ChildProcesses` helper. Both facts pass on Linux an
 
 - `tests/Lyntai.Tests/Processes/ProcessRunnerTests.cs`, `tests/Lyntai.Tests/Fakes/ChildProcesses.cs`, `AgentUsageProcessTests`
 - D376, the trap's added line
+## Part 536 — Daoris's request `DOCDIET1`: a graph recall that finds by identifier, scores a hit, returns the passage and bounds an entry (2026-11-12)
+
+Daoris measured plain files against Lyntai's memory as the home of a repository's history on 36 questions (by identifier 11 of 14 against 4 of 14, by words 17 of 22 against 4, about 2 KB an answer against 9.6 KB) and asked for four things. Built, each off until asked for: an identifier channel that pins (D377), `MemoryItem.Score` (D378), `MemoryDetail.Matching` with `MemoryItem.Span` (D379), and `GraphMemoryOptions.MaxContentChars` with `MemoryChunks.Split` (D380).
+<br>**Not measured:** the 36 questions are Daoris's and were not run here; the tests pin the behaviour on small corpora, so whether the top hit by identifier and by words reaches what files gave is Daoris's to measure on a release. Ranking by words was not changed beyond the score and the passage.
+<br>**Not done:** an engine that splits at write (D380), a semantic hit's score (D378), and the Postgres legs, which are shared code with the SQLite ones and were not run where Docker was down.
+<br>**Merged 2026-11-15:** built on its own branch and merged after `docs/task-archive.md` Parts 519 to 535 had landed, so its decisions and Part were renumbered from D344 to D347 and Part 519; the Postgres legs ran in the merge's `verify`.
+
+- the code commit and `tests/Lyntai.Tests/Memory/MemoryExactRecallTests.cs`
+- D377 to D380, `docs/memory.md` §Find an entry by its identifier, the changelog entry

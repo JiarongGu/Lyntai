@@ -81,6 +81,13 @@ public interface IMemorySeedSource
     /// <see cref="Name"/> stays the one thing that must be unique.</para></summary>
     MemorySeedKind Kind => MemorySeedKind.Custom;
 
+    /// <summary>Whether a candidate this channel matched LEADS every one it did not, in this channel's own
+    /// <see cref="GraphNode.Relevance"/> order, whatever the ranking policy made of the rest — for a channel whose match is
+    /// exact rather than likely, such as <see cref="IdentifierSeedSource"/>: an entry that holds the identifier the query
+    /// names is the answer, and rank fusion treats it as one more vote. The policy still decides what is dropped; this
+    /// reorders what it kept. <b>Defaults to <c>false</c></b>, so a channel competes by fusion as it always has.</summary>
+    bool Pins => false;
+
     /// <summary>This channel's candidates, each carrying its own <see cref="GraphNode.Relevance"/> — see the
     /// type's remarks for what the engine does with that value and what a flat one means.</summary>
     /// <param name="request">What is being asked for.</param>

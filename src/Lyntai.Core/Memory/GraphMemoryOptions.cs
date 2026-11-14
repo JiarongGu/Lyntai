@@ -41,6 +41,21 @@ public sealed record GraphMemoryOptions
             "a headline of no characters leaves the index nothing to show.");
     } = 120;
 
+    /// <summary>The longest content a write may state, in characters; <c>null</c>, the default, bounds nothing. A write
+    /// past it throws <see cref="ArgumentException"/> before anything is stored, embedded or annotated — never
+    /// truncated, because a shortened entry is confidently wrong (authoritative content above all). Split what is longer
+    /// into entries of its own with <see cref="MemoryChunks.Split"/>.
+    /// <para>For a host whose entries are meant to be read by passage: a long entry dilutes its ranking and costs its
+    /// whole length wherever it is read whole, and a bound turns the caller who forgot to split into an error where
+    /// it was made.</para></summary>
+    /// <exception cref="ArgumentOutOfRangeException">Set below one.</exception>
+    public int? MaxContentChars
+    {
+        get;
+        init => field = MemoryOption.Require(value, 1, nameof(GraphMemoryOptions),
+            "an entry of no characters holds nothing; use null for no bound.");
+    }
+
     /// <summary>How many of the returned nodes get co-activation edges. A ten-item recall would otherwise
     /// write forty-five edges every turn. Reasoned, not measured. Zero writes none. An entry that states an
     /// end takes no edge, so it neither counts toward the cap nor is linked.</summary>
