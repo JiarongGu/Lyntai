@@ -1858,6 +1858,8 @@ sealed class Lyntai.Generation.Jobs.GenerationArtifactDelivery
     StageIndex : Nullable<Int32> { get; init; }
     ToString() : String
     Usage : MediaUsage { get; init; }
+static class Lyntai.Generation.Jobs.GenerationJobCancellation
+    static CancelAsync(IJobQueue queue, IEnumerable<IModelProvider> providers, Guid jobId, CancellationToken ct = default) : Task<QueuedOperation>
 static class Lyntai.Generation.Jobs.GenerationJobMessages
     Delivered : String const
     Running : String const
@@ -1882,6 +1884,7 @@ sealed class Lyntai.Generation.Jobs.GenerationPipelineJobOptions
     Equals(Object obj) : Boolean
     GetHashCode() : Int32
     MaxCheckpointBytes : Int64 { get; init; }
+    MaxPollDuration : Nullable<TimeSpan> { get; init; }
     PollDelay : TimeSpan { get; init; }
     ToString() : String
 sealed class Lyntai.Generation.Jobs.GenerationPipelineJobStage
@@ -1975,6 +1978,9 @@ sealed class Lyntai.Inference.Budgeting.BudgetedTextClient
     .ctor(ITextClient inner, IUsageTracker tracker, LyntaiOptions options, ILogger<BudgetedTextClient> logger = null)
     CompleteAsync(TextRequest req, CancellationToken ct = default) : Task<TextResponse>
     StreamAsync(TextRequest req, CancellationToken ct = default) : IAsyncEnumerable<TextChunk>
+interface Lyntai.Inference.Budgeting.IIdempotentUsageTracker
+    PruneRecordKeysAsync(DateTimeOffset before, CancellationToken ct = default) : ValueTask<Int32>
+    RecordOnceAsync(String consumer, ProviderUsage usage, String key, CancellationToken ct = default) : ValueTask<Boolean>
 interface Lyntai.Inference.Budgeting.IReservingUsageTracker
     ReconcileAsync(UsageReservation reservation, ProviderUsage actual, CancellationToken ct = default) : ValueTask
     ReserveAsync(UsageReservationRequest request, CancellationToken ct = default) : ValueTask<UsageReservationResult>
@@ -1984,8 +1990,10 @@ interface Lyntai.Inference.Budgeting.IUsageTracker
     TotalAsync(String consumer = null, CancellationToken ct = default) : ValueTask<UsageTotals>
 sealed class Lyntai.Inference.Budgeting.InMemoryUsageTracker
     .ctor()
+    PruneRecordKeysAsync(DateTimeOffset before, CancellationToken ct = default) : ValueTask<Int32>
     ReconcileAsync(UsageReservation reservation, ProviderUsage actual, CancellationToken ct = default) : ValueTask
     RecordAsync(String consumer, ProviderUsage usage, CancellationToken ct = default) : ValueTask
+    RecordOnceAsync(String consumer, ProviderUsage usage, String key, CancellationToken ct = default) : ValueTask<Boolean>
     ReserveAsync(UsageReservationRequest request, CancellationToken ct = default) : ValueTask<UsageReservationResult>
     ResetAsync(String consumer = null, CancellationToken ct = default) : ValueTask
     TotalAsync(String consumer = null, CancellationToken ct = default) : ValueTask<UsageTotals>
@@ -5643,12 +5651,15 @@ sealed class Lyntai.Storage.UsageTotalsRow
     InputTokens : Int64 { get; set; }
     OutputTokens : Int64 { get; set; }
 static class Lyntai.Storage.UsageTrackerSql
+    ClaimKey : String const
     DropExpiredHolds : String const
     Hold : String const
+    PruneKeys : String const
     Record : String const
     Release : String const
     ResetAll : String const
     static Consumer(String consumer) : String
+    static Key(String key) : String
 static class Lyntai.Text.JsonExtract
     static ExtractObject(String text) : String
     static IsValid(String text) : Boolean

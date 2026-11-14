@@ -15,29 +15,26 @@ LLM-ops layer (prompt registry, scoring, traces, memory). `AddLyntai(...)` and g
 
 <!-- open-items:begin — GENERATED. Edit the per-item `item:` markers, never this table. -->
 
-## Open items — 16 across 12 Parts: 3 startable, 6 blocked, 1 watch, 6 decision-only
+## Open items — 13 across 11 Parts: 3 startable, 6 blocked, 1 watch, 3 decision-only
 
 _Generated from the per-item `<!-- item: … -->` markers by `node devtools/dev.mjs check-backlog --write`._
 _Edit a marker, never this table — `verify` fails the moment the two disagree._
 
 | line | Part | item | state | waiting on |
 | ---: | ---: | --- | --- | --- |
-| 117 | 33 | GEN-VERIFY-FAL, the last line — the Hugging Face route | blocked · env | an hf_ token for the router route; re-checked 2026-11-15, none on this mach… |
-| 158 | 75 | Decide what an aggregator's in-band `code` means | blocked · env+data | two or three real aggregators to measure an in-band code against; re-checke… |
-| 185 | 99 | `verify`'s test step intermittently fails EXACTLY 9 tests, and once aborted… | watch · data | the same nine tests to recur — the fix is unconfirmed as the cure, and a gr… |
-| 259 | 417 | MC8 — run the wrong-end instrument on an adjudicated corpus, with a bar wri… | blocked · decision+data | two reviewers' independent labels on a sample of the pairs, and a bar a per… |
-| 284 | 479 | A write tool's metadata stamp replaces a held entry's stored bag on a refre… | decision-only | a ruling: keep a held entry's stored metadata on a refresh (the shape of D3… |
-| 287 | 479 | A stated but malformed `validFrom`, `validTo` or `at` is read as absent | decision-only | a ruling: refuse a stated instant that does not parse, naming the field, or… |
-| 297 | 481 | A rejected limit is never cleared inside a turn | blocked · data | a capture of the CLI sending a rejected rate_limit_event and then an allowe… |
-| 308 | 485 | How long a quiet Codex step runs is unmeasured | blocked · env | one real Codex turn on an account with room: re-checked 2026-11-15, the own… |
-| 320 | 486 | The HTTP chat engine's own failures still drop the usage its wire read | startable |  |
-| 329 | 490 | `Model2VecProvider` embeds a text of any length, where the reference trunca… | decision-only | a ruling: truncate to the reference's 512 (or the config's max_length) with… |
-| 338 | 491 | A ComfyUI run lost to a server restart polls for ever | decision-only | a ruling: consult /queue and fail or call it inconclusive when the id is in… |
-| 340 | 491 | Cancelling a durable generation job does not cancel the backend render | decision-only | a ruling: a best-effort CancelAsync when a cancel is seen with an operation… |
-| 341 | 491 | `generate_fetch` bills and delivers again on every call, and the job engine… | decision-only | a ruling: whether the spend ledger or the tool owns de-duplication per (bac… |
-| 349 | 495 | Two usage-process lifetime facts fail on Linux | startable |  |
-| 358 | 518 | AG50 — a kept run on `codex-acp` and dsh (A-LQ19) | blocked · data | Daoris's recorded Codex sitting and dsh probe frames; re-checked 2026-11-15… |
-| 360 | 518 | AG51 — a kept run on the Claude CLI with stdin held (A-LQ21) | startable |  |
+| 114 | 33 | GEN-VERIFY-FAL, the last line — the Hugging Face route | blocked · env | an hf_ token for the router route; re-checked 2026-11-15, none on this mach… |
+| 155 | 75 | Decide what an aggregator's in-band `code` means | blocked · env+data | two or three real aggregators to measure an in-band code against; re-checke… |
+| 182 | 99 | `verify`'s test step intermittently fails EXACTLY 9 tests, and once aborted… | watch · data | the same nine tests to recur — the fix is unconfirmed as the cure, and a gr… |
+| 256 | 417 | MC8 — run the wrong-end instrument on an adjudicated corpus, with a bar wri… | blocked · decision+data | two reviewers' independent labels on a sample of the pairs, and a bar a per… |
+| 281 | 479 | A write tool's metadata stamp replaces a held entry's stored bag on a refre… | decision-only | a ruling: keep a held entry's stored metadata on a refresh (the shape of D3… |
+| 284 | 479 | A stated but malformed `validFrom`, `validTo` or `at` is read as absent | decision-only | a ruling: refuse a stated instant that does not parse, naming the field, or… |
+| 294 | 481 | A rejected limit is never cleared inside a turn | blocked · data | a capture of the CLI sending a rejected rate_limit_event and then an allowe… |
+| 305 | 485 | How long a quiet Codex step runs is unmeasured | blocked · env | one real Codex turn on an account with room: re-checked 2026-11-15, the own… |
+| 317 | 486 | The HTTP chat engine's own failures still drop the usage its wire read | startable |  |
+| 326 | 490 | `Model2VecProvider` embeds a text of any length, where the reference trunca… | decision-only | a ruling: truncate to the reference's 512 (or the config's max_length) with… |
+| 335 | 495 | Two usage-process lifetime facts fail on Linux | startable |  |
+| 344 | 518 | AG50 — a kept run on `codex-acp` and dsh (A-LQ19) | blocked · data | Daoris's recorded Codex sitting and dsh probe frames; re-checked 2026-11-15… |
+| 346 | 518 | AG51 — a kept run on the Claude CLI with stdin held (A-LQ21) | startable |  |
 
 <!-- open-items:end -->
 
@@ -329,17 +326,6 @@ that Part (the `JsonExtract` first-brace row was already filed in Part 487). A r
 - [ ] **`Model2VecProvider` embeds a text of any length, where the reference truncates to 512 tokens.** `model2vec` `v0.10.0` truncates to its <!-- item: state=decision-only needs="a ruling: truncate to the reference's 512 (or the config's max_length) with an opt-out, as D367 matched the unknown token, which moves the vectors of long texts already stored, or keep embedding the whole text and say it differs from the reference" -->
   `DEFAULT_MAX_LENGTH = 512` when the model's `config.json` names no `max_length` (potion-base-8M's does not), and this provider documents and tests "no context limit",
   so a text past 512 tokens embeds differently here and there. Read by the builder of `docs/task-archive.md` Part 529 beside the unknown-token row (**D367**).
-
-## Part 491 — what the 2026-11-08 review of the generation platform found and did not fix yet
-
-_Opened by `docs/task-archive.md` **Part 488**: a read-only review of `Lyntai.Generation` and `Lyntai.Core/Generation`, each finding read against the code, one (the deadline's range) run. The certain and small findings closed in that
-Part. Lane `generation`._
-
-- [ ] **A ComfyUI run lost to a server restart polls for ever.** Its queue and history are in memory, so `/history/{id}` answers `{}` after a restart, which reads as not landed yet, and a `Poll` outcome has <!-- item: state=decision-only needs="a ruling: consult /queue and fail or call it inconclusive when the id is in neither, or a maximum poll duration on GenerationPipelineJobOptions, and how many confirming polls before a run is declared lost" -->
-  no deadline, so a durable job meant to survive restarts stays `Running`.
-- [ ] **Cancelling a durable generation job does not cancel the backend render.** The engine never calls `IMediaJobProvider.CancelAsync`, so a paid fal render or a ComfyUI GPU run goes on unattended. <!-- item: state=decision-only needs="a ruling: a best-effort CancelAsync when a cancel is seen with an operation id checkpointed, or leave it to the host and say so; ComfyUI's interrupt is server-wide and can kill another tenant's run" -->
-- [ ] **`generate_fetch` bills and delivers again on every call, and the job engine bills before it checkpoints.** A model that calls the tool twice records the cost and sends the artifacts twice, and a lease lost between <!-- item: state=decision-only needs="a ruling: whether the spend ledger or the tool owns de-duplication per (backend, operation id); both over-count, so they fail closed" -->
-  the bill and the checkpoint is billed again by the worker that reclaims it.
 
 ## Part 495 — what the 2026-11-08 review of the one-shot CLI providers and the agent briefs found and did not fix yet
 

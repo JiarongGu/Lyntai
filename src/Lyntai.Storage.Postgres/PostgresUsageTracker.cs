@@ -11,10 +11,39 @@ namespace Lyntai.Storage.Postgres;
 /// async: <c>TotalAsync</c> is a PRE-CALL read on every budgeted request — a NETWORK round-trip here — so
 /// it must not block a threadpool thread inside the async front door. Can reserve
 /// (<see cref="IReservingUsageTracker"/>) across every process sharing the database: holds live in
-/// <c>lyntai_usage_reservation</c>. Register with <c>UsePostgresUsageTracking()</c>.
+/// <c>lyntai_usage_reservation</c>. Records once per key (<see cref="IIdempotentUsageTracker"/>) across those processes:
+/// spent keys live in <c>lyntai_usage_record_key</c> until the host prunes them. Register with
+/// <c>UsePostgresUsageTracking()</c>.
 /// </summary>
-public sealed class PostgresUsageTracker(IDbConnectionFactory factory) : IReservingUsageTracker
+public sealed class PostgresUsageTracker(IDbConnectionFactory factory) : IReservingUsageTracker, IIdempotentUsageTracker
 {
+    /// <inheritdoc/>
+    /// <remarks>The key and the spend commit together; a racing insert of the same key waits on the primary key until
+    /// the first commits, then does nothing.</remarks>
+    public async ValueTask<bool> RecordOnceAsync(string consumer, ProviderUsage usage, string key, CancellationToken ct = default)
+    {
+        var claimed = UsageTrackerSql.Key(key);
+        var folded = UsageTrackerSql.Consumer(consumer);
+        await using var conn = await factory.OpenAsync(ct).ConfigureAwait(false);
+        await using var tx = await conn.BeginTransactionAsync(ct).ConfigureAwait(false);
+        var fresh = await conn.ExecuteAsync(new CommandDefinition(UsageTrackerSql.ClaimKey,
+            new { key = claimed, now = DateTimeOffset.UtcNow }, tx, cancellationToken: ct)).ConfigureAwait(false) == 1;
+        if (fresh)
+            await conn.ExecuteAsync(new CommandDefinition(UsageTrackerSql.Record,
+                new { consumer = folded, @in = usage.InputTokens, @out = usage.OutputTokens, cost = usage.CostUsd ?? 0 },
+                tx, cancellationToken: ct)).ConfigureAwait(false);
+        await tx.CommitAsync(ct).ConfigureAwait(false);
+        return fresh;
+    }
+
+    /// <inheritdoc/>
+    public async ValueTask<int> PruneRecordKeysAsync(DateTimeOffset before, CancellationToken ct = default)
+    {
+        await using var conn = await factory.OpenAsync(ct).ConfigureAwait(false);
+        return await conn.ExecuteAsync(new CommandDefinition(UsageTrackerSql.PruneKeys,
+            new { before }, cancellationToken: ct)).ConfigureAwait(false);
+    }
+
     public async ValueTask RecordAsync(string consumer, ProviderUsage usage, CancellationToken ct = default)
     {
         await using var conn = await factory.OpenAsync(ct).ConfigureAwait(false);

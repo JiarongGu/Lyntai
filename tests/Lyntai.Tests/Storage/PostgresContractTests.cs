@@ -102,3 +102,12 @@ public sealed class PostgresUsageReservationContractTests(PostgresFixture pg) : 
     protected override IReservingUsageTracker NewTracker() => new PostgresUsageTracker(pg.Require());
     protected override Task ClearAsync() => pg.ClearAsync("lyntai_usage_reservation", "lyntai_usage");
 }
+
+[Collection("postgres")]
+public sealed class PostgresIdempotentUsageContractTests(PostgresFixture pg) : IdempotentUsageContractFacts
+{
+    protected override bool SharesItsStore => true;
+    protected override IIdempotentUsageTracker NewTracker() => new PostgresUsageTracker(pg.Require());
+    protected override IIdempotentUsageTracker Reopen(IIdempotentUsageTracker tracker) => new PostgresUsageTracker(pg.Factory);
+    protected override Task ClearAsync() => pg.ClearAsync("lyntai_usage_record_key", "lyntai_usage");
+}

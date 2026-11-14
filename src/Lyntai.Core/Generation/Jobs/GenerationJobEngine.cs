@@ -17,7 +17,8 @@ internal sealed class GenerationJobEngine(
     IGenerationArtifactSink sink,
     GenerationPipelineJobOptions? options,
     IUsageTracker? usage,
-    MediaRoutingPolicy? policy)
+    MediaRoutingPolicy? policy,
+    TimeProvider? time = null)
 {
     /// <summary>How a job type drives the machine.</summary>
     /// <param name="QueuedOnly">Submit only — never render inline, never fall back to the inline door.</param>
@@ -34,6 +35,7 @@ internal sealed class GenerationJobEngine(
     private readonly IReadOnlyList<IModelProvider> _providers = [.. providers];
     private readonly GenerationPipelineJobOptions _options = options ?? new GenerationPipelineJobOptions();
     private readonly MediaRoutingPolicy _policy = policy ?? new MediaRoutingPolicy();
+    private readonly TimeProvider _time = time ?? TimeProvider.System;
 
     private long Cap => Math.Max(0, _options.MaxCheckpointBytes);
 
@@ -69,10 +71,11 @@ internal sealed class GenerationJobEngine(
                 produced = result!;
 
                 // bill before anything else: the money is spent either way. Only a queued stage — the router
-                // that ran an inline one recorded it, when the budget decorator wraps it.
+                // that ran an inline one recorded it, when the budget decorator wraps it. Keyed by the operation, so
+                // the worker that reclaims a job whose checkpoint below never landed does not bill it again.
                 if (produced.Queued && usage is not null)
-                    await BudgetGate.RecordCostAsync(usage, stage.Request.Consumer, produced.Response.Usage, ct)
-                        .ConfigureAwait(false);
+                    await BudgetGate.RecordCostAsync(usage, stage.Request.Consumer, produced.Response.Usage,
+                        QueuedRenderIdentity.SpendKey(produced.ProviderId, produced.OperationId), ct).ConfigureAwait(false);
 
                 // the result is checkpointed BEFORE delivery, so a sink that throws gets it again without a second
                 // render, fetch or bill; one too big for the checkpoint is delivered unprotected
@@ -120,6 +123,23 @@ internal sealed class GenerationJobEngine(
     /// <c>{providerId, operationId}</c> resumes from.</summary>
     internal static string SubmittedCheckpoint(string providerId, string operationId) =>
         new PipelineCheckpoint(0, providerId, operationId).ToJson();
+
+    /// <summary>The operation a generation job's checkpoint holds SUBMITTED and not yet fetched, and the backend
+    /// holding it — or null for any other job type or checkpoint: none, unreadable, a stage ready to run, or one
+    /// already produced, whose render is over.</summary>
+    internal static (string ProviderId, string OperationId)? HeldOperation(string jobType, string? checkpoint)
+    {
+        var read = jobType switch
+        {
+            GenerationRenderJobHandler.JobType => GenerationRenderJobHandler.Resumable(checkpoint),
+            GenerationPipelineJobHandler.JobType => checkpoint,
+            _ => null,
+        };
+        return !string.IsNullOrWhiteSpace(read) &&
+               PipelineCheckpoint.Parse(read, int.MaxValue) is { OperationId: { } operation, ProviderId: { } provider }
+            ? (provider, operation)
+            : null;
+    }
 
     /// <summary>Run a stage not yet started, through the door its candidates choose — and the other door when
     /// that one is exhausted without committing anything.</summary>
@@ -197,8 +217,8 @@ internal sealed class GenerationJobEngine(
         var operation = submission.Operation;
         // checkpoint FIRST: everything after this can be redone safely, and the submission cannot. The chained
         // artifact is dropped — the backend has it, and nothing reads it again.
-        if (!await ctx.SaveCheckpointAsync(
-                new PipelineCheckpoint(at.Stage, submission.ProviderId, operation.Id).ToJson(), ct).ConfigureAwait(false))
+        if (!await ctx.SaveCheckpointAsync(new PipelineCheckpoint(at.Stage, submission.ProviderId, operation.Id,
+                SubmittedAt: _time.GetUtcNow()).ToJson(), ct).ConfigureAwait(false))
             return JobOutcome.Fail(
                 $"lease lost right after {name} submitted operation {operation.Id} to '{submission.ProviderId}' — " +
                 "stopping so another worker doesn't run a second paid render (the operation id is in this " +
@@ -222,6 +242,16 @@ internal sealed class GenerationJobEngine(
         {
             case QueuedOperationStatus.Queued:
             case QueuedOperationStatus.Running:
+                // a checkpoint from before the submission time was recorded has none, and polls unbounded
+                if (_options.MaxPollDuration is { } most && at.SubmittedAt is { } submitted &&
+                    _time.GetUtcNow() - submitted is var elapsed && elapsed > most)
+                    return (JobOutcome.Fail(
+                        $"{name}: operation {operationId} at '{providerId}' is still {operation.Status} " +
+                        $"{elapsed.ToString("c", CultureInfo.InvariantCulture)} after it was submitted, past " +
+                        $"{nameof(GenerationPipelineJobOptions)}.{nameof(GenerationPipelineJobOptions.MaxPollDuration)} " +
+                        $"({most.ToString("c", CultureInfo.InvariantCulture)}). The backend may still hold it: " +
+                        $"{nameof(GenerationJobCancellation)}.{nameof(GenerationJobCancellation.CancelAsync)} with this " +
+                        "job's id asks it to stop"), null);
                 await Progress(ctx, at.Stage, stages, operation.Progress ?? 0, "running", GenerationJobMessages.Running, mode, ct).ConfigureAwait(false);
                 // re-saving renews the lease across a long render, and a false means another worker has it
                 if (!await ctx.SaveCheckpointAsync(at.ToJson(), ct).ConfigureAwait(false))
@@ -308,11 +338,12 @@ internal sealed class GenerationJobEngine(
     private sealed record Produced(MediaResponse Response, string ProviderId, string OperationId, bool Queued);
 
     /// <summary>Where the job is — exactly one of three shapes, and <see cref="Parse"/> accepts no other: a stage
-    /// SUBMITTED (its operation and the backend that issued it), a stage READY to run (the one artifact it
+    /// SUBMITTED (its operation, the backend that issued it and when, which
+    /// <see cref="GenerationPipelineJobOptions.MaxPollDuration"/> counts from), a stage READY to run (the one artifact it
     /// chains; never stage 0, which needs no checkpoint), or a stage PRODUCED but not yet delivered.</summary>
     private sealed record PipelineCheckpoint(
         int Stage, string? ProviderId = null, string? OperationId = null,
-        IReadOnlyList<MediaArtifact>? Chained = null, Produced? Pending = null)
+        IReadOnlyList<MediaArtifact>? Chained = null, Produced? Pending = null, DateTimeOffset? SubmittedAt = null)
     {
         public string ToJson() => JsonExtract.WriteObject(writer =>
         {
@@ -321,6 +352,7 @@ internal sealed class GenerationJobEngine(
             {
                 writer.WriteString("providerId", ProviderId);
                 writer.WriteString("operationId", OperationId);
+                if (SubmittedAt is { } submitted) writer.WriteString("submittedAt", submitted);
             }
             else if (Pending is { } pending)
             {
@@ -361,7 +393,7 @@ internal sealed class GenerationJobEngine(
 
                 if (providerId is not null || operationId is not null)
                     return providerId is not null && operationId is not null && !hasArtifacts && !hasPending
-                        ? new PipelineCheckpoint(stage, providerId, operationId)
+                        ? new PipelineCheckpoint(stage, providerId, operationId, SubmittedAt: Submitted(root))
                         : null;
 
                 if (hasPending)   // a produced result is never empty: an Ok with nothing in it is not one
@@ -382,6 +414,14 @@ internal sealed class GenerationJobEngine(
                 return null;
             }
         }
+
+        /// <summary>When the stage was submitted, or null when the checkpoint does not say: written before the time
+        /// was recorded, or unreadable. Either polls unbounded rather than failing a job that holds a paid render.</summary>
+        private static DateTimeOffset? Submitted(JsonElement root) =>
+            root.TryGetProperty("submittedAt", out var at) && at.ValueKind == JsonValueKind.String &&
+            at.TryGetDateTimeOffset(out var submitted)
+                ? submitted
+                : null;
 
         private static void WriteArtifacts(Utf8JsonWriter writer, IReadOnlyList<MediaArtifact> artifacts)
         {

@@ -140,6 +140,117 @@ public class GenerationRenderJobEngineTests
         Assert.Equal(0, backend.SubmitCalls);                         // never "starts over" and pays again
     }
 
+    // ---- a deadline on polling: the backstop for a backend that never says a run is gone ---------------------
+
+    private static GenerationJobEngine Engine(FakeGenerationJobProvider backend, GenerationPipelineJobOptions? options,
+        TimeProvider time)
+    {
+        IModelProvider[] providers = [backend];
+        return new GenerationJobEngine(new MediaRouter(providers), providers, new Sink(), options, usage: null,
+            policy: null, time);
+    }
+
+    private static Task<JobOutcome> Run(GenerationJobEngine engine, Context ctx)
+    {
+        var render = GenerationRenderJob.Parse(Payload())!;
+        var job = new GenerationPipelineJob([new GenerationPipelineJobStage(render.Candidates, render.Request)]);
+        var built = ctx.Build(Payload());
+        return engine.RunAsync(built, job, built.Checkpoint, GenerationRenderJobHandler.JobType, GenerationJobEngine.Render,
+            CancellationToken.None);
+    }
+
+    [Fact]
+    public async Task A_poll_past_MaxPollDuration_fails_naming_the_operation()
+    {
+        var backend = new FakeGenerationJobProvider { Id = "video", PollStatus = QueuedOperationStatus.Running };
+        var time = new ManualTimeProvider();
+        var engine = Engine(backend, new GenerationPipelineJobOptions { MaxPollDuration = TimeSpan.FromHours(1) }, time);
+        var ctx = new Context();
+
+        Assert.Equal(JobOutcome.Kind.Poll, (await Run(engine, ctx)).Result);   // submitted
+        time.Advance(TimeSpan.FromMinutes(59));
+        Assert.Equal(JobOutcome.Kind.Poll, (await Run(engine, ctx)).Result);   // still inside the hour
+        time.Advance(TimeSpan.FromMinutes(2));
+        var outcome = await Run(engine, ctx);
+
+        Assert.Equal(JobOutcome.Kind.Fail, outcome.Result);
+        Assert.Contains("op-1", outcome.Error);
+        Assert.Contains(nameof(GenerationPipelineJobOptions.MaxPollDuration), outcome.Error);
+        Assert.Empty(backend.Cancelled);   // the backend is never cancelled for the host (its own call)
+    }
+
+    [Fact]
+    public async Task No_deadline_by_default()
+    {
+        var backend = new FakeGenerationJobProvider { Id = "video", PollStatus = QueuedOperationStatus.Running };
+        var time = new ManualTimeProvider();
+        var engine = Engine(backend, options: null, time);
+        var ctx = new Context();
+
+        await Run(engine, ctx);
+        time.Advance(TimeSpan.FromDays(365));
+
+        Assert.Equal(JobOutcome.Kind.Poll, (await Run(engine, ctx)).Result);
+    }
+
+    [Fact]
+    public async Task An_older_checkpoint_without_submittedAt_is_unbounded()
+    {
+        var backend = new FakeGenerationJobProvider { Id = "video", PollStatus = QueuedOperationStatus.Running };
+        var options = new GenerationPipelineJobOptions { MaxPollDuration = TimeSpan.FromMinutes(1) };
+        var time = new ManualTimeProvider();
+        var engine = Engine(backend, options, time);
+        var ctx = new Context { Checkpoint = """{"stage":0,"providerId":"video","operationId":"op-7"}""" };
+        time.Advance(TimeSpan.FromDays(2));
+
+        Assert.Equal(JobOutcome.Kind.Poll, (await Run(engine, ctx)).Result);
+        Assert.Equal(JobOutcome.Kind.Poll, (await Run(engine, ctx)).Result);   // and re-saving it adds no deadline
+
+        // the render handler's own oldest shape too
+        IModelProvider[] providers = [backend];
+        var handler = new GenerationRenderJobHandler(new MediaRouter(providers), providers, new Sink(), options);
+        var legacy = new Context { Checkpoint = """{"providerId":"video","operationId":"op-7"}""" };
+        Assert.Equal(JobOutcome.Kind.Poll, (await handler.HandleAsync(legacy.Build(Payload()))).Result);
+    }
+
+    // ---- one bill per operation, whichever worker fetches it ------------------------------------------------
+
+    [Fact]
+    public async Task A_reclaimed_job_does_not_bill_the_operation_twice()
+    {
+        // worker A fetches and bills, then its lease is gone before its checkpoint lands; worker B resumes from the
+        // checkpoint the store kept (the operation), and fetches and bills the same render again
+        var backend = new FakeGenerationJobProvider { Id = "video", FetchCostUsd = 0.50 };
+        IModelProvider[] providers = [backend];
+        var usage = new InMemoryUsageTracker();
+        var sink = new Sink();
+        var handler = new GenerationRenderJobHandler(new MediaRouter(providers), providers, sink, usage: usage);
+        string? stored = null;
+        var refuse = false;
+        JobContext Worker() => new(Guid.NewGuid(), Payload(), stored, attempts: 1,
+            saveCheckpoint: (c, _) =>
+            {
+                if (refuse && c.Contains("pending", StringComparison.Ordinal)) return Task.FromResult(false);
+                stored = c;
+                return Task.FromResult(true);
+            },
+            reportProgress: (_, _, _, _) => Task.FromResult(true));
+
+        Assert.Equal(JobOutcome.Kind.Poll, (await handler.HandleAsync(Worker())).Result);
+        refuse = true;
+        var a = await handler.HandleAsync(Worker());
+        Assert.Equal(JobOutcome.Kind.Fail, a.Result);
+        Assert.Contains("lease lost", a.Error);
+        refuse = false;
+        var b = await handler.HandleAsync(Worker());
+
+        Assert.Equal(JobOutcome.Kind.Complete, b.Result);
+        Assert.Equal(1, backend.SubmitCalls);
+        Assert.Equal(0.50, (await usage.TotalAsync()).CostUsd, precision: 6);   // fetched twice, billed once
+        Assert.Equal(1, (await usage.TotalAsync()).Calls);
+        Assert.Single(sink.Received);
+    }
+
     [Fact]
     public async Task A_render_job_never_renders_inline_even_when_an_inline_backend_leads()
     {

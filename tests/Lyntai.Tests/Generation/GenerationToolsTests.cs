@@ -77,6 +77,40 @@ public class GenerationToolsTests
 
     private static JsonElement Json(string observation) => JsonDocument.Parse(observation).RootElement;
 
+    /// <summary>A model that calls <c>generate_fetch</c> twice fetched one render: the ledger records its cost once, and
+    /// the sink, keyed on the delivery's job id as <see cref="IGenerationArtifactSink"/> asks, replaces rather than
+    /// accumulates — so the id is the same for the same (backend, operation), and differs for another.</summary>
+    [Fact]
+    public async Task A_second_fetch_bills_once_and_redelivers_under_the_same_job_id()
+    {
+        var sink = new CollectingSink();
+        var backend = new FakeGenerationJobProvider { Id = "video", FetchCostUsd = 0.50 };
+        var services = new ServiceCollection();
+        services.AddLyntai(cfg =>
+        {
+            cfg.AddProvider(_ => backend);
+            cfg.UseDefaultMediaCandidates(["video"]);
+            cfg.AddMediaUsageBudget();
+            cfg.AddGenerationTools();
+        });
+        services.AddSingleton<IGenerationArtifactSink>(sink);
+        using var sp = services.BuildServiceProvider();
+        var usage = sp.GetRequiredService<Lyntai.Inference.Budgeting.IUsageTracker>();
+        var fetch = Tool(sp, "generate_fetch");
+
+        Assert.True(Json(await fetch.InvokeAsync("""{"backend":"video","operationId":"op-1"}""")).GetProperty("ok").GetBoolean());
+        Assert.True(Json(await fetch.InvokeAsync("""{"backend":"VIDEO","operationId":"op-1"}""")).GetProperty("ok").GetBoolean());
+        await fetch.InvokeAsync("""{"backend":"video","operationId":"op-2"}""");
+
+        var total = await usage.TotalAsync();
+        Assert.Equal(1.00, total.CostUsd, precision: 6);   // op-1 once, op-2 once
+        Assert.Equal(2, total.Calls);
+        Assert.Equal(3, sink.Received.Count);              // every fetch still delivers
+        Assert.Equal(sink.Received[0].JobId, sink.Received[1].JobId);
+        Assert.NotEqual(sink.Received[0].JobId, sink.Received[2].JobId);
+        Assert.NotEqual(Guid.Empty, sink.Received[0].JobId);
+    }
+
     [Fact]
     public void The_five_tools_register_into_the_shared_ITool_collection()
     {

@@ -21,7 +21,9 @@ public interface IGenerationArtifactSink
 }
 
 /// <summary>A completed render, handed to the app.</summary>
-/// <param name="JobId">The durable job that produced it — the app's correlation handle.</param>
+/// <param name="JobId">The durable job that produced it — the app's correlation handle. A render collected by
+/// <c>generate_fetch</c> has no job, and carries an id derived from its backend and operation instead: the same for
+/// every fetch of that render.</param>
 /// <param name="ProviderId">Which backend produced it (an operation id only means something to its issuer). For an
 /// INLINE render it is the backend <see cref="MediaResponse.ProviderId"/> names, empty when a custom
 /// <see cref="IMediaRouter"/> names none.</param>

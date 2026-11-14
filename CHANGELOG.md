@@ -67,6 +67,8 @@ every addition.
 
 ### Changed
 
+- **`generate_fetch` delivers under a job id derived from the backend and the operation** (**D371**), where it used a fresh `Guid`,
+  so a sink keyed on the job id replaces a redelivery instead of accumulating it.
 - **A NUL in stored text is U+FFFD on every backend, and Postgres now stores a lone surrogate** (**D359**). Through 3.5.3 SQLite kept
   U+0000, the in-process stores returned it, and Postgres refused it, as its driver also refused a lone surrogate the other backends
   stored as U+FFFD. The key-value, conversation, prompt, curated and memory stores now replace both at the write and the lookup on every
@@ -321,6 +323,13 @@ every addition.
 
 ### Added
 
+- **A durable generation job's backend render can be cancelled, and a queued stage can bound its polling** (**D369**, **D370**).
+  `GenerationJobCancellation.CancelAsync(queue, providers, jobId)` cancels the job, then asks the backend holding its submitted operation
+  to cancel it (cancelling the job alone still leaves the render running). `GenerationPipelineJobOptions.MaxPollDuration` (null,
+  unbounded, by default) fails a stage polled that long since its submission, naming the operation; a stage checkpointed by an earlier
+  build stays unbounded.
+- **`IIdempotentUsageTracker` records a spend once per key** (**D371**), with `PruneRecordKeysAsync` for the host; the in-memory,
+  SQLite and Postgres trackers implement it (new table `lyntai_usage_record_key`, migration `M202611151020_UsageRecordKey`).
 - **An MCP tool's image can reach the model** (**D354**). `McpToolset.FromClientAsync(client, new McpToolsetOptions { MaxImageBytes = … })`
   attaches each image block at or under the cap, and the tool loop hands the images to the model on one user turn after the turn's tool
   results (on the prompt protocol, on the observation's own turn). The line naming each block stays in the text, an image over the cap is
@@ -909,6 +918,12 @@ every addition.
 
 ### Fixed
 
+- **A ComfyUI render lost to a server restart no longer polls for ever** (**D369**). An empty history is read against `/queue`
+  (`ComfyUiOptions.QueuePath`), and a run in neither is `Failed`, naming the operation; an unanswered queue read still polls.
+- **ComfyUI's cancel no longer interrupts another caller's run** (**D370**). It deletes its own pending id from the queue, interrupts
+  only when its own id is running (sending `prompt_id`), and otherwise sends nothing.
+- **A queued render is billed once** (**D371**) when `generate_fetch` is called twice or a reclaimed job fetches it again, on a tracker
+  that records once per key; any other tracker still records every fetch.
 - **Postgres stores and matches a curated metadata value past about 2.7 KB** (**D360**), which the other backends always took.
   `M202611151010_CuratedMetaPrefixIndex` indexes `(key, left(value, 256))`, and a metadata match still compares the whole value. A key
   that long is still refused.

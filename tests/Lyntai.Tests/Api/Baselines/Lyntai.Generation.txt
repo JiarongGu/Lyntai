@@ -34,6 +34,7 @@ sealed class Lyntai.Generation.Providers.ComfyUiOptions
     Produces : IReadOnlyList<String> { get; set; }
     PromptIdField : String { get; set; }
     PromptPathOption : String { get; set; }
+    QueuePath : String { get; set; }
     StatusField : String { get; set; }
     StatusTextField : String { get; set; }
     SubmitPath : String { get; set; }

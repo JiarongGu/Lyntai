@@ -71,3 +71,43 @@ public class SqliteUsageReservationContractTests : UsageReservationContractFacts
     protected override IReservingUsageTracker NewTracker() => new SqliteUsageTracker(_db.Factory);
     public void Dispose() => _db.Dispose();
 }
+
+/// <summary>Every <see cref="IdempotentUsageContract"/> fact as a theory case, for each tracker that records once per
+/// key (<see cref="StoreContractSuite{TStore}"/>).</summary>
+public abstract class IdempotentUsageContractFacts : StoreContractSuite<IIdempotentUsageTracker>
+{
+    protected abstract IIdempotentUsageTracker NewTracker();
+    protected sealed override IIdempotentUsageTracker CreateStore(string fact) => NewTracker();
+
+    /// <summary>A fresh handle over the SAME store. InMemory returns the same instance.</summary>
+    protected virtual IIdempotentUsageTracker Reopen(IIdempotentUsageTracker tracker) => tracker;
+
+    [SkippableTheory, ContractFacts(typeof(IdempotentUsageContract))]
+    public Task Satisfies_the_contract(string fact) => RunAsync(typeof(IdempotentUsageContract), fact);
+
+    /// <summary>A key outlives the instance that wrote it, or a restarted worker would bill the render again.</summary>
+    [SkippableFact]
+    public async Task A_key_is_honoured_by_a_FRESH_handle_over_the_same_store()
+    {
+        var tracker = NewTracker();
+        var consumer = "keyed-" + Guid.NewGuid().ToString("N");   // unique: a store may be shared
+        await tracker.RecordOnceAsync(consumer, new ProviderUsage(CostUsd: 0.5), $"generation:video:{consumer}");
+
+        Assert.False(await Reopen(tracker).RecordOnceAsync(consumer, new ProviderUsage(CostUsd: 0.5), $"generation:video:{consumer}"));
+    }
+}
+
+/// <summary>The <see cref="IdempotentUsageContract"/> against the in-process default.</summary>
+public class InMemoryIdempotentUsageContractTests : IdempotentUsageContractFacts
+{
+    protected override IIdempotentUsageTracker NewTracker() => new InMemoryUsageTracker();
+}
+
+/// <summary>The <see cref="IdempotentUsageContract"/> against SQLite over a per-test temp db.</summary>
+public class SqliteIdempotentUsageContractTests : IdempotentUsageContractFacts, IDisposable
+{
+    private readonly TempDb _db = new();
+    protected override IIdempotentUsageTracker NewTracker() => new SqliteUsageTracker(_db.Factory);
+    protected override IIdempotentUsageTracker Reopen(IIdempotentUsageTracker tracker) => new SqliteUsageTracker(_db.Factory);
+    public void Dispose() => _db.Dispose();
+}

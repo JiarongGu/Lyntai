@@ -101,6 +101,64 @@ public class ComfyUiLiveTests(ITestOutputHelper output)
         Assert.Equal((256, 256), (ReadBigEndian(png, 16), ReadBigEndian(png, 20)));
     }
 
+    /// <summary>The queue door against a real server: three long runs queued, so one executes and two wait. A cancel
+    /// of a pending id deletes it from the queue and a poll then finds it in neither queue nor history, which is
+    /// what a restart leaves too, so it is FAILED as lost; a cancel of an id the server does not hold interrupts
+    /// nothing; and a cancel of the running id stops that run alone.</summary>
+    [SkippableFact]
+    public async Task A_real_server_cancels_only_its_own_id_and_a_run_it_no_longer_holds_polls_as_lost()
+    {
+        Skip.If(string.IsNullOrWhiteSpace(BaseUrl) || string.IsNullOrWhiteSpace(Checkpoint),
+            "set LYNTAI_COMFYUI_URL to a running ComfyUI and LYNTAI_COMFYUI_CHECKPOINT to a checkpoint it holds");
+
+        var provider = new ComfyUiProvider(new ComfyUiOptions { BaseUrl = BaseUrl! }, () => new HttpClient());
+        var slow = Workflow(Checkpoint!).Replace("\"steps\": 4", "\"steps\": 400").Replace("256", "512");
+        var ids = new List<string>();
+        for (var i = 0; i < 3; i++)
+        {
+            var submitted = await provider.SubmitAsync(new MediaRequest
+            {
+                Kind = ProviderKinds.Image,
+                Options = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase) { ["workflow"] = slow },
+            });
+            Assert.True(submitted.Status == QueuedOperationStatus.Queued, submitted.Detail);
+            ids.Add(submitted.Id);
+        }
+        var (first, second, third) = (ids[0], ids[1], ids[2]);
+
+        try
+        {
+            var deadline = DateTime.UtcNow + TimeSpan.FromMinutes(2);   // the first run may load the checkpoint
+            QueuedOperation polled;
+            while ((polled = await provider.PollAsync(first)).Detail != "running" && DateTime.UtcNow < deadline)
+                await Task.Delay(500);
+            Assert.Equal("running", polled.Detail);
+            Assert.Equal("queued", (await provider.PollAsync(third)).Detail);
+
+            var deleted = await provider.CancelAsync(third);
+            Assert.True(deleted.Status == QueuedOperationStatus.Cancelled, deleted.Detail);
+            var lost = await provider.PollAsync(third);
+            output.WriteLine($"deleted pending run polls: {lost.Status} — {lost.Detail}");
+            Assert.Equal(QueuedOperationStatus.Failed, lost.Status);
+
+            var stranger = await provider.CancelAsync(Guid.NewGuid().ToString());
+            Assert.NotEqual(QueuedOperationStatus.Cancelled, stranger.Status);
+            Assert.Equal("running", (await provider.PollAsync(first)).Detail);   // another caller's cancel spared it
+
+            var interrupted = await provider.CancelAsync(first);
+            Assert.True(interrupted.Status == QueuedOperationStatus.Cancelled, interrupted.Detail);
+            deadline = DateTime.UtcNow + TimeSpan.FromMinutes(1);
+            while ((polled = await provider.PollAsync(first)).Status == QueuedOperationStatus.Running && DateTime.UtcNow < deadline)
+                await Task.Delay(500);
+            output.WriteLine($"interrupted run polls: {polled.Status} — {polled.Detail}");
+            Assert.Equal(QueuedOperationStatus.Failed, polled.Status);
+        }
+        finally
+        {
+            foreach (var id in ids) await provider.CancelAsync(id);   // leave the server's queue as it was found
+        }
+    }
+
     /// <summary>The same SD graph, batched to 8 frames and encoded to MP4 by the CORE CreateVideo/SaveVideo
     /// nodes. No video MODEL is involved, deliberately: the provider never sees a model — only the history
     /// document — and the video-file SHAPE of that document (which collection a video lands under, its

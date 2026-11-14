@@ -950,6 +950,98 @@ public class ComfyUiProviderTests
         Assert.Equal(1, operation.Progress);
     }
 
+    // ---- a run lost to a restart: ComfyUI keeps its queue and history in memory ----------------------------
+
+    /// <summary>A <c>/queue</c> answer in the measured shape: each item <c>[number, prompt_id, prompt, extra_data,
+    /// outputs_to_execute]</c>.</summary>
+    private static string Queue(string[]? running = null, string[]? pending = null)
+    {
+        static string Items(string[]? ids) =>
+            string.Join(",", (ids ?? []).Select((id, i) => $$"""[{{i}},"{{id}}",{},{"client_id":"c"},["9"]]"""));
+        return $$"""{"queue_running":[{{Items(running)}}],"queue_pending":[{{Items(pending)}}]}""";
+    }
+
+    private const string Finished = """
+        {"abc-123":{"status":{"completed":true},"outputs":{"9":{"images":[{"filename":"out.png","subfolder":"","type":"output"}]}}}}
+        """;
+
+    [Fact]
+    public async Task An_id_in_neither_queue_nor_history_is_failed_as_lost()
+    {
+        // a restart empties both, so an empty history read as "not landed yet" polled for ever
+        var (provider, http) = Provider();
+        http.Enqueue(HttpStatusCode.OK, "{}").Enqueue(HttpStatusCode.OK, Queue(running: ["other"])).Enqueue(HttpStatusCode.OK, "{}");
+
+        var operation = await provider.PollAsync("abc-123");
+
+        Assert.Equal(QueuedOperationStatus.Failed, operation.Status);
+        Assert.Contains("abc-123", operation.Detail);
+        Assert.Contains("restart", operation.Detail);
+        Assert.Equal(["http://127.0.0.1:8188/history/abc-123", "http://127.0.0.1:8188/queue", "http://127.0.0.1:8188/history/abc-123"],
+            http.Requests.Select(r => r.Uri?.ToString()));
+    }
+
+    [Theory]
+    [InlineData("running")]
+    [InlineData("pending")]
+    public async Task An_id_still_queued_is_running(string where)
+    {
+        var (provider, http) = Provider();
+        http.Enqueue(HttpStatusCode.OK, "{}").Enqueue(HttpStatusCode.OK, where == "running"
+            ? Queue(running: ["abc-123"], pending: ["later"])
+            : Queue(running: ["other"], pending: ["first", "abc-123"]));
+
+        var operation = await provider.PollAsync("abc-123");
+
+        Assert.Equal(QueuedOperationStatus.Running, operation.Status);
+        Assert.Equal(2, http.Requests.Count);   // history, then the queue: no second history read
+    }
+
+    [Fact]
+    public async Task A_run_that_lands_between_reads_succeeds()
+    {
+        // it left the queue after the first history read and was in history by the second
+        var (provider, http) = Provider();
+        http.Enqueue(HttpStatusCode.OK, "{}").Enqueue(HttpStatusCode.OK, Queue()).Enqueue(HttpStatusCode.OK, Finished);
+
+        var operation = await provider.PollAsync("abc-123");
+
+        Assert.Equal(QueuedOperationStatus.Succeeded, operation.Status);
+    }
+
+    /// <summary>No answer is not a failure: a queue read that errs, never arrives or comes back in a shape this
+    /// build does not know says nothing about the run, so it stays running and the history is not read again.</summary>
+    [Theory]
+    [InlineData("500")]
+    [InlineData("unreachable")]
+    [InlineData("unrecognised")]
+    public async Task An_unanswered_queue_read_is_still_running(string answer)
+    {
+        var (provider, http) = Provider();
+        http.Enqueue(HttpStatusCode.OK, "{}");
+        if (answer == "500") http.Enqueue(HttpStatusCode.InternalServerError, "{}");
+        else if (answer == "unreachable")
+            http.Enqueue(_ => throw new HttpRequestException(HttpRequestError.ConnectionError, "connection refused"));
+        else http.Enqueue(HttpStatusCode.OK, """{"queue_running":[]}""");
+
+        var operation = await provider.PollAsync("abc-123");
+
+        Assert.Equal(QueuedOperationStatus.Running, operation.Status);
+        Assert.Equal(2, http.Requests.Count);
+    }
+
+    [Fact]
+    public async Task A_blank_QueuePath_turns_the_check_off_and_an_empty_history_is_running()
+    {
+        var (provider, http) = Provider(new ComfyUiOptions { BaseUrl = "http://127.0.0.1:8188", QueuePath = " " });
+        http.Enqueue(HttpStatusCode.OK, "{}");
+
+        var operation = await provider.PollAsync("abc-123");
+
+        Assert.Equal(QueuedOperationStatus.Running, operation.Status);
+        Assert.Single(http.Requests);
+    }
+
     // ---- a run that fails DURING execution: measured on 0.36.0 (a GLB with a node and no mesh) ------------
 
     /// <summary>The history entry of a graph that raised at run time, in the shape measured. The traceback and
@@ -1090,16 +1182,59 @@ public class ComfyUiProviderTests
         Assert.Contains("not finished", result.Detail);
     }
 
+    // ---- a cancel reaches only its own id: ComfyUI's bare /interrupt stops whatever is executing ------------
+
     [Fact]
-    public async Task Cancelling_interrupts_the_running_job()
+    public async Task Cancel_of_a_pending_id_never_interrupts()
     {
         var (provider, http) = Provider();
-        http.Enqueue(HttpStatusCode.OK, "{}");
+        http.Enqueue(HttpStatusCode.OK, Queue(running: ["other"], pending: ["abc-123"])).Enqueue(HttpStatusCode.OK, "");
 
         var operation = await provider.CancelAsync("abc-123");
 
         Assert.Equal(QueuedOperationStatus.Cancelled, operation.Status);
-        Assert.Equal("http://127.0.0.1:8188/interrupt", http.Requests[0].Uri?.ToString());
+        Assert.Equal(["http://127.0.0.1:8188/queue", "http://127.0.0.1:8188/queue"], http.Requests.Select(r => r.Uri?.ToString()));
+        Assert.Equal("""{"delete":["abc-123"]}""", http.Requests[1].Body);   // removed from the queue, by id
+    }
+
+    [Fact]
+    public async Task Cancel_interrupts_only_its_own_running_id()
+    {
+        var (provider, http) = Provider();
+        http.Enqueue(HttpStatusCode.OK, Queue(running: ["abc-123"], pending: ["other"])).Enqueue(HttpStatusCode.OK, "");
+
+        var operation = await provider.CancelAsync("abc-123");
+
+        Assert.Equal(QueuedOperationStatus.Cancelled, operation.Status);
+        Assert.Equal("http://127.0.0.1:8188/interrupt", http.Requests[1].Uri?.ToString());
+        // a server that targets the interrupt checks the id again, so a run that started in between is spared
+        Assert.Equal("""{"prompt_id":"abc-123"}""", http.Requests[1].Body);
+    }
+
+    [Fact]
+    public async Task Cancel_of_an_id_running_elsewhere_interrupts_nothing()
+    {
+        // another tenant's run is executing and this id is in neither list: an interrupt would kill THEIR run
+        var (provider, http) = Provider();
+        http.Enqueue(HttpStatusCode.OK, Queue(running: ["other"], pending: ["another"]));
+
+        var operation = await provider.CancelAsync("abc-123");
+
+        Assert.NotEqual(QueuedOperationStatus.Cancelled, operation.Status);
+        Assert.Contains("not running", operation.Detail);
+        Assert.Single(http.Requests);   // the queue read, and nothing sent
+    }
+
+    [Fact]
+    public async Task A_cancel_whose_queue_read_goes_unanswered_sends_nothing()
+    {
+        var (provider, http) = Provider();
+        http.Enqueue(HttpStatusCode.InternalServerError, "{}");
+
+        var operation = await provider.CancelAsync("abc-123");
+
+        Assert.Equal(QueuedOperationStatus.Running, operation.Status);
+        Assert.Single(http.Requests);
     }
 
     [Fact]
@@ -1138,8 +1273,10 @@ public class ComfyUiProviderTests
     [Theory]
     [InlineData("submit", "http://127.0.0.1:8188/api/prompt")]
     [InlineData("poll", "http://127.0.0.1:8188/api/history/abc-123")]
+    [InlineData("poll-queue", "http://127.0.0.1:8188/api/queue")]
     [InlineData("fetch", "http://127.0.0.1:8188/api/view?")]
-    [InlineData("cancel", "http://127.0.0.1:8188/api/interrupt")]
+    [InlineData("cancel", "http://127.0.0.1:8188/api/queue")]
+    [InlineData("interrupt", "http://127.0.0.1:8188/api/interrupt")]
     [InlineData("probe", "http://127.0.0.1:8188/api/system_stats")]
     public async Task Every_endpoint_path_is_overridable(string door, string expected)
     {
@@ -1148,6 +1285,7 @@ public class ComfyUiProviderTests
             BaseUrl = "http://127.0.0.1:8188",
             SubmitPath = "api/prompt",
             HistoryPath = "api/history",
+            QueuePath = "api/queue",
             ViewPath = "api/view",
             InterruptPath = "api/interrupt",
             SystemStatsPath = "api/system_stats",
@@ -1156,25 +1294,31 @@ public class ComfyUiProviderTests
         {
             "submit" => """{"prompt_id":"x"}""",
             "poll" or "fetch" => """{"abc-123":{"outputs":{"9":{"images":[{"filename":"out.png","subfolder":"","type":"output"}]}}}}""",
+            "poll-queue" => "{}",
+            "interrupt" => Queue(running: ["abc-123"]),
             "probe" => """{"system":{"comfyui_version":"0.3.40"}}""",
             _ => "{}",
         });
+        if (door == "poll-queue") http.Enqueue(HttpStatusCode.OK, Queue(running: ["abc-123"]));
+        if (door == "interrupt") http.Enqueue(HttpStatusCode.OK, "");
 
         var used = door switch
         {
             "submit" => await Sent(provider.SubmitAsync(Ask())),
             "poll" => await Sent(provider.PollAsync("abc-123")),
+            "poll-queue" => await Sent(provider.PollAsync("abc-123"), at: 1),
             "fetch" => Assert.Single((await provider.FetchAsync("abc-123")).Artifacts).Uri,   // the VIEW path
             "cancel" => await Sent(provider.CancelAsync("abc-123")),
+            "interrupt" => await Sent(provider.CancelAsync("abc-123"), at: 1),
             _ => await Sent(provider.ProbeAsync()),
         };
 
         Assert.StartsWith(expected, used, StringComparison.Ordinal);
 
-        async Task<string?> Sent(Task call)
+        async Task<string?> Sent(Task call, int at = 0)
         {
             await call;
-            return http.Requests[0].Uri?.ToString();
+            return http.Requests[at].Uri?.ToString();
         }
     }
 

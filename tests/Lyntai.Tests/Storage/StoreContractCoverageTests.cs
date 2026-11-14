@@ -22,6 +22,7 @@ public class StoreContractCoverageTests
         typeof(IKeyValueStore), typeof(IConversationStore), typeof(IMemoryStore), typeof(IScoreStore),
         typeof(ITraceStore), typeof(IPromptVersionStore), typeof(IJobStore), typeof(ICuratedMemoryStore),
         typeof(IVectorStore), typeof(IResponseCache), typeof(IUsageTracker), typeof(IReservingUsageTracker),
+        typeof(IIdempotentUsageTracker),
     ];
 
     /// <summary>Shipped implementations that are not a backend of their own, by full name, with the reason. An
@@ -105,7 +106,8 @@ public class StoreContractCoverageTests
         foreach (var (suiteBase, store, contract) in SuiteBases())
         {
             var suites = ConcreteSuites(suiteBase).Select(s => s.Name).ToList();
-            var noun = store.Name[1..].Replace("Reserving", string.Empty, StringComparison.Ordinal);
+            var noun = store.Name[1..].Replace("Reserving", string.Empty, StringComparison.Ordinal)
+                .Replace("Idempotent", string.Empty, StringComparison.Ordinal);
             foreach (var impl in shipped.Where(t => store.IsAssignableFrom(t)))
             {
                 if (NotABackend.ContainsKey(impl.FullName!)) { exempted.Add(impl.FullName!); continue; }

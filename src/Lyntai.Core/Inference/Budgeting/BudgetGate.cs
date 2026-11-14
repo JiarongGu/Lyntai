@@ -81,14 +81,20 @@ internal static class BudgetGate
         return new BudgetAdmission(reason, tracker, consumer, null, null);
     }
 
-    /// <summary>Record what a render reported costing into the ledger, as a cost-only entry
-    /// (<see cref="MediaUsage.ToProviderUsage"/>) — the one place generation spend maps onto the ledger. A render
-    /// that reported no positive cost records nothing.</summary>
-    internal static ValueTask RecordCostAsync(
-        IUsageTracker tracker, string consumer, MediaUsage? usage, CancellationToken ct = default) =>
-        usage is { CostUsd: > 0 }
-            ? tracker.RecordAsync(consumer, usage.ToProviderUsage(), ct)
-            : ValueTask.CompletedTask;
+    /// <summary>Record what a queued render reported costing into the ledger, as a cost-only entry
+    /// (<see cref="MediaUsage.ToProviderUsage"/>) — the one place a fetched render's spend maps onto the ledger. A
+    /// render that reported no positive cost records nothing. A render is fetched again by a reclaimed job or a second
+    /// <c>generate_fetch</c>, so it is named by <paramref name="key"/> and recorded once when the tracker can
+    /// (<see cref="IIdempotentUsageTracker"/>), and on every report when it cannot, which over-counts.</summary>
+    internal static async ValueTask RecordCostAsync(
+        IUsageTracker tracker, string consumer, MediaUsage? usage, string key, CancellationToken ct = default)
+    {
+        if (usage is not { CostUsd: > 0 }) return;
+        if (tracker is IIdempotentUsageTracker once)
+            await once.RecordOnceAsync(consumer, usage.ToProviderUsage(), key, ct).ConfigureAwait(false);
+        else
+            await tracker.RecordAsync(consumer, usage.ToProviderUsage(), ct).ConfigureAwait(false);
+    }
 
     private static string Refuse(string label, double cap, ILogger logger)
     {

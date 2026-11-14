@@ -338,6 +338,12 @@ CREATE TABLE lyntai_usage (
     calls         INTEGER NOT NULL DEFAULT 0
 );
 
+-- table lyntai_usage_record_key
+CREATE TABLE lyntai_usage_record_key (
+    record_key  TEXT PRIMARY KEY,
+    recorded_at TEXT NOT NULL
+);
+
 -- table lyntai_usage_reservation
 CREATE TABLE lyntai_usage_reservation (
     id            TEXT PRIMARY KEY,

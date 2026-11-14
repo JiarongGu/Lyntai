@@ -438,8 +438,11 @@ new decision overturns an old one, rewrite the old entry as a stub pointing here
 | [D366](#d366--a-receipt-expires-by-the-calling-engines-clock-on-every-store-2026-11-15) | 2026-11-15 | a receipt expires by the calling engine's clock on every store |
 | [D367](#d367--model2vec-drops-the-unknown-token-before-pooling-as-the-reference-does-with-an-opt-out-2026-11-15) | 2026-11-15 | Model2Vec drops the unknown token before pooling, as the reference does, with an opt-out |
 | [D368](#d368--a-llamasharp-contextsize-past-the-trained-context-is-refused-after-the-weights-load-before-any-native-context-2026-11-15) | 2026-11-15 | a LlamaSharp `ContextSize` past the trained context is refused after the weights load, before any… |
+| [D369](#d369--a-comfyui-run-in-neither-its-queue-nor-its-history-is-lost-and-a-queued-stage-may-bound-its-polling-2026-11-15) | 2026-11-15 | a ComfyUI run in neither its queue nor its history is lost, and a queued stage may bound its polling |
+| [D370](#d370--a-backend-render-is-cancelled-by-the-hosts-call-and-comfyuis-cancel-reaches-only-its-own-id-2026-11-15) | 2026-11-15 | a backend render is cancelled by the host's call, and ComfyUI's cancel reaches only its own id |
+| [D371](#d371--the-ledger-records-a-queued-renders-bill-once-per-operation-through-an-optional-capability-2026-11-15) | 2026-11-15 | the ledger records a queued render's bill once per operation, through an optional capability |
 
-**363 live decisions.** The rest are stubs — `D<n>` is a permanent identifier, so a number is never reused or renumbered (5): [D36](#d36--a-translation-between-two-verdict-taxonomies-gets-one-arm-per-member-gated-by-a-test-2026-08-05) → D136 · [D80](#d80--merged-into-d77-2026-08-16-folded-2026-08-17) → D77 · [D131](#d131--a-backends-produces-is-derived-from-its-configuration-so-a-modality-is-a-field-2026-09-14) → D133 · [D134](#d134--a-registration-names-the-backend-the-provider-suffix-is-gone-from-all-seventeen-2026-09-14) → D137 · [D145](#d145--the-microsoftextensionsai-module-is-a-bridge-not-a-provider-2026-09-15) → D146
+**366 live decisions.** The rest are stubs — `D<n>` is a permanent identifier, so a number is never reused or renumbered (5): [D36](#d36--a-translation-between-two-verdict-taxonomies-gets-one-arm-per-member-gated-by-a-test-2026-08-05) → D136 · [D80](#d80--merged-into-d77-2026-08-16-folded-2026-08-17) → D77 · [D131](#d131--a-backends-produces-is-derived-from-its-configuration-so-a-modality-is-a-field-2026-09-14) → D133 · [D134](#d134--a-registration-names-the-backend-the-provider-suffix-is-gone-from-all-seventeen-2026-09-14) → D137 · [D145](#d145--the-microsoftextensionsai-module-is-a-bridge-not-a-provider-2026-09-15) → D146
 
 <!-- index:end -->
 
@@ -8486,7 +8489,7 @@ recall and its write-back is already a silent skip).
 
 ## D333 — a transient fetch failure retries the generation job (2026-11-09)
 
-**Standing.** A ruling on `TASKS.md` Part 491's first row, **the steward's under the owner's delegation, which the owner may reverse** — not the owner's words. Built; `TASKS.md` Part 491's ComfyUI-restart row stays the owner's (a new option).
+**Standing.** A ruling on `docs/task-archive.md` Part 517's first row, **the steward's under the owner's delegation, which the owner may reverse** — not the owner's words. Built; `docs/task-archive.md` Part 517's ComfyUI-restart row stays the owner's (a new option).
 
 **Decided.** When `FetchAsync` answers `Timeout` or `RateLimited` for an operation the checkpoint holds, `GenerationJobEngine` returns `JobOutcome.Retry()`. The job's own attempts bound it, after which the runner dead-letters it, and a dead job can be replayed; the checkpoint still holds the operation, so the next run polls and fetches the same render, bills and delivers once. Every other fetch failure still fails the job.
 
@@ -8498,7 +8501,7 @@ recall and its write-back is already a silent skip).
 
 ## D334 — `generate_backends` lists only providers that produce image, video, audio or 3d (2026-11-09)
 
-**Standing.** A ruling on `TASKS.md` Part 491's fifth row, **the steward's under the owner's delegation, which the owner may reverse** — not the owner's words. Built.
+**Standing.** A ruling on `docs/task-archive.md` Part 517's fifth row, **the steward's under the owner's delegation, which the owner may reverse** — not the owner's words. Built.
 
 **Decided.** `GenerationBackendsTool` filters the registered providers to those whose `Produces` holds an image, video, audio or 3d kind before it probes, so a chat, embedding or rerank provider is neither listed nor probed.
 
@@ -8510,7 +8513,7 @@ recall and its write-back is already a silent skip).
 
 ## D335 — ComfyUI's `temp` outputs yield to a saved one (2026-11-09)
 
-**Standing.** A ruling on `TASKS.md` Part 491's sixth row, **the steward's under the owner's delegation, which the owner may reverse** — not the owner's words. Built.
+**Standing.** A ruling on `docs/task-archive.md` Part 517's sixth row, **the steward's under the owner's delegation, which the owner may reverse** — not the owner's words. Built.
 
 **Decided.** `ComfyUiProvider`'s output walk drops files of `type: "temp"` when the run saved anything (`output` or any other type) and keeps them when previews are all it made.
 
@@ -8915,3 +8918,39 @@ recall and its write-back is already a silent skip).
 **Rejected.** Leaving it to the host (an abort no verdict answers). Clamping with a warning (it runs a configuration the host did not write). Probing a context's `NativeHandle.IsInvalid` (a second KV-cache allocation per load, and it does not cover the context the executor builds per call).
 
 **Re-opens** when a host needs a context past the trained one (16384 ran on the 8192 model and is now refused), or LLamaSharp throws for a failed context.
+
+## D369 — a ComfyUI run in neither its queue nor its history is lost, and a queued stage may bound its polling (2026-11-15)
+
+**Standing.** A ruling on a row closed as `docs/task-archive.md` Part 530 (a run lost to a restart), read by the agent that built it with a Fable design agent; the owner may reverse it. Built, and run once against a real ComfyUI 0.36.0.
+
+**Decided.** When `/history/{id}` holds nothing, `ComfyUiProvider` reads `/queue` (`ComfyUiOptions.QueuePath`; blank turns it off): an id running or pending is `Running`, and an id in neither has the history read once more in the same call and, still absent, is `Failed`, naming the operation and a likely restart. A queue read that fails, goes unanswered or comes back in a shape the build does not know is `Running`. `GenerationPipelineJobOptions.MaxPollDuration` (null, unbounded, by default) fails a stage still Queued or Running past it, counted from a `submittedAt` the engine checkpoints; a checkpoint without one is unbounded, and reaching it cancels nothing.
+
+**Why.** ComfyUI keeps its queue and history in memory, so after a restart `{}` read as "not landed yet" and a durable job polled for ever; the re-read in one call closes the race of a run finishing between the two reads, with no state across workers.
+
+**Rejected.** Several confirming polls stored in the checkpoint (state for a race the re-read already closes). Reading an unanswered `/queue` as "in neither" (no answer is not a failure). A default deadline (only the host knows how long a render takes). Calling a lost run inconclusive (it is gone, not ambiguous).
+
+**Re-opens** when a ComfyUI build answers `/queue` in another shape (it then reads as unanswered and polling is unbounded again), or another backend is shown to forget runs.
+
+## D370 — a backend render is cancelled by the host's call, and ComfyUI's cancel reaches only its own id (2026-11-15)
+
+**Standing.** A ruling on a row closed as `docs/task-archive.md` Part 530 (cancelling the render), read by the agent that built it with a Fable design agent; the owner may reverse it. Built, and run once against a real ComfyUI 0.36.0.
+
+**Decided.** No job handler cancels a backend. `GenerationJobCancellation.CancelAsync(queue, providers, jobId)` cancels the job, then reads the submitted operation and its backend from the job's checkpoint (both generation job types, the older shape included) and returns that backend's `CancelAsync` answer, or null when no submitted operation is held. `ComfyUiProvider`'s cancel reads `/queue`: a pending id is deleted (`POST /queue {"delete":[id]}`), the running one interrupted with `{"prompt_id":id}`, and any other left alone and reported not running there; an unreadable queue sends nothing.
+
+**Why.** A job cancel flips the row between polls, when no handler runs, and a handler's token cannot tell a cancel from a shutdown, which must leave a resumable render alone. ComfyUI's bare `/interrupt` stops whichever run is executing, possibly another tenant's.
+
+**Rejected.** A best-effort cancel inside the engine (it almost never sees a cancel, and on its token it would kill renders a restart should resume). The bare interrupt. Documentation alone (the checkpoint is private, so a host cannot find the operation).
+
+**Re-opens** when the job runner can tell a cancel from a shutdown on a handler's token, or ComfyUI's per-job cancel endpoint is preferred over the queue-then-act pair.
+
+## D371 — the ledger records a queued render's bill once per operation, through an optional capability (2026-11-15)
+
+**Standing.** A ruling on a row closed as `docs/task-archive.md` Part 530 (the double bill), read by the agent that built it with a Fable design agent; the owner may reverse it. Built, the Postgres leg run.
+
+**Decided.** `IIdempotentUsageTracker : IUsageTracker` adds `RecordOnceAsync(consumer, usage, key)` and `PruneRecordKeysAsync(before)`; the key and the spend commit in one step, keys compare ordinally across all consumers and survive `ResetAsync`, and only the host prunes them. The in-memory, SQLite and Postgres trackers implement it (`lyntai_usage_record_key`, `M202611151020_UsageRecordKey`). The job engine and `generate_fetch` key a bill `generation:{backend}:{operation}` through the internal `BudgetGate`, which records every report on a tracker without the capability, and `generate_fetch` delivers under a GUID derived from that key.
+
+**Why.** `generate_fetch` billed every call and the engine billed before its checkpoint, so a second fetch or a reclaimed lease billed one render twice; tool memory cannot close either, and billing after the checkpoint would under-count.
+
+**Rejected.** The tool owning de-duplication (it cannot see the engine's bills). A member on `IUsageTracker` (every host tracker would break). Clearing keys on reset (a re-fetch after a window boundary would bill again). Automatic expiry (how long a key must live is how long the host lets an operation be fetched).
+
+**Re-opens** when a ledger needs keys per consumer, or a host's operations outlive any prune interval it can choose.

@@ -142,8 +142,10 @@ sealed class Lyntai.Storage.Sqlite.SqliteTraceStore
     SaveAsync(RunTrace trace, CancellationToken ct = default) : Task
 sealed class Lyntai.Storage.Sqlite.SqliteUsageTracker
     .ctor(IDbConnectionFactory factory)
+    PruneRecordKeysAsync(DateTimeOffset before, CancellationToken ct = default) : ValueTask<Int32>
     ReconcileAsync(UsageReservation reservation, ProviderUsage actual, CancellationToken ct = default) : ValueTask
     RecordAsync(String consumer, ProviderUsage usage, CancellationToken ct = default) : ValueTask
+    RecordOnceAsync(String consumer, ProviderUsage usage, String key, CancellationToken ct = default) : ValueTask<Boolean>
     ReserveAsync(UsageReservationRequest request, CancellationToken ct = default) : ValueTask<UsageReservationResult>
     ResetAsync(String consumer = null, CancellationToken ct = default) : ValueTask
     TotalAsync(String consumer = null, CancellationToken ct = default) : ValueTask<UsageTotals>

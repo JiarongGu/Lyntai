@@ -43,4 +43,24 @@ public static class UsageTrackerSql
 
     /// <summary>Release one hold, in the same transaction as the <see cref="Record"/> that replaces it.</summary>
     public const string Release = "DELETE FROM lyntai_usage_reservation WHERE id = @id";
+
+    /// <summary>Claim one spent key (<see cref="Lyntai.Inference.Budgeting.IIdempotentUsageTracker"/>): one row
+    /// affected when the key is new, none when it was spent before. Run in one transaction with the <see cref="Record"/>
+    /// that follows a claim, so a key never stands without its spend.</summary>
+    public const string ClaimKey = """
+        INSERT INTO lyntai_usage_record_key (record_key, recorded_at) VALUES (@key, @now)
+        ON CONFLICT (record_key) DO NOTHING
+        """;
+
+    /// <summary>Forget every key recorded before <c>@before</c>; the spend stays in <c>lyntai_usage</c>.</summary>
+    public const string PruneKeys = "DELETE FROM lyntai_usage_record_key WHERE recorded_at < @before";
+
+    /// <summary>The key as bound, refused when null or blank before any SQL runs: a blank key would name every
+    /// keyless caller's spend as one.</summary>
+    /// <param name="key">The key as the caller named it.</param>
+    public static string Key(string key)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(key);
+        return key;
+    }
 }

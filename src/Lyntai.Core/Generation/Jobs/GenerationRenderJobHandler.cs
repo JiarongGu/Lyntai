@@ -59,7 +59,7 @@ public sealed class GenerationRenderJobHandler(
 
     /// <summary>The checkpoint to resume from: an earlier release's <c>{providerId, operationId}</c> as the stage-0
     /// operation it names, anything else as written — the engine refuses what it cannot read.</summary>
-    private static string? Resumable(string? checkpoint)
+    internal static string? Resumable(string? checkpoint)
     {
         if (string.IsNullOrWhiteSpace(checkpoint)) return checkpoint;
         try

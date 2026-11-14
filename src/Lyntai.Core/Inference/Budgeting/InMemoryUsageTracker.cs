@@ -4,9 +4,10 @@ namespace Lyntai.Inference.Budgeting;
 /// <summary>A process-local <see cref="IUsageTracker"/>: per-consumer running totals (the global one is their sum, read fresh),
 /// guarded by a single lock (usage recording is low-frequency relative to the calls it meters); every
 /// member completes synchronously. It can reserve (<see cref="IReservingUsageTracker"/>): the check and the hold
-/// happen under that same lock, so a hard cap holds across every caller in this process. For spend that must survive a restart or be shared across processes,
-/// register your own <see cref="IUsageTracker"/> instead.</summary>
-public sealed class InMemoryUsageTracker : IReservingUsageTracker
+/// happen under that same lock, so a hard cap holds across every caller in this process. It records once per key
+/// (<see cref="IIdempotentUsageTracker"/>), the key and the spend under that lock too. For spend that must survive a
+/// restart or be shared across processes, register your own <see cref="IUsageTracker"/> instead.</summary>
+public sealed class InMemoryUsageTracker : IReservingUsageTracker, IIdempotentUsageTracker
 {
     private sealed class Totals { public long In, Out, Calls; public double Cost; }
 
@@ -17,11 +18,35 @@ public sealed class InMemoryUsageTracker : IReservingUsageTracker
     // TEXT PK) but AGGREGATE reads case-insensitively — totals agree across backends.
     private readonly Dictionary<string, Totals> _byConsumer = new(StringComparer.OrdinalIgnoreCase);
     private readonly Dictionary<string, UsageReservation> _holds = new(StringComparer.Ordinal);
+    private readonly Dictionary<string, DateTimeOffset> _keys = new(StringComparer.Ordinal);
 
     public ValueTask RecordAsync(string consumer, ProviderUsage usage, CancellationToken ct = default)
     {
         lock (_gate) RecordLocked(consumer, usage);
         return ValueTask.CompletedTask;
+    }
+
+    /// <inheritdoc/>
+    public ValueTask<bool> RecordOnceAsync(string consumer, ProviderUsage usage, string key, CancellationToken ct = default)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(key);
+        lock (_gate)
+        {
+            if (!_keys.TryAdd(key, DateTimeOffset.UtcNow)) return ValueTask.FromResult(false);
+            RecordLocked(consumer, usage);
+            return ValueTask.FromResult(true);
+        }
+    }
+
+    /// <inheritdoc/>
+    public ValueTask<int> PruneRecordKeysAsync(DateTimeOffset before, CancellationToken ct = default)
+    {
+        lock (_gate)
+        {
+            var stale = _keys.Where(k => k.Value < before).Select(k => k.Key).ToList();
+            foreach (var key in stale) _keys.Remove(key);
+            return ValueTask.FromResult(stale.Count);
+        }
     }
 
     private void RecordLocked(string consumer, ProviderUsage usage)

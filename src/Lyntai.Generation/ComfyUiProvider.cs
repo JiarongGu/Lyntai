@@ -32,10 +32,18 @@ public sealed class ComfyUiOptions
     /// <summary>Completed-run history, keyed by prompt id.</summary>
     public string HistoryPath { get; set; } = "history";
 
+    /// <summary>The server's queue: a GET lists the running and pending runs (<c>queue_running</c>,
+    /// <c>queue_pending</c>, each item <c>[number, prompt_id, …]</c>), a POST of <c>{"delete":[id]}</c> removes a
+    /// pending one. A poll reads it when the history holds nothing for the id, and a cancel reads it to act on that
+    /// id alone. Blank turns both off: an empty history then reads as still running, and a cancel sends
+    /// nothing.</summary>
+    public string QueuePath { get; set; } = "queue";
+
     /// <summary>Serves a produced file by filename/subfolder/type.</summary>
     public string ViewPath { get; set; } = "view";
 
-    /// <summary>Interrupts the running job.</summary>
+    /// <summary>Interrupts the running job. Sent only for an id the queue shows running, with
+    /// <c>{"prompt_id":id}</c>, which a server that targets interrupts checks again.</summary>
     public string InterruptPath { get; set; } = "interrupt";
 
     /// <summary>Server/version info — the free probe.</summary>
@@ -153,7 +161,7 @@ public sealed class ComfyUiOptions
 /// </summary>
 /// <remarks>
 /// <para><b>MEASURED against a live server</b> (ComfyUI 0.36.0) over image, video and mesh workflows:
-/// probe, submit, poll, fetch, interrupt and upload all answered on the documented paths, every response
+/// probe, submit, poll, fetch, queue, interrupt and upload all answered on the documented paths, every response
 /// field name was confirmed as shipped, and the view URI served what its history entry named — a rendered
 /// PNG, an MP4 a video-producing workflow filed under the collection called <c>images</c>, and a GLB filed
 /// under <c>3d</c> that chained, uploaded again, into a graph that rendered it
@@ -362,12 +370,13 @@ public sealed class ComfyUiProvider(
         }
     }
 
-    /// <summary>Reads the run's history entry. An EMPTY history means "not landed yet" — reporting that as a
-    /// failure would fail every run that simply hasn't finished. A history read that TIMES OUT, or that cannot
-    /// reach the server at all, is treated the same way, and for the same reason: no answer is not a failed
-    /// render, and reading it as terminal would abandon a run that is merely still going. A 4xx or an
-    /// unconfigured BaseUrl IS terminal — that id will never resolve, and polling it forever strands the
-    /// job.</summary>
+    /// <summary>Reads the run's history entry. An EMPTY history means the run has not landed yet, or that the
+    /// server no longer holds it: ComfyUI keeps its queue and history in memory, so a restart empties both. So the
+    /// queue (<see cref="ComfyUiOptions.QueuePath"/>) is read: an id it holds running or pending is Running, and an id
+    /// in neither has the history read once more, for a run that finished in between, before it is FAILED as lost.
+    /// A history or queue read that TIMES OUT, cannot reach the server, or answers a shape this build does not know
+    /// is Running: no answer is not a failed render. A 4xx or an unconfigured BaseUrl IS terminal — that id will
+    /// never resolve, and polling it forever strands the job.</summary>
     public Task<QueuedOperation> PollAsync(string operationId, CancellationToken ct = default) =>
         QueueCalls.PollGuard(options.Timeout, operationId, ct, token => PollCoreAsync(operationId, token));
 
@@ -375,8 +384,35 @@ public sealed class ComfyUiProvider(
     {
         var (body, failure, transport, _) = await HistoryAsync(operationId, ct).ConfigureAwait(false);
         if (failure is not null) return QueueCalls.PollFailure(operationId, failure, transport);
+        if (!HistoryLacks(body!, operationId) || string.IsNullOrWhiteSpace(options.QueuePath))
+            return Polled(body!, operationId);
 
-        var entry = Entry(body!, operationId);
+        using (var lease = HttpClientLease.From(httpFactory, disposeHttpClient))
+        {
+            var (place, unread) = await QueuePlaceAsync(lease.Client, operationId, ct).ConfigureAwait(false);
+            if (place != QueuePlace.Neither)
+                return new QueuedOperation(operationId, QueuedOperationStatus.Running, Detail: place switch
+                {
+                    QueuePlace.Running => "running",
+                    QueuePlace.Pending => "queued",
+                    _ => $"not in history yet, and the queue could not be read ({unread}) — still assumed queued or running",
+                });
+        }
+
+        // in neither: a run that finished between the two reads is in the history now
+        (body, failure, transport, _) = await HistoryAsync(operationId, ct).ConfigureAwait(false);
+        if (failure is not null) return QueueCalls.PollFailure(operationId, failure, transport);
+        return HistoryLacks(body!, operationId)
+            ? new QueuedOperation(operationId, QueuedOperationStatus.Failed,
+                Detail: $"operation {operationId} is in neither ComfyUI's queue nor its history at {Root}: the server " +
+                        "most likely restarted (it keeps both in memory), or the run was deleted from its queue")
+            : Polled(body!, operationId);
+    }
+
+    /// <summary>What a history document that holds the run says about it.</summary>
+    private QueuedOperation Polled(string body, string operationId)
+    {
+        var entry = Entry(body, operationId);
         if (ExecutionFailure(entry) is { } failed)
             return new QueuedOperation(operationId, QueuedOperationStatus.Failed, Detail: failed);
 
@@ -384,6 +420,53 @@ public sealed class ComfyUiProvider(
             ? new QueuedOperation(operationId, QueuedOperationStatus.Succeeded, Progress: 1)
             : new QueuedOperation(operationId, QueuedOperationStatus.Running,
                 Detail: "not in history yet — still queued or running");
+    }
+
+    /// <summary>Whether a history document is a JSON object holding no entry for the run — the one reading that
+    /// starts the lost-run check. An unparseable answer is not one: it says nothing about the run.</summary>
+    private static bool HistoryLacks(string body, string operationId)
+    {
+        if (!HttpArtifacts.TryParseObject(body, out var doc)) return false;
+        doc.Dispose();
+        return Entry(body, operationId) is null;
+    }
+
+    private enum QueuePlace { Unread, Running, Pending, Neither }
+
+    /// <summary>Where the queue holds the run. <see cref="QueuePlace.Unread"/>, with why, for an answer that is not
+    /// one: a failed or unanswered read, or a document without both lists or with an item whose id cannot be read,
+    /// since that item may be this run.</summary>
+    private async Task<(QueuePlace Place, string? Unread)> QueuePlaceAsync(
+        HttpClient http, string operationId, CancellationToken ct)
+    {
+        using var message = new HttpRequestMessage(HttpMethod.Get, Url(options.QueuePath));
+        var (body, failure, _, _) = await QueueCalls.SendAsync(http, message,
+            isTransport: _ => true, unreachable: Unreachable, ct).ConfigureAwait(false);
+        if (failure is not null) return (QueuePlace.Unread, failure);
+
+        try
+        {
+            using var doc = JsonDocument.Parse(body!);
+            var root = doc.RootElement;
+            if (root.ValueKind != JsonValueKind.Object ||
+                !root.TryGetProperty("queue_running", out var running) || running.ValueKind != JsonValueKind.Array ||
+                !root.TryGetProperty("queue_pending", out var pending) || pending.ValueKind != JsonValueKind.Array)
+                return (QueuePlace.Unread, "no queue_running and queue_pending lists");
+
+            foreach (var (list, place) in new[] { (running, QueuePlace.Running), (pending, QueuePlace.Pending) })
+                foreach (var item in list.EnumerateArray())
+                {
+                    if (item.ValueKind != JsonValueKind.Array || item.GetArrayLength() < 2 ||
+                        item[1].ValueKind != JsonValueKind.String)
+                        return (QueuePlace.Unread, "an item whose prompt id cannot be read");
+                    if (item[1].GetString() == operationId) return (place, null);
+                }
+            return (QueuePlace.Neither, null);
+        }
+        catch (JsonException ex)
+        {
+            return (QueuePlace.Unread, ex.Message);
+        }
     }
 
     /// <inheritdoc/>
@@ -414,23 +497,42 @@ public sealed class ComfyUiProvider(
                 $"operation {operationId} completed with no recognised outputs");
     }
 
-    /// <summary>Interrupts the RUNNING job. ComfyUI's interrupt is server-wide rather than per-id, so this
-    /// stops whatever is executing — documented here because it matters if a host queues several. Bounded by
-    /// <see cref="ComfyUiOptions.Timeout"/>; an interrupt that timed out may or may not have landed, so the run
-    /// is reported as still going rather than assumed stopped.</summary>
+    /// <summary>Stops THIS run and no other. ComfyUI's bare interrupt stops whatever is executing, which may be
+    /// another caller's run, so the queue (<see cref="ComfyUiOptions.QueuePath"/>) is read first: a pending id is
+    /// deleted from it, the running id is interrupted, and an id in neither is left alone and reported not running
+    /// there. A queue that cannot be read, or a blank <see cref="ComfyUiOptions.QueuePath"/>, sends nothing. Bounded by
+    /// <see cref="ComfyUiOptions.Timeout"/>; a cancel that timed out or was not sent reports the run still going
+    /// rather than assumed stopped.</summary>
     public Task<QueuedOperation> CancelAsync(string operationId, CancellationToken ct = default) =>
         QueueCalls.CancelGuard(options.Timeout, operationId, ct, token => CancelCoreAsync(operationId, token));
 
     private async Task<QueuedOperation> CancelCoreAsync(string operationId, CancellationToken ct)
     {
+        QueuedOperation NotSent(string why) =>
+            new(operationId, QueuedOperationStatus.Running, Detail: $"cancel not sent: {why}");
+
+        if (string.IsNullOrWhiteSpace(options.BaseUrl)) return NotSent("no BaseUrl configured");
+        if (string.IsNullOrWhiteSpace(options.QueuePath))
+            return NotSent("QueuePath is blank, so whether this run is the one executing cannot be read");
+
         using var lease = HttpClientLease.From(httpFactory, disposeHttpClient);
         var http = lease.Client;
+        var (place, unread) = await QueuePlaceAsync(http, operationId, ct).ConfigureAwait(false);
+        if (place == QueuePlace.Unread) return NotSent($"the queue could not be read ({unread})");
+        if (place == QueuePlace.Neither)
+            return NotSent($"operation {operationId} is not running or pending on this ComfyUI — it has finished, " +
+                           "or the server no longer holds it; poll it to learn which");
+
+        var (path, payload, said) = place == QueuePlace.Pending
+            ? (options.QueuePath, new JsonObject { ["delete"] = new JsonArray(operationId) },
+                "deleted from ComfyUI's pending queue")
+            : (options.InterruptPath, new JsonObject { ["prompt_id"] = operationId },
+                "interrupted: it was the run executing");
         try
         {
-            using var content = new StringContent("{}", Encoding.UTF8, "application/json");
-            using var response = await http.PostAsync(Url(options.InterruptPath), content, ct).ConfigureAwait(false);
-            return QueueCalls.CancelAnswered(operationId, response.StatusCode,
-                "interrupt sent (ComfyUI interrupts the RUNNING job, not this id specifically)");
+            using var content = new StringContent(payload.ToJsonString(), Encoding.UTF8, "application/json");
+            using var response = await http.PostAsync(Url(path), content, ct).ConfigureAwait(false);
+            return QueueCalls.CancelAnswered(operationId, response.StatusCode, said);
         }
         catch (OperationCanceledException) { throw; }
         catch (Exception ex)

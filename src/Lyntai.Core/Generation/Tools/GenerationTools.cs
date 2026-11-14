@@ -479,7 +479,10 @@ internal sealed class GenerationStatusTool(IEnumerable<IModelProvider> providers
 /// <see cref="Lyntai.Inference.IMediaRouter"/> — there is nothing left to route once an
 /// operation id exists — so it must record usage itself. A queue backend prices at FETCH, because that is
 /// the only point the total is known, which makes this the one place a submitted render's cost can be
-/// observed at all; <see cref="GenerationSubmitTool"/>'s cap check reads the total this adds to.</para></summary>
+/// observed at all; <see cref="GenerationSubmitTool"/>'s cap check reads the total this adds to.</para>
+/// <para>A model may fetch one render twice. The bill is keyed by (backend, operation), so a ledger that records once
+/// per key (<see cref="IIdempotentUsageTracker"/>) bills it once and one that cannot bills every fetch; the delivery
+/// carries a job id derived from the same pair, so a sink that replaces what a job id holds keeps one copy.</para></summary>
 /// <param name="providers">The registered backends; the tool resolves the one named in its arguments.</param>
 /// <param name="sink">Where artifacts are delivered, if the app registered one.</param>
 /// <param name="usage">Usage ledger (<see cref="IUsageTracker"/>). Null means nothing is
@@ -518,15 +521,20 @@ internal sealed class GenerationFetchTool(
         var result = await backend.FetchAsync(operationId, ct).ConfigureAwait(false);
         if (!result.IsOk) return GenerationToolJson.Error($"{result.Verdict}: {result.Detail}");
 
-        // bill BEFORE delivery: the money is spent either way, and a sink that throws would lose the record
+        // the backend as it registered, so a model's casing names the same render the job engine names
+        var registered = (backend as IModelProvider)?.Id ?? backendId;
+
+        // bill BEFORE delivery: the money is spent either way, and a sink that throws would lose the record. Once per
+        // operation where the ledger can: a model that fetches twice fetched one render.
         if (usage is not null)
-            await BudgetGate.RecordCostAsync(usage, Consumer, result.Usage, ct).ConfigureAwait(false);
+            await BudgetGate.RecordCostAsync(usage, Consumer, result.Usage,
+                QueuedRenderIdentity.SpendKey(registered, operationId), ct).ConfigureAwait(false);
 
         var delivered = false;
         if (sink is not null)
         {
-            await sink.ReceiveAsync(new GenerationArtifactDelivery(
-                Guid.NewGuid(), backendId, operationId, result.Artifacts, result.Usage), ct).ConfigureAwait(false);
+            await sink.ReceiveAsync(new GenerationArtifactDelivery(QueuedRenderIdentity.DeliveryJobId(registered, operationId),
+                backendId, operationId, result.Artifacts, result.Usage), ct).ConfigureAwait(false);
             delivered = true;
         }
 

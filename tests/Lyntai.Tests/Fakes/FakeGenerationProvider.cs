@@ -148,8 +148,18 @@ public sealed class FakeGenerationJobProvider : IModelProvider, IMediaJobProvide
             [new MediaArtifact("video/mp4", Uri: $"https://example.invalid/{operationId}.mp4")],
             new MediaUsage(Seconds: 5, CostUsd: FetchCostUsd)));
 
-    public Task<QueuedOperation> CancelAsync(string operationId, CancellationToken ct = default) =>
-        Task.FromResult(new QueuedOperation(operationId, QueuedOperationStatus.Cancelled));
+    /// <summary>Every operation id <see cref="CancelAsync"/> was asked to stop, in order.</summary>
+    public List<string> Cancelled { get; } = [];
+
+    /// <summary>Run inside <see cref="CancelAsync"/> — a test reads what had happened by then.</summary>
+    public Action? OnCancel { get; set; }
+
+    public Task<QueuedOperation> CancelAsync(string operationId, CancellationToken ct = default)
+    {
+        OnCancel?.Invoke();
+        Cancelled.Add(operationId);
+        return Task.FromResult(new QueuedOperation(operationId, QueuedOperationStatus.Cancelled, Detail: "fake cancel"));
+    }
 }
 
 /// <summary>A STREAMING backend: two content chunks, then a terminal completion.</summary>

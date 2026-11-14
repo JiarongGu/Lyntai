@@ -11,10 +11,38 @@ namespace Lyntai.Storage.Sqlite;
 /// budget isn't reset to zero every deploy). One row per consumer, incremented in place; totals are SUMs
 /// across rows. Fully async: <c>TotalAsync</c> is a PRE-CALL read on every budgeted request, so it must
 /// not block a threadpool thread inside the async front door. Can reserve (<see cref="IReservingUsageTracker"/>):
-/// holds live in <c>lyntai_usage_reservation</c>. Register with <c>UseSqliteUsageTracking()</c>.
+/// holds live in <c>lyntai_usage_reservation</c>. Records once per key (<see cref="IIdempotentUsageTracker"/>): spent
+/// keys live in <c>lyntai_usage_record_key</c> until the host prunes them. Register with <c>UseSqliteUsageTracking()</c>.
 /// </summary>
-public sealed class SqliteUsageTracker(IDbConnectionFactory factory) : IReservingUsageTracker
+public sealed class SqliteUsageTracker(IDbConnectionFactory factory) : IReservingUsageTracker, IIdempotentUsageTracker
 {
+    /// <inheritdoc/>
+    /// <remarks>The key and the spend commit together; the claim is the transaction's first statement, a write, so
+    /// a racing caller waits on the write lock and then finds the key taken.</remarks>
+    public async ValueTask<bool> RecordOnceAsync(string consumer, ProviderUsage usage, string key, CancellationToken ct = default)
+    {
+        var claimed = UsageTrackerSql.Key(key);
+        var folded = UsageTrackerSql.Consumer(consumer);
+        await using var conn = await factory.OpenAsync(ct).ConfigureAwait(false);
+        await using var tx = await conn.BeginTransactionAsync(IsolationLevel.Serializable, ct).ConfigureAwait(false);
+        var fresh = await conn.ExecuteAsync(new CommandDefinition(UsageTrackerSql.ClaimKey,
+            new { key = claimed, now = DateTimeOffset.UtcNow }, tx, cancellationToken: ct)).ConfigureAwait(false) == 1;
+        if (fresh)
+            await conn.ExecuteAsync(new CommandDefinition(UsageTrackerSql.Record,
+                new { consumer = folded, @in = usage.InputTokens, @out = usage.OutputTokens, cost = usage.CostUsd ?? 0 },
+                tx, cancellationToken: ct)).ConfigureAwait(false);
+        await tx.CommitAsync(ct).ConfigureAwait(false);
+        return fresh;
+    }
+
+    /// <inheritdoc/>
+    public async ValueTask<int> PruneRecordKeysAsync(DateTimeOffset before, CancellationToken ct = default)
+    {
+        await using var conn = await factory.OpenAsync(ct).ConfigureAwait(false);
+        return await conn.ExecuteAsync(new CommandDefinition(UsageTrackerSql.PruneKeys,
+            new { before }, cancellationToken: ct)).ConfigureAwait(false);
+    }
+
     public async ValueTask RecordAsync(string consumer, ProviderUsage usage, CancellationToken ct = default)
     {
         await using var conn = await factory.OpenAsync(ct).ConfigureAwait(false);

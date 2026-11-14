@@ -7214,3 +7214,15 @@ fail on Linux (Part 495).
 
 - `Model2VecProviderTests`, `LlamaSharpProviderLiveTests`, `AgentUsageSourceTests`
 - D367, D368, the changelog entries, the fix entry
+
+## Part 530 — `TASKS.md` Part 491: a ComfyUI run lost to a restart, a render cancelled by the host, a render billed once (2026-11-15)
+
+✅ done 2026-11-15 — **Outcome:** the Part's three decision-only rows ruled with a Fable design agent and built test first in a
+builder's worktree, against a real ComfyUI 0.36.0 once (its `/queue` shape, the per-id delete and `prompt_id` interrupt read there)
+and the Postgres leg. A run in neither queue nor history is `Failed`, and `MaxPollDuration` bounds a stage on the host's choice
+(**D369**). `GenerationJobCancellation.CancelAsync` asks the backend after the job, and ComfyUI's cancel reaches only its own id
+(**D370**). `IIdempotentUsageTracker` bills a queued render once per operation (**D371**, `M202611151020_UsageRecordKey`); the merge
+reconciled its migration count with Part 527's (23 on each backend). The Part is empty and leaves the backlog.
+
+- `ComfyUiProviderTests`, `ComfyUiLiveTests`, `GenerationJobCancellationTests`, `GenerationRenderJobEngineTests`, `IdempotentUsageContract`
+- D369 to D371, the changelog entries

@@ -25,6 +25,14 @@ public sealed record GenerationPipelineJobOptions
     /// than truncating it — a stage whose backend returns a URI carries no bytes, which is the fix the failure
     /// names.</para></summary>
     public long MaxCheckpointBytes { get; init; } = 4L * 1024 * 1024;
+
+    /// <summary>How long a QUEUED stage may poll, counted from its submission, before the job FAILS naming the
+    /// operation it holds. Null, the default, polls for as long as the backend says the run is going.
+    /// <para>The backstop for a backend that cannot tell a lost run from a slow one. Reaching it never cancels the
+    /// render: the backend may still hold it, and asking it to stop is the host's call
+    /// (<see cref="GenerationJobCancellation.CancelAsync"/>). A stage whose checkpoint records no submission time,
+    /// written before this existed, polls unbounded.</para></summary>
+    public TimeSpan? MaxPollDuration { get; init; }
 }
 
 /// <summary>Runs a generation PIPELINE as a durable job — ordered stages, each stage's artifact feeding the
@@ -41,7 +49,9 @@ public sealed record GenerationPipelineJobOptions
 /// re-submitted, and a stage's result is billed, checkpointed, THEN delivered, so a sink that throws gets it again
 /// with no second render, fetch or bill. What stays at-least-once: a crash between a submission returning and its
 /// operation id being saved (the resume submits again), a crash between a render returning and its checkpoint, and
-/// a result whose inline bytes exceed <see cref="GenerationPipelineJobOptions.MaxCheckpointBytes"/>.</para>
+/// a result whose inline bytes exceed <see cref="GenerationPipelineJobOptions.MaxCheckpointBytes"/>. A queued stage's
+/// bill is keyed by its operation, so a ledger that records once per key (<see cref="IIdempotentUsageTracker"/>) bills
+/// a render fetched again by a reclaiming worker once.</para>
 /// <para>Every failure names its stage from 1 and fails the job; a backend still working returns
 /// <see cref="JobOutcome.Poll"/>. <b>Using it:</b> <c>AddJobHandler&lt;GenerationPipelineJobHandler&gt;()</c>,
 /// then enqueue <see cref="JobType"/> with <see cref="GenerationPipelineJob.ToJson"/>. Why:

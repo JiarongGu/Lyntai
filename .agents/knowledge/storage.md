@@ -217,7 +217,7 @@ skipped). Use `dev.mjs new-migration` to get a unique monotonic number. **Backfi
 adds a structure** — a structure correct only for rows written after it shipped is a bug waiting for the
 first old row.
 
-**A fresh database applies 22 migrations on SQLite and 22 on POSTGRES, and the two sets differ,
+**A fresh database applies 23 migrations on SQLite and 23 on POSTGRES, and the two sets differ,
 deliberately:**
 `M202608152310_MemoryHeadlineSearch` adds a trigram index on `headline` so a recall can match an authored
 one without a sequential scan, and SQLite needs no counterpart because its FTS5 mirror has indexed
@@ -274,8 +274,9 @@ pgvector is not forced on consumers who never use semantic memory.
   consumer's own schema; the prefix keeps them from colliding.
 - **A SQLite `TEXT PRIMARY KEY` accepts NULL where Postgres refuses it** (`lyntai_message.id`, `lyntai_job.id`,
   `lyntai_response_cache.cache_key`, `lyntai_usage.consumer`, `lyntai_usage_reservation.id`,
-  `lyntai_memory_position.engine`). A store generates the key (the message, job and reservation ids) or refuses a
-  caller's null before the SQL (the cache key, the usage consumer, a graph write's engine); a new store binding a key
+  `lyntai_usage_record_key.record_key`, `lyntai_memory_position.engine`). A store generates the key (the message, job
+  and reservation ids) or refuses a caller's null before the SQL (the cache key, the usage consumer and record key, a
+  graph write's engine); a new store binding a key
   it did not generate does the same. The gap left is a NULL bound outside a store, and the table rebuild that would
   close it is the owner's (**D299**).
 - **`:memory:` is refused** by `SqliteConnectionFactory` and the migration runner: each connection would open its
