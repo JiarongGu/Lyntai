@@ -7104,3 +7104,17 @@ provider and its agent door and is refused before a spawn on the Claude ones, te
 
 - `tests/Lyntai.Tests/Providers/CodexCliProviderTests.cs`, `ClaudeCliAuthTests.cs`, `tests/Lyntai.Tests/Agents/AgentAuthSourceTests.cs`
 - D345, the changelog entry
+
+## Part 521 — the Claude CLI's refused key is in band: `TASKS.md` Part 495's empty-stderr row closed as unreachable, and the blocked rows re-checked (2026-11-15)
+
+✅ done 2026-11-15 — **Outcome: a refutation, nothing to build.** Recorded on 2.1.325 with an invalid key and an empty config home
+(nothing spent): the refusal is an assistant line flagged `error: authentication_failed` and an `is_error` result with
+`api_error_status` 401 under subtype `success`, on stdout, with stderr EMPTY and exit 1. The provider always runs stream-json, and both
+the one-shot provider (buffered and streamed) and the agent door already read it `AuthFailed` from the fields, so the row's "a line on
+stdout outside stream-json" does not occur; the capture is now a test. A second probe (one haiku turn, `--max-turns 1`, $0.006) showed
+`error_max_turns` paired with `is_error: true`, which makes Part 495's subtype row defence rather than repair.
+<br>**Re-checked, still blocked:** the Hugging Face route and the aggregators (no token or key here, the owner keeps both), MC8 (a
+person's labels and bar), AG50 and Part 481's limit row (Daoris: nothing recorded, every captured frame `allowed`), and Part 485,
+moved from decision-only to blocked because what it waits on is an account with room, which Codex's is not.
+
+- `tests/Lyntai.Tests/Providers/ClaudeRecordedAuthFailureTests.cs`

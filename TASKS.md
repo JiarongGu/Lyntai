@@ -15,53 +15,52 @@ LLM-ops layer (prompt registry, scoring, traces, memory). `AddLyntai(...)` and g
 
 <!-- open-items:begin — GENERATED. Edit the per-item `item:` markers, never this table. -->
 
-## Open items — 40 across 17 Parts: 3 startable, 5 blocked, 1 watch, 31 decision-only
+## Open items — 39 across 17 Parts: 3 startable, 7 blocked, 1 watch, 28 decision-only
 
 _Generated from the per-item `<!-- item: … -->` markers by `node devtools/dev.mjs check-backlog --write`._
 _Edit a marker, never this table — `verify` fails the moment the two disagree._
 
 | line | Part | item | state | waiting on |
 | ---: | ---: | --- | --- | --- |
-| 141 | 33 | GEN-VERIFY-FAL, the last line — the Hugging Face route | blocked · env | an hf_ token for the router route |
-| 182 | 75 | Decide what an aggregator's in-band `code` means | blocked · env+data | two or three real aggregators to measure an in-band code against |
-| 209 | 99 | `verify`'s test step intermittently fails EXACTLY 9 tests, and once aborted… | watch · data | the same nine tests to recur — the fix is unconfirmed as the cure, and a gr… |
-| 283 | 417 | MC8 — run the wrong-end instrument on an adjudicated corpus, with a bar wri… | blocked · decision+data | two reviewers' independent labels on a sample of the pairs, and a bar a per… |
-| 306 | 479 | The write tools let a model end, revive or demote an entry the approver nev… | decision-only | a ruling: whether the tool may state validity and a grade at all, or the re… |
-| 312 | 479 | A supersession whose successor is an entry that already ended leaves nothin… | decision-only | a ruling: may a restated claim revive an ended entry, or does the supersess… |
-| 316 | 479 | What the approver is shown is not all that is applied | decision-only | a ruling: which of by, at, validity and scope the request must carry, or a … |
-| 319 | 479 | A keyed end or confirmation's file is written before its receipt, so a cras… | decision-only | a ruling: accept and document the window (a guarded repeat then reads Chang… |
-| 323 | 479 | A host's `IMemoryViewCheck` is asked about an expansion's root only, not th… | decision-only | a ruling: whether the check also filters each neighbour an expansion return… |
-| 326 | 479 | A future `at` on an end or a confirmation sets `EndedReason` while recall s… | decision-only | a ruling: may an end or a failed check state an instant after now, or does … |
-| 328 | 479 | A receipt expires by the caller's clock and the purge runs on it | decision-only | a ruling: whether a receipt expires by the store's clock or the caller's (D… |
-| 339 | 481 | An HTTP agent turn can spend a second billed request the retry budget never… | decision-only | a ruling: whether the agent door turns the engine's resend off (the budget … |
-| 342 | 481 | A rejected limit is never cleared inside a turn | decision-only | a ruling: whether an allowed report clears an earlier rejection, which need… |
-| 345 | 481 | A wrapped agent session registration is never disposed | decision-only | a ruling: whether RetryingAgentSession becomes IAsyncDisposable and forward… |
-| 348 | 481 | A `Taken` resume repeats the system prompt | decision-only | a ruling: whether a resume drops SystemPrompt, which needs a measurement of… |
-| 358 | 483 | A retried or polled job leaves its partition's FIFO | decision-only | a ruling: whether a retrying or polling head blocks its partition, or the d… |
-| 367 | 485 | How long a quiet Codex step runs is unmeasured | decision-only | the owner's go-ahead to spend one real Codex turn on an account, then a run… |
-| 375 | 486 | A cache hit replays the original `Usage` | decision-only | a ruling: zero or strip Usage on a hit, or keep it and mark the reply as a … |
-| 377 | 486 | A stream's billed usage is dropped when the router turns an empty `Final` i… | decision-only | a ruling: carry the dropped usage onto the failure, or state that a failed … |
-| 385 | 487 | An image, audio or blob block in an MCP tool result reaches the model as a … | decision-only | a ruling: pass the block's bytes, or a link a host resolves, to the model (… |
-| 387 | 487 | A secret's ciphertext is not bound to its name | decision-only | a ruling on the threat model: bind the name as associated data (a stored-fo… |
-| 389 | 487 | Two processes over one store can each generate a master key | decision-only | a ruling: a compare-and-set on IKeyValueStore (an interface change) or a do… |
-| 397 | 488 | A trace step's `seq` is `INTEGER` on Postgres and 64-bit on SQLite | decision-only | a ruling: widen the column with a migration, which rewrites and locks the t… |
-| 399 | 488 | A NUL in stored text is refused on Postgres and stored elsewhere | decision-only | a ruling: strip, replace or refuse U+0000 in stored text (the same family a… |
-| 407 | 489 | `max_tokens` and a non-default `temperature` are sent to every OpenAI-shape… | decision-only | a ruling: a MaxTokensField option, which is a new public member; the doc on… |
-| 409 | 489 | A base URL whose version is not its last segment still gets `/v1` appended | decision-only | a ruling: a flag to use the base verbatim, which is a new public member |
-| 416 | 490 | `Model2VecProvider` embeds and counts an unknown token | decision-only | a ruling: skip the unknown id, which changes every vector already stored fr… |
-| 418 | 490 | A `ContextSize` past the model's trained context is not refused | decision-only | a ruling: refuse a ContextSize past the model's trained context (read from … |
-| 426 | 491 | A ComfyUI run lost to a server restart polls for ever | decision-only | a ruling: consult /queue and fail or call it inconclusive when the id is in… |
-| 428 | 491 | Cancelling a durable generation job does not cancel the backend render | decision-only | a ruling: a best-effort CancelAsync when a cancel is seen with an operation… |
-| 429 | 491 | `generate_fetch` bills and delivers again on every call, and the job engine… | decision-only | a ruling: whether the spend ledger or the tool owns de-duplication per (bac… |
-| 437 | 495 | A failed result's usage and cost are dropped | decision-only | a ruling: whether a Failed reply carries Usage, which the budget layer then… |
-| 438 | 495 | A result with a failing `subtype` and no `is_error: true` reads as an answer | decision-only | a measurement: run the real CLI with --max-turns 1 and see whether is_error… |
-| 439 | 495 | A non-zero exit with an empty stderr is `Failed` whatever stdout said | decision-only | a measurement and a ruling: whether the CLI prints such a line outside stre… |
-| 440 | 495 | The usage read's scratch folder is created with the default mode | blocked · env | a Unix run: the mode is not observable on Windows, so a test of the fix can… |
-| 448 | 496 | Postgres refuses a curated metadata value over about 2.7 KB, which the othe… | decision-only | a ruling among the three costs below: index md5(value) in a new Postgres mi… |
-| 458 | 518 | AG49 — a word that cuts into the running turn, on a kept run (A-LQ18) | startable |  |
-| 464 | 518 | AG50 — a kept run on `codex-acp` and dsh (A-LQ19) | blocked · data | Daoris's recorded Codex sitting and dsh probe frames, which its third reque… |
-| 466 | 518 | AG51 — a kept run on the Claude CLI with stdin held (A-LQ21) | startable |  |
-| 470 | 518 | AG52 — child sessions as a host's option (A-LQ24's second half) | startable |  |
+| 140 | 33 | GEN-VERIFY-FAL, the last line — the Hugging Face route | blocked · env | an hf_ token for the router route; re-checked 2026-11-15, none on this mach… |
+| 181 | 75 | Decide what an aggregator's in-band `code` means | blocked · env+data | two or three real aggregators to measure an in-band code against; re-checke… |
+| 208 | 99 | `verify`'s test step intermittently fails EXACTLY 9 tests, and once aborted… | watch · data | the same nine tests to recur — the fix is unconfirmed as the cure, and a gr… |
+| 282 | 417 | MC8 — run the wrong-end instrument on an adjudicated corpus, with a bar wri… | blocked · decision+data | two reviewers' independent labels on a sample of the pairs, and a bar a per… |
+| 305 | 479 | The write tools let a model end, revive or demote an entry the approver nev… | decision-only | a ruling: whether the tool may state validity and a grade at all, or the re… |
+| 311 | 479 | A supersession whose successor is an entry that already ended leaves nothin… | decision-only | a ruling: may a restated claim revive an ended entry, or does the supersess… |
+| 315 | 479 | What the approver is shown is not all that is applied | decision-only | a ruling: which of by, at, validity and scope the request must carry, or a … |
+| 318 | 479 | A keyed end or confirmation's file is written before its receipt, so a cras… | decision-only | a ruling: accept and document the window (a guarded repeat then reads Chang… |
+| 322 | 479 | A host's `IMemoryViewCheck` is asked about an expansion's root only, not th… | decision-only | a ruling: whether the check also filters each neighbour an expansion return… |
+| 325 | 479 | A future `at` on an end or a confirmation sets `EndedReason` while recall s… | decision-only | a ruling: may an end or a failed check state an instant after now, or does … |
+| 327 | 479 | A receipt expires by the caller's clock and the purge runs on it | decision-only | a ruling: whether a receipt expires by the store's clock or the caller's (D… |
+| 338 | 481 | An HTTP agent turn can spend a second billed request the retry budget never… | decision-only | a ruling: whether the agent door turns the engine's resend off (the budget … |
+| 341 | 481 | A rejected limit is never cleared inside a turn | blocked · data | a capture of the CLI sending a rejected rate_limit_event and then an allowe… |
+| 346 | 481 | A wrapped agent session registration is never disposed | decision-only | a ruling: whether RetryingAgentSession becomes IAsyncDisposable and forward… |
+| 349 | 481 | A `Taken` resume repeats the system prompt | decision-only | a ruling: whether a resume drops SystemPrompt, which needs a measurement of… |
+| 359 | 483 | A retried or polled job leaves its partition's FIFO | decision-only | a ruling: whether a retrying or polling head blocks its partition, or the d… |
+| 368 | 485 | How long a quiet Codex step runs is unmeasured | blocked · env | one real Codex turn on an account with room: re-checked 2026-11-15, the own… |
+| 380 | 486 | A cache hit replays the original `Usage` | decision-only | a ruling: zero or strip Usage on a hit, or keep it and mark the reply as a … |
+| 382 | 486 | A stream's billed usage is dropped when the router turns an empty `Final` i… | decision-only | a ruling: carry the dropped usage onto the failure, or state that a failed … |
+| 390 | 487 | An image, audio or blob block in an MCP tool result reaches the model as a … | decision-only | a ruling: pass the block's bytes, or a link a host resolves, to the model (… |
+| 392 | 487 | A secret's ciphertext is not bound to its name | decision-only | a ruling on the threat model: bind the name as associated data (a stored-fo… |
+| 394 | 487 | Two processes over one store can each generate a master key | decision-only | a ruling: a compare-and-set on IKeyValueStore (an interface change) or a do… |
+| 402 | 488 | A trace step's `seq` is `INTEGER` on Postgres and 64-bit on SQLite | decision-only | a ruling: widen the column with a migration, which rewrites and locks the t… |
+| 404 | 488 | A NUL in stored text is refused on Postgres and stored elsewhere | decision-only | a ruling: strip, replace or refuse U+0000 in stored text (the same family a… |
+| 412 | 489 | `max_tokens` and a non-default `temperature` are sent to every OpenAI-shape… | decision-only | a ruling: a MaxTokensField option, which is a new public member; the doc on… |
+| 414 | 489 | A base URL whose version is not its last segment still gets `/v1` appended | decision-only | a ruling: a flag to use the base verbatim, which is a new public member |
+| 421 | 490 | `Model2VecProvider` embeds and counts an unknown token | decision-only | a ruling: skip the unknown id, which changes every vector already stored fr… |
+| 423 | 490 | A `ContextSize` past the model's trained context is not refused | decision-only | a ruling: refuse a ContextSize past the model's trained context (read from … |
+| 431 | 491 | A ComfyUI run lost to a server restart polls for ever | decision-only | a ruling: consult /queue and fail or call it inconclusive when the id is in… |
+| 433 | 491 | Cancelling a durable generation job does not cancel the backend render | decision-only | a ruling: a best-effort CancelAsync when a cancel is seen with an operation… |
+| 434 | 491 | `generate_fetch` bills and delivers again on every call, and the job engine… | decision-only | a ruling: whether the spend ledger or the tool owns de-duplication per (bac… |
+| 442 | 495 | A failed result's usage and cost are dropped | decision-only | a ruling: whether a Failed reply carries Usage, which the budget layer then… |
+| 443 | 495 | A result with a failing `subtype` and no `is_error: true` reads as an answer | decision-only | a measurement: run the real CLI with --max-turns 1 and see whether is_error… |
+| 444 | 495 | The usage read's scratch folder is created with the default mode | blocked · env | a Unix run: the mode is not observable on Windows, so a test of the fix can… |
+| 452 | 496 | Postgres refuses a curated metadata value over about 2.7 KB, which the othe… | decision-only | a ruling among the three costs below: index md5(value) in a new Postgres mi… |
+| 462 | 518 | AG49 — a word that cuts into the running turn, on a kept run (A-LQ18) | startable |  |
+| 468 | 518 | AG50 — a kept run on `codex-acp` and dsh (A-LQ19) | blocked · data | Daoris's recorded Codex sitting and dsh probe frames; re-checked 2026-11-15… |
+| 470 | 518 | AG51 — a kept run on the Claude CLI with stdin held (A-LQ21) | startable |  |
+| 474 | 518 | AG52 — child sessions as a host's option (A-LQ24's second half) | startable |  |
 
 <!-- open-items:end -->
 
@@ -138,7 +137,7 @@ provider only ever reads the history document, and a core-node MP4 measures that
 The fal-first naming that once hid ComfyUI inside this list is recorded in
 `.agents/knowledge/pitfalls.md`._
 
-- [ ] **GEN-VERIFY-FAL, the last line — the Hugging Face route**, so it is <!-- item: state=blocked kind=env needs="an hf_ token for the router route" -->
+- [ ] **GEN-VERIFY-FAL, the last line — the Hugging Face route**, so it is <!-- item: state=blocked kind=env needs="an hf_ token for the router route; re-checked 2026-11-15, none on this machine and the owner keeps it blocked" -->
   confirmed and its docs say "measured", or is corrected. Three funded runs and a billing read measured the rest of
   `FalProvider`'s defaults (`docs/task-archive.md` Parts 410, 413 and 414). **Left:** the Hugging Face route
   (`docs/generation.md` §3), which needs an `hf_` token.
@@ -179,7 +178,7 @@ in that pass — and every one was startable, which is why the banner stopped cl
 were open. All have now closed (archive Parts 76, 78–81 and 84) except the one below, whose blocker is not
 a design question: it needs two or three real aggregators to measure against._
 
-- [ ] **Decide what an aggregator's in-band `code` means.** `HttpBody.InBandError` deliberately reports <!-- item: state=blocked kind=env,data needs="two or three real aggregators to measure an in-band code against" -->
+- [ ] **Decide what an aggregator's in-band `code` means.** `HttpBody.InBandError` deliberately reports <!-- item: state=blocked kind=env,data needs="two or three real aggregators to measure an in-band code against; re-checked 2026-11-15, no aggregator key on this machine and the owner keeps it blocked" -->
   only THAT an `error` member is present and what it says; it does not read a numeric `code` as an HTTP
   status, because that mapping is not measured across the gateways this provider serves. A 200 carrying
   `{"error":{"code":429}}` therefore classifies from the message text alone. Measuring two or three real
@@ -339,9 +338,11 @@ before it was filed. Lanes `inference` and `platform`._
 - [ ] **An HTTP agent turn can spend a second billed request the retry budget never sees.** `HttpChatEngine.CompleteAsync` resends once on an <!-- item: state=decision-only needs="a ruling: whether the agent door turns the engine's resend off (the budget is RetryingAgentSession's, D233), or states it as inside the door" -->
   empty or malformed 200 body, for every caller, and `HttpAgentSession` documents that nothing falls over so the budget stays the retry
   layer's. The resend is harmless to side effects (no tool re-runs) and is a second paid call.
-- [ ] **A rejected limit is never cleared inside a turn.** `StreamJsonAgentReader.NoteRateLimit` keeps `_rejectedLimit` once seen, so a later <!-- item: state=decision-only needs="a ruling: whether an allowed report clears an earlier rejection, which needs a capture of the CLI sending one after the other; Daoris's third request says it will send its recorded rate_limit_event frames in turn order, and none had arrived" -->
+- [ ] **A rejected limit is never cleared inside a turn.** `StreamJsonAgentReader.NoteRateLimit` keeps `_rejectedLimit` once seen, so a later <!-- item: state=blocked kind=data needs="a capture of the CLI sending a rejected rate_limit_event and then an allowed one in one turn; re-checked 2026-11-15: Daoris holds 117 recorded frames, every one allowed, and no rejected frame" -->
   `allowed` frame does not clear it and an unrelated `is_error` result is classified `Limit`. Whether the CLI sends `allowed` after `rejected`
   in one turn is not shown by any capture here.
+  **The rule a capture would select is written first:** the latest report per `rateLimitType` stands, so an `allowed` clears only a rejection of the
+  same window; a capture with no such pair closes the row as unreachable.
 - [ ] **A wrapped agent session registration is never disposed.** `AgentRetryRegistration` builds the inner by hand and `RetryingAgentSession` <!-- item: state=decision-only needs="a ruling: whether RetryingAgentSession becomes IAsyncDisposable and forwards, given that a registered instance is the host's to dispose" -->
   is not disposable, so a factory- or type-registered inner that holds a process or socket is no longer disposed with the provider; an
   instance registration was never the container's to dispose, so forwarding would dispose what the host owns.
@@ -364,8 +365,12 @@ that needs a shared claim predicate and a migration. Lane `platform`._
 _Opened by `docs/task-archive.md` **Part 483**: a read-only review of the Codex exec door and `ProcessRunner`, each finding read against the code before it
 was filed. Three closed in that Part. What stays needs a measurement against a real `codex`. Lane `inference`._
 
-- [ ] **How long a quiet Codex step runs is unmeasured.** The agent doors now arm `LyntaiOptions.AgentTimeout` (15 minutes) in place of two, but no real `codex exec --json` turn has been timed through a long `dotnet test`, <!-- item: state=decision-only needs="the owner's go-ahead to spend one real Codex turn on an account, then a run through a step of known length to see whether 15 minutes holds" -->
+- [ ] **How long a quiet Codex step runs is unmeasured.** The agent doors now arm `LyntaiOptions.AgentTimeout` (15 minutes) in place of two, but no real `codex exec --json` turn has been timed through a long `dotnet test`, <!-- item: state=blocked kind=env needs="one real Codex turn on an account with room: re-checked 2026-11-15, the owner's Codex account is at its workspace spend cap" -->
   so the figure is a steward's default, not a measurement, and a turn spends an account.
+  **The question is narrower than "does 15 hold":** whether `codex exec --json` is silent for the whole of a command. One run of a step of known length
+  answers it (`codex exec --json --sandbox read-only` asked to sleep 120 s, each line timestamped): no line between the command's `item.started` and
+  `item.completed` means the window must cover the longest step, which only the host knows (`LyntaiOptions.AgentTimeout`); lines between mean
+  15 minutes bounds true inactivity.
 
 ## Part 486 — what the 2026-11-08 review of the front door, the router, the cache and the budget found and did not fix yet
 
@@ -436,7 +441,6 @@ The certain and small findings closed in that Part. The `.cmd` shim re-parsing a
 
 - [ ] **A failed result's usage and cost are dropped.** `StreamJsonParser` reads them onto the `Failure` event and `CliOutputEvent.Failure` has nowhere to carry them, so a turn that spent and failed is not in a ledger or a budget. <!-- item: state=decision-only needs="a ruling: whether a Failed reply carries Usage, which the budget layer then records (the same question as the stream's dropped usage in Part 486)" -->
 - [ ] **A result with a failing `subtype` and no `is_error: true` reads as an answer.** Only an explicit `true` is a failure (`error_max_turns` with `is_error` false returns the partial text `Ok`). <!-- item: state=decision-only needs="a measurement: run the real CLI with --max-turns 1 and see whether is_error is ever false beside a failing subtype; the repository's fixtures always pair them" -->
-- [ ] **A non-zero exit with an empty stderr is `Failed` whatever stdout said.** The detail now quotes the stdout tail (**D257**), but the verdict is read from stderr alone, so `Invalid API key · Please run /login` on stdout is `Failed`, not `AuthFailed`. <!-- item: state=decision-only needs="a measurement and a ruling: whether the CLI prints such a line outside stream-json, and whether a classifier may read a stdout tail that is mostly protocol lines without matching on a number" -->
 - [ ] **The usage read's scratch folder is created with the default mode.** `CliUsageSource` makes `lyntai-usage-<guid>` under the temp folder with `Directory.CreateDirectory`, where the engine's working directory is user-only on Unix. <!-- item: state=blocked kind=env needs="a Unix run: the mode is not observable on Windows, so a test of the fix cannot fail here" -->
 
 ## Part 496 — what the 2026-11-08 review of the curated and legacy memory stores, the migrations and the connection lifecycle found and did not fix yet
@@ -461,7 +465,7 @@ _Opened by `docs/task-archive.md` **Part 518**, which built A-LQ20, A-LQ22, A-LQ
   (`promptRequired`: the turn had ended, so the host sends it as a prompt). The door states `steering` `Supported` only where the open's answer says `_meta.steering.supported`, with the
   record (`claude-agent-acp` 0.84.0, a host's steer note, REAL) as its source. Evidence is read: the host's `_session/steering` code and the steer note. `codex-acp` states it and reads no
   `idleBehavior`, so it stays `Unknown`. Needs a decision first on whether a `startedNewTurn` turn is a woken turn or a sent one.
-- [ ] **AG50 — a kept run on `codex-acp` and dsh (A-LQ19).** The study's `Unknown` cells (`docs/agent-provider-daoris-study.md` §11.1) for those two doors are Daoris's to fill from <!-- item: state=blocked kind=data needs="Daoris's recorded Codex sitting and dsh probe frames, which its third request says it will send and which had not arrived when this row was filed" -->
+- [ ] **AG50 — a kept run on `codex-acp` and dsh (A-LQ19).** The study's `Unknown` cells (`docs/agent-provider-daoris-study.md` §11.1) for those two doors are Daoris's to fill from <!-- item: state=blocked kind=data needs="Daoris's recorded Codex sitting and dsh probe frames; re-checked 2026-11-15 with Daoris: not recorded, its Codex account is at its spend cap and its dsh build has no session to keep" -->
   records it is taking. Each cell moves only to what a record shows, and a record that shows a second prompt replacing the first leaves `queued-words` `Unsupported` for `codex-acp`.
 - [ ] **AG51 — a kept run on the Claude CLI with stdin held (A-LQ21).** `claude -p --input-format stream-json` taking a user line per turn, an interrupt that keeps the session, and <!-- item: state=startable -->
   background work read until it ends: a second `IAgentRun` implementation over the existing `IProcessRunner.ExchangeLinesAsync`, with its abilities stated from Daoris's measured stream-json note
