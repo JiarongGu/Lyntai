@@ -669,12 +669,16 @@ every addition.
   collection beside the keyed sessions, resolved by id through `AgentProviderRegistry`, and an unknown id throws
   naming those that exist. Both CLI agent registrations also register their provider. `AddAgentProvider` adds
   another agent, and an option a door states unsupported is refused before anything is spawned.
-- **A bounded retry for an agent turn that failed transiently, off unless you ask** (**D219**).
+- **A bounded retry for an agent turn that failed transiently, off unless you ask** (**D219**, **D348**, **D349**).
   `AddAgentRetry(o => …)` wraps every registered `IAgentSession` in a `RetryingAgentSession`. It retries only a
   `Transient` failure, within `MaxRetries` (2), waiting on the `TimeProvider` in the container (the system clock by
   default) from `InitialDelay` (2 s) doubling to `MaxDelay` (30 s), with no jitter, and stopping at a cancellation. A turn whose prompt was never sent is sent again; one the door had
-  taken resumes its conversation with a continue word (`ContinueWord`, "continue"); one that may have run a tool step, or has no session to
-  resume, is not retried and its terminal says so. A limit, an access failure or a fatal one is never retried.
+  taken resumes its conversation with a continue word (`ContinueWord`, "continue"), marked `AgentSessionOptions.ContinuesTurn` so the
+  Codex exec and protocol doors do not send again the system prompt the conversation already holds (the Claude door's
+  `--append-system-prompt`, which lasts one process, still carries it); one that may have run a tool step, or has no session to
+  resume, is not retried and its terminal says so. A limit, an access failure or a fatal one is never retried. Wrapping keeps who
+  disposes a session: one registered by factory or type is disposed with the provider or scope that built it, and a registered
+  instance stays the host's.
 - **An agent session's event stream carries a plan and a usage reading that can say "unknown"** (**D219**).
   `PlanUpdated` is the agent's whole plan as it now stands (claude's `TodoWrite` list, codex's `todo_list`);
   `UsageReading` holds nullable counts, a unit, a scope (`Turn` or `Cumulative`) and the time the library read

@@ -1394,8 +1394,12 @@ finishes composing. It acts on `Failure.Kind == Transient` and nothing else, at 
 2), waiting `InitialDelay` doubled per retry up to `MaxDelay` — or a stated retry-not-before moment, if that is
 later and within `MaxDelay`. The wait runs on the container's `TimeProvider` and a cancellation cuts it. What it
 sends depends on `Delivery`: `NeverSent` sends the same prompt again; `Taken` resumes the conversation from the
-failed attempt's session id with `ContinueWord` (default `"continue"`), and with no session to resume does not
-retry, since resending would send the prompt twice; `Uncertain` is never retried, as a tool step may have acted.
+failed attempt's session id with `ContinueWord` (default `"continue"`), marked `AgentSessionOptions.ContinuesTurn` so the
+Codex exec and protocol doors do not send again the system prompt the conversation holds (the Claude door's
+`--append-system-prompt` lasts one process, so it still carries it), and with no session to resume does not
+retry, since resending would send the prompt twice; `Uncertain` is never retried, as a tool step may have acted. Wrapping keeps
+who disposes a session: one registered by factory or type is disposed with the provider or scope that built it, and an instance
+stays yours.
 Events are forwarded live, so a retried turn's stream holds the failed attempt's events and then the next
 attempt's, and only a failed terminal that is about to be retried is withheld: you see one `SessionEnded`, the
 last attempt's, and a transient failure that was not retried says why in its `Diagnostic`. One layer owns the

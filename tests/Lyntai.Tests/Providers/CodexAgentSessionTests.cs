@@ -169,6 +169,28 @@ public class CodexAgentSessionTests
         Assert.DoesNotContain("--append-system-prompt", runner.LastArgs!);
     }
 
+    [Fact] // the resumed thread already holds the leading block, so a continuation does not send it twice
+    public async Task A_continuation_carries_no_leading_system_block()
+    {
+        var runner = new FakeProcessRunner(MeasuredSuccess);
+        var continued = Ask("continue") with { SystemPrompt = "Be concise.", ResumeToken = "t-9", ContinuesTurn = true };
+
+        await Session(runner).StreamAsync(continued).ToListAsync();
+
+        Assert.Equal("continue", runner.LastStdin);
+        Assert.Equal(["exec", "resume"], runner.LastArgs!.Take(2));
+    }
+
+    [Fact] // with no thread to resume nothing holds the block, so it is sent as on a fresh turn
+    public async Task A_continuation_with_no_thread_to_resume_still_leads_with_the_system_block()
+    {
+        var runner = new FakeProcessRunner(MeasuredSuccess);
+
+        await Session(runner).StreamAsync(Ask("continue") with { SystemPrompt = "Be concise.", ContinuesTurn = true }).ToListAsync();
+
+        Assert.Equal("Be concise.\n\ncontinue", runner.LastStdin);
+    }
+
     [Fact]
     public async Task The_session_runs_in_the_callers_working_directory_not_the_neutral_temp_dir()
     {

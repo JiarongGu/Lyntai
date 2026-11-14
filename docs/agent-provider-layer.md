@@ -183,8 +183,11 @@ AgentFailure
   (built: `AddAgentRetry`, `docs/guide.md` §CLI-agent session):
   bounded, with waits taken from an injected `TimeProvider` and cut short by cancellation. **One layer owns the
   retry budget.** It resends the original prompt only when the delivery was `never-sent`; when it was `taken`
-  it resumes the conversation with a continue word if the door can resume; when it was `uncertain` it does
-  not retry and says so. A limit, an access failure or a fatal one is never retried.
+  it resumes the conversation with a continue word if the door can resume, marked
+  `AgentSessionOptions.ContinuesTurn` so a door that keeps the system prompt inside the conversation (the Codex
+  exec door, the protocol door) does not send it twice, while the Claude door's per-process flag still carries it;
+  when it was `uncertain` it does not retry and says so. A limit, an access failure or a fatal one is never
+  retried.
 
 ### 5.4 Accounts as one pool
 

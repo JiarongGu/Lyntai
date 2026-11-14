@@ -32,4 +32,10 @@ internal static class AgentResumeToken
         sessionId = "";
         return false;
     }
+
+    /// <summary>Whether the conversation this turn resumes already holds its system prompt: a
+    /// <see cref="AgentSessionOptions.ContinuesTurn"/> beside a token. A door that carries the system prompt inside the
+    /// conversation leaves it out then.</summary>
+    internal static bool HoldsSystemPrompt(AgentSessionOptions options) =>
+        options.ContinuesTurn && !string.IsNullOrEmpty(options.ResumeToken);
 }

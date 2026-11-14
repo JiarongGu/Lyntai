@@ -127,7 +127,7 @@ internal sealed class AcpAgentReader
         _wokenSink = wokenSink;
         _wokenMoved = wokenMoved;
         _current = kept ? _idle : _single;
-        _systemPending = kept && !string.IsNullOrEmpty(options.SystemPrompt);
+        _systemPending = kept && !string.IsNullOrEmpty(options.SystemPrompt) && !AgentResumeToken.HoldsSystemPrompt(options);
         _approver = approver;
         _pause = pause;
         // no window to halve (a host that configured none, or a reader built without one): the request waits on the approver alone
@@ -652,7 +652,7 @@ internal sealed class AcpAgentReader
         }
 
         _phase = Phase.Prompting;
-        string[] blocks = string.IsNullOrEmpty(_options.SystemPrompt)
+        string[] blocks = string.IsNullOrEmpty(_options.SystemPrompt) || AgentResumeToken.HoldsSystemPrompt(_options)
             ? [_options.Prompt]
             : [_options.SystemPrompt, _options.Prompt];
         Volatile.Write(ref _promptFrame, Volatile.Read(ref _frames));

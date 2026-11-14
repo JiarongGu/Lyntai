@@ -30,6 +30,13 @@ public record AgentSessionOptions
     /// <summary>Opaque resume handle (a prior run's session id); null = a fresh session.</summary>
     public string? ResumeToken { get; init; }
 
+    /// <summary>This attempt continues a turn the resumed conversation already holds, so a door whose
+    /// <see cref="SystemPrompt"/> lives inside the conversation does not send it again; a door that applies it per
+    /// process still does. Read only beside a <see cref="ResumeToken"/>: with none, nothing holds the system prompt,
+    /// and it is sent as on a fresh turn. <see cref="RetryingAgentSession"/> sets it when it resumes a turn whose
+    /// prompt the door had taken. Default false.</summary>
+    public bool ContinuesTurn { get; init; }
+
     /// <summary>The BACKEND's own model id, passed through verbatim; null = whatever that backend defaults
     /// to. Lyntai neither validates it nor maps it — which model to run is the consuming application's
     /// choice, and the spelling is the backend's. Needs <see cref="AgentAbilities.Model"/>: a door never runs the
@@ -74,6 +81,7 @@ public record AgentSessionOptions
     {
         builder.Append("Prompt = ").Append(Prompt).Append(", SystemPrompt = ").Append(SystemPrompt)
             .Append(", ToolPolicy = ").Append(ToolPolicy).Append(", ResumeToken = ").Append(ResumeToken)
+            .Append(", ContinuesTurn = ").Append(ContinuesTurn)
             .Append(", Model = ").Append(Model).Append(", PermissionMode = ").Append(PermissionMode)
             .Append(", Effort = ").Append(Effort).Append(", PluginDirectories = [").Append(string.Join(", ", PluginDirectories))
             .Append("], TimeoutSeconds = ").Append(TimeoutSeconds)

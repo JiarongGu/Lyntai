@@ -7142,3 +7142,14 @@ registration. Codex's steer is recorded (STEER3) but its run is not (AG50), so i
 
 - `tests/Lyntai.Tests/Providers/AcpAgentRunTests.cs` (§AG49)
 - D347, the changelog entry
+
+## Part 524 — `TASKS.md` Part 481's disposal and system-prompt rows, ruled with Fable and built (2026-11-15)
+
+✅ done 2026-11-15 — **Outcome:** two decision-only rows ruled by the session with a Fable 5.2 design agent, as the owner asked, and
+built test first by a builder agent in its own worktree. `AgentRetryRegistration` builds a factory- or type-registered inner through a
+private container-tracked holder, so it is disposed with its provider or scope and an instance stays the host's (**D348**).
+`AgentSessionOptions.ContinuesTurn` marks a `Taken` resume, and the Codex exec and protocol doors leave a system prompt the resumed
+conversation holds out of it, beside a token only (**D349**). No released member changed: the retry layer is unreleased.
+
+- `tests/Lyntai.Tests/Agents/RetryingAgentSessionTests.cs`; the Codex, protocol and Claude door tests (`A_continuation_…`)
+- D348, D349, the changelog entry amended

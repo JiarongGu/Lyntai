@@ -102,9 +102,10 @@ internal static class CodexAgentArgs
     /// prompt travels as a leading block of the prompt itself — the honest option, since inventing a flag
     /// would be read by <c>codex [OPTIONS] [PROMPT]</c> as an error and dropping the system prompt would
     /// silently change the turn. A caller that wants codex's own persistent instructions instead should use
-    /// its <c>AGENTS.md</c>, which the CLI loads from the working directory.</summary>
+    /// its <c>AGENTS.md</c>, which the CLI loads from the working directory. A continuation of a resumed thread
+    /// (<see cref="AgentSessionOptions.ContinuesTurn"/>) leaves the block out, since the thread already holds it.</summary>
     public static string BuildPrompt(AgentSessionOptions options) =>
-        string.IsNullOrEmpty(options.SystemPrompt)
+        string.IsNullOrEmpty(options.SystemPrompt) || AgentResumeToken.HoldsSystemPrompt(options)
             ? options.Prompt
             : $"{options.SystemPrompt}\n\n{options.Prompt}";
 }

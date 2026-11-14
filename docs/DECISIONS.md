@@ -417,8 +417,10 @@ new decision overturns an old one, rewrite the old entry as a stub pointing here
 | [D345](#d345--a-device-code-sign-in-is-a-request-flag-one-program-carries-and-the-other-refuses-2026-11-15) | 2026-11-15 | a device-code sign-in is a request flag one program carries and the other refuses |
 | [D346](#d346--a-child-agent-is-read-as-a-session-of-its-own-only-on-a-hosts-option-and-its-events-are-wrapped-not-stamped-2026-11-15) | 2026-11-15 | a child agent is read as a session of its own only on a host's option, and its events are wrapped… |
 | [D347](#d347--a-steer-is-an-optional-capability-of-a-run-asks-an-idle-agent-to-leave-the-words-to-the-host-and-a-turn-begun-with-them-is-woken-2026-11-15) | 2026-11-15 | a steer is an optional capability of a run, asks an idle agent to leave the words to the host, an… |
+| [D348](#d348--a-session-addagentretry-wraps-stays-the-containers-to-dispose-built-through-a-tracked-holder-2026-11-15) | 2026-11-15 | a session `AddAgentRetry` wraps stays the container's to dispose, built through a tracked holder |
+| [D349](#d349--a-resumed-retry-is-marked-a-continuation-and-the-door-decides-what-it-leaves-out-2026-11-15) | 2026-11-15 | a resumed retry is marked a continuation, and the door decides what it leaves out |
 
-**342 live decisions.** The rest are stubs — `D<n>` is a permanent identifier, so a number is never reused or renumbered (5): [D36](#d36--a-translation-between-two-verdict-taxonomies-gets-one-arm-per-member-gated-by-a-test-2026-08-05) → D136 · [D80](#d80--merged-into-d77-2026-08-16-folded-2026-08-17) → D77 · [D131](#d131--a-backends-produces-is-derived-from-its-configuration-so-a-modality-is-a-field-2026-09-14) → D133 · [D134](#d134--a-registration-names-the-backend-the-provider-suffix-is-gone-from-all-seventeen-2026-09-14) → D137 · [D145](#d145--the-microsoftextensionsai-module-is-a-bridge-not-a-provider-2026-09-15) → D146
+**344 live decisions.** The rest are stubs — `D<n>` is a permanent identifier, so a number is never reused or renumbered (5): [D36](#d36--a-translation-between-two-verdict-taxonomies-gets-one-arm-per-member-gated-by-a-test-2026-08-05) → D136 · [D80](#d80--merged-into-d77-2026-08-16-folded-2026-08-17) → D77 · [D131](#d131--a-backends-produces-is-derived-from-its-configuration-so-a-modality-is-a-field-2026-09-14) → D133 · [D134](#d134--a-registration-names-the-backend-the-provider-suffix-is-gone-from-all-seventeen-2026-09-14) → D137 · [D145](#d145--the-microsoftextensionsai-module-is-a-bridge-not-a-provider-2026-09-15) → D146
 
 <!-- index:end -->
 
@@ -8642,3 +8644,27 @@ recall and its write-back is already a silent skip).
 **Rejected.** A member on `IAgentRun` (every run a host wrote would break, **D70**). Reading `startedNewTurn` as a sent turn (it would wait for a prompt answer that never comes). Steering without `promptRequired` (an idle agent would start a turn the host did not ask for). Offering it beside a held request or into a woken turn (no record shows either).
 
 **Re-opens** when a record shows a steer beside a held request or into a woken turn, or codex-acp's steer on a run (its `startedNewTurn` when idle is recorded; a run on that door is not, AG50).
+
+## D348 — a session `AddAgentRetry` wraps stays the container's to dispose, built through a tracked holder (2026-11-15)
+
+**Standing.** A ruling on `TASKS.md` Part 481's third row, read by the agent that built it; the owner may reverse it. Built.
+
+**Decided.** A factory- or type-registered inner is built through a private holder the container resolves, under a private key with the registration's lifetime, or, for an any-key registration, through one transient holder whose key names the registration and the requested key. The container disposes it with the provider or scope that built it, sync or async, as it would unwrapped. An instance stays the host's. `RetryingAgentSession` stays non-disposable, and the holder is never an `IAgentSession` and is disposable only when its session is.
+
+**Why.** Wrapping must not change who owns a session: one built by hand inside the wrapper's factory was invisible to the container, so a process or socket it held outlived the provider.
+
+**Rejected.** A disposable decorator that forwards disposal (it disposes an instance the host owns, and adds public surface). The inner as an `IAgentSession` under a hidden key (enumeration under `AnyKey` returns it unwrapped). One any-key holder per descriptor (the last one wins for every key).
+
+**Re-opens** when a host needs a wrapped session disposed before its owner, or registers an any-key session in a container without `AnyKey` support.
+
+## D349 — a resumed retry is marked a continuation, and the door decides what it leaves out (2026-11-15)
+
+**Standing.** A ruling on `TASKS.md` Part 481's fourth row, read by the agent that built it; the owner may reverse it. Built.
+
+**Decided.** `AgentSessionOptions.ContinuesTurn` (default false) marks an attempt that continues a turn the resumed conversation holds. `RetryingAgentSession` sets it on a `Taken` resume and keeps `SystemPrompt`. Beside a non-empty `ResumeToken`, the Codex exec door and the protocol door (a one-shot turn, and a kept run's first prompt) leave the system prompt out; the Claude door's per-process `--append-system-prompt` still carries it. With no token the flag is not read.
+
+**Why.** The Codex door leads the prompt with the system prompt, so a resumed thread carried it twice, and where a system prompt lives is each door's fact.
+
+**Rejected.** The decorator dropping `SystemPrompt` (the Claude door would lose it). A door inferring continuation from a token alone (a host's own resume with a new system prompt would lose it). Reading the flag without a token (the instruction would be silently lost).
+
+**Re-opens** when an agent is measured keeping or dropping a system prompt across a resume other than its door assumes.

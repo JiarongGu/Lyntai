@@ -115,6 +115,21 @@ public class ClaudeAgentSessionTests
         Assert.Equal("Be concise.", argv[idx + 1]);
     }
 
+    [Fact] // the flag lasts one process, not the conversation, so a resumed continuation needs it again
+    public void A_continuation_still_appends_the_system_prompt()
+    {
+        var opts = new AgentSessionOptions
+        {
+            Prompt = "continue", SystemPrompt = "Be concise.", ResumeToken = "sess-xyz", ContinuesTurn = true,
+        };
+        var argv = Args(opts).ToList();
+
+        var idx = argv.IndexOf("--append-system-prompt");
+        Assert.True(idx >= 0);
+        Assert.Equal("Be concise.", argv[idx + 1]);
+        Assert.Equal("sess-xyz", argv[argv.IndexOf("--resume") + 1]);
+    }
+
     [Fact]
     public void Build_resume_token_emits_resume_flag()
     {

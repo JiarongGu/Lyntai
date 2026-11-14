@@ -593,7 +593,9 @@ public sealed class LyntaiBuilder
     /// when <c>AddLyntai</c> finishes composing, whatever the order of this call against the
     /// <c>Add*AgentSession</c> calls. Off unless called. A session a host registers on the collection after
     /// <c>AddLyntai</c> returns is not wrapped, and one the host already wrapped throws when first resolved — one
-    /// layer owns the retry budget. Repeating the call re-applies its options.</summary>
+    /// layer owns the retry budget. Repeating the call re-applies its options. Wrapping keeps who disposes the
+    /// session: one registered by factory or type is still disposed with the provider or scope that built it, and a
+    /// registered instance stays the host's.</summary>
     /// <exception cref="ArgumentOutOfRangeException">A bound is negative, or <c>MaxDelay</c> is under
     /// <c>InitialDelay</c>.</exception>
     public LyntaiBuilder AddAgentRetry(Action<AgentRetryOptions>? configure = null)

@@ -10,8 +10,9 @@ namespace Lyntai.Agents;
 /// fatal one and a failure with no <see cref="SessionEnded.Failure"/> pass through untouched.</description></item>
 /// <item><description><see cref="AgentDelivery.NeverSent"/>: the same prompt is sent again.
 /// <see cref="AgentDelivery.Taken"/>: the conversation is resumed with
-/// <see cref="AgentRetryOptions.ContinueWord"/>, from the failed attempt's session id — and with none to resume,
-/// the turn is not retried, because sending the prompt again would send it twice.
+/// <see cref="AgentRetryOptions.ContinueWord"/>, from the failed attempt's session id, marked
+/// <see cref="AgentSessionOptions.ContinuesTurn"/> (a door that keeps the system prompt in the conversation leaves it
+/// out) — and with none to resume, the turn is not retried, because sending the prompt again would send it twice.
 /// <see cref="AgentDelivery.Uncertain"/>: never retried, as a tool step may already have acted.</description></item>
 /// <item><description>The wait is <see cref="AgentRetryOptions.InitialDelay"/> doubled per retry up to
 /// <see cref="AgentRetryOptions.MaxDelay"/>, or a stated retry-not-before moment if that is later; it runs on the
@@ -34,7 +35,8 @@ public sealed class RetryingAgentSession : IAgentSession
     private readonly TimeProvider _time;
     private readonly ILogger<RetryingAgentSession>? _logger;
 
-    /// <param name="inner">The session to retry; not itself a <see cref="RetryingAgentSession"/>.</param>
+    /// <param name="inner">The session to retry; not itself a <see cref="RetryingAgentSession"/>. Never disposed here:
+    /// whoever built it disposes it.</param>
     /// <param name="options">The bound, read once here.</param>
     /// <param name="time">The clock the waits run on; null = the system clock.</param>
     /// <param name="logger">Where each retry is reported; null = silent.</param>
@@ -121,7 +123,7 @@ public sealed class RetryingAgentSession : IAgentSession
             case AgentDelivery.Taken:
                 if (conversation is null)
                     return Refuse(ended, "the prompt was taken but the door gave no session to resume");
-                next = attempt with { Prompt = _continueWord, ResumeToken = conversation };
+                next = attempt with { Prompt = _continueWord, ResumeToken = conversation, ContinuesTurn = true };
                 break;
             default:
                 return Refuse(ended, "delivery uncertain, so a tool step may already have acted");

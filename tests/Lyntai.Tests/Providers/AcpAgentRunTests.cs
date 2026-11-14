@@ -241,6 +241,31 @@ public class AcpAgentRunTests
         Assert.Equal(["two"], prompts[1]["params"]!["prompt"]!.AsArray().Select(b => b!["text"]!.GetValue<string>()));
     }
 
+    [Fact] // the resumed session already holds the system prompt, so a run that continues it does not lead with it again
+    public async Task A_continuation_run_leads_its_first_prompt_with_no_system_prompt()
+    {
+        var agent = new KeptAgent
+        {
+            Reply = frame => Method(frame) switch
+            {
+                "initialize" => ["""{"jsonrpc":"2.0","id":1,"result":{"protocolVersion":1,"agentCapabilities":{"sessionCapabilities":{"resume":{}},"_meta":{"claudeCode":{"promptQueueing":true}}},"authMethods":[]}}"""],
+                "session/resume" => [$$$"""{"jsonrpc":"2.0","id":{{{IdOf(frame)}}},"result":{}}"""],
+                _ => [],
+            },
+        };
+        await using var run = await Open(agent,
+            options: Session() with { SystemPrompt = "be brief", ResumeToken = "s1", ContinuesTurn = true });
+
+        var turn = await run.SendAsync("one");
+        await agent.Wrote(f => Method(f) == "session/prompt");
+        agent.Say(Answer(100));
+        await turn.Ended.WaitAsync(Wait);
+
+        var prompt = agent.Written.Single(f => Method(f) == "session/prompt");
+        Assert.Equal(["one"], prompt["params"]!["prompt"]!.AsArray().Select(b => b!["text"]!.GetValue<string>()));
+        Assert.Contains("session/resume", Methods(agent));
+    }
+
     [Fact] // the protocol's own request: only a run asks for the frames of the work it backgrounds
     public async Task Only_a_run_declares_asyncTasks_at_initialize()
     {

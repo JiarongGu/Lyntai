@@ -220,6 +220,34 @@ public class RetryingAgentSessionTests
         Assert.Equal("continue", second.Prompt);
     }
 
+    [Fact] // the door decides what a continuation leaves out, so the system prompt stays in the options
+    public async Task A_taken_resume_marks_the_attempt_as_a_continuation()
+    {
+        var inner = new ScriptedAgentSession(
+            Attempt(new SessionStarted("s-9"), Failed(AgentFailureKind.Transient, AgentDelivery.Taken)),
+            Attempt(Succeeded()));
+        var clock = new ManualTimeProvider();
+
+        await RunToEnd(Retry(inner, clock), clock, Turn with { SystemPrompt = "be brief" });
+
+        Assert.False(inner.Received[0].ContinuesTurn);
+        Assert.True(inner.Received[1].ContinuesTurn);
+        Assert.Equal("be brief", inner.Received[1].SystemPrompt);
+    }
+
+    [Fact]
+    public async Task A_never_sent_retry_is_no_continuation()
+    {
+        var inner = new ScriptedAgentSession(
+            Attempt(Failed(AgentFailureKind.Transient, AgentDelivery.NeverSent)),
+            Attempt(Succeeded()));
+        var clock = new ManualTimeProvider();
+
+        await RunToEnd(Retry(inner, clock), clock);
+
+        Assert.All(inner.Received, o => Assert.False(o.ContinuesTurn));
+    }
+
     // ── what the caller sees ─────────────────────────────────────────────────────────────────────
 
     [Fact]
@@ -527,5 +555,213 @@ public class RetryingAgentSessionTests
     {
         Assert.Throws<ArgumentOutOfRangeException>(() =>
             Compose(new ManualTimeProvider(), b => b.AddAgentRetry(o => o.MaxRetries = -1)));
+    }
+
+    // ── who disposes the session the registration built ──────────────────────────────────────────
+
+    private sealed class DisposalLog
+    {
+        public List<string> Disposed { get; } = [];
+    }
+
+    private abstract class IdleSession : IAgentSession
+    {
+        public async IAsyncEnumerable<AgentStreamEvent> StreamAsync(
+            AgentSessionOptions options, [System.Runtime.CompilerServices.EnumeratorCancellation] CancellationToken ct = default)
+        {
+            await Task.Yield();
+            yield break;
+        }
+    }
+
+    // records which disposal the container chose, and the key its factory was handed
+    private sealed class DisposableSession(DisposalLog log) : IdleSession, IAsyncDisposable, IDisposable
+    {
+        public string? Name { get; init; }
+
+        public ValueTask DisposeAsync()
+        {
+            log.Disposed.Add($"{Name}async");
+            return default;
+        }
+
+        public void Dispose() => log.Disposed.Add($"{Name}sync");
+    }
+
+    private static async Task DisposeProvider(ServiceProvider sp, bool async)
+    {
+        if (async) await sp.DisposeAsync();
+        else sp.Dispose();
+    }
+
+    [Theory]
+    [InlineData(false, false)]
+    [InlineData(false, true)]
+    [InlineData(true, false)]
+    [InlineData(true, true)]
+    public async Task A_factory_registered_inner_is_disposed_with_the_provider(bool keyed, bool async)
+    {
+        var log = new DisposalLog();
+        var sp = Compose(new ManualTimeProvider(), b =>
+        {
+            b.AddAgentRetry();
+            if (keyed) b.Services.AddKeyedSingleton<IAgentSession>("door", (_, _) => new DisposableSession(log));
+            else b.Services.AddSingleton<IAgentSession>(_ => new DisposableSession(log));
+        });
+        Assert.IsType<RetryingAgentSession>(keyed
+            ? sp.GetRequiredKeyedService<IAgentSession>("door")
+            : sp.GetRequiredService<IAgentSession>());
+        Assert.Empty(log.Disposed);
+
+        await DisposeProvider(sp, async);
+
+        Assert.Equal([async ? "async" : "sync"], log.Disposed);
+    }
+
+    [Theory]
+    [InlineData(false, false)]
+    [InlineData(false, true)]
+    [InlineData(true, false)]
+    [InlineData(true, true)]
+    public async Task A_type_registered_inner_is_disposed_with_the_provider(bool keyed, bool async)
+    {
+        var log = new DisposalLog();
+        var sp = Compose(new ManualTimeProvider(), b =>
+        {
+            b.Services.AddSingleton(log);
+            if (keyed) b.Services.AddKeyedSingleton<IAgentSession, DisposableSession>("door");
+            else b.Services.AddSingleton<IAgentSession, DisposableSession>();
+            b.AddAgentRetry();
+        });
+        Assert.IsType<RetryingAgentSession>(keyed
+            ? sp.GetRequiredKeyedService<IAgentSession>("door")
+            : sp.GetRequiredService<IAgentSession>());
+
+        await DisposeProvider(sp, async);
+
+        Assert.Equal([async ? "async" : "sync"], log.Disposed);
+    }
+
+    private sealed class SyncOnlySession(DisposalLog log) : IdleSession, IDisposable
+    {
+        public void Dispose() => log.Disposed.Add("sync-only");
+    }
+
+    private sealed class AsyncOnlySession(DisposalLog log) : IdleSession, IAsyncDisposable
+    {
+        public ValueTask DisposeAsync()
+        {
+            log.Disposed.Add("async-only");
+            return default;
+        }
+    }
+
+    [Fact]
+    public async Task A_session_disposable_one_way_is_disposed_as_the_container_disposes_it_unwrapped()
+    {
+        var log = new DisposalLog();
+        var sp = Compose(new ManualTimeProvider(), b =>
+        {
+            b.AddAgentRetry();
+            b.Services.AddSingleton<IAgentSession>(_ => new SyncOnlySession(log));
+            b.Services.AddKeyedSingleton<IAgentSession>("async", (_, _) => new AsyncOnlySession(log));
+        });
+        sp.GetRequiredService<IAgentSession>();
+        sp.GetRequiredKeyedService<IAgentSession>("async");
+
+        await sp.DisposeAsync();
+
+        Assert.Equal(["async-only", "sync-only"], log.Disposed.Order());
+
+        // a sync disposal of an async-only session is refused, as the container refuses it with no wrapper
+        var asyncOnly = Compose(new ManualTimeProvider(), b =>
+        {
+            b.AddAgentRetry();
+            b.Services.AddSingleton<IAgentSession>(_ => new AsyncOnlySession(new DisposalLog()));
+        });
+        asyncOnly.GetRequiredService<IAgentSession>();
+        Assert.Contains("only implements IAsyncDisposable", Assert.Throws<InvalidOperationException>(asyncOnly.Dispose).Message);
+    }
+
+    [Fact]
+    public async Task An_inner_registered_under_any_key_is_built_per_key_and_disposed_with_the_provider()
+    {
+        var log = new DisposalLog();
+        var sp = Compose(new ManualTimeProvider(), b =>
+        {
+            b.AddAgentRetry();
+            b.Services.AddKeyedSingleton<IAgentSession>(KeyedService.AnyKey,
+                (_, key) => new DisposableSession(log) { Name = $"{key}:" });
+        });
+        var first = sp.GetRequiredKeyedService<IAgentSession>("a");
+        var second = sp.GetRequiredKeyedService<IAgentSession>("b");
+        Assert.Same(first, sp.GetRequiredKeyedService<IAgentSession>("a"));
+        Assert.NotSame(first, second);
+
+        await sp.DisposeAsync();
+
+        Assert.Equal(["a:async", "b:async"], log.Disposed.Order());
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task An_instance_registered_inner_is_left_to_the_host(bool async)
+    {
+        // an instance was never the container's to dispose, so wrapping it must not make it so
+        var log = new DisposalLog();
+        var sp = Compose(new ManualTimeProvider(), b =>
+        {
+            b.AddAgentRetry();
+            b.Services.AddSingleton<IAgentSession>(new DisposableSession(log));
+            b.Services.AddKeyedSingleton<IAgentSession>("door", new DisposableSession(log));
+        });
+        Assert.IsType<RetryingAgentSession>(sp.GetRequiredService<IAgentSession>());
+        Assert.IsType<RetryingAgentSession>(sp.GetRequiredKeyedService<IAgentSession>("door"));
+
+        await DisposeProvider(sp, async);
+
+        Assert.Empty(log.Disposed);
+    }
+
+    [Fact]
+    public async Task A_scoped_inner_is_disposed_with_its_scope()
+    {
+        var log = new DisposalLog();
+        await using var sp = Compose(new ManualTimeProvider(), b =>
+        {
+            b.AddAgentRetry();
+            b.Services.AddScoped<IAgentSession>(_ => new DisposableSession(log));
+        });
+
+        await using (var scope = sp.CreateAsyncScope())
+        {
+            var session = scope.ServiceProvider.GetRequiredService<IAgentSession>();
+            Assert.Same(session, scope.ServiceProvider.GetRequiredService<IAgentSession>());
+            Assert.Empty(log.Disposed);
+        }
+
+        Assert.Equal(["async"], log.Disposed);
+    }
+
+    [Fact]
+    public void Enumerating_the_sessions_surfaces_only_the_wrapped_ones()
+    {
+        var log = new DisposalLog();
+        using var sp = Compose(new ManualTimeProvider(), b =>
+        {
+            b.AddAgentRetry();
+            b.Services.AddSingleton<IAgentSession>(_ => new DisposableSession(log));
+            b.Services.AddKeyedSingleton<IAgentSession>("door", (_, _) => new DisposableSession(log));
+            b.Services.AddKeyedScoped<IAgentSession, EmptyAgentSession>("typed");
+        });
+        using var scope = sp.CreateScope();
+
+        var unkeyed = scope.ServiceProvider.GetServices<IAgentSession>().ToList();
+        var keyed = scope.ServiceProvider.GetKeyedServices<IAgentSession>(KeyedService.AnyKey).ToList();
+
+        Assert.IsType<RetryingAgentSession>(Assert.Single(unkeyed));
+        Assert.Equal(2, keyed.Count);
+        Assert.All(keyed, s => Assert.IsType<RetryingAgentSession>(s));
     }
 }

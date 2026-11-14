@@ -150,6 +150,29 @@ public class AcpAgentSessionTests
         Assert.All(blocks, b => Assert.Equal("text", b!["type"]!.GetValue<string>()));
     }
 
+    [Fact] // the resumed session already holds the leading block, so a continuation does not send it twice
+    public async Task A_continuation_carries_no_leading_system_block()
+    {
+        var log = NewLog();
+
+        await Run(Stub(log: log), Ask("continue") with { SystemPrompt = "be brief", ResumeToken = "conv-1", ContinuesTurn = true });
+
+        var blocks = Request(Sent(log), "session/prompt")["params"]!["prompt"]!.AsArray();
+        Assert.Equal(["continue"], blocks.Select(b => b!["text"]!.GetValue<string>()));
+        Assert.Equal(["initialize", "session/resume", "session/prompt"], Sent(log).Select(Method));
+    }
+
+    [Fact] // with no session to resume nothing holds the block, so it leads as on a fresh turn
+    public async Task A_continuation_with_no_session_to_resume_still_leads_with_the_system_block()
+    {
+        var log = NewLog();
+
+        await Run(Stub(log: log), Ask("continue") with { SystemPrompt = "be brief", ContinuesTurn = true });
+
+        var blocks = Request(Sent(log), "session/prompt")["params"]!["prompt"]!.AsArray();
+        Assert.Equal(["be brief", "continue"], blocks.Select(b => b!["text"]!.GetValue<string>()));
+    }
+
     [Fact] // holds the door's child-sessions claim: nothing declared at initialize turns a child into a session of its own
     public async Task The_initialize_never_declares_the_child_sessions_extension()
     {
