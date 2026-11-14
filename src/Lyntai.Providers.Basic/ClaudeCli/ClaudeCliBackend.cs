@@ -126,12 +126,19 @@ public sealed class ClaudeCliBackend : CliBackendBase
 
     /// <summary><c>claude auth login [--claudeai | --console] [--email &lt;e&gt;] [--sso]</c>. The neutral
     /// <see cref="ProviderLoginRequest.Mode"/> is mapped onto this CLI's two account kinds; anything else is
-    /// REFUSED rather than forwarded as an invented flag.</summary>
+    /// REFUSED rather than forwarded as an invented flag, as is <see cref="ProviderLoginRequest.DeviceCode"/>, which this CLI has no
+    /// flag for.</summary>
     public override bool TryBuildLoginArgs(ProviderLoginRequest? request, out IReadOnlyList<string> args, out string? refusal)
     {
         List<string> argv = ["auth", "login"];
         args = argv;
         refusal = null;
+
+        if (request?.DeviceCode == true)
+        {
+            refusal = "claude auth login has no device-code flag (2.1.325 lists --claudeai, --console, --email and --sso)";
+            return false;
+        }
 
         if (request?.Mode?.Trim() is { Length: > 0 } mode)
         {

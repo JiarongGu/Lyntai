@@ -343,6 +343,22 @@ public class CodexCliProviderTests
     }
 
     [Fact]
+    public async Task A_device_code_login_drives_the_device_auth_flag()
+    {
+        var runner = new FakeProcessRunner
+        {
+            RunHandler = (_, args) => args is ["login", "status"]
+                ? Ok("Logged in using ChatGPT account dev@example.invalid")
+                : Ok("Successfully logged in"),
+        };
+
+        var result = await Provider(runner).LoginAsync(new ProviderLoginRequest { DeviceCode = true });
+
+        Assert.True(result.Succeeded);
+        Assert.Equal(["login", "--device-auth"], runner.Calls[0].Args);
+    }
+
+    [Fact]
     public async Task A_plain_login_drives_the_measured_command_and_re_reads_state()
     {
         var runner = new FakeProcessRunner

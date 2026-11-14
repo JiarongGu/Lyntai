@@ -77,7 +77,13 @@ public sealed record ProviderAuthStatus(
 public sealed record ProviderLoginRequest(
     string? Mode = null,
     string? Email = null,
-    bool Sso = false);
+    bool Sso = false)
+{
+    /// <summary>Ask for the backend's device-code flow, where it has one: the program prints a code and an address for a person to
+    /// open on another device, then waits, so a host signing in a machine with no browser reads both from the login's output as it
+    /// is printed. A backend with no such flow refuses the request rather than run its default flow instead.</summary>
+    public bool DeviceCode { get; init; }
+}
 
 /// <summary>The outcome of <see cref="IProviderAuth.LoginAsync"/> / <see cref="IProviderAuth.LogoutAsync"/>.
 /// The two fields answer different questions, deliberately: <paramref name="Succeeded"/> is "did the

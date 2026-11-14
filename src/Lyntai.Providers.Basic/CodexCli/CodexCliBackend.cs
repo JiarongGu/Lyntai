@@ -64,7 +64,8 @@ public sealed class CodexCliBackend : CliBackendBase
     /// <inheritdoc/>
     public override ProviderAuthStatus? ParseAuthStatus(string output) => CodexAuthStatusText.Parse(output);
 
-    /// <summary><c>codex login</c> — the browser/account flow. The credential-reading modes codex also offers
+    /// <summary><c>codex login</c> — the browser/account flow, or <c>codex login --device-auth</c> for
+    /// <see cref="ProviderLoginRequest.DeviceCode"/>. The credential-reading modes codex also offers
     /// (<c>--with-api-key</c> / <c>--with-access-token</c>, which read a secret from stdin) are deliberately
     /// NOT exposed: Lyntai does not carry or store credentials (<c>docs/DECISIONS.md</c> D20), and
     /// <see cref="ProviderLoginRequest"/> has no field for one. Use the CLI directly for those.</summary>
@@ -91,7 +92,8 @@ public sealed class CodexCliBackend : CliBackendBase
             return false;
         }
 
-        args = ["login"];
+        // read from codex 0.169.0's own usage text ("codex login --device-auth"), not run here
+        args = request?.DeviceCode == true ? ["login", "--device-auth"] : ["login"];
         return true;
     }
 }

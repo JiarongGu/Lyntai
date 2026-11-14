@@ -218,6 +218,19 @@ public class ClaudeCliAuthTests
     }
 
     [Fact]
+    public async Task Login_refuses_a_device_code_request_without_spawning()
+    {
+        // claude auth login names no device-code flag (its --help: --claudeai, --console, --email, --sso)
+        var runner = new FakeProcessRunner();
+
+        var result = await Provider(runner).LoginAsync(new ProviderLoginRequest { DeviceCode = true });
+
+        Assert.False(result.Succeeded);
+        Assert.Contains("device", result.Detail);
+        Assert.Empty(runner.Calls);
+    }
+
+    [Fact]
     public async Task Login_refuses_a_flag_shaped_email_without_spawning()
     {
         var runner = new FakeProcessRunner();

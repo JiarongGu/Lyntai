@@ -2451,6 +2451,7 @@ static class Lyntai.Inference.ProviderKinds
 sealed class Lyntai.Inference.ProviderLoginRequest
     .ctor(String Mode = null, String Email = null, Boolean Sso = false)
     Deconstruct(String& Mode, String& Email, Boolean& Sso) : Void
+    DeviceCode : Boolean { get; init; }
     Email : String { get; init; }
     Equals(Object obj) : Boolean
     Equals(ProviderLoginRequest other) : Boolean

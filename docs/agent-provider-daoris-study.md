@@ -403,7 +403,7 @@ no signed-in agent and no installed `codex` was used.
 | **A-LQ20** another writer told apart | **built**: `AgentFailure.Conflict` `ConversationHeld`, read from `data.reason` and never the sentence | **D340** |
 | **A-LQ21** a Claude CLI kept run with stdin held | **planned**, design first: its measured frames are two turns on one process and an interrupt, and the rest was never run | AG51 |
 | **A-LQ22** Codex's sandbox, approval and effort on the exec door | **built in part**: the sandbox as `PermissionMode` and the effort; **the approval half is declined** because `exec` asks no one | **D341** |
-| **A-LQ23** sign-in state and sign-in per account home | **built**: `IAgentAuthSource`, a login handing its lines over while it waits; **ports declined** as the host's; a device-code flag is a row | **D342**; `TASKS.md` Part 518's last row |
+| **A-LQ23** sign-in state and sign-in per account home | **built**: `IAgentAuthSource`, a login handing its lines over while it waits; **ports declined** as the host's; a device-code flag is a row | **D342**; the device-code flag is **D345** |
 | **A-LQ24** child sessions declared, or their absence stated | **built as a statement**: `child-sessions` `Unsupported` on every door, naming the reading to rely on; declaring them as an option is a row | **D343**, AG52 |
 | **Part 481** rejected limit never cleared inside a turn | **waiting**: the ruling needs the frames in turn order, and none had arrived; Daoris's checkout holds a single `allowed` frame per turn on the native door and a rejection followed by an error, never both in one turn | `TASKS.md` Part 481 |
 | **A-LQ1** a release that carries the agent layer | **prepared** (below) | **D19** |

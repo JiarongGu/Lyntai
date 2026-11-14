@@ -80,6 +80,36 @@ public class AgentAuthSourceTests
     }
 
     [Fact]
+    public async Task A_device_code_login_runs_under_the_accounts_home_and_hands_the_code_over_while_it_waits()
+    {
+        var runner = new FakeProcessRunner(["Open https://example.test/device and enter ABCD-EFGH"])
+        {
+            RunResult = FakeProcessRunner.Ok("Logged in using ChatGPT"),
+        };
+        using var sp = Compose(runner);
+        var seen = new List<string>();
+
+        var result = await Source(sp, "codex-cli").LoginAsync(Account("codex-cli"), new ProviderLoginRequest { DeviceCode = true }, seen.Add);
+
+        Assert.True(result.Succeeded);
+        Assert.Equal(["Open https://example.test/device and enter ABCD-EFGH"], seen);
+        Assert.Equal(["login", "--device-auth"], runner.Calls[0].Args.Skip(runner.Calls[0].Args.Count - 2).ToList());
+        Assert.Equal(Home, runner.Calls[0].Environment!["CODEX_HOME"]);
+    }
+
+    [Fact]
+    public async Task A_device_code_login_on_a_program_with_no_such_flow_is_refused_before_a_spawn()
+    {
+        var runner = new FakeProcessRunner();
+        using var sp = Compose(runner);
+
+        var result = await Source(sp, "claude-cli").LoginAsync(Account("claude-cli"), new ProviderLoginRequest { DeviceCode = true });
+
+        Assert.False(result.Succeeded);
+        Assert.Empty(runner.Calls);
+    }
+
+    [Fact]
     public async Task A_program_that_exits_non_zero_is_a_failed_result_and_not_a_throw()
     {
         var runner = new FakeProcessRunner([], new ProcessRunException("claude", 1, "no browser"));

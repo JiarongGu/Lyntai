@@ -7093,3 +7093,14 @@ lines the doors' own tests pin. Landed in `08b41270`; the row stayed open in `TA
 
 - `tests/Lyntai.Tests/Agents/SessionContextTests.cs`, `ContextHeadComposerTests.cs`, `ContextRenderingTests.cs`, `ConversationSeedTests.cs`
 - D344, the changelog entry
+
+## Part 520 — a device-code sign-in, A-LQ23's remainder (`TASKS.md` Part 518's last row) (2026-11-15)
+
+✅ done 2026-11-15 — **Outcome:** `ProviderLoginRequest.DeviceCode`, an init property, sends `codex login --device-auth` on the Codex
+provider and its agent door and is refused before a spawn on the Claude ones, test failing first. The flags were read, no turn spent:
+`claude auth login --help` (2.1.325) lists `--claudeai`, `--console`, `--email` and `--sso`; codex 0.169.0's binary carries
+`codex login --device-auth` in its own usage text, read from its strings because running the downloaded binary was not allowed here.
+**The row's "only if both name one" was overruled** (**D345**): `Sso` and `Email` are already one program's fields.
+
+- `tests/Lyntai.Tests/Providers/CodexCliProviderTests.cs`, `ClaudeCliAuthTests.cs`, `tests/Lyntai.Tests/Agents/AgentAuthSourceTests.cs`
+- D345, the changelog entry

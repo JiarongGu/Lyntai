@@ -282,6 +282,10 @@ every addition.
 
 ### Added
 
+- **A device-code sign-in** (**D345**). `ProviderLoginRequest.DeviceCode` asks for the program's device-code flow, where a code and an
+  address are printed for a person to open on another device: the Codex provider and its agent door run `codex login --device-auth`, read
+  from codex 0.169.0's own usage text and not run here, and the Claude ones refuse it before a spawn, since `claude auth login` (2.1.325)
+  has no such flag. Through `IAgentAuthSource.LoginAsync` the code reaches the host's `onOutput` while the login still waits.
 - **A provider-neutral session context, a rendering port and a bounded head** (**D344**). `SessionContext` is an immutable, append-only log of
   typed entries (`Work`, `Decided`, `Found`, `Standing`, `Tree`), each with an id a later entry may supersede; nothing is deleted and no model
   writes it. `IContextRendering` states what a provider's door can be handed and renders the context in a `ContextForm`: `Resume` (the
