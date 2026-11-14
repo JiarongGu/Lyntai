@@ -1278,4 +1278,119 @@ public class StreamJsonAgentReaderTests
         Assert.Equal(new AgentTaskEnded("t1", null),
             Assert.Single(reader.Read("""{"type":"system","subtype":"task_notification","task_id":"t1"}""")));
     }
+
+    // ── a kept run (AG51): one reader across a run's turns ────────────────────
+
+    [Fact] // COMPOSED frames: a turn's words, failure fields, open calls and unread frames are its own; the model and the session are the run's
+    public void BeginTurn_clears_what_a_turn_owns_and_keeps_the_model_and_the_session()
+    {
+        var reader = new StreamJsonAgentReader();
+        reader.BeginTurn();
+        reader.ReadRun("""{"type":"system","subtype":"init","session_id":"s1","model":"claude-test"}""", out _);
+        reader.ReadRun("""{"type":"rate_limit_event","rate_limit_info":{"status":"rejected","resetsAt":1792000000,"rateLimitType":"five_hour"}}""", out _);
+        reader.ReadRun("""{"type":"assistant","error":"rate_limit","message":{"content":[{"type":"text","text":"turn one"},{"type":"tool_use","id":"c1","name":"Bash","input":{}}]}}""", out _);
+        reader.ReadRun("""{"type":"mystery"}""", out _);
+        reader.EndTurn();
+        Assert.Empty(reader.Unread());
+        reader.ReadRun("""{"type":"between"}""", out _);   // read after a turn's end: the next turn's
+
+        reader.BeginTurn();
+        var init = reader.ReadRun("""{"type":"system","subtype":"init","session_id":"s1"}""", out _);
+        var second = reader.ReadRun("""{"type":"result","subtype":"error_during_execution","is_error":true,"session_id":"s1","usage":{"input_tokens":1,"output_tokens":1}}""", out _);
+        reader.EndTurn();
+        reader.BeginTurn();
+        reader.ReadRun("""{"type":"assistant","message":{"content":[{"type":"text","text":"turn three"}]}}""", out _);
+
+        Assert.DoesNotContain(init, e => e is SessionStarted);   // announced once, in the first turn
+        Assert.Equal("claude-test", second.OfType<UsageFinal>().Single().Model);
+        var ended = second.OfType<SessionEnded>().Single();
+        Assert.Equal(("s1", null), (ended.SessionId, ended.FinalText));   // never the first turn's words
+        Assert.Equal(AgentFailureKind.Fatal, ended.Failure!.Kind);   // the first turn's rejection and error category are its own
+        Assert.Equal("turn three", reader.ReadEnd(0)?.FinalText);   // the first turn's open call and the second's result are gone
+    }
+
+    [Fact] // the unread frames a turn's end carries are the ones read since the turn before it ended
+    public void The_frames_read_between_turns_are_unread_on_the_next_one()
+    {
+        var reader = new StreamJsonAgentReader();
+        reader.BeginTurn();
+        reader.ReadRun("""{"type":"mystery"}""", out _);
+        Assert.Contains(reader.Unread(), u => u.Type == "mystery");
+        reader.EndTurn();
+        reader.ReadRun("""{"type":"between"}""", out _);
+
+        reader.BeginTurn();
+
+        Assert.Equal(["between"], reader.Unread().Select(u => u.Type));
+    }
+
+    public static TheoryData<string, string, string?> RunFrames => new()
+    {
+        { """{"type":"result","subtype":"success","is_error":false,"result":"ok"}""", "Result", null },
+        { """{"type":"control_response","response":{"subtype":"success","request_id":"r7","response":{"still_queued":[]}}}""", "ControlResponse", "r7" },
+        { """{"type":"system","subtype":"task_notification","task_id":"t1","status":"completed"}""", "Task", null },
+        { """{"type":"assistant","message":{"content":[{"type":"text","text":"hi"}]}}""", "OwnActivity", null },
+        { """{"type":"stream_event","event":{"type":"message_start","message":{"id":"m"}}}""", "OwnActivity", null },
+        { """{"type":"assistant","parent_tool_use_id":"c1","message":{"content":[{"type":"text","text":"a child"}]}}""", "Other", null },
+        { """{"type":"user","message":{"content":[{"type":"tool_result","tool_use_id":"c1","content":"x"}]}}""", "Other", null },
+        { """{"type":"system","subtype":"init","session_id":"s1"}""", "Other", null },
+        { """{"type":"rate_limit_event","rate_limit_info":{"status":"allowed"}}""", "Other", null },
+        { "not json", "Other", null },
+    };
+
+    [Theory] // the run decides which turn a line is, so the reader says what kind of line it was
+    [MemberData(nameof(RunFrames))]
+    public void ReadRun_tells_the_run_what_a_line_is(string line, string kind, string? requestId)
+    {
+        new StreamJsonAgentReader().ReadRun(line, out var frame);
+
+        Assert.Equal((kind, requestId), (frame.Kind.ToString(), frame.RequestId));
+    }
+
+    [Fact] // RECORDED (CONV4a): the CLI's answer to the run's own request is the driver's, never an unread frame of the turn
+    public void A_control_response_is_no_event_and_no_unread_frame_on_a_run_and_unread_on_a_one_turn_session()
+    {
+        const string answer = """{"type":"control_response","response":{"subtype":"success","request_id":"r1","response":{"still_queued":[]}}}""";
+        var run = new StreamJsonAgentReader();
+        var oneTurn = new StreamJsonAgentReader();
+
+        Assert.Empty(run.ReadRun(answer, out _));
+        Assert.Empty(oneTurn.Read(answer));
+
+        Assert.Empty(run.Unread());
+        Assert.Contains(oneTurn.Unread(), u => u.Type == "control_response");
+    }
+
+    [Theory] // RECORDED (the probe's shape): a turn an interrupt cut ends cancelled, with the CLI's own terminal reason
+    [InlineData("aborted_streaming")]
+    [InlineData("aborted_tools")]
+    public void A_result_an_interrupt_cut_reads_cancelled_with_its_terminal_reason(string terminal)
+    {
+        var line = $$"""{"type":"result","subtype":"error_during_execution","is_error":true,"stop_reason":null,"terminal_reason":"{{terminal}}","errors":["[ede_diagnostic] result_type=user"]}""";
+
+        var ended = Assert.IsType<SessionEnded>(new StreamJsonAgentReader().Read(line).Last());
+
+        Assert.Equal((ProviderVerdict.Failed, true, AgentRunSubtypes.Cancelled), (ended.Verdict, ended.IsError, ended.Subtype));
+        Assert.Equal((AgentFailureKind.Fatal, $"claude.terminal_reason={terminal}"), (ended.Failure!.Kind, ended.Failure.By));
+    }
+
+    [Fact] // the RECORDED max-turns result names a terminal reason that is no stop, and reads as it did
+    public void A_terminal_reason_that_is_no_interrupt_is_not_read_as_cancelled()
+    {
+        var ended = Assert.IsType<SessionEnded>(new StreamJsonAgentReader().Read(StreamJsonParserTests.RecordedMaxTurnsResult).Last());
+
+        Assert.Equal("error_max_turns", ended.Subtype);
+    }
+
+    [Fact] // COMPOSED (CONV4a: the partial message an interrupt leaves carries aborted at its top level)
+    public void An_aborted_assistant_message_yields_no_event_and_leaves_no_words_to_fall_back_to()
+    {
+        var reader = new StreamJsonAgentReader();
+
+        var events = reader.Read("""{"type":"assistant","aborted":true,"message":{"id":"m1","content":[{"type":"text","text":"half an answ"},{"type":"tool_use","id":"c1","name":"Bash","input":{}}]}}""");
+        var ended = Assert.IsType<SessionEnded>(reader.Read("""{"type":"result","subtype":"success","is_error":false,"result":""}""").Last());
+
+        Assert.Empty(events);
+        Assert.True(string.IsNullOrEmpty(ended.FinalText));
+    }
 }

@@ -33,9 +33,6 @@ internal sealed class AcpAgentRun : IAgentRun, IAgentRunSteering
         public int Terminated;
     }
 
-    // a timer's due time is a uint of milliseconds (about 49.7 days)
-    private static readonly TimeSpan MaxWokenTurnQuiet = TimeSpan.FromDays(49);
-
     private readonly Host _host;
     private readonly AgentRunOptions _run;
     private readonly bool _queuedWords;
@@ -75,16 +72,13 @@ internal sealed class AcpAgentRun : IAgentRun, IAgentRunSteering
     }
 
     /// <summary>A run that never started: the refusal that kept it from spawning, as the run's own end.</summary>
-    public static IAgentRun AlreadyOver(SessionEnded refusal) => new OverRun(refusal);
+    public static IAgentRun AlreadyOver(SessionEnded refusal) => new SteeringOverRun(refusal);
 
     /// <summary>Spawn the agent, open its session and return the run idle, or already over when the open failed.</summary>
     public static async Task<IAgentRun> OpenAsync(
         Host host, AgentSessionOptions options, AgentRunOptions run, bool queuedWords, CancellationToken ct)
     {
-        if (run.WokenTurnQuiet is { } quiet && quiet <= TimeSpan.Zero)
-            throw new ArgumentException("A woken turn's quiet is a span of silence, so it must be positive.", nameof(run));
-        if (run.WokenTurnQuiet > MaxWokenTurnQuiet)
-            throw new ArgumentException("A woken turn's quiet is counted by a timer, which holds at most 49 days.", nameof(run));
+        KeptRuns.Check(run);
         var instance = new AcpAgentRun(host, options, run, queuedWords);
         instance.Start();
         try
@@ -361,7 +355,7 @@ internal sealed class AcpAgentRun : IAgentRun, IAgentRunSteering
             sink.Events.Writer.TryWrite(evt);
         }
 
-        if (cause is not null) Terminate(sink, Cut(sink, cause));
+        if (cause is not null) Terminate(sink, KeptRuns.Cut(cause, sink.Watch));
         else if (state.Woken) _woken.Writer.TryWrite(sink.Turn);
         return sink;
     }
@@ -409,17 +403,6 @@ internal sealed class AcpAgentRun : IAgentRun, IAgentRunSteering
         ScheduleQuiet();   // said something since, or a call is open: it counts again from the next word
     }
 
-    // A turn the run's end finds open ends with the same cause, failed, whatever the run's own verdict: its work never finished.
-    private static SessionEnded Cut(TurnSink sink, SessionEnded cause) =>
-        CliAgentLoop.Stamp(cause.IsError
-            ? cause
-            : cause with
-            {
-                Verdict = ProviderVerdict.Failed, IsError = true, Subtype = AgentRunSubtypes.Over,
-                Diagnostic = "the run was disposed while the turn was open.",
-                Failure = new AgentFailure(AgentFailureKind.Fatal, "run-disposed"),
-            }, sink.Watch);
-
     private void Over(SessionEnded ended)
     {
         List<TurnSink> open;
@@ -432,7 +415,7 @@ internal sealed class AcpAgentRun : IAgentRun, IAgentRunSteering
                 open = [.. _live];
             }
 
-            foreach (var sink in open) Terminate(sink, Cut(sink, ended));
+            foreach (var sink in open) Terminate(sink, KeptRuns.Cut(ended, sink.Watch));
         }
 
         lock (_windowGate)
@@ -454,50 +437,12 @@ internal sealed class AcpAgentRun : IAgentRun, IAgentRunSteering
         _opened.TrySetResult();
     }
 
-    private AgentRunTurn Refused(string subtype, string why)
-    {
-        var ended = new SessionEnded(ProviderVerdict.Unsupported, true, subtype, SessionId, null, why)
-        {
-            Failure = new AgentFailure(AgentFailureKind.Fatal, "refused-by-run") { Delivery = AgentDelivery.NeverSent },
-        };
-        return RefusedTurn(ended);
-    }
+    private AgentRunTurn Refused(string subtype, string why) => KeptRuns.Refused(subtype, why, SessionId);
 
-    private static AgentRunTurn RefusedTurn(SessionEnded ended)
-    {
-        var channel = Channel.CreateBounded<AgentStreamEvent>(1);
-        channel.Writer.TryWrite(ended);
-        channel.Writer.TryComplete();
-        return new AgentRunTurn(AgentRunTurnOrigin.Sent, channel.Reader.ReadAllAsync(), Task.FromResult(ended));
-    }
-
-    // a run that never started
-    private sealed class OverRun(SessionEnded refusal) : IAgentRun, IAgentRunSteering
+    // a run that never started, which refuses a steer as it refuses a prompt
+    private sealed class SteeringOverRun(SessionEnded refusal) : KeptRuns.OverRun(refusal), IAgentRunSteering
     {
         public Task<AgentSteerResult> SteerAsync(string words, CancellationToken ct = default) =>
-            Task.FromResult(new AgentSteerResult(AgentSteerOutcome.Refused) { Subtype = AgentRunSubtypes.Over, Detail = "the run is over: " + refusal.Diagnostic });
-
-        public string? SessionId => null;
-
-        public Task<SessionEnded> Ended { get; } = Task.FromResult(refusal);
-
-        public IAsyncEnumerable<AgentRunTurn> WokenTurns { get; } = Complete();
-
-        private static IAsyncEnumerable<AgentRunTurn> Complete()
-        {
-            var none = Channel.CreateBounded<AgentRunTurn>(1);
-            none.Writer.TryComplete();
-            return none.Reader.ReadAllAsync();
-        }
-
-        public Task<AgentRunTurn> SendAsync(string prompt, CancellationToken ct = default)
-        {
-            var ended = refusal with { Subtype = AgentRunSubtypes.Over, Diagnostic = "the run is over: " + refusal.Diagnostic };
-            return Task.FromResult(RefusedTurn(ended));
-        }
-
-        public Task<bool> StopAsync(CancellationToken ct = default) => Task.FromResult(false);
-
-        public ValueTask DisposeAsync() => ValueTask.CompletedTask;
+            Task.FromResult(new AgentSteerResult(AgentSteerOutcome.Refused) { Subtype = AgentRunSubtypes.Over, Detail = "the run is over: " + Refusal.Diagnostic });
     }
 }

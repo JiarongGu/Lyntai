@@ -1,5 +1,4 @@
 using Lyntai.Agents;
-using Lyntai.Inference;
 using Lyntai.Providers.Basic;
 
 namespace Lyntai.Providers.Acp;
@@ -16,32 +15,10 @@ internal sealed class AcpRunAgentProvider(AgentProvider inner, AcpAgentSession s
     public Task<IAgentRun> OpenRunAsync(
         string doorId, AgentSessionOptions options, AgentRunOptions? run = null, CancellationToken ct = default)
     {
-        ArgumentNullException.ThrowIfNull(doorId);
-        ArgumentNullException.ThrowIfNull(options);
         var descriptor = inner.Describe();
-        var door = descriptor.Doors.FirstOrDefault(d => string.Equals(d.Id, doorId, StringComparison.Ordinal))
-            ?? throw new KeyNotFoundException(
-                $"Agent provider '{descriptor.Id}' has no door '{doorId}'. Doors: {string.Join(", ", descriptor.Doors.Select(d => d.Id))}.");
+        if (KeptRuns.Admit(descriptor, doorId, options) is { } refused) return Task.FromResult(AcpAgentRun.AlreadyOver(refused));
 
-        // the two refusals AgentProvider makes of a turn, made of a run's open too: nothing is spawned for either
-        if (options.Account is { } account
-            && !string.Equals(account.Provider, descriptor.Id, StringComparison.Ordinal)
-            && !string.Equals(account.Provider, descriptor.Agent, StringComparison.Ordinal))
-            return Task.FromResult(AcpAgentRun.AlreadyOver(Refused(AgentProvider.AccountRefusedSubtype,
-                $"account '{account.Name}' belongs to '{account.Provider}', not to provider '{descriptor.Id}'"
-                + (descriptor.Agent is null ? "" : $" or its agent '{descriptor.Agent}'"))));
-
-        var refused = door.Unhonourable(options);
-        if (refused.Count > 0)
-            return Task.FromResult(AcpAgentRun.AlreadyOver(Refused(AgentProvider.OptionRefusedSubtype,
-                $"door '{door.Id}' cannot honour: {string.Join(", ", refused)}")));
-
+        var door = descriptor.Doors.Single(d => string.Equals(d.Id, doorId, StringComparison.Ordinal));
         return session.OpenRunAsync(options, run, door.SupportFor(AgentAbilities.QueuedWords) == AgentSupport.Supported, ct);
     }
-
-    private static SessionEnded Refused(string subtype, string why) =>
-        new(ProviderVerdict.Unsupported, true, subtype, null, null, why)
-        {
-            Failure = new AgentFailure(AgentFailureKind.Fatal, "refused-before-spawn") { Delivery = AgentDelivery.NeverSent },
-        };
 }

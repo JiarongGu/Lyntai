@@ -5,8 +5,8 @@ namespace Lyntai.Providers.Basic;
 
 /// <summary>A CLI door's <see cref="IAgentProvider"/> that is also an <see cref="IAgentUsageSource"/> and an
 /// <see cref="IAgentAuthSource"/>, so a host finds each ability by type test on the provider it already resolved. Describing and
-/// opening are the wrapped provider's own: this adds members and changes none.</summary>
-internal sealed class CliAgentProvider(AgentProvider inner, CliUsageSource usage, CliAuthSource auth)
+/// opening are the wrapped provider's own: this adds members and changes none. A door with a further ability derives from it.</summary>
+internal class CliAgentProvider(AgentProvider inner, CliUsageSource usage, CliAuthSource auth)
     : IAgentProvider, IAgentUsageSource, IAgentAuthSource
 {
     // concrete parameter types on purpose: this is an ability added beside a provider, not a decorator of the

@@ -138,4 +138,48 @@ public sealed class ClaudeAgentSession : IAgentSession
             foreach (var path in tempFiles) OwnerOnlyTempFile.TryDelete(path);
         }
     }
+
+    /// <summary>Open a run kept across turns on this door (<see cref="ClaudeCliAgentRun"/>): the argv <see cref="StreamAsync"/>
+    /// spawns, reading stdin as stream-json, spawned once. Each refusal <see cref="StreamAsync"/> makes, and a runner that cannot
+    /// pause its inactivity window, is a run already ended with nothing spawned. The MCP document is written once and deleted
+    /// when the run ends.</summary>
+    /// <exception cref="ArgumentException"><paramref name="run"/> sets a woken turn's quiet a timer cannot count.</exception>
+    internal async Task<IAgentRun> OpenRunAsync(AgentSessionOptions options, AgentRunOptions? run, CancellationToken ct)
+    {
+        ArgumentNullException.ThrowIfNull(options);
+        KeptRuns.Check(run ?? new AgentRunOptions());
+        if (!AgentMcpServers.TryValidate(options.McpServers, out var mcpRefusal))
+            return Over(AgentMcpServers.RefusedSubtype, mcpRefusal);
+        if (!AgentAccounts.TryCheckTurn(options.Environment, out var environmentRefusal))
+            return Over(AgentAccounts.EnvironmentRefusedSubtype, environmentRefusal);
+        if (!AgentAccounts.TryMap(options.Account, ClaudeAgentDoor.Mapping, out var accountEnvironment, out var accountRefusal))
+            return Over(AgentAccounts.RefusedSubtype, accountRefusal);
+
+        // everything that can throw is read before the MCP document is written, so a throw leaves no file behind
+        var (exe, prefixArgs) = CliCommand.Resolve(_command, Backend);
+        var inactivity = _options.ResolveAgentTimeout(options.TimeoutSeconds);
+        var environment = AgentAccounts.Merge(AgentAccounts.MergeTurn(_environment, options.Environment), accountEnvironment);
+        var tempFiles = new List<string>();
+        string Write(string kind, string content)
+        {
+            var path = OwnerOnlyTempFile.Write(kind, content);
+            tempFiles.Add(path);
+            return path;
+        }
+
+        if (!ClaudeAgentArgs.TryBuild(options, Write, out var agentArgs, out var refusal, out var refusalSubtype, keptRun: true))
+            return Over(refusalSubtype, refusal);
+        if (!_runner.CanPauseInactivity)
+        {
+            foreach (var path in tempFiles) OwnerOnlyTempFile.TryDelete(path);
+            return Over("runner-unsupported",
+                "a run is idle between turns and its process's inactivity window must be paused meanwhile, and this IProcessRunner cannot be told to (CanPauseInactivity is false).");
+        }
+
+        var host = new ClaudeCliAgentRun.Host(_runner, exe, [.. prefixArgs, .. agentArgs], options.WorkingDirectory, environment,
+            inactivity, ClaudeCliAgentRun.DefaultStopGrace, _time, tempFiles);
+        return await ClaudeCliAgentRun.OpenAsync(host, ct).ConfigureAwait(false);
+
+        static IAgentRun Over(string subtype, string? why) => new KeptRuns.OverRun(CliAgentLoop.Refused(subtype, why));
+    }
 }

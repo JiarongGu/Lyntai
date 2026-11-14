@@ -7,6 +7,20 @@ to `.agents/knowledge/pitfalls.md`; the release-facing line goes to `CHANGELOG.m
 
 ---
 
+## 2026-11-15 — a kept-run stop test raced the second answer it never waited for
+
+**Symptom.** `AcpAgentRunTests.A_stop_with_a_word_on_its_way_sends_nothing` failed about once in six runs under load, at its last `StopAsync` (true where false was expected), seen by two builders the same day; green standalone.
+
+**Root cause.** In the test, not the run. After the two answers were said, it awaited only the FIRST turn's end, which completes when `Answer(100)` is read; `Answer(101)` could still be unread, so the stop found the second turn running and was right to send a cancel.
+
+**Fix.** The test awaits the second turn's `Ended` before the final `StopAsync`. The run is unchanged.
+
+**Verify.** The class passed repeatedly after the change and in the full `verify`. Not reproduced on demand before it; the failure was read from two builders' runs and the line it failed at.
+
+**Introduced by.** The test's first version (AG47, `docs/task-archive.md` Part 470).
+
+---
+
 ## 2026-11-15 — the usage read's scratch folder was created with the default mode
 
 **Symptom.** None reported; filed by the 2026-11-08 review of the one-shot CLI providers and the usage source (`docs/task-archive.md` Part 529 closes it). On Linux under a `022` umask the fresh `lyntai-usage-<guid>` folder the vendor's server starts in was `0755`, where the CLI engine's working directory is `0700`.

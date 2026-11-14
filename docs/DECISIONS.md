@@ -444,8 +444,9 @@ new decision overturns an old one, rewrite the old entry as a stub pointing here
 | [D372](#d372--a-write-tools-remember-keeps-a-held-entrys-metadata-as-it-keeps-its-grade-2026-11-15) | 2026-11-15 | a write tool's remember keeps a held entry's metadata, as it keeps its grade |
 | [D373](#d373--a-write-tool-refuses-a-stated-instant-it-cannot-read-naming-the-field-2026-11-15) | 2026-11-15 | a write tool refuses a stated instant it cannot read, naming the field |
 | [D374](#d374--model2vec-cuts-a-text-as-the-reference-does-with-an-opt-out-2026-11-15) | 2026-11-15 | Model2Vec cuts a text as the reference does, with an opt-out |
+| [D375](#d375--the-claude-cli-keeps-a-run-on-one-held-stdin-process-stops-it-by-its-interrupt-and-takes-no-word-into-a-running-turn-2026-11-15) | 2026-11-15 | the claude CLI keeps a run on one held-stdin process, stops it by its interrupt, and takes no wor… |
 
-**369 live decisions.** The rest are stubs — `D<n>` is a permanent identifier, so a number is never reused or renumbered (5): [D36](#d36--a-translation-between-two-verdict-taxonomies-gets-one-arm-per-member-gated-by-a-test-2026-08-05) → D136 · [D80](#d80--merged-into-d77-2026-08-16-folded-2026-08-17) → D77 · [D131](#d131--a-backends-produces-is-derived-from-its-configuration-so-a-modality-is-a-field-2026-09-14) → D133 · [D134](#d134--a-registration-names-the-backend-the-provider-suffix-is-gone-from-all-seventeen-2026-09-14) → D137 · [D145](#d145--the-microsoftextensionsai-module-is-a-bridge-not-a-provider-2026-09-15) → D146
+**370 live decisions.** The rest are stubs — `D<n>` is a permanent identifier, so a number is never reused or renumbered (5): [D36](#d36--a-translation-between-two-verdict-taxonomies-gets-one-arm-per-member-gated-by-a-test-2026-08-05) → D136 · [D80](#d80--merged-into-d77-2026-08-16-folded-2026-08-17) → D77 · [D131](#d131--a-backends-produces-is-derived-from-its-configuration-so-a-modality-is-a-field-2026-09-14) → D133 · [D134](#d134--a-registration-names-the-backend-the-provider-suffix-is-gone-from-all-seventeen-2026-09-14) → D137 · [D145](#d145--the-microsoftextensionsai-module-is-a-bridge-not-a-provider-2026-09-15) → D146
 
 <!-- index:end -->
 
@@ -8993,3 +8994,15 @@ recall and its write-back is already a silent skip).
 **Rejected.** Embedding the whole text and documenting the difference (a long query here never matches a reference corpus). Cutting on tokens alone (the character pre-cut changes which tokens survive). No opt-out (a forced re-embed for every deployment).
 
 **Re-opens** if the reference changes its cut, or a host needs a `max_length` other than its model's config states.
+
+## D375 — the claude CLI keeps a run on one held-stdin process, stops it by its interrupt, and takes no word into a running turn (2026-11-15)
+
+**Standing.** A ruling on AG51 (closed as `docs/task-archive.md` Part 533), read by the agent that built it with a Fable design agent; the owner may reverse it. Built.
+
+**Decided.** `AddClaudeCliAgentSession`'s provider is also an `IAgentRunProvider` (it derives from the CLI provider, so usage and sign-in stay found by type test). A run is one `-p --input-format stream-json` process: the open is the spawn, a turn is a user line with no priority ended by its `result`, `SessionId` is null until the first `system/init`, and the system prompt and MCP document hold for the run. `StopAsync` writes the recorded interrupt; the turn ends failed `cancelled` (`claude.terminal_reason=<reason>`, the new `AgentRunSubtypes.Cancelled`), a line is refused `run-busy` until its `result` and the `control_response` are both in, and no answer within 5 s ends the run. A word on a busy run is refused `run-busy`; no steer and no woken turn are offered, and the CLI speaking unprompted refuses a line `run-woken-turn` until a `result`. `kept-run` and `keeping-stop` are `Supported` for claude 2.1.281, `queued-words` `Unknown`.
+
+**Why.** The records show two turns on one process and an interrupt that keeps the session; STEER3 (2.1.322) shows a no-priority line fold into a tool step but become the next turn after a streaming step, so a result count cannot say which turn owns a word, and a `now` line is a stop and a send.
+
+**Rejected.** Taking the word (only the replay echo could tell where it landed, and it is recorded for the tool step alone). `priority: "now"` as a steer (it ends the turn, which `Injected` promises it does not). A wrapping provider (it hides the usage and sign-in sources). A registration option (the door is one agent, unlike the protocol door's **D251**). An `initialize` control request at the open (the record needs none).
+
+**Re-opens** when STEER3's streaming row is re-run with `--replay-user-messages` and the echo tells a fold from a next turn (`TASKS.md` Part 518's AG53), when a record shows the CLI's own turn after a task's end on held stdin, or when a model is changed between turns.

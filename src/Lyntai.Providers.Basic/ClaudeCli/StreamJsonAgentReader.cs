@@ -11,7 +11,8 @@ namespace Lyntai.Providers.ClaudeCli;
 /// --include-partial-messages</c> line via <see cref="Read"/>; it yields 0..N <see cref="AgentStreamEvent"/>s.
 /// Tolerant — an unknown/malformed line yields nothing, never throws. Remembers the model id across lines
 /// so the terminal <see cref="UsageFinal"/> carries it. Line-translation ONLY: it does NOT set
-/// <see cref="SessionEnded.Diagnostic"/> (no stderr knowledge — the session runner fills that).</summary>
+/// <see cref="SessionEnded.Diagnostic"/> (no stderr knowledge — the session runner fills that). A kept run reads every turn
+/// through one reader with <see cref="ReadRun"/>, between <see cref="BeginTurn"/> and <see cref="EndTurn"/>.</summary>
 internal sealed class StreamJsonAgentReader : ICliAgentLineReader
 {
     private readonly TimeProvider _time;
@@ -21,7 +22,7 @@ internal sealed class StreamJsonAgentReader : ICliAgentLineReader
     private string? _lastAssistantText;
     private string? _assistantError;
     private RejectedLimit? _rejectedLimit;
-    private readonly UnreadFrames _unread = new();
+    private UnreadFrames _unread = new();
     private string _line = "";
 
     // a streamed text delta since the last own assistant message (or message_start): that message's words were already yielded
@@ -65,6 +66,97 @@ internal sealed class StreamJsonAgentReader : ICliAgentLineReader
     /// <summary>The frames no case here took, by type: a type this reader has no case for, and a streamed event it
     /// has no case for.</summary>
     public IReadOnlyList<AgentUnreadFrame> Unread() => _unread.Snapshot();
+
+    /// <summary>What a kept run reads a line as, beside its events: which turn it belongs to is the run's to decide.</summary>
+    internal enum RunFrameKind
+    {
+        /// <summary>Any line below, or one that is not JSON.</summary>
+        Other,
+
+        /// <summary>A <c>result</c>: the end of a turn, the run's or the CLI's own.</summary>
+        Result,
+
+        /// <summary>The CLI's answer to a control request the run wrote.</summary>
+        ControlResponse,
+
+        /// <summary>A <c>system</c> <c>task_*</c> line: background work, which may outlive the turn that started it.</summary>
+        Task,
+
+        /// <summary>The session's own <c>assistant</c> or <c>stream_event</c>: the agent speaking, not a child of it.</summary>
+        OwnActivity,
+    }
+
+    /// <summary>A line as a kept run reads it.</summary>
+    /// <param name="Kind">What it is.</param>
+    /// <param name="Type">Its <c>type</c>, for a frame the run notes as unread.</param>
+    /// <param name="Subtype">Its <c>subtype</c>, or a stream event's own type.</param>
+    /// <param name="RequestId">For <see cref="RunFrameKind.ControlResponse"/>, the request it answers.</param>
+    internal readonly record struct RunFrame(RunFrameKind Kind, string? Type, string? Subtype, string? RequestId);
+
+    /// <summary>The session's id once a <c>system</c> line has named it; null before.</summary>
+    public string? SessionId => Volatile.Read(ref _sessionId);
+
+    /// <summary>A kept run's turn begins. What the last turn owned (its words, failure fields, open calls and result) is cleared;
+    /// the model, the session and the background tasks are the run's and stay.</summary>
+    public void BeginTurn()
+    {
+        _lastAssistantText = null;
+        _assistantError = null;
+        _rejectedLimit = null;
+        _streamedText = false;
+        _streamMessageId = null;
+        _readAssistant = false;
+        _readResult = false;
+        _pendingCalls.Clear();
+    }
+
+    /// <summary>A kept run's turn has ended, its terminal stamped: a frame read from now on is unread on the next turn.</summary>
+    public void EndTurn() => _unread = new UnreadFrames();
+
+    /// <summary>A frame a kept run read nothing from while no turn of its own ran: the next turn's unread.</summary>
+    public void NoteUnread(RunFrame frame, string line)
+    {
+        if (frame.Type is { } type) _unread.Note(type, frame.Subtype, line);
+    }
+
+    /// <summary><see cref="Read"/> for a kept run, which also says what the line is. The CLI's answer to the run's own control
+    /// request yields nothing and is no unread frame: it is the driver's, not the turn's.</summary>
+    public IReadOnlyList<AgentStreamEvent> ReadRun(string line, out RunFrame frame)
+    {
+        frame = default;
+        if (string.IsNullOrWhiteSpace(line)) return [];
+        _line = line;
+        try
+        {
+            using var doc = JsonDocument.Parse(line);
+            var root = doc.RootElement;
+            frame = Classify(root);
+            return frame.Kind == RunFrameKind.ControlResponse ? [] : [.. ReadLine(root)];
+        }
+        catch (Exception ex) when (WireJson.IsShapeFault(ex))
+        {
+            frame = default;
+            return [];
+        }
+    }
+
+    private static RunFrame Classify(JsonElement root)
+    {
+        var type = WireJson.String(root, "type");
+        var subtype = WireJson.String(root, "subtype");
+        var own = WireJson.String(root, "parent_tool_use_id") is null;
+        return type switch
+        {
+            "result" => new RunFrame(RunFrameKind.Result, type, subtype, null),
+            "control_response" => new RunFrame(RunFrameKind.ControlResponse, type, null,
+                WireJson.Object(root, "response") is { } response ? WireJson.String(response, "request_id") : null),
+            "system" when subtype?.StartsWith("task_", StringComparison.Ordinal) == true => new RunFrame(RunFrameKind.Task, type, subtype, null),
+            "assistant" when own => new RunFrame(RunFrameKind.OwnActivity, type, subtype, null),
+            "stream_event" when own => new RunFrame(RunFrameKind.OwnActivity, type,
+                WireJson.Object(root, "event") is { } evt ? WireJson.String(evt, "type") : null, null),
+            _ => new RunFrame(RunFrameKind.Other, type, subtype, null),
+        };
+    }
 
     /// <summary>Translates one stream-json line into 0..N events. Never throws.</summary>
     public IReadOnlyList<AgentStreamEvent> Read(string line)
@@ -280,6 +372,10 @@ internal sealed class StreamJsonAgentReader : ICliAgentLineReader
         if (!root.TryGetProperty("message", out var msg) || msg.ValueKind != JsonValueKind.Object)
             yield break;
 
+        // the partial message an interrupt leaves (a host's stream-json note): its streamed words were already read, and the rest was never said
+        if (root.TryGetProperty("aborted", out var aborted) && aborted.ValueKind == JsonValueKind.True)
+            yield break;
+
         var own = parentCallId is null;
         var messageId = WireJson.String(msg, "id");
 
@@ -490,6 +586,15 @@ internal sealed class StreamJsonAgentReader : ICliAgentLineReader
 
         foreach (var denied in ReadDenials(root)) yield return denied;
         if (ReadModelUsage(root) is { } byModel) yield return byModel;
+
+        // an interrupt's turn (a host's stream-json note): the CLI names what it cut, and a stop is no failure of the door's to classify
+        if (isError && WireJson.String(root, "terminal_reason") is "aborted_streaming" or "aborted_tools")
+        {
+            var cut = WireJson.String(root, "terminal_reason");
+            yield return new SessionEnded(ProviderVerdict.Failed, true, AgentRunSubtypes.Cancelled, sessionId, finalText, null)
+                { Failure = new AgentFailure(AgentFailureKind.Fatal, $"claude.terminal_reason={cut}") };
+            yield break;
+        }
 
         // classified, never hand-rolled, so an expired login is AuthFailed and a 429 RateLimited; the door's own
         // fields decide before its words, and Failed only when neither reads

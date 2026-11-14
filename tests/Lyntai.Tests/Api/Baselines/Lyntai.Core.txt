@@ -558,6 +558,7 @@ sealed class Lyntai.Agents.AgentRunOptions
     WokenTurnQuiet : Nullable<TimeSpan> { get; init; }
 static class Lyntai.Agents.AgentRunSubtypes
     Busy : String const
+    Cancelled : String const
     Disposed : String const
     Folded : String const
     Over : String const

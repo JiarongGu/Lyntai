@@ -554,7 +554,7 @@ public class AcpAgentRunTests
         var agent = new KeptAgent();
         await using var run = await Open(agent);
         var first = await run.SendAsync("one");
-        await run.SendAsync("two");
+        var second = await run.SendAsync("two");
 
         Assert.False(await run.StopAsync());
 
@@ -562,6 +562,7 @@ public class AcpAgentRunTests
         Assert.DoesNotContain(agent.Written, f => Method(f) == "session/cancel");
         agent.Say(Answer(100, "end_turn", NoUsage), Answer(101));
         Assert.Equal(AgentRunSubtypes.Folded, (await first.Ended.WaitAsync(Wait)).Subtype);
+        await second.Ended.WaitAsync(Wait);   // the first's end does not mean the second answer was read yet
         Assert.False(await run.StopAsync());   // the word was taken, and nothing runs now
     }
 

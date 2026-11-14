@@ -1332,6 +1332,16 @@ await foreach (var evt in turn.Events)
 var next = await run.SendAsync("now fix it");   // the same process and conversation
 ```
 
+**The `claude` CLI door keeps a run too**: `AddClaudeCliAgentSession`'s provider is also an `IAgentRunProvider`, opening one
+`-p --input-format stream-json` process with stdin held open, a user line per turn, each turn ended by its own `result`. The open is
+the spawn, so `SessionId` is null until the CLI's first `system/init`, which comes with the first turn; `SystemPrompt` rides the
+launch and holds for every turn, and the `McpServers` document lives as long as the run. `StopAsync` writes the CLI's interrupt
+request: the turn ends failed, subtype `cancelled`, a line is refused `run-busy` until that turn has ended and the interrupt is
+answered, and an interrupt unanswered for 5 s ends the run. A word on a busy run is refused `run-busy` (`queued-words` `Unknown`: on
+that wire a word folds into a tool step but becomes the next turn after a streaming one, and nothing tells which). There is no steer
+and no woken turn: `WokenTurns` completes empty, and while the CLI speaks with no turn of yours running a line is refused
+`run-woken-turn` until its `result`, read as unread frames on your next turn.
+
 A turn is `initialize`, then `session/new`, or for a `ResumeToken` `session/resume` where the agent's `initialize`
 answer states `sessionCapabilities.resume` and `session/load` where it states `loadSession`, then `session/prompt`.
 An agent that states neither refuses the turn before the prompt (`option-unsupported`, `NeverSent`), which is why

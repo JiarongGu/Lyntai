@@ -15,7 +15,7 @@ LLM-ops layer (prompt registry, scoring, traces, memory). `AddLyntai(...)` and g
 
 <!-- open-items:begin — GENERATED. Edit the per-item `item:` markers, never this table. -->
 
-## Open items — 9 across 8 Parts: 2 startable, 6 blocked, 1 watch
+## Open items — 9 across 8 Parts: 1 startable, 7 blocked, 1 watch
 
 _Generated from the per-item `<!-- item: … -->` markers by `node devtools/dev.mjs check-backlog --write`._
 _Edit a marker, never this table — `verify` fails the moment the two disagree._
@@ -30,7 +30,7 @@ _Edit a marker, never this table — `verify` fails the moment the two disagree.
 | 286 | 485 | How long a quiet Codex step runs is unmeasured | blocked · env | one real Codex turn on an account with room: re-checked 2026-11-15, the own… |
 | 298 | 495 | Two usage-process lifetime facts fail on Linux | startable |  |
 | 307 | 518 | AG50 — a kept run on `codex-acp` and dsh (A-LQ19) | blocked · data | Daoris's recorded Codex sitting and dsh probe frames; re-checked 2026-11-15… |
-| 309 | 518 | AG51 — a kept run on the Claude CLI with stdin held (A-LQ21) | startable |  |
+| 309 | 518 | AG53 — the replay echo that would tell a word folded into a running CLI tur… | blocked · data | a host's STEER3 streaming-step row re-run on held stdin with --replay-user-… |
 
 <!-- open-items:end -->
 
@@ -306,10 +306,10 @@ _Opened by `docs/task-archive.md` **Part 518**, which built A-LQ20, A-LQ22, A-LQ
 
 - [ ] **AG50 — a kept run on `codex-acp` and dsh (A-LQ19).** The study's `Unknown` cells (`docs/agent-provider-daoris-study.md` §11.1) for those two doors are Daoris's to fill from <!-- item: state=blocked kind=data needs="Daoris's recorded Codex sitting and dsh probe frames; re-checked 2026-11-15 with Daoris: not recorded, its Codex account is at its spend cap and its dsh build has no session to keep" -->
   records it is taking. Each cell moves only to what a record shows, and a record that shows a second prompt replacing the first leaves `queued-words` `Unsupported` for `codex-acp`.
-- [ ] **AG51 — a kept run on the Claude CLI with stdin held (A-LQ21).** `claude -p --input-format stream-json` taking a user line per turn, an interrupt that keeps the session, and <!-- item: state=startable -->
-  background work read until it ends: a second `IAgentRun` implementation over the existing `IProcessRunner.ExchangeLinesAsync`, with its abilities stated from Daoris's measured stream-json note
-  (two turns on one process and an interrupt, REAL; a line framed mid-turn and held-stdin background work, never run, so `Unknown`). Design first, as AG39 was (**D251**): the CLI has no
-  open to repeat and its turn ends on a `result` frame, so the run's reader is the existing `StreamJsonAgentReader` with per-run state, which is the work.
+- [ ] **AG53 — the replay echo that would tell a word folded into a running CLI turn from the next turn (re-opens `queued-words` on the Claude CLI door).** <!-- item: state=blocked kind=data needs="a host's STEER3 streaming-step row re-run on held stdin with --replay-user-messages: whether, and where, the CLI echoes a word that becomes the next turn" -->
+  The CLI run (**D375**) refuses a word on a busy run because a no-priority line folds into a tool step but becomes the next turn after a streaming step (STEER3, claude
+  2.1.322), and the `isReplay` echo that might attribute it is recorded for the tool step only. With the streaming row's echo recorded, `queued-words` is stated from it:
+  if the echo tells the two apart, the run takes the word; if not, the claim becomes `Unsupported` (`docs/agent-provider-daoris-study.md` §11.1).
 
 ## Retired — five Parts that outlived their open work (2026-09-16)
 

@@ -7249,3 +7249,17 @@ unknown token is dropped before the cut. Parts 479 and 490 are empty and leave t
 
 - `MemoryWriteToolsTests`, `MemoryReceiptTests`, the graph store contract, `Model2VecProviderTests`, `Model2VecProviderLiveTests`
 - D372 to D374, the changelog entries
+
+## Part 533 — AG51, a kept run on the Claude CLI with stdin held (A-LQ21) (2026-11-15)
+
+✅ done 2026-11-15 — **Outcome:** designed first, as the row asked, by a Fable design agent from Daoris's stream-json note and its
+STEER3 measurements, then built test first in a builder's worktree (**D375**). `ClaudeCliAgentRun` keeps one
+`claude -p --input-format stream-json` process across turns through `ClaudeCliAgentProvider`, deriving from the now-unsealed internal
+`CliAgentProvider`; `StreamJsonAgentReader` gained a kept mode and reads an interrupted result as `cancelled`
+(`AgentRunSubtypes.Cancelled`, the one new public member); the door-neutral run pieces moved to `KeptRuns`. `kept-run` and
+`keeping-stop` are supported (claude 2.1.281) and `queued-words` unknown, because STEER3 shows a word folding into a tool step but
+becoming the next turn after a streaming step; the record that would re-open it is AG53. The merge also fixed a race in
+`A_stop_with_a_word_on_its_way_sends_nothing` two builders saw (`docs/FIXES.md` 2026-11-15).
+
+- `tests/Lyntai.Tests/Providers/ClaudeCliAgentRunTests.cs`, seven `StreamJsonAgentReaderTests`
+- D375, the changelog entry

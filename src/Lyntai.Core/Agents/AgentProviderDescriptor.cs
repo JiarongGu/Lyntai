@@ -73,7 +73,8 @@ public sealed record AgentAbility(string Name, AgentSupport Support, AgentAbilit
 /// provider states its own.</summary>
 public static class AgentDoorKinds
 {
-    /// <summary>An agent run as a command-line process, one process per turn.</summary>
+    /// <summary>An agent run as a command-line process: one process per turn of a session, or one kept across a run's turns where
+    /// the door states <see cref="AgentAbilities.KeptRun"/> <see cref="AgentSupport.Supported"/>.</summary>
     public const string Cli = "cli";
 
     /// <summary>An agent reached over the Agent Client Protocol.</summary>

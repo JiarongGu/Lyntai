@@ -39,9 +39,11 @@ internal static class ClaudeAgentArgs
     /// <param name="args">The argv, or empty when refused.</param>
     /// <param name="refusal">Why the turn cannot be spawned, or null when it can.</param>
     /// <param name="refusalSubtype">The <see cref="SessionEnded.Subtype"/> of that refusal.</param>
+    /// <param name="keptRun">For a run kept across turns: stdin is read as stream-json user lines, one per turn, and held open.
+    /// No <c>--replay-user-messages</c>: the run takes no word into a running turn, so it has no echo to read.</param>
     public static bool TryBuild(
         AgentSessionOptions options, Func<string, string, string> writeTempFile,
-        out IReadOnlyList<string> args, out string? refusal, out string refusalSubtype)
+        out IReadOnlyList<string> args, out string? refusal, out string refusalSubtype, bool keptRun = false)
     {
         args = [];
         refusalSubtype = AgentProvider.OptionRefusedSubtype;
@@ -55,7 +57,7 @@ internal static class ClaudeAgentArgs
 
         if ((refusal = Refusal(options)) is not null) return false;
 
-        args = Build(options, resumeId, writeTempFile);
+        args = Build(options, resumeId, writeTempFile, keptRun);
         return true;
     }
 
@@ -79,11 +81,12 @@ internal static class ClaudeAgentArgs
     }
 
     private static List<string> Build(
-        AgentSessionOptions options, string? resumeId, Func<string, string, string> writeTempFile)
+        AgentSessionOptions options, string? resumeId, Func<string, string, string> writeTempFile, bool keptRun)
     {
         // the print-mode prefix is declared once, on ClaudeArgs — this path only adds the partial-message
         // events the agent reader needs on top of it
         var args = new List<string>(ClaudeArgs.PrintMode) { "--include-partial-messages" };
+        if (keptRun) args.AddRange(["--input-format", "stream-json"]);
 
         // Build de-duplicated disallowed list: always-denied + caller-provided + (if ReadOnly) write tools
         var disallowed = new List<string>();

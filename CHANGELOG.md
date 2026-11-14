@@ -330,6 +330,12 @@ every addition.
 
 ### Added
 
+- **A run kept across turns on the `claude` CLI door** (**D375**). `AddClaudeCliAgentSession`'s provider is also an `IAgentRunProvider`:
+  one `claude -p --input-format stream-json` process with stdin held open, a user line per turn, each turn ended by its own `result`, and
+  `SessionId` known from the first turn. `StopAsync` sends the CLI's interrupt; the turn ends failed with the new
+  `AgentRunSubtypes.Cancelled`, and the next turn runs on the same process. A word on a busy run is refused `run-busy`, and the door offers
+  no steer and no woken turn; it states `kept-run` and `keeping-stop` supported for claude 2.1.281 and `queued-words` unknown. On the
+  one-turn session too, a result an interrupt cut now reads `cancelled`, and an aborted partial message yields no event.
 - **A durable generation job's backend render can be cancelled, and a queued stage can bound its polling** (**D369**, **D370**).
   `GenerationJobCancellation.CancelAsync(queue, providers, jobId)` cancels the job, then asks the backend holding its submitted operation
   to cancel it (cancelling the job alone still leaves the render running). `GenerationPipelineJobOptions.MaxPollDuration` (null,

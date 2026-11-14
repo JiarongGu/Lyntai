@@ -8,11 +8,13 @@ namespace Lyntai.Agents;
 /// <see cref="AgentAbilities.KeptRun"/> and the five abilities beside it.</summary>
 public interface IAgentRunProvider
 {
-    /// <summary>Open a run on a door: spawn the agent and open its session, once. The run is idle when this returns.</summary>
+    /// <summary>Open a run on a door: spawn the agent once, and open its session where the door has an open of its own; on a door
+    /// whose open is the spawn (the CLI door), the agent names its session with the first turn. The run is idle when this returns.</summary>
     /// <param name="doorId">An <see cref="AgentDoor.Id"/> from <see cref="IAgentProvider.Describe"/> whose door states
     /// <see cref="AgentAbilities.KeptRun"/> <see cref="AgentSupport.Supported"/>.</param>
     /// <param name="options">What the session opens with. <see cref="AgentSessionOptions.Prompt"/> is read as nothing: a run's words
-    /// are <see cref="IAgentRun.SendAsync"/>'s, and <see cref="AgentSessionOptions.SystemPrompt"/> leads the first of them only.
+    /// are <see cref="IAgentRun.SendAsync"/>'s. <see cref="AgentSessionOptions.SystemPrompt"/> is the run's: a door that sends it with a
+    /// prompt leads the first prompt with it, and one that carries it in the launch holds it for every turn.
     /// <see cref="AgentSessionOptions.Account"/> is the run's for its life.</param>
     /// <param name="run">What the host sets for the run itself; null = none.</param>
     /// <param name="ct">Cancels the open: the process is killed and the call throws.</param>
@@ -33,8 +35,9 @@ public sealed record AgentRunOptions
     public TimeSpan? WokenTurnQuiet { get; init; }
 }
 
-/// <summary>A run of one agent, kept across turns on one process: its session is opened once, and each <see cref="SendAsync"/> is a
-/// turn of it. One account for its life; the host gives its pick back when <see cref="Ended"/> completes.
+/// <summary>A run of one agent, kept across turns on one process: its session is opened once (or begun by the first turn, where the
+/// open is the spawn), and each <see cref="SendAsync"/> is a turn of it. One account for its life; the host gives its pick back when
+/// <see cref="Ended"/> completes.
 /// <para><b>A turn</b> is the stream <see cref="IAgentSession.StreamAsync"/> gives, with exactly one <see cref="SessionEnded"/>, so
 /// delivery, failure and usage read as they do per turn. Events that belong to no turn (an allowance report between turns) are
 /// dropped, and a background task's start or end seen while none runs is held for the next turn to begin.</para>
@@ -43,7 +46,8 @@ public sealed record AgentRunOptions
 /// of <see cref="AgentRunSubtypes"/>.</para></summary>
 public interface IAgentRun : IAsyncDisposable
 {
-    /// <summary>The conversation's id once the session is open (the resume token); null when the open failed.</summary>
+    /// <summary>The conversation's id (the resume token) once the agent has named it: at the open on a door that opens a session, with
+    /// the first turn on a door whose open is the spawn; null before then, and when the open failed.</summary>
     string? SessionId { get; }
 
     /// <summary>Completes once, when the run is over: the failed open or the process fault as the typed terminal it is, or an
@@ -55,20 +59,24 @@ public interface IAgentRun : IAsyncDisposable
     /// <summary>Send a prompt. On an idle run it starts a turn. On a busy run it is a word: taken only where the door states
     /// <see cref="AgentAbilities.QueuedWords"/> <see cref="AgentSupport.Supported"/>, when the earlier turn then ends
     /// <see cref="AgentRunSubtypes.Folded"/> (success, every usage count 0) and this one owns the rest of the work. Refused while a
-    /// permission request is held, while a woken turn runs, on a busy run whose door takes no word, while a stop is out (the
-    /// cancelled turn would answer it), and on an ended run.</summary>
+    /// permission request is held, while a woken turn runs (or, on a door that offers none, while the agent speaks with no turn of
+    /// the host's running), on a busy run whose door takes no word, while a stop is out (until the stopped turn has ended and the
+    /// door's stop is answered), and on an ended run.</summary>
     /// <param name="prompt">The words.</param>
     /// <param name="ct">Cancels the send before it is made; a sent prompt is stopped by <see cref="StopAsync"/>.</param>
     Task<AgentRunTurn> SendAsync(string prompt, CancellationToken ct = default);
 
-    /// <summary>Stop the running turn as the one-turn door cancels one (<c>session/cancel</c>), which ends as a cancelled turn does.
-    /// <b>Sends nothing while a word is on its way</b>, since a cancel then loses the word's answer: stop again once the earlier
-    /// turn has ended. Whether the next turn after a stop is usable is <see cref="AgentAbilities.KeepingStop"/>.</summary>
-    /// <returns>True when a cancel was sent; false when no sent turn runs, a word is on its way, or a stop is already out.</returns>
+    /// <summary>Stop the running turn by the door's own stop (the protocol door's <c>session/cancel</c>, the CLI door's interrupt
+    /// request); the turn ends failed, as a cancelled turn, subtype <see cref="AgentRunSubtypes.Cancelled"/>. A stop the agent never
+    /// answers within the door's grace ends the run. <b>Sends nothing while a word is on its way</b>, since a cancel then loses the
+    /// word's answer: stop again once the earlier turn has ended. Whether the next turn after a stop is usable is
+    /// <see cref="AgentAbilities.KeepingStop"/>.</summary>
+    /// <returns>True when a stop was sent; false when no sent turn runs, a word is on its way, or a stop is already out.</returns>
     Task<bool> StopAsync(CancellationToken ct = default);
 
     /// <summary>The turns the agent starts by itself after a task's end, in the order they begin, completing when the run ends. One
-    /// reader; a turn not read is held. A woken turn ends only by <see cref="AgentRunOptions.WokenTurnQuiet"/>.</summary>
+    /// reader; a turn not read is held. A woken turn ends only by <see cref="AgentRunOptions.WokenTurnQuiet"/>. A door with no record
+    /// of one offers none, and the sequence completes empty with the run.</summary>
     IAsyncEnumerable<AgentRunTurn> WokenTurns { get; }
 }
 
@@ -163,13 +171,18 @@ public static class AgentRunSubtypes
     /// <summary>A woken turn ended by <see cref="AgentRunOptions.WokenTurnQuiet"/> of silence.</summary>
     public const string Quiet = "quiet";
 
+    /// <summary>A turn a stop ended (<see cref="IAgentRun.StopAsync"/>), failed: the word the protocol door's stop reason
+    /// and the CLI door's reading of an interrupted turn share.</summary>
+    public const string Cancelled = "cancelled";
+
     /// <summary>Refused: the run is busy and its door states no <see cref="AgentAbilities.QueuedWords"/>, or a stop is out.</summary>
     public const string Busy = "run-busy";
 
     /// <summary>Refused: a permission request is held for the host, and no record shows a word with one.</summary>
     public const string RequestHeld = "run-request-held";
 
-    /// <summary>Refused: a woken turn runs, and a prompt sent into one is never answered.</summary>
+    /// <summary>Refused: a woken turn runs, and a prompt sent into one is never answered; or, on a door that offers no woken turn,
+    /// the agent speaks with no turn of the host's running.</summary>
     public const string WokenRunning = "run-woken-turn";
 
     /// <summary>Refused, or a turn cut off: the run is over.</summary>
