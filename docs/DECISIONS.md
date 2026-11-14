@@ -415,8 +415,9 @@ new decision overturns an old one, rewrite the old entry as a stub pointing here
 | [D343](#d343--no-door-reads-a-child-agent-as-a-session-of-its-own-and-each-states-so-2026-11-12) | 2026-11-12 | no door reads a child agent as a session of its own, and each states so |
 | [D344](#d344--a-sessions-context-is-a-typed-append-only-log-the-library-renders-per-provider-and-the-brief-stays-2026-11-14) | 2026-11-14 | a session's context is a typed append-only log the library renders per provider, and the brief stays |
 | [D345](#d345--a-device-code-sign-in-is-a-request-flag-one-program-carries-and-the-other-refuses-2026-11-15) | 2026-11-15 | a device-code sign-in is a request flag one program carries and the other refuses |
+| [D346](#d346--a-child-agent-is-read-as-a-session-of-its-own-only-on-a-hosts-option-and-its-events-are-wrapped-not-stamped-2026-11-15) | 2026-11-15 | a child agent is read as a session of its own only on a host's option, and its events are wrapped… |
 
-**340 live decisions.** The rest are stubs — `D<n>` is a permanent identifier, so a number is never reused or renumbered (5): [D36](#d36--a-translation-between-two-verdict-taxonomies-gets-one-arm-per-member-gated-by-a-test-2026-08-05) → D136 · [D80](#d80--merged-into-d77-2026-08-16-folded-2026-08-17) → D77 · [D131](#d131--a-backends-produces-is-derived-from-its-configuration-so-a-modality-is-a-field-2026-09-14) → D133 · [D134](#d134--a-registration-names-the-backend-the-provider-suffix-is-gone-from-all-seventeen-2026-09-14) → D137 · [D145](#d145--the-microsoftextensionsai-module-is-a-bridge-not-a-provider-2026-09-15) → D146
+**341 live decisions.** The rest are stubs — `D<n>` is a permanent identifier, so a number is never reused or renumbered (5): [D36](#d36--a-translation-between-two-verdict-taxonomies-gets-one-arm-per-member-gated-by-a-test-2026-08-05) → D136 · [D80](#d80--merged-into-d77-2026-08-16-folded-2026-08-17) → D77 · [D131](#d131--a-backends-produces-is-derived-from-its-configuration-so-a-modality-is-a-field-2026-09-14) → D133 · [D134](#d134--a-registration-names-the-backend-the-provider-suffix-is-gone-from-all-seventeen-2026-09-14) → D137 · [D145](#d145--the-microsoftextensionsai-module-is-a-bridge-not-a-provider-2026-09-15) → D146
 
 <!-- index:end -->
 
@@ -8591,7 +8592,7 @@ recall and its write-back is already a silent skip).
 
 **Rejected.** Declaring it by default. Leaving the absence unstated (the host would read `Unknown` as "not measured").
 
-**Re-opens** when a host-enabled option to declare it is built (`TASKS.md`'s child-sessions row), whose reader needs the child's frames read by session id.
+**Re-opens** when a door's default should change. The host-enabled option it anticipated is **D346**, and the default stays as decided here.
 
 ## D344 — a session's context is a typed append-only log the library renders per provider, and the brief stays (2026-11-14)
 
@@ -8616,3 +8617,15 @@ recall and its write-back is already a silent skip).
 **Rejected.** Adding it only if both programs name one, which the backlog row proposed (the record's own `Sso` and `Email` contradict it, and a host on the program that has the flow would be left without it). A positional parameter (a constructor and deconstruction change for every precompiled caller). Mapping it onto Claude's default login (that flow opens a browser where the process runs, which is the thing the host asked to avoid).
 
 **Re-opens** when `claude auth login` gains a device-code flag, or a run of `codex login --device-auth` shows a flow the usage text does not.
+
+## D346 — a child agent is read as a session of its own only on a host's option, and its events are wrapped, not stamped (2026-11-15)
+
+**Standing.** A ruling on A-LQ24's second half (`TASKS.md` Part 518's AG52), read by the agent that built it; the owner may reverse it. Built.
+
+**Decided.** `AddAcpAgentSession(childSessions: AcpChildSessions.ClaudeAgentAcp)` declares AIR's `nativeSubagentSessions` at `initialize`, and the door reads `subagent_spawned` as `ChildSessionStarted` (id, name, task), `subagent_state_update` as `ChildSessionEnded` (the agent's word, once per change), and an update under an announced child's session id as `ChildSessionUpdate(id, event)`, read as the session's own would be with the child's own state, so a child's words never join the answer. An update under an id nobody announced is dropped. On a kept run a child's update begins no woken turn and, with no turn running, waits for the next. A child's events count as the turn's evidence, a child's call as a call. The door states `child-sessions` `Supported`, applying to claude-agent-acp 0.79.0; the default declares nothing (**D343**).
+
+**Why.** A host with a surface per child needs the child's events apart from the session's, and the record shows the child's updates differ from the session's only by `params.sessionId`. A wrapper keeps that routing in one type: a host that reads none of it never mistakes a child's words for the answer.
+
+**Rejected.** A `ChildSessionId` on each event type (five members, and a host unaware of them merges the child into the session). Reading the spawn as `AgentTaskStarted` (it carries no task text, and the child is a conversation, not a background command). Declaring the protocol's own `subagents` beside AIR's (the record shows it switches nothing on). A value for any agent (codex-acp lists the AIR capability, and no run of it was recorded).
+
+**Re-opens** when a synchronous, nested or failed child is recorded, or a second agent's child sessions are.

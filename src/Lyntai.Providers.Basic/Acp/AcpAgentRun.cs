@@ -21,7 +21,7 @@ internal sealed class AcpAgentRun : IAgentRun
     internal sealed record Host(
         IProcessRunner Runner, AcpAgentSession.AcpLaunch Launch, IReadOnlyList<string> Arguments, TimeSpan CancelGrace,
         TimeProvider Time, IReadOnlyList<IAcpExtensionReader> Extensions, IAcpPermissionApprover? Permissions,
-        AcpPermissionWait PermissionWait, ILogger Logger, string ClientVersion);
+        AcpPermissionWait PermissionWait, ILogger Logger, string ClientVersion, bool ChildSessions = false);
 
     private sealed class TurnSink(AcpTurnState state, CliAgentLoop.TurnWatch watch)
     {
@@ -71,7 +71,7 @@ internal sealed class AcpAgentRun : IAgentRun
         _reader = new AcpAgentReader(options, host.Launch.Cwd, host.ClientVersion, _outbox.Writer, host.Time, host.Extensions,
             host.Permissions, host.Launch.Inactivity, host.Logger,
             host.PermissionWait == AcpPermissionWait.AsLongAsApproverHolds ? _pause : null,
-            kept: true, wokenSink: CreateSink, wokenMoved: ScheduleQuiet);
+            kept: true, wokenSink: CreateSink, wokenMoved: ScheduleQuiet, childSessions: host.ChildSessions);
     }
 
     /// <summary>A run that never started: the refusal that kept it from spawning, as the run's own end.</summary>

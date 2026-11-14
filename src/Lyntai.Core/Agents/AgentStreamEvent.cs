@@ -123,6 +123,28 @@ public sealed record AgentTaskUpdated(string TaskId, string Status) : AgentStrea
 /// <param name="Path">The path as the frame spells it.</param>
 public sealed record AgentTaskOutputFile(string TaskId, string Path) : AgentStreamEvent;
 
+/// <summary>The agent started a child agent as a session of its own, which only a door registered to read child sessions says
+/// (<see cref="AgentAbilities.ChildSessions"/>). The child's own events follow as <see cref="ChildSessionUpdate"/>s carrying its id
+/// and <see cref="ChildSessionEnded"/> ends it; on such a door the call that spawned it may never appear in the session's stream, so
+/// this event, not a <see cref="ToolCall"/>, is where the child begins. A child of a child is announced inside its parent's
+/// <see cref="ChildSessionUpdate"/>.</summary>
+/// <param name="ChildSessionId">The child's session id as the agent states it, the key of its updates and its end.</param>
+/// <param name="Name">The agent's name for the child's work (the spawning call's description); null when it states none.</param>
+/// <param name="Task">What the child was asked, as the agent states it; null when it states none.</param>
+public sealed record ChildSessionStarted(string ChildSessionId, string? Name, string? Task) : AgentStreamEvent;
+
+/// <summary>A child session ended, in the agent's own word for how (<c>completed</c>, <c>failed</c>…), uninterpreted. It can arrive
+/// after the turn's <see cref="SessionEnded"/>, which is never a second terminal.</summary>
+/// <param name="ChildSessionId">The <see cref="ChildSessionStarted.ChildSessionId"/> it ends.</param>
+/// <param name="State">The agent's word; null when it states none.</param>
+public sealed record ChildSessionEnded(string ChildSessionId, string? State) : AgentStreamEvent;
+
+/// <summary>One event of a child session, read as the session's own would be and kept apart from it: a child's words are never the
+/// session's answer, and its calls are its own. Only the child sessions a <see cref="ChildSessionStarted"/> announced are read.</summary>
+/// <param name="ChildSessionId">The child it belongs to.</param>
+/// <param name="Event">The child's event.</param>
+public sealed record ChildSessionUpdate(string ChildSessionId, AgentStreamEvent Event) : AgentStreamEvent;
+
 /// <summary>Per-turn usage tick (RAW token counts — the app prices from its own table).</summary>
 public sealed record UsageLive(long InputTokens, long OutputTokens, long CacheReadTokens) : AgentStreamEvent;
 

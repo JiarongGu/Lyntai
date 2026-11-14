@@ -60,6 +60,10 @@ public static class AcpBuilderExtensions
     /// door state <see cref="AgentAbilities.KeptRun"/> and <see cref="AgentAbilities.QueuedWords"/> supported. The default opens none
     /// and states them unknown, since the protocol alone promises neither. A run needs a process runner that can pause its inactivity
     /// window (<see cref="IProcessRunner.CanPauseInactivity"/>), else the open is refused.</param>
+    /// <param name="childSessions">Whether a child agent is read as a session of its own, and whose record the claim rests on:
+    /// <see cref="AcpChildSessions.ClaudeAgentAcp"/> declares it at <c>initialize</c> and the door states
+    /// <see cref="AgentAbilities.ChildSessions"/> supported. <b>The spawning call then leaves the session's stream</b>, so a host that
+    /// reads a child's lineage by <see cref="ToolCall.ParentCallId"/> alone keeps the default, which declares nothing.</param>
     /// <exception cref="ArgumentException"><paramref name="agent"/> or <paramref name="accountVariables"/> is given
     /// without <paramref name="accountHomeVariable"/>, a variable name is not one an environment can carry, or
     /// <paramref name="permissionWait"/> asks the approver's wait with no approver.</exception>
@@ -79,7 +83,8 @@ public static class AcpBuilderExtensions
         IEnumerable<IAcpExtensionReader>? extensions = null,
         IAcpPermissionApprover? permissionApprover = null,
         AcpPermissionWait permissionWait = AcpPermissionWait.HalfTheWindow,
-        AcpKeptRun keptRun = AcpKeptRun.None)
+        AcpKeptRun keptRun = AcpKeptRun.None,
+        AcpChildSessions childSessions = AcpChildSessions.None)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(id);
         if (permissionWait != AcpPermissionWait.HalfTheWindow && permissionApprover is null)
@@ -93,7 +98,7 @@ public static class AcpBuilderExtensions
         var readers = extensions?.ToList();
         if (readers is not null && readers.Contains(null!))
             throw new ArgumentException("A reader is null.", nameof(extensions));
-        var descriptor = AcpAgentDoor.Describe(id, accountHomeVariable, agent, accountVariables, permissionApprover is not null, permissionWait, keptRun);
+        var descriptor = AcpAgentDoor.Describe(id, accountHomeVariable, agent, accountVariables, permissionApprover is not null, permissionWait, keptRun, childSessions);
         AcpAgentSession Build(IServiceProvider sp) => new(
             sp.GetRequiredService<IProcessRunner>(),
             sp.GetRequiredService<LyntaiOptions>(),
@@ -105,7 +110,8 @@ public static class AcpBuilderExtensions
             accountVariables: accountVariables,
             extensions: readers,
             permissionApprover: permissionApprover,
-            permissionWait: permissionWait);
+            permissionWait: permissionWait,
+            childSessions: childSessions);
         // a run is not a session the container resolves: it has its own session, since the keyed one may be decorated for retry
         builder.AddAgentProvider(descriptor, sp =>
         {

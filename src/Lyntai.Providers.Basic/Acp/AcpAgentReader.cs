@@ -60,6 +60,10 @@ internal sealed class AcpAgentReader
     private readonly Dictionary<string, string> _tasksEnded = new(StringComparer.Ordinal);
     private readonly Dictionary<string, string> _taskCalls = new(StringComparer.Ordinal);
     private readonly HashSet<(string Task, string Path)> _taskOutputs = [];
+    private readonly bool _childSessions;
+    // each announced child's own words, calls and unread frames, so none of them is the turn's
+    private readonly Dictionary<string, AcpTurnState> _children = new(StringComparer.Ordinal);
+    private readonly Dictionary<string, string> _childEnds = new(StringComparer.Ordinal);
     private AcpTurnState _current;
     private AcpTurnState? _frameTurn;
     private AcpTurnState? _woken;
@@ -103,13 +107,16 @@ internal sealed class AcpAgentReader
     /// <param name="wokenSink">Kept only: builds what receives a woken turn's events, called as the turn begins.</param>
     /// <param name="wokenMoved">Kept only: told, off the lock, when a held request is answered, since the woken turn's quiet then
     /// counts again and no frame says so.</param>
+    /// <param name="childSessions">Declare AIR's <c>nativeSubagentSessions</c> and read a child agent as a session of its own
+    /// (<see cref="AcpChildSessions"/>).</param>
     public AcpAgentReader(
         AgentSessionOptions options, string cwd, string clientVersion, ChannelWriter<string> outbox, TimeProvider time,
         IReadOnlyList<IAcpExtensionReader> extensions, IAcpPermissionApprover? approver = null,
         TimeSpan inactivity = default, ILogger? logger = null, InactivityPause? pause = null,
-        bool kept = false, Func<AcpTurnState, object?>? wokenSink = null, Action? wokenMoved = null)
+        bool kept = false, Func<AcpTurnState, object?>? wokenSink = null, Action? wokenMoved = null, bool childSessions = false)
     {
         _kept = kept;
+        _childSessions = childSessions;
         _wokenSink = wokenSink;
         _wokenMoved = wokenMoved;
         _current = kept ? _idle : _single;
@@ -136,7 +143,7 @@ internal sealed class AcpAgentReader
     public bool PromptAnswered => _promptAnswered;
 
     /// <summary>Queue <c>initialize</c>, the first frame.</summary>
-    public void Start() => Send(AcpFrames.Initialize(InitializeId, _clientVersion, asyncTasks: _kept));
+    public void Start() => Send(AcpFrames.Initialize(InitializeId, _clientVersion, asyncTasks: _kept, childSessions: _childSessions));
 
     /// <summary>Ask the agent to stop the running turn with <c>session/cancel</c>. False when no prompt is in
     /// flight, which leaves nothing to cancel but the process.</summary>
@@ -202,7 +209,8 @@ internal sealed class AcpAgentReader
 
                 if (_frameTurn is null && open)
                 {
-                    _pendingTasks.AddRange(events.Where(e => e is AgentTaskStarted or AgentTaskEnded or AgentTaskOutputFile));
+                    _pendingTasks.AddRange(events.Where(e =>
+                        e is AgentTaskStarted or AgentTaskEnded or AgentTaskOutputFile or ChildSessionStarted or ChildSessionEnded or ChildSessionUpdate));
                     return [];
                 }
 
@@ -339,24 +347,50 @@ internal sealed class AcpAgentReader
         }
 
         if (method == "session/update" && (_phase == Phase.Prompting || _phase == Phase.Kept) &&
-            WireJson.Object(root, "params") is { } parameters && ForThisSession(parameters) &&
-            WireJson.Object(parameters, "update") is { } update)
+            WireJson.Object(root, "params") is { } parameters && WireJson.Object(parameters, "update") is { } update)
         {
-            if (_kept) RouteKept(update);
-            ReadUpdate(update, events);
+            if (ForThisSession(parameters))
+            {
+                if (_kept) RouteKept(update);
+                ReadUpdate(update, events);
+            }
+            else if (WireJson.String(parameters, "sessionId") is { } child && _children.TryGetValue(child, out var state))
+                ReadChildUpdate(child, state, update, events);
         }
         else if (method != "session/update")
             _current.Unread.Note("notification", method, _line);
     }
 
+    // A child's update is read as the session's own would be, with the child's state in place of the turn's, so its words never
+    // join the answer and its calls are its own; what it yields is the child's, and its unread frames are the turn's.
+    private void ReadChildUpdate(string child, AcpTurnState state, JsonElement update, List<AgentStreamEvent> events)
+    {
+        if (_kept) RouteKept(update, child: true);
+        var turn = _current;
+        var own = new List<AgentStreamEvent>();
+        _current = state;
+        try
+        {
+            ReadUpdate(update, own);
+        }
+        finally
+        {
+            _current = turn;
+            state.Unread.MoveTo(turn.Unread);
+        }
+
+        events.AddRange(own.Select(evt => new ChildSessionUpdate(child, evt)));
+    }
+
     // A kept run's update belongs to the oldest turn a prompt opened that is not answered, since the agent answers a folded
     // word's earlier prompt at the moment it takes the word and everything after is the later one's. With none running, one of
-    // the agent's own words, thoughts, calls or plans is a woken turn beginning; anything else belongs to no turn.
-    private void RouteKept(JsonElement update)
+    // the agent's own words, thoughts, calls or plans is a woken turn beginning; a child's never is, and anything else belongs
+    // to no turn.
+    private void RouteKept(JsonElement update, bool child = false)
     {
         var kind = WireJson.String(update, "sessionUpdate");
         var turn = _outstanding.Count > 0 ? _outstanding[0] : _woken;
-        if (turn is null && kind is "agent_message_chunk" or "agent_thought_chunk" or "plan" or "tool_call")
+        if (turn is null && !child && kind is "agent_message_chunk" or "agent_thought_chunk" or "plan" or "tool_call")
             turn = BeginWoken();
         if (turn is null) return;
         _frameTurn = turn;
@@ -799,6 +833,22 @@ internal sealed class AcpAgentReader
                 {
                     _tasksEnded[stated] = state;
                     events.Add(new AgentTaskEnded(stated, state) { CallId = _taskCalls.GetValueOrDefault(stated) });
+                }
+                break;
+
+            // a child agent as a session of its own, which only a door registered for it declares (AcpChildSessions); its updates
+            // are read under its own id from here on, and an end is an event each time the agent's word for it changes
+            case "subagent_spawned" when _childSessions && WireJson.String(update, "subagentSessionId") is { Length: > 0 } spawnedChild:
+                if (_children.TryAdd(spawnedChild, new AcpTurnState()))
+                    events.Add(new ChildSessionStarted(spawnedChild, WireJson.String(update, "name"), WireJson.String(update, "task")));
+                break;
+
+            case "subagent_state_update" when _childSessions && WireJson.String(update, "subagentSessionId") is { } endedChild:
+                if (WireJson.String(update, "state") is { } childState and not ("running" or "paused")
+                    && !(_childEnds.TryGetValue(endedChild, out var childBefore) && childBefore == childState))
+                {
+                    _childEnds[endedChild] = childState;
+                    events.Add(new ChildSessionEnded(endedChild, childState));
                 }
                 break;
 

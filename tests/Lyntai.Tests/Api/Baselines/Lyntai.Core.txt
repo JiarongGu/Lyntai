@@ -833,6 +833,43 @@ sealed class Lyntai.Agents.ChatTurn
     TaskKey : String { get; init; }
     ToString() : String
     UseTools : Boolean { get; init; }
+sealed class Lyntai.Agents.ChildSessionEnded
+    .ctor(String ChildSessionId, String State)
+    ChildSessionId : String { get; init; }
+    Deconstruct(String& ChildSessionId, String& State) : Void
+    EqualityContract : Type { protected get; }
+    Equals(AgentStreamEvent other) : Boolean
+    Equals(ChildSessionEnded other) : Boolean
+    Equals(Object obj) : Boolean
+    GetHashCode() : Int32
+    PrintMembers(StringBuilder builder) : Boolean
+    State : String { get; init; }
+    ToString() : String
+sealed class Lyntai.Agents.ChildSessionStarted
+    .ctor(String ChildSessionId, String Name, String Task)
+    ChildSessionId : String { get; init; }
+    Deconstruct(String& ChildSessionId, String& Name, String& Task) : Void
+    EqualityContract : Type { protected get; }
+    Equals(AgentStreamEvent other) : Boolean
+    Equals(ChildSessionStarted other) : Boolean
+    Equals(Object obj) : Boolean
+    GetHashCode() : Int32
+    Name : String { get; init; }
+    PrintMembers(StringBuilder builder) : Boolean
+    Task : String { get; init; }
+    ToString() : String
+sealed class Lyntai.Agents.ChildSessionUpdate
+    .ctor(String ChildSessionId, AgentStreamEvent Event)
+    ChildSessionId : String { get; init; }
+    Deconstruct(String& ChildSessionId, AgentStreamEvent& Event) : Void
+    EqualityContract : Type { protected get; }
+    Equals(AgentStreamEvent other) : Boolean
+    Equals(ChildSessionUpdate other) : Boolean
+    Equals(Object obj) : Boolean
+    Event : AgentStreamEvent { get; init; }
+    GetHashCode() : Int32
+    PrintMembers(StringBuilder builder) : Boolean
+    ToString() : String
 sealed class Lyntai.Agents.CliToolRequest
     .ctor(TextRequest Request, String BackendId)
     BackendId : String { get; init; }

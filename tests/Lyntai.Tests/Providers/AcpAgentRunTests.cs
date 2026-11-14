@@ -849,4 +849,147 @@ public class AcpAgentRunTests
         await run.Ended.WaitAsync(Wait);
         await Eventually(() => token.IsCancellationRequested);
     }
+
+    // ── AG52: a child agent as a session of its own, a host's option (D346) ──
+
+    // RECORDED: a host's console2 probe of claude-agent-acp 0.79.0 with AIR's nativeSubagentSessions declared (its console-streams
+    // note): the update kinds, their field names, the child's id and the spawning call's id as recorded. The session's id is this
+    // harness's, and the paths and the call's long response are cut. The spawning call's own update carries no status, so the
+    // session never sees it open or close.
+    private const string Child = "a2fe7b3b8648a248b";
+    private const string SpawningCall = "toolu_01KVwi2o8SqCFXb26t4t8LBT";
+
+    private static string ChildSpawned() => Update($$$"""{"sessionUpdate":"subagent_spawned","subagentSessionId":"{{{Child}}}","name":"Read README first line","task":"Read README.md in the current directory and reply with its first line only.","capabilities":{}}""");
+
+    private static string SpawnLaunched() => Update($$$"""{"_meta":{"claudeCode":{"toolResponse":{"isAsync":true,"status":"async_launched","agentId":"{{{Child}}}","description":"Read README first line"},"toolName":"Agent"}},"toolCallId":"{{{SpawningCall}}}","sessionUpdate":"tool_call_update"}""");
+
+    private static string ChildFrame(string session, string body) =>
+        $$$"""{"jsonrpc":"2.0","method":"session/update","params":{"sessionId":"{{{session}}}","update":{{{body}}}}}""";
+
+    private static string ChildChunk(string text, string session = Child) => ChildFrame(session,
+        $$$$"""{"sessionUpdate":"agent_message_chunk","content":{"type":"text","text":"{{{{text}}}}"},"_meta":{"claudeCode":{"parentToolUseId":"{{{{SpawningCall}}}}"}}}""");
+
+    private static string ChildRead(string status)
+    {
+        var kind = status == "pending" ? "tool_call" : "tool_call_update";
+        return ChildFrame(Child,
+            $$$"""{"_meta":{"claudeCode":{"toolName":"Read","parentToolUseId":"{{{SpawningCall}}}"}},"toolCallId":"toolu_01PK9NpthoVf6rDZc2z24wEj","sessionUpdate":"{{{kind}}}","status":"{{{status}}}","title":"Read README.md","kind":"read"}""");
+    }
+
+    private static string ChildState(string state) => Update($$"""{"sessionUpdate":"subagent_state_update","subagentSessionId":"{{Child}}","state":"{{state}}"}""");
+
+    private static KeptAgent OneTurnAgent(params string[] onPrompt)
+    {
+        var agent = new KeptAgent();
+        agent.Reply = frame => Method(frame) == "session/prompt" ? [.. onPrompt, Answer(3)] : Handshake(frame);
+        return agent;
+    }
+
+    private static Task<List<AgentStreamEvent>> OneTurn(KeptAgent agent, AcpChildSessions children) =>
+        new AcpAgentSession(agent, new LyntaiOptions(), "agent", childSessions: children)
+            .StreamAsync(Session() with { Prompt = "delegate it" }).ToListAsync().AsTask().WaitAsync(Wait);
+
+    private static string[] AirCapabilities(KeptAgent agent) =>
+        [.. agent.Written[0]["params"]!["clientCapabilities"]!["_meta"]!["jetbrains"]!["air"]!["capabilities"]!.AsArray().Select(c => c!.GetValue<string>())];
+
+    [Fact] // the option is the host's: a door registered for it declares the extension, on a turn and on a run, and nothing else changes
+    public async Task Child_sessions_are_declared_at_initialize_only_where_the_host_registered_them()
+    {
+        var plain = OneTurnAgent();
+        await OneTurn(plain, AcpChildSessions.None);
+        var oneTurn = OneTurnAgent();
+        await OneTurn(oneTurn, AcpChildSessions.ClaudeAgentAcp);
+        var kept = new KeptAgent();
+        await using (await new AcpAgentSession(kept, new LyntaiOptions(), "agent", childSessions: AcpChildSessions.ClaudeAgentAcp)
+            .OpenRunAsync(Session(), null, true, default).WaitAsync(Wait)) { }
+
+        Assert.Equal(["sessionFailure"], AirCapabilities(plain));
+        Assert.Equal(["sessionFailure", "nativeSubagentSessions"], AirCapabilities(oneTurn));
+        Assert.Equal(["sessionFailure", "asyncTasks", "nativeSubagentSessions"], AirCapabilities(kept));
+        Assert.DoesNotContain("\"subagents\"", oneTurn.Written[0].ToJsonString());
+    }
+
+    [Fact] // RECORDED frames: a child is announced, its updates are routed by its own session id, and its end closes it
+    public async Task A_child_session_is_announced_routed_by_its_session_id_and_ended()
+    {
+        var agent = OneTurnAgent(ChildSpawned(), SpawnLaunched(), ChildChunk("I'll read the README."), ChildRead("pending"),
+            ChildRead("completed"), Chunk("DONE"), ChildChunk("# console2 room"), ChildState("completed"));
+
+        var events = await OneTurn(agent, AcpChildSessions.ClaudeAgentAcp);
+
+        var started = Assert.Single(events.OfType<ChildSessionStarted>());
+        Assert.Equal((Child, "Read README first line"), (started.ChildSessionId, started.Name));
+        Assert.StartsWith("Read README.md", started.Task);
+        var updates = events.OfType<ChildSessionUpdate>().ToList();
+        Assert.All(updates, u => Assert.Equal(Child, u.ChildSessionId));
+        Assert.Equal(["I'll read the README.", "# console2 room"], updates.Select(u => u.Event).OfType<TextDelta>().Select(t => t.Text));
+        Assert.All(updates.Select(u => u.Event).OfType<TextDelta>(), t => Assert.Equal(SpawningCall, t.ParentCallId));
+        Assert.Single(updates.Select(u => u.Event).OfType<ToolCall>());
+        Assert.Single(updates.Select(u => u.Event).OfType<ToolResult>());
+        Assert.Equal("completed", Assert.Single(events.OfType<ChildSessionEnded>()).State);
+
+        // the session's own stream holds the session's own words and no call for the spawn, which the agent never opened
+        Assert.Equal(["DONE"], events.OfType<TextDelta>().Select(t => t.Text));
+        Assert.Empty(events.OfType<ToolCall>());
+        Assert.Equal("DONE", Ended(events).FinalText);
+        Assert.Contains(AgentShownKind.Task, Ended(events).Turn!.Shown);
+    }
+
+    [Fact] // a frame under a session id the agent never announced is no child of this session's
+    public async Task An_update_under_an_unannounced_session_id_is_dropped()
+    {
+        var agent = OneTurnAgent(ChildChunk("stray", session: "someone-else"), Chunk("DONE"));
+
+        var events = await OneTurn(agent, AcpChildSessions.ClaudeAgentAcp);
+
+        Assert.Empty(events.OfType<ChildSessionUpdate>());
+        Assert.Equal(["DONE"], events.OfType<TextDelta>().Select(t => t.Text));
+    }
+
+    [Fact] // without the option a child frame is a kind the door has no case for, and nothing is routed
+    public async Task Without_the_option_the_child_frames_are_unread_and_the_door_routes_nothing()
+    {
+        var agent = OneTurnAgent(ChildSpawned(), ChildChunk("I'll read the README."), ChildState("completed"), Chunk("DONE"));
+
+        var events = await OneTurn(agent, AcpChildSessions.None);
+
+        Assert.Empty(events.OfType<ChildSessionStarted>());
+        Assert.Empty(events.OfType<ChildSessionUpdate>());
+        Assert.Contains(Ended(events).Unread, u => u.Subtype == "subagent_spawned");
+        Assert.Contains(Ended(events).Unread, u => u.Subtype == "subagent_state_update");
+    }
+
+    [Fact] // a child that speaks while the run is idle begins no turn of the session's: its words wait for the next turn
+    public async Task A_child_heard_while_no_turn_runs_begins_no_woken_turn_and_waits_for_the_next_turn()
+    {
+        var agent = new KeptAgent();
+        await using var run = await new AcpAgentSession(agent, new LyntaiOptions(), "agent", childSessions: AcpChildSessions.ClaudeAgentAcp)
+            .OpenRunAsync(Session(), null, true, default).WaitAsync(Wait);
+        var first = await run.SendAsync("delegate it");
+        agent.Say(ChildSpawned(), Answer(100));
+        await Read(first);
+
+        agent.Say(ChildChunk("still reading"), ChildState("completed"));
+        var second = await run.SendAsync("anything else?");
+        agent.Say(Answer(101));
+        var events = await Read(second);
+
+        Assert.Equal("still reading", Assert.IsType<TextDelta>(Assert.IsType<ChildSessionUpdate>(events[0]).Event).Text);
+        Assert.Equal(Child, Assert.IsType<ChildSessionEnded>(events[1]).ChildSessionId);
+        await using var woken = run.WokenTurns.GetAsyncEnumerator();
+        await run.DisposeAsync();
+        Assert.False(await woken.MoveNextAsync());
+    }
+
+    [Fact] // the claim rests on the one record, and follows the registration
+    public void The_door_states_child_sessions_from_its_registration()
+    {
+        var claimed = AcpAgentDoor.Describe("acp-test", null, childSessions: AcpChildSessions.ClaudeAgentAcp).Doors[0].Abilities
+            .Single(a => a.Name == AgentAbilities.ChildSessions);
+
+        Assert.Equal(AgentSupport.Supported, claimed.Support);
+        Assert.Equal("claude-agent-acp 0.79.0", claimed.AppliesTo);
+        Assert.Contains("spawning call", claimed.Evidence);
+        Assert.Equal(AgentSupport.Unsupported, AcpAgentDoor.Describe("acp-test", null).Doors[0].SupportFor(AgentAbilities.ChildSessions));
+    }
 }

@@ -282,6 +282,11 @@ every addition.
 
 ### Added
 
+- **A child agent as a session of its own, on the host's option** (**D346**). `AddAcpAgentSession(childSessions: AcpChildSessions.ClaudeAgentAcp)`
+  declares AIR's `nativeSubagentSessions`, and a child then arrives as `ChildSessionStarted` (its id, name and task), its own events as
+  `ChildSessionUpdate`s carrying that id and never the session's answer, and its end as `ChildSessionEnded`; the door states
+  `child-sessions` supported, recorded by a host against claude-agent-acp 0.79.0. **The spawning call then leaves the session's
+  stream.** The default declares nothing and keeps the `ParentCallId` stamp (**D343**).
 - **A device-code sign-in** (**D345**). `ProviderLoginRequest.DeviceCode` asks for the program's device-code flow, where a code and an
   address are printed for a person to open on another device: the Codex provider and its agent door run `codex login --device-auth`, read
   from codex 0.169.0's own usage text and not run here, and the Claude ones refuse it before a spawn, since `claude auth login` (2.1.325)

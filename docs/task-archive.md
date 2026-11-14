@@ -7118,3 +7118,15 @@ person's labels and bar), AG50 and Part 481's limit row (Daoris: nothing recorde
 moved from decision-only to blocked because what it waits on is an account with room, which Codex's is not.
 
 - `tests/Lyntai.Tests/Providers/ClaudeRecordedAuthFailureTests.cs`
+
+## Part 522 — AG52, a child agent as a session of its own on the host's option (A-LQ24's second half) (2026-11-15)
+
+✅ done 2026-11-15 — **Outcome:** `AddAcpAgentSession(childSessions: AcpChildSessions.ClaudeAgentAcp)` declares AIR's
+`nativeSubagentSessions`; `subagent_spawned`, a child's updates under its own session id and `subagent_state_update` read as
+`ChildSessionStarted`, `ChildSessionUpdate` and `ChildSessionEnded`, on a turn and on a kept run, and the door states
+`child-sessions` supported for claude-agent-acp 0.79.0 (**D346**). The fixtures are the frames of a host's console2 probe, read
+from its recording (ids and field names as recorded, paths cut), and the routing tests were seen red with the routing disabled.
+The default is unchanged (**D343**). The guide's sign-in paragraph, stale since Part 520, now names the device-code flag.
+
+- `tests/Lyntai.Tests/Providers/AcpAgentRunTests.cs` (§AG52)
+- D346, the changelog entry

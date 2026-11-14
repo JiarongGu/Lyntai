@@ -15,52 +15,51 @@ LLM-ops layer (prompt registry, scoring, traces, memory). `AddLyntai(...)` and g
 
 <!-- open-items:begin — GENERATED. Edit the per-item `item:` markers, never this table. -->
 
-## Open items — 39 across 17 Parts: 3 startable, 7 blocked, 1 watch, 28 decision-only
+## Open items — 38 across 17 Parts: 2 startable, 7 blocked, 1 watch, 28 decision-only
 
 _Generated from the per-item `<!-- item: … -->` markers by `node devtools/dev.mjs check-backlog --write`._
 _Edit a marker, never this table — `verify` fails the moment the two disagree._
 
 | line | Part | item | state | waiting on |
 | ---: | ---: | --- | --- | --- |
-| 140 | 33 | GEN-VERIFY-FAL, the last line — the Hugging Face route | blocked · env | an hf_ token for the router route; re-checked 2026-11-15, none on this mach… |
-| 181 | 75 | Decide what an aggregator's in-band `code` means | blocked · env+data | two or three real aggregators to measure an in-band code against; re-checke… |
-| 208 | 99 | `verify`'s test step intermittently fails EXACTLY 9 tests, and once aborted… | watch · data | the same nine tests to recur — the fix is unconfirmed as the cure, and a gr… |
-| 282 | 417 | MC8 — run the wrong-end instrument on an adjudicated corpus, with a bar wri… | blocked · decision+data | two reviewers' independent labels on a sample of the pairs, and a bar a per… |
-| 305 | 479 | The write tools let a model end, revive or demote an entry the approver nev… | decision-only | a ruling: whether the tool may state validity and a grade at all, or the re… |
-| 311 | 479 | A supersession whose successor is an entry that already ended leaves nothin… | decision-only | a ruling: may a restated claim revive an ended entry, or does the supersess… |
-| 315 | 479 | What the approver is shown is not all that is applied | decision-only | a ruling: which of by, at, validity and scope the request must carry, or a … |
-| 318 | 479 | A keyed end or confirmation's file is written before its receipt, so a cras… | decision-only | a ruling: accept and document the window (a guarded repeat then reads Chang… |
-| 322 | 479 | A host's `IMemoryViewCheck` is asked about an expansion's root only, not th… | decision-only | a ruling: whether the check also filters each neighbour an expansion return… |
-| 325 | 479 | A future `at` on an end or a confirmation sets `EndedReason` while recall s… | decision-only | a ruling: may an end or a failed check state an instant after now, or does … |
-| 327 | 479 | A receipt expires by the caller's clock and the purge runs on it | decision-only | a ruling: whether a receipt expires by the store's clock or the caller's (D… |
-| 338 | 481 | An HTTP agent turn can spend a second billed request the retry budget never… | decision-only | a ruling: whether the agent door turns the engine's resend off (the budget … |
-| 341 | 481 | A rejected limit is never cleared inside a turn | blocked · data | a capture of the CLI sending a rejected rate_limit_event and then an allowe… |
-| 346 | 481 | A wrapped agent session registration is never disposed | decision-only | a ruling: whether RetryingAgentSession becomes IAsyncDisposable and forward… |
-| 349 | 481 | A `Taken` resume repeats the system prompt | decision-only | a ruling: whether a resume drops SystemPrompt, which needs a measurement of… |
-| 359 | 483 | A retried or polled job leaves its partition's FIFO | decision-only | a ruling: whether a retrying or polling head blocks its partition, or the d… |
-| 368 | 485 | How long a quiet Codex step runs is unmeasured | blocked · env | one real Codex turn on an account with room: re-checked 2026-11-15, the own… |
-| 380 | 486 | A cache hit replays the original `Usage` | decision-only | a ruling: zero or strip Usage on a hit, or keep it and mark the reply as a … |
-| 382 | 486 | A stream's billed usage is dropped when the router turns an empty `Final` i… | decision-only | a ruling: carry the dropped usage onto the failure, or state that a failed … |
-| 390 | 487 | An image, audio or blob block in an MCP tool result reaches the model as a … | decision-only | a ruling: pass the block's bytes, or a link a host resolves, to the model (… |
-| 392 | 487 | A secret's ciphertext is not bound to its name | decision-only | a ruling on the threat model: bind the name as associated data (a stored-fo… |
-| 394 | 487 | Two processes over one store can each generate a master key | decision-only | a ruling: a compare-and-set on IKeyValueStore (an interface change) or a do… |
-| 402 | 488 | A trace step's `seq` is `INTEGER` on Postgres and 64-bit on SQLite | decision-only | a ruling: widen the column with a migration, which rewrites and locks the t… |
-| 404 | 488 | A NUL in stored text is refused on Postgres and stored elsewhere | decision-only | a ruling: strip, replace or refuse U+0000 in stored text (the same family a… |
-| 412 | 489 | `max_tokens` and a non-default `temperature` are sent to every OpenAI-shape… | decision-only | a ruling: a MaxTokensField option, which is a new public member; the doc on… |
-| 414 | 489 | A base URL whose version is not its last segment still gets `/v1` appended | decision-only | a ruling: a flag to use the base verbatim, which is a new public member |
-| 421 | 490 | `Model2VecProvider` embeds and counts an unknown token | decision-only | a ruling: skip the unknown id, which changes every vector already stored fr… |
-| 423 | 490 | A `ContextSize` past the model's trained context is not refused | decision-only | a ruling: refuse a ContextSize past the model's trained context (read from … |
-| 431 | 491 | A ComfyUI run lost to a server restart polls for ever | decision-only | a ruling: consult /queue and fail or call it inconclusive when the id is in… |
-| 433 | 491 | Cancelling a durable generation job does not cancel the backend render | decision-only | a ruling: a best-effort CancelAsync when a cancel is seen with an operation… |
-| 434 | 491 | `generate_fetch` bills and delivers again on every call, and the job engine… | decision-only | a ruling: whether the spend ledger or the tool owns de-duplication per (bac… |
-| 442 | 495 | A failed result's usage and cost are dropped | decision-only | a ruling: whether a Failed reply carries Usage, which the budget layer then… |
-| 443 | 495 | A result with a failing `subtype` and no `is_error: true` reads as an answer | decision-only | a measurement: run the real CLI with --max-turns 1 and see whether is_error… |
-| 444 | 495 | The usage read's scratch folder is created with the default mode | blocked · env | a Unix run: the mode is not observable on Windows, so a test of the fix can… |
-| 452 | 496 | Postgres refuses a curated metadata value over about 2.7 KB, which the othe… | decision-only | a ruling among the three costs below: index md5(value) in a new Postgres mi… |
-| 462 | 518 | AG49 — a word that cuts into the running turn, on a kept run (A-LQ18) | startable |  |
-| 468 | 518 | AG50 — a kept run on `codex-acp` and dsh (A-LQ19) | blocked · data | Daoris's recorded Codex sitting and dsh probe frames; re-checked 2026-11-15… |
-| 470 | 518 | AG51 — a kept run on the Claude CLI with stdin held (A-LQ21) | startable |  |
-| 474 | 518 | AG52 — child sessions as a host's option (A-LQ24's second half) | startable |  |
+| 139 | 33 | GEN-VERIFY-FAL, the last line — the Hugging Face route | blocked · env | an hf_ token for the router route; re-checked 2026-11-15, none on this mach… |
+| 180 | 75 | Decide what an aggregator's in-band `code` means | blocked · env+data | two or three real aggregators to measure an in-band code against; re-checke… |
+| 207 | 99 | `verify`'s test step intermittently fails EXACTLY 9 tests, and once aborted… | watch · data | the same nine tests to recur — the fix is unconfirmed as the cure, and a gr… |
+| 281 | 417 | MC8 — run the wrong-end instrument on an adjudicated corpus, with a bar wri… | blocked · decision+data | two reviewers' independent labels on a sample of the pairs, and a bar a per… |
+| 304 | 479 | The write tools let a model end, revive or demote an entry the approver nev… | decision-only | a ruling: whether the tool may state validity and a grade at all, or the re… |
+| 310 | 479 | A supersession whose successor is an entry that already ended leaves nothin… | decision-only | a ruling: may a restated claim revive an ended entry, or does the supersess… |
+| 314 | 479 | What the approver is shown is not all that is applied | decision-only | a ruling: which of by, at, validity and scope the request must carry, or a … |
+| 317 | 479 | A keyed end or confirmation's file is written before its receipt, so a cras… | decision-only | a ruling: accept and document the window (a guarded repeat then reads Chang… |
+| 321 | 479 | A host's `IMemoryViewCheck` is asked about an expansion's root only, not th… | decision-only | a ruling: whether the check also filters each neighbour an expansion return… |
+| 324 | 479 | A future `at` on an end or a confirmation sets `EndedReason` while recall s… | decision-only | a ruling: may an end or a failed check state an instant after now, or does … |
+| 326 | 479 | A receipt expires by the caller's clock and the purge runs on it | decision-only | a ruling: whether a receipt expires by the store's clock or the caller's (D… |
+| 337 | 481 | An HTTP agent turn can spend a second billed request the retry budget never… | decision-only | a ruling: whether the agent door turns the engine's resend off (the budget … |
+| 340 | 481 | A rejected limit is never cleared inside a turn | blocked · data | a capture of the CLI sending a rejected rate_limit_event and then an allowe… |
+| 345 | 481 | A wrapped agent session registration is never disposed | decision-only | a ruling: whether RetryingAgentSession becomes IAsyncDisposable and forward… |
+| 348 | 481 | A `Taken` resume repeats the system prompt | decision-only | a ruling: whether a resume drops SystemPrompt, which needs a measurement of… |
+| 358 | 483 | A retried or polled job leaves its partition's FIFO | decision-only | a ruling: whether a retrying or polling head blocks its partition, or the d… |
+| 367 | 485 | How long a quiet Codex step runs is unmeasured | blocked · env | one real Codex turn on an account with room: re-checked 2026-11-15, the own… |
+| 379 | 486 | A cache hit replays the original `Usage` | decision-only | a ruling: zero or strip Usage on a hit, or keep it and mark the reply as a … |
+| 381 | 486 | A stream's billed usage is dropped when the router turns an empty `Final` i… | decision-only | a ruling: carry the dropped usage onto the failure, or state that a failed … |
+| 389 | 487 | An image, audio or blob block in an MCP tool result reaches the model as a … | decision-only | a ruling: pass the block's bytes, or a link a host resolves, to the model (… |
+| 391 | 487 | A secret's ciphertext is not bound to its name | decision-only | a ruling on the threat model: bind the name as associated data (a stored-fo… |
+| 393 | 487 | Two processes over one store can each generate a master key | decision-only | a ruling: a compare-and-set on IKeyValueStore (an interface change) or a do… |
+| 401 | 488 | A trace step's `seq` is `INTEGER` on Postgres and 64-bit on SQLite | decision-only | a ruling: widen the column with a migration, which rewrites and locks the t… |
+| 403 | 488 | A NUL in stored text is refused on Postgres and stored elsewhere | decision-only | a ruling: strip, replace or refuse U+0000 in stored text (the same family a… |
+| 411 | 489 | `max_tokens` and a non-default `temperature` are sent to every OpenAI-shape… | decision-only | a ruling: a MaxTokensField option, which is a new public member; the doc on… |
+| 413 | 489 | A base URL whose version is not its last segment still gets `/v1` appended | decision-only | a ruling: a flag to use the base verbatim, which is a new public member |
+| 420 | 490 | `Model2VecProvider` embeds and counts an unknown token | decision-only | a ruling: skip the unknown id, which changes every vector already stored fr… |
+| 422 | 490 | A `ContextSize` past the model's trained context is not refused | decision-only | a ruling: refuse a ContextSize past the model's trained context (read from … |
+| 430 | 491 | A ComfyUI run lost to a server restart polls for ever | decision-only | a ruling: consult /queue and fail or call it inconclusive when the id is in… |
+| 432 | 491 | Cancelling a durable generation job does not cancel the backend render | decision-only | a ruling: a best-effort CancelAsync when a cancel is seen with an operation… |
+| 433 | 491 | `generate_fetch` bills and delivers again on every call, and the job engine… | decision-only | a ruling: whether the spend ledger or the tool owns de-duplication per (bac… |
+| 441 | 495 | A failed result's usage and cost are dropped | decision-only | a ruling: whether a Failed reply carries Usage, which the budget layer then… |
+| 442 | 495 | A result with a failing `subtype` and no `is_error: true` reads as an answer | decision-only | a measurement: run the real CLI with --max-turns 1 and see whether is_error… |
+| 443 | 495 | The usage read's scratch folder is created with the default mode | blocked · env | a Unix run: the mode is not observable on Windows, so a test of the fix can… |
+| 451 | 496 | Postgres refuses a curated metadata value over about 2.7 KB, which the othe… | decision-only | a ruling among the three costs below: index md5(value) in a new Postgres mi… |
+| 461 | 518 | AG49 — a word that cuts into the running turn, on a kept run (A-LQ18) | startable |  |
+| 467 | 518 | AG50 — a kept run on `codex-acp` and dsh (A-LQ19) | blocked · data | Daoris's recorded Codex sitting and dsh probe frames; re-checked 2026-11-15… |
+| 469 | 518 | AG51 — a kept run on the Claude CLI with stdin held (A-LQ21) | startable |  |
 
 <!-- open-items:end -->
 
@@ -471,9 +470,6 @@ _Opened by `docs/task-archive.md` **Part 518**, which built A-LQ20, A-LQ22, A-LQ
   background work read until it ends: a second `IAgentRun` implementation over the existing `IProcessRunner.ExchangeLinesAsync`, with its abilities stated from Daoris's measured stream-json note
   (two turns on one process and an interrupt, REAL; a line framed mid-turn and held-stdin background work, never run, so `Unknown`). Design first, as AG39 was (**D251**): the CLI has no
   open to repeat and its turn ends on a `result` frame, so the run's reader is the existing `StreamJsonAgentReader` with per-run state, which is the work.
-- [ ] **AG52 — child sessions as a host's option (A-LQ24's second half).** A registration option that declares AIR's `nativeSubagentSessions` at `initialize`, reads `subagent_spawned` and <!-- item: state=startable -->
-  `subagent_state_update` and routes a child's updates by `params.sessionId`, with the spawning call gone from the parent's stream stated on the option. Evidence is a host's record of
-  `claude-agent-acp` 0.79.0 (`console2-streams-evidence`); the default stays off (**D343**), so a host that wants lineage by call id is unchanged.
 
 ## Retired — five Parts that outlived their open work (2026-09-16)
 

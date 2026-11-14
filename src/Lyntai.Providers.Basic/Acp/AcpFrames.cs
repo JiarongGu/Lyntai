@@ -18,9 +18,12 @@ internal static class AcpFrames
     // that would otherwise end a failed turn with end_turn says the failure as a field (codex-acp does).
     public const string AirAsyncTasks = "asyncTasks";
 
+    // A host's choice (AcpChildSessions): a child agent becomes a session of its own and its spawning call leaves the stream.
+    public const string AirNativeSubagentSessions = "nativeSubagentSessions";
+
     // A kept run also declares asyncTasks, which is the one thing that makes the agent send the frames for the work it
     // backgrounds; a one-turn door does not, so what it reads is unchanged.
-    public static string Initialize(int id, string clientVersion, bool asyncTasks = false) => Request(id, "initialize", new JsonObject
+    public static string Initialize(int id, string clientVersion, bool asyncTasks = false, bool childSessions = false) => Request(id, "initialize", new JsonObject
     {
         ["protocolVersion"] = ProtocolVersion,
         ["clientCapabilities"] = new JsonObject
@@ -34,9 +37,10 @@ internal static class AcpFrames
                     ["air"] = new JsonObject
                     {
                         ["version"] = 1,
-                        ["capabilities"] = asyncTasks
-                            ? new JsonArray(JsonValue.Create(AirSessionFailure), JsonValue.Create(AirAsyncTasks))
-                            : new JsonArray(JsonValue.Create(AirSessionFailure)),
+                        ["capabilities"] = new JsonArray([.. new[]
+                            {
+                                AirSessionFailure, asyncTasks ? AirAsyncTasks : null, childSessions ? AirNativeSubagentSessions : null,
+                            }.OfType<string>().Select(c => (JsonNode)JsonValue.Create(c))]),
                     },
                 },
             },

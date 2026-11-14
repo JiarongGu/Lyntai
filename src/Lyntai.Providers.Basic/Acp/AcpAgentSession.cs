@@ -49,6 +49,7 @@ public sealed class AcpAgentSession : IAgentSession
     private readonly IReadOnlyList<IAcpExtensionReader> _extensions;
     private readonly IAcpPermissionApprover? _permissions;
     private readonly AcpPermissionWait _permissionWait;
+    private readonly AcpChildSessions _childSessions;
 
     /// <param name="runner">Process execution — BYO to sandbox, audit or remote the spawn. It must implement
     /// <see cref="IProcessRunner.ExchangeLinesAsync(string, IReadOnlyList{string}, IAsyncEnumerable{string}, TimeSpan?, TimeSpan?, string?, IReadOnlyDictionary{string, string?}?, CancellationToken)"/>, which the shipped <see cref="ProcessRunner"/> does.</param>
@@ -76,6 +77,8 @@ public sealed class AcpAgentSession : IAgentSession
     /// is the door that states <see cref="AgentAbilities.PermissionRequests"/> unsupported.</param>
     /// <param name="permissionWait">How long a request waits for the approver (<see cref="AcpPermissionWait"/>). Asking
     /// the approver's wait needs an approver and a runner whose <see cref="IProcessRunner.CanPauseInactivity"/> is true.</param>
+    /// <param name="childSessions">Whether a child agent is read as a session of its own (<see cref="AcpChildSessions"/>); the default
+    /// declares nothing and reads a child by the call that spawned it.</param>
     /// <exception cref="ArgumentException">The approver's wait with no approver.</exception>
     /// <exception cref="InvalidOperationException">The approver's wait on a runner that cannot be told to pause its inactivity
     /// window, which would end a turn the person is still deciding.</exception>
@@ -92,9 +95,11 @@ public sealed class AcpAgentSession : IAgentSession
         IEnumerable<string>? accountVariables = null,
         IEnumerable<IAcpExtensionReader>? extensions = null,
         IAcpPermissionApprover? permissionApprover = null,
-        AcpPermissionWait permissionWait = AcpPermissionWait.HalfTheWindow)
+        AcpPermissionWait permissionWait = AcpPermissionWait.HalfTheWindow,
+        AcpChildSessions childSessions = AcpChildSessions.None)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(command);
+        _childSessions = childSessions;
         if (permissionWait != AcpPermissionWait.HalfTheWindow)
         {
             if (permissionApprover is null)
@@ -142,7 +147,8 @@ public sealed class AcpAgentSession : IAgentSession
         var inactivity = launch.Inactivity;
         // a held request is the person's wait: its clock is the approver's, so the runner's window is paused while one is held
         var pause = _permissionWait == AcpPermissionWait.AsLongAsApproverHolds ? new InactivityPause() : null;
-        var reader = new AcpAgentReader(options, cwd, ClientVersion, outbox.Writer, _time, _extensions, _permissions, inactivity, _logger, pause);
+        var reader = new AcpAgentReader(options, cwd, ClientVersion, outbox.Writer, _time, _extensions, _permissions, inactivity, _logger, pause,
+            childSessions: _childSessions != AcpChildSessions.None);
         reader.Start();
 
         // the runner is cancelled by this source and never by the caller's token, so a cancelled turn gets to say
@@ -260,7 +266,8 @@ public sealed class AcpAgentSession : IAgentSession
             return AcpAgentRun.AlreadyOver(CliAgentLoop.Refused("runner-unsupported",
                 "a run is idle between turns and its process's inactivity window must be paused meanwhile, and this IProcessRunner cannot be told to (CanPauseInactivity is false)."));
 
-        var host = new AcpAgentRun.Host(_runner, launch!, _arguments, _cancelGrace, _time, _extensions, _permissions, _permissionWait, _logger, ClientVersion);
+        var host = new AcpAgentRun.Host(_runner, launch!, _arguments, _cancelGrace, _time, _extensions, _permissions, _permissionWait, _logger, ClientVersion,
+            _childSessions != AcpChildSessions.None);
         return await AcpAgentRun.OpenAsync(host, options, run ?? new AgentRunOptions(), queuedWords, ct).ConfigureAwait(false);
     }
 }

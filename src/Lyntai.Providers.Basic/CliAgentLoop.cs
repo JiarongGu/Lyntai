@@ -91,6 +91,9 @@ internal static class CliAgentLoop
         UsageLive or UsageFinal or UsageReading or ContextReading => AgentShownKind.Usage,
         PlanUpdated => AgentShownKind.Plan,
         AgentTaskStarted or AgentTaskUpdated or AgentTaskEnded or AgentTaskOutputFile => AgentShownKind.Task,
+        ChildSessionStarted or ChildSessionEnded => AgentShownKind.Task,
+        // a child's call is the agent acting as much as the session's own is
+        ChildSessionUpdate child => Kind(child.Event),
         _ => null,
     };
 

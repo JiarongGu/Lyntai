@@ -14,7 +14,7 @@ internal static class AcpAgentDoor
     public static AgentProviderDescriptor Describe(
         string providerId, string? accountHomeVariable, string? agent = null, IEnumerable<string>? accountVariables = null,
         bool permissionApprover = false, AcpPermissionWait permissionWait = AcpPermissionWait.HalfTheWindow,
-        AcpKeptRun keptRun = AcpKeptRun.None) => new()
+        AcpKeptRun keptRun = AcpKeptRun.None, AcpChildSessions childSessions = AcpChildSessions.None) => new()
     {
         Id = providerId,
         Agent = agent,
@@ -59,9 +59,13 @@ internal static class AcpAgentDoor
                         { Evidence = "per agent from session/new: a config option of category thought_level, set by session/set_config_option before the prompt; none ends the turn before the prompt" },
                     Declared(AgentAbilities.Plugins, AgentSupport.Unsupported, "the protocol names no plugin folder; the agent loads what its own configuration says"),
                     Declared(AgentAbilities.Environment, AgentSupport.Supported, "the turn's variables in the agent process's environment, over the registration's and beneath the account's; a null removes one"),
-                    Declared(AgentAbilities.ChildSessions, AgentSupport.Unsupported,
-                        "the door never declares AIR's nativeSubagentSessions (it declares sessionFailure, and asyncTasks for a kept run), so claude-agent-acp keeps the spawning call in the parent's stream and stamps a child's lines _meta.claudeCode.parentToolUseId (ParentCallId); "
-                        + "declaring it makes a child a session of its own and removes the spawning call (a host's record of 0.79.0), which no door of this library reads"),
+                    childSessions == AcpChildSessions.ClaudeAgentAcp
+                        ? Recorded(AgentAbilities.ChildSessions, "claude-agent-acp 0.79.0",
+                            "AIR's nativeSubagentSessions declared at initialize: subagent_spawned, the child's updates under its own sessionId and subagent_state_update, read as ChildSessionStarted, ChildSessionUpdate and ChildSessionEnded, recorded by a host with one asynchronous child; "
+                            + "the spawning call leaves the session's stream, so the child begins at ChildSessionStarted, not at a ToolCall")
+                        : Declared(AgentAbilities.ChildSessions, AgentSupport.Unsupported,
+                            "registered without AcpChildSessions, the door never declares AIR's nativeSubagentSessions, so claude-agent-acp keeps the spawning call in the parent's stream and stamps a child's lines _meta.claudeCode.parentToolUseId (ParentCallId); "
+                            + "declaring it makes a child a session of its own and removes the spawning call (a host's record of 0.79.0)"),
                     Declared(AgentAbilities.SignIn,AgentSupport.Unsupported, "the protocol's authenticate call is not made: an agent that wants a sign-in ends the turn as an access failure, and the host signs in through the agent's own program"),
                     .. KeptRunClaims(keptRun),
                 ],
