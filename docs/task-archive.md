@@ -7226,3 +7226,14 @@ reconciled its migration count with Part 527's (23 on each backend). The Part is
 
 - `ComfyUiProviderTests`, `ComfyUiLiveTests`, `GenerationJobCancellationTests`, `GenerationRenderJobEngineTests`, `IdempotentUsageContract`
 - D369 to D371, the changelog entries
+
+## Part 531 — `TASKS.md` Part 486: the HTTP chat engine's own failures carry the usage they read (2026-11-15)
+
+✅ done 2026-11-15 — **Outcome:** **D350** now holds on the HTTP provider too. Every failed reply and `Error` terminal `HttpChatEngine`
+produces carries the usage its wire read (the streamed content-filter and refusal, the **D328** in-band break, tool-call, zero-content
+and transport-break terminals, and the buffered in-band, empty-body and after-resend failures), and the buffered resend's reply adds
+both attempts through a private helper that copies Core's internal `TextUsage.Sum` rule rather than widen the frozen surface for one
+caller. Ten cases, each red on its usage assertion first. The Part is empty and leaves the backlog.
+
+- `tests/Lyntai.Tests/Providers/HttpModelProviderTests.cs`, `HttpAgentSessionTests.cs`
+- the changelog entry amended (**D350**)

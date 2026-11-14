@@ -299,6 +299,19 @@ public class HttpAgentSessionTests
             (ended.Failure!.Kind, ended.Failure.By, ended.Failure.Delivery));
     }
 
+    [Fact] // the one request the door sends was billed, so the failed turn still reports it (D350)
+    public async Task An_empty_body_failure_on_the_agent_door_carries_its_usage()
+    {
+        var handler = new StubHttpHandler().Enqueue(HttpStatusCode.OK,
+            """{"choices":[{"message":{"role":"assistant","content":""},"finish_reason":"stop"}],"usage":{"prompt_tokens":6,"completion_tokens":0}}""");
+
+        var events = await Run(Session(handler));
+
+        Assert.True(Ended(events).IsError);
+        var usage = Assert.IsType<UsageFinal>(Assert.Single(events, e => e is UsageFinal));
+        Assert.Equal((6L, 0L), (usage.InputTokens, usage.OutputTokens));
+    }
+
     [Fact] // the one-shot provider keeps its resend: a single empty body there is a blip the next call clears
     public async Task The_one_shot_provider_still_resends_an_empty_200_body_once()
     {

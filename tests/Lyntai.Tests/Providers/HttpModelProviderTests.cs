@@ -1,5 +1,6 @@
 using Lyntai.Inference;
 using System.Net;
+using System.Text;
 using System.Text.Json.Nodes;
 using Lyntai;
 using Lyntai.Providers.Http;
@@ -770,6 +771,152 @@ public class HttpModelProviderTests
         Assert.Single(chunks);
         Assert.Equal(TextChunkKind.Error, chunks[0].Kind);
         Assert.Equal(ProviderVerdict.Failed, chunks[0].Verdict);
+    }
+
+    // ── a failure carries the usage the wire read (D350) ─────────────────────
+
+    private const string UsageLine = """{"choices":[],"usage":{"prompt_tokens":9,"completion_tokens":2}}""";
+
+    private static readonly TextUsage Reported = new(9, 2);
+
+    private static string Sse(params string[] lines) => string.Concat(lines.Select(l => $"data: {l}\n\n"));
+
+    private static async Task<TextChunk> Terminal(StubHttpHandler handler) =>
+        (await Provider(handler).StreamAsync(Req).ToListAsync())[^1];
+
+    [Fact] // the trailing usage line follows the finish reason, so a filtered stream was billed before it ended
+    public async Task A_content_filter_terminal_carries_the_usage_the_stream_reported()
+    {
+        var handler = new StubHttpHandler().Enqueue(HttpStatusCode.OK, Sse(
+            """{"choices":[{"delta":{"content":"par"}}]}""",
+            """{"choices":[{"delta":{},"finish_reason":"content_filter"}]}""",
+            UsageLine, "[DONE]"), "text/event-stream");
+
+        var terminal = await Terminal(handler);
+
+        Assert.Equal((TextChunkKind.Error, ProviderVerdict.Refused), (terminal.Kind, terminal.Verdict));
+        Assert.Equal(Reported, terminal.Usage);
+    }
+
+    [Fact]
+    public async Task A_zero_content_failure_carries_its_usage()
+    {
+        var handler = new StubHttpHandler().Enqueue(HttpStatusCode.OK, Sse(
+            """{"choices":[{"delta":{},"finish_reason":"stop"}]}""", UsageLine, "[DONE]"), "text/event-stream");
+
+        var terminal = await Terminal(handler);
+
+        Assert.Equal((TextChunkKind.Error, ProviderVerdict.Failed), (terminal.Kind, terminal.Verdict));
+        Assert.Equal(Reported, terminal.Usage);
+    }
+
+    [Fact]
+    public async Task A_tool_call_failure_carries_its_usage()
+    {
+        var handler = new StubHttpHandler().Enqueue(HttpStatusCode.OK, Sse(
+            """{"choices":[{"delta":{"tool_calls":[{"index":0,"id":"x"}]}}]}""",
+            """{"choices":[{"delta":{},"finish_reason":"tool_calls"}]}""",
+            UsageLine, "[DONE]"), "text/event-stream");
+
+        var terminal = await Terminal(handler);
+
+        Assert.Equal(TextChunkKind.Error, terminal.Kind);
+        Assert.Contains("none could be assembled", terminal.Detail);
+        Assert.Equal(Reported, terminal.Usage);
+    }
+
+    [Fact] // D328's broken stream: content, then an error line and no terminator
+    public async Task A_stream_broken_in_band_after_content_carries_its_usage()
+    {
+        var handler = new StubHttpHandler().Enqueue(HttpStatusCode.OK, Sse(
+            """{"choices":[{"delta":{"content":"par"}}]}""", UsageLine,
+            """{"error":{"code":429,"message":"Rate limit exceeded"}}"""), "text/event-stream");
+
+        var terminal = await Terminal(handler);
+
+        Assert.Equal((TextChunkKind.Error, ProviderVerdict.RateLimited), (terminal.Kind, terminal.Verdict));
+        Assert.Equal(Reported, terminal.Usage);
+    }
+
+    [Fact]
+    public async Task A_stream_that_breaks_after_its_usage_line_carries_it()
+    {
+        var handler = new StubHttpHandler().Enqueue(_ => new HttpResponseMessage(HttpStatusCode.OK)
+        {
+            Content = new BreakingContent(Sse("""{"choices":[{"delta":{"content":"par"}}]}""", UsageLine)),
+        });
+
+        var terminal = await Terminal(handler);
+
+        Assert.Equal((TextChunkKind.Error, ProviderVerdict.Failed), (terminal.Kind, terminal.Verdict));
+        Assert.Contains("stream broke", terminal.Detail);
+        Assert.Equal(Reported, terminal.Usage);
+    }
+
+    private const string EmptyBilled =
+        """{"choices":[{"message":{"role":"assistant","content":""},"finish_reason":"stop"}],"usage":{"prompt_tokens":5,"completion_tokens":0}}""";
+
+    [Theory] // the resend is a second billed request, so whatever it answers, the first attempt's spend is in the reply
+    [InlineData(HttpStatusCode.OK, OkBody, ProviderVerdict.Ok, 15, 4)]
+    [InlineData(HttpStatusCode.OK, EmptyBilled, ProviderVerdict.Failed, 10, 0)]
+    [InlineData(HttpStatusCode.InternalServerError, "boom", ProviderVerdict.Failed, 5, 0)]
+    [InlineData(HttpStatusCode.OK, """{"error":{"code":429,"message":"Rate limit exceeded"}}""", ProviderVerdict.RateLimited, 5, 0)]
+    public async Task An_empty_body_resend_bills_both_attempts(
+        HttpStatusCode status, string second, ProviderVerdict verdict, long input, long output)
+    {
+        var handler = new StubHttpHandler().Enqueue(HttpStatusCode.OK, EmptyBilled).Enqueue(status, second);
+
+        var reply = await Provider(handler).CompleteAsync(Req);
+
+        Assert.Equal(2, handler.Requests.Count);
+        Assert.Equal(verdict, reply.Verdict);
+        Assert.Equal(new TextUsage(input, output), reply.Usage);
+    }
+
+    /// <summary>A body that serves its text, then fails the next read as a dropped connection does.</summary>
+    private sealed class BreakingContent(string text) : HttpContent
+    {
+        protected override Task SerializeToStreamAsync(Stream stream, TransportContext? context) =>
+            throw new IOException("connection reset");
+
+        protected override bool TryComputeLength(out long length)
+        {
+            length = 0;
+            return false;
+        }
+
+        protected override Task<Stream> CreateContentReadStreamAsync() =>
+            Task.FromResult<Stream>(new BreakingStream(Encoding.UTF8.GetBytes(text)));
+    }
+
+    private sealed class BreakingStream(byte[] prefix) : Stream
+    {
+        private int _position;
+
+        public override bool CanRead => true;
+        public override bool CanSeek => false;
+        public override bool CanWrite => false;
+        public override long Length => throw new NotSupportedException();
+        public override long Position { get => _position; set => throw new NotSupportedException(); }
+
+        public override int Read(byte[] buffer, int offset, int count) => Read(buffer.AsSpan(offset, count));
+
+        public override int Read(Span<byte> buffer)
+        {
+            if (_position >= prefix.Length) throw new IOException("connection reset");
+            var n = Math.Min(buffer.Length, prefix.Length - _position);
+            prefix.AsSpan(_position, n).CopyTo(buffer);
+            _position += n;
+            return n;
+        }
+
+        public override ValueTask<int> ReadAsync(Memory<byte> buffer, CancellationToken cancellationToken = default) =>
+            ValueTask.FromResult(Read(buffer.Span));
+
+        public override void Flush() { }
+        public override long Seek(long offset, SeekOrigin origin) => throw new NotSupportedException();
+        public override void SetLength(long value) => throw new NotSupportedException();
+        public override void Write(byte[] buffer, int offset, int count) => throw new NotSupportedException();
     }
 
     [Fact]

@@ -21,7 +21,9 @@ namespace Lyntai.Providers.Http;
 /// <item>a content filter classified <see cref="ProviderVerdict.Refused"/> on both paths,</item>
 /// <item>the streaming timeout as an INACTIVITY clock re-armed per read, never one wall clock,</item>
 /// <item>streamed tool calls assembled from their fragments and delivered complete,</item>
-/// <item>exactly one terminal chunk — a Final or an Error, never both and never neither.</item>
+/// <item>exactly one terminal chunk — a Final or an Error, never both and never neither,</item>
+/// <item>the usage the wire read on every reply and terminal, failed ones included, the resend's reply adding both
+///   attempts (D350).</item>
 /// </list>
 ///
 /// The same composition the CLI providers use (<see cref="Lyntai.Inference.Cli.CliProviderEngine"/>): a
@@ -60,6 +62,7 @@ internal sealed class HttpChatEngine(
         var timeout = options.ResolveTimeout(req);
         using var owned = OwnedClient();       // disposed only when Lyntai owns it
         var http = owned ?? httpFactory();     // BYO client: fetched, not disposed
+        TextUsage? spent = null;               // what the attempt before the resend billed (D350)
         for (var attempt = 0; ; attempt++)
         {
             var reply = await HttpJsonCall.SendAsync(http, BuildRequest(req, model, stream: false), timeout,
@@ -67,10 +70,12 @@ internal sealed class HttpChatEngine(
             if (reply.Body is not { } body)
             {
                 WarnOfRefusedFields(req, reply.Status, reply.Verdict, reply.Detail);
-                return new TextResponse("", reply.Verdict, Detail: reply.Detail);
+                return new TextResponse("", reply.Verdict, spent, reply.Detail);
             }
 
-            if (wire.TryExtract(body, out var text, out var usage, out var finishReason, out var toolCalls))
+            var extracted = wire.TryExtract(body, out var text, out var read, out var finishReason, out var toolCalls);
+            var usage = Add(spent, read);
+            if (extracted)
             {
                 // a content filter often arrives as HTTP 200 + finish_reason with EMPTY content —
                 // it must classify as Refused (no fallback) before any empty-text handling
@@ -93,19 +98,29 @@ internal sealed class HttpChatEngine(
             if (HttpBody.InBandError(body) is { } inBand)
             {
                 exchanges?.Rejected(HttpStatusCode.OK, reply.Headers, body);
-                return InBandFailure(inBand);
+                return InBandFailure(inBand) with { Usage = usage };
             }
 
             if (!resendOnEmptyBody)
-                return new TextResponse("", ProviderVerdict.Failed, Detail: $"{id}: malformed or empty response");
+                return new TextResponse("", ProviderVerdict.Failed, usage, $"{id}: malformed or empty response");
             if (attempt == 0)
             {
                 logger.LogWarning("{Id}: malformed or empty response body; retrying once", id);
+                spent = usage;
                 continue; // one retry on a malformed/empty body
             }
-            return new TextResponse("", ProviderVerdict.Failed, Detail: $"{id}: malformed or empty response after retry");
+            return new TextResponse("", ProviderVerdict.Failed, usage, $"{id}: malformed or empty response after retry");
         }
     }
+
+    /// <summary>Two spends added, by the rule of Core's internal <c>TextUsage.Sum</c>: null when neither reported one, so
+    /// "unmetered" never reads as "free", and a cost that stays null unless either side reported one.</summary>
+    private static TextUsage? Add(TextUsage? first, TextUsage? second) =>
+        first is null ? second
+        : second is null ? first
+        : new TextUsage(first.InputTokens + second.InputTokens, first.OutputTokens + second.OutputTokens,
+            first.CacheReadTokens + second.CacheReadTokens,
+            first.CostUsd is null && second.CostUsd is null ? null : (first.CostUsd ?? 0) + (second.CostUsd ?? 0));
 
     public async IAsyncEnumerable<TextChunk> StreamAsync(TextRequest req, [EnumeratorCancellation] CancellationToken ct = default)
     {
@@ -144,7 +159,7 @@ internal sealed class HttpChatEngine(
             ex =>
             {
                 exchanges?.Broke(timeoutCts.IsCancellationRequested);
-                return TextChunk.Error(
+                return progress.Error(
                     timeoutCts.IsCancellationRequested ? ProviderVerdict.Timeout : ProviderVerdict.Failed,
                     $"{id}: stream broke — {ex.Message}");
             },
@@ -273,6 +288,10 @@ internal sealed class HttpChatEngine(
 
         /// <summary>The response's headers, which an in-band error read for an agent turn needs.</summary>
         public System.Net.Http.Headers.HttpResponseHeaders? Headers { get; init; }
+
+        /// <summary>An Error terminal carrying the <see cref="Usage"/> read so far: a stream that failed was billed
+        /// all the same (D350).</summary>
+        public TextChunk Error(ProviderVerdict verdict, string? detail) => TextChunk.Error(verdict, detail) with { Usage = Usage };
     }
 
     /// <summary>How a stream ENDS: the assembled tool calls, then exactly one terminal chunk — a
@@ -284,7 +303,7 @@ internal sealed class HttpChatEngine(
         // non-streaming path gives the identical finish_reason
         if (progress.FinishReason is WireFinish.ContentFilter or WireFinish.Refusal)
         {
-            yield return TextChunk.Error(ProviderVerdict.Refused,
+            yield return progress.Error(ProviderVerdict.Refused,
                 progress.FinishReason == WireFinish.Refusal ? $"{id}: refused" : $"{id}: content filter");
             yield break;
         }
@@ -294,7 +313,7 @@ internal sealed class HttpChatEngine(
         {
             exchanges?.RejectedInBand(progress.Headers, progress.InBandError);
             var broken = InBandFailure(progress.InBandError);
-            yield return TextChunk.Error(broken.Verdict, broken.Detail);
+            yield return progress.Error(broken.Verdict, broken.Detail);
             yield break;
         }
         // TOOL CALLS, assembled from their fragments and delivered before the terminal chunk — never dropped
@@ -317,7 +336,7 @@ internal sealed class HttpChatEngine(
         // terminal chunk, which the router passes through unchanged post-commit.
         if (progress.FinishReason == "tool_calls")
         {
-            yield return TextChunk.Error(ProviderVerdict.Failed,
+            yield return progress.Error(ProviderVerdict.Failed,
                 $"{id}: the stream finished for tool calls but none could be assembled from its deltas");
             yield break;
         }
@@ -331,7 +350,7 @@ internal sealed class HttpChatEngine(
             var reply = progress.InBandError is not null
                 ? InBandFailure(progress.InBandError)
                 : new TextResponse("", ProviderVerdict.Failed, Detail: $"{id}: no output produced");
-            yield return TextChunk.Error(reply.Verdict, reply.Detail);
+            yield return progress.Error(reply.Verdict, reply.Detail);
             yield break;
         }
         yield return TextChunk.Final(progress.Usage);

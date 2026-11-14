@@ -15,26 +15,25 @@ LLM-ops layer (prompt registry, scoring, traces, memory). `AddLyntai(...)` and g
 
 <!-- open-items:begin — GENERATED. Edit the per-item `item:` markers, never this table. -->
 
-## Open items — 13 across 11 Parts: 3 startable, 6 blocked, 1 watch, 3 decision-only
+## Open items — 12 across 10 Parts: 2 startable, 6 blocked, 1 watch, 3 decision-only
 
 _Generated from the per-item `<!-- item: … -->` markers by `node devtools/dev.mjs check-backlog --write`._
 _Edit a marker, never this table — `verify` fails the moment the two disagree._
 
 | line | Part | item | state | waiting on |
 | ---: | ---: | --- | --- | --- |
-| 114 | 33 | GEN-VERIFY-FAL, the last line — the Hugging Face route | blocked · env | an hf_ token for the router route; re-checked 2026-11-15, none on this mach… |
-| 155 | 75 | Decide what an aggregator's in-band `code` means | blocked · env+data | two or three real aggregators to measure an in-band code against; re-checke… |
-| 182 | 99 | `verify`'s test step intermittently fails EXACTLY 9 tests, and once aborted… | watch · data | the same nine tests to recur — the fix is unconfirmed as the cure, and a gr… |
-| 256 | 417 | MC8 — run the wrong-end instrument on an adjudicated corpus, with a bar wri… | blocked · decision+data | two reviewers' independent labels on a sample of the pairs, and a bar a per… |
-| 281 | 479 | A write tool's metadata stamp replaces a held entry's stored bag on a refre… | decision-only | a ruling: keep a held entry's stored metadata on a refresh (the shape of D3… |
-| 284 | 479 | A stated but malformed `validFrom`, `validTo` or `at` is read as absent | decision-only | a ruling: refuse a stated instant that does not parse, naming the field, or… |
-| 294 | 481 | A rejected limit is never cleared inside a turn | blocked · data | a capture of the CLI sending a rejected rate_limit_event and then an allowe… |
-| 305 | 485 | How long a quiet Codex step runs is unmeasured | blocked · env | one real Codex turn on an account with room: re-checked 2026-11-15, the own… |
-| 317 | 486 | The HTTP chat engine's own failures still drop the usage its wire read | startable |  |
-| 326 | 490 | `Model2VecProvider` embeds a text of any length, where the reference trunca… | decision-only | a ruling: truncate to the reference's 512 (or the config's max_length) with… |
-| 335 | 495 | Two usage-process lifetime facts fail on Linux | startable |  |
-| 344 | 518 | AG50 — a kept run on `codex-acp` and dsh (A-LQ19) | blocked · data | Daoris's recorded Codex sitting and dsh probe frames; re-checked 2026-11-15… |
-| 346 | 518 | AG51 — a kept run on the Claude CLI with stdin held (A-LQ21) | startable |  |
+| 113 | 33 | GEN-VERIFY-FAL, the last line — the Hugging Face route | blocked · env | an hf_ token for the router route; re-checked 2026-11-15, none on this mach… |
+| 154 | 75 | Decide what an aggregator's in-band `code` means | blocked · env+data | two or three real aggregators to measure an in-band code against; re-checke… |
+| 181 | 99 | `verify`'s test step intermittently fails EXACTLY 9 tests, and once aborted… | watch · data | the same nine tests to recur — the fix is unconfirmed as the cure, and a gr… |
+| 255 | 417 | MC8 — run the wrong-end instrument on an adjudicated corpus, with a bar wri… | blocked · decision+data | two reviewers' independent labels on a sample of the pairs, and a bar a per… |
+| 280 | 479 | A write tool's metadata stamp replaces a held entry's stored bag on a refre… | decision-only | a ruling: keep a held entry's stored metadata on a refresh (the shape of D3… |
+| 283 | 479 | A stated but malformed `validFrom`, `validTo` or `at` is read as absent | decision-only | a ruling: refuse a stated instant that does not parse, naming the field, or… |
+| 293 | 481 | A rejected limit is never cleared inside a turn | blocked · data | a capture of the CLI sending a rejected rate_limit_event and then an allowe… |
+| 304 | 485 | How long a quiet Codex step runs is unmeasured | blocked · env | one real Codex turn on an account with room: re-checked 2026-11-15, the own… |
+| 316 | 490 | `Model2VecProvider` embeds a text of any length, where the reference trunca… | decision-only | a ruling: truncate to the reference's 512 (or the config's max_length) with… |
+| 325 | 495 | Two usage-process lifetime facts fail on Linux | startable |  |
+| 334 | 518 | AG50 — a kept run on `codex-acp` and dsh (A-LQ19) | blocked · data | Daoris's recorded Codex sitting and dsh probe frames; re-checked 2026-11-15… |
+| 336 | 518 | AG51 — a kept run on the Claude CLI with stdin held (A-LQ21) | startable |  |
 
 <!-- open-items:end -->
 
@@ -308,15 +307,6 @@ was filed. Three closed in that Part. What stays needs a measurement against a r
   answers it (`codex exec --json --sandbox read-only` asked to sleep 120 s, each line timestamped): no line between the command's `item.started` and
   `item.completed` means the window must cover the longest step, which only the host knows (`LyntaiOptions.AgentTimeout`); lines between mean
   15 minutes bounds true inactivity.
-
-## Part 486 — what the 2026-11-08 review of the front door, the router, the cache and the budget found and did not fix yet
-
-_Opened by `docs/task-archive.md` **Part 484**: a read-only review of `Lyntai.Core/Inference` outside the agent layer, each finding read against the code before it was
-filed and none reproduced. The certain and small findings closed in that Part. Lane `inference`._
-
-- [ ] **The HTTP chat engine's own failures still drop the usage its wire read.** **D350** has a failed reply carry what was billed, and the CLI engine, the router and <!-- item: state=startable -->
-  the budget do; `HttpChatEngine`'s streamed content-filter, tool-call-failure and zero-content `Error` terminals and its buffered empty-body failure (with its one resend)
-  still carry none. Found by the builder of `docs/task-archive.md` Part 525; summing the resend's two attempts needs `TextUsage.Sum` reachable from `Lyntai.Providers.Basic`.
 
 ## Part 490 — what the 2026-11-08 review of the local inference backends found and did not fix yet
 

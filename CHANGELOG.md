@@ -85,7 +85,9 @@ every addition.
   hit replayed the first call's usage into a tool loop, the orchestrator and a trace step. A failed reply and an `Error` chunk now carry
   the usage the provider read (`CliOutputEvent.Failure(string, TextUsage?)` is the new overload), the router adds every candidate it
   moved on from to what it returns, a cache hit carries none, and `BudgetedTextClient` records a failed stream's spend. After a fall-over a
-  router reply's `Usage.InputTokens` is the attempts' sum; each attempt's own figure stays on its `chat` span.
+  router reply's `Usage.InputTokens` is the attempts' sum; each attempt's own figure stays on its `chat` span. The HTTP provider's own
+  failures carry it too: a streamed content filter or refusal, a tool-call finish that assembled no call, a zero-content or broken stream,
+  and an empty, malformed or in-band-error reply, whose one resend returns both attempts' usage added together.
 - **A Claude `result` whose `subtype` begins with `error` is a failed turn whatever `is_error` says** (**D353**), on the one-shot
   provider and the agent door alike. Any other subtype stays an answer, and `is_error: true` beside `success` stays a failure. claude
   2.1.325 was recorded pairing `error_max_turns` with `is_error: true`, so this guards a CLI that drops the flag.
