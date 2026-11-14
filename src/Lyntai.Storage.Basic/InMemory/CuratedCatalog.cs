@@ -101,7 +101,7 @@ internal sealed class CuratedCatalog
     {
         (kind, taskKey, scope, metadataMatch) = (Utf8Text.Scrub(kind), Utf8Text.Scrub(taskKey), Utf8Text.Scrub(scope),
             Utf8Text.Scrub(metadataMatch));
-        var needle = Utf8Text.Scrub(query)!.Trim();
+        var needle = Utf8Text.ScrubQuery(query)!.Trim();
         var terms = SearchTerms.SubstringTerms(needle);
         // the matched-term count filters and then leads the order, as the SQL stores' LIKE count does
         var q = Filter(_entries, kind, enabledOnly, taskKey, scope, metadataMatch)

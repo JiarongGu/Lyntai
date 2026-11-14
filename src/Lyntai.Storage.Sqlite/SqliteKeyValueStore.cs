@@ -9,6 +9,7 @@ public sealed class SqliteKeyValueStore(IDbConnectionFactory factory) : IConditi
 {
     public async Task<string?> GetAsync(string key, CancellationToken ct = default)
     {
+        key = Utf8Text.Scrub(key);
         await using var conn = await factory.OpenAsync(ct).ConfigureAwait(false);
         return await conn.QuerySingleOrDefaultAsync<string>(
             new CommandDefinition(KeyValueStoreSql.Get, new { key }, cancellationToken: ct))
@@ -17,12 +18,14 @@ public sealed class SqliteKeyValueStore(IDbConnectionFactory factory) : IConditi
 
     public async Task SetAsync(string key, string value, CancellationToken ct = default)
     {
+        (key, value) = (Utf8Text.Scrub(key), Utf8Text.Scrub(value));
         await using var conn = await factory.OpenAsync(ct).ConfigureAwait(false);
         await conn.ExecuteAsync(new CommandDefinition(KeyValueStoreSql.Set, new { key, value, now = DateTimeOffset.UtcNow }, cancellationToken: ct)).ConfigureAwait(false);
     }
 
     public async Task DeleteAsync(string key, CancellationToken ct = default)
     {
+        key = Utf8Text.Scrub(key);
         await using var conn = await factory.OpenAsync(ct).ConfigureAwait(false);
         await conn.ExecuteAsync(new CommandDefinition(
             KeyValueStoreSql.Delete, new { key }, cancellationToken: ct)).ConfigureAwait(false);
@@ -30,6 +33,7 @@ public sealed class SqliteKeyValueStore(IDbConnectionFactory factory) : IConditi
 
     public async Task<bool> SetIfAbsentAsync(string key, string value, CancellationToken ct = default)
     {
+        (key, value) = (Utf8Text.Scrub(key), Utf8Text.Scrub(value));
         await using var conn = await factory.OpenAsync(ct).ConfigureAwait(false);
         return await conn.ExecuteAsync(new CommandDefinition(KeyValueStoreSql.SetIfAbsent,
             new { key, value, now = DateTimeOffset.UtcNow }, cancellationToken: ct)).ConfigureAwait(false) == 1;
@@ -37,6 +41,7 @@ public sealed class SqliteKeyValueStore(IDbConnectionFactory factory) : IConditi
 
     public async Task<IReadOnlyList<string>> ListKeysAsync(string? prefix = null, CancellationToken ct = default)
     {
+        prefix = Utf8Text.Scrub(prefix);
         await using var conn = await factory.OpenAsync(ct).ConfigureAwait(false);
         // NOT LIKE — SQLite's LIKE is ASCII case-INSENSITIVE, breaking the interface's case-sensitive
         // contract. substr under the default BINARY collation is an exact (ordinal) starts-with, wildcard

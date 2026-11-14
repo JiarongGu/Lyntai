@@ -510,6 +510,97 @@ public static class JobStoreContract
         Assert.Equal(j2, (await store.ClaimNextAsync(lane, "w3", Lease))!.Id);
     }
 
+    /// <summary>A head that failed with a retry keeps its place: the later job waits out the backoff rather than
+    /// running first, because a retry moves when the head may run, not where it stands in the partition.</summary>
+    public static async Task A_retrying_head_blocks_its_partition(IJobStore store, MutableClock clock, string lane = "default")
+    {
+        var p = lane + "-P";
+        var j1 = await store.EnqueueAsync(new JobSpec(lane, "t", "1", PartitionKey: p));
+        clock.Advance(Tick);
+        var j2 = await store.EnqueueAsync(new JobSpec(lane, "t", "2", PartitionKey: p));
+
+        Assert.Equal(j1, (await store.ClaimNextAsync(lane, "w1", Lease))!.Id);
+        Assert.True(await store.FailAsync(j1, "w1", "transient", clock.Now + TimeSpan.FromMinutes(5)));
+
+        clock.Advance(Tick);
+        Assert.Null(await store.ClaimNextAsync(lane, "w2", Lease)); // J2 waits behind the retrying head
+
+        clock.Advance(TimeSpan.FromMinutes(5));
+        Assert.Equal(j1, (await store.ClaimNextAsync(lane, "w2", Lease))!.Id);
+        Assert.True(await store.CompleteAsync(j1, "w2"));
+        Assert.Equal(j2, (await store.ClaimNextAsync(lane, "w3", Lease))!.Id);
+    }
+
+    /// <summary>A polling head holds its partition the same way, for as long as it keeps polling.</summary>
+    public static async Task A_polling_head_blocks_its_partition(IJobStore store, MutableClock clock, string lane = "default")
+    {
+        var p = lane + "-P";
+        var j1 = await store.EnqueueAsync(new JobSpec(lane, "t", "1", PartitionKey: p));
+        clock.Advance(Tick);
+        var j2 = await store.EnqueueAsync(new JobSpec(lane, "t", "2", PartitionKey: p));
+
+        for (var poll = 0; poll < 2; poll++)
+        {
+            Assert.Equal(j1, (await store.ClaimNextAsync(lane, "w1", Lease))!.Id);
+            Assert.True(await store.PollAgainAsync(j1, "w1", clock.Now + TimeSpan.FromMinutes(1)));
+            clock.Advance(Tick);
+            Assert.Null(await store.ClaimNextAsync(lane, "w2", Lease)); // J2 waits while J1 polls
+            clock.Advance(TimeSpan.FromMinutes(1));
+        }
+
+        Assert.Equal(j1, (await store.ClaimNextAsync(lane, "w1", Lease))!.Id);
+        Assert.True(await store.CompleteAsync(j1, "w1"));
+        Assert.Equal(j2, (await store.ClaimNextAsync(lane, "w2", Lease))!.Id);
+    }
+
+    /// <summary>A head that dead-letters after retrying leaves the partition: the next job runs.</summary>
+    public static async Task A_dead_head_frees_its_partition(IJobStore store, MutableClock clock, string lane = "default")
+    {
+        var p = lane + "-P";
+        var j1 = await store.EnqueueAsync(new JobSpec(lane, "t", "1", PartitionKey: p));
+        clock.Advance(Tick);
+        var j2 = await store.EnqueueAsync(new JobSpec(lane, "t", "2", PartitionKey: p));
+
+        Assert.Equal(j1, (await store.ClaimNextAsync(lane, "w1", Lease))!.Id);
+        Assert.True(await store.FailAsync(j1, "w1", "transient", clock.Now + TimeSpan.FromMinutes(5)));
+        clock.Advance(TimeSpan.FromMinutes(6));
+
+        Assert.Equal(j1, (await store.ClaimNextAsync(lane, "w1", Lease))!.Id); // the head, not J2
+        Assert.True(await store.DeadLetterAsync(j1, "w1", "exhausted"));
+        Assert.Equal(j2, (await store.ClaimNextAsync(lane, "w2", Lease))!.Id);
+    }
+
+    /// <summary>A job enqueued for later does not hold its partition before it is due: only a job that has been
+    /// claimable once keeps a place in the line.</summary>
+    public static async Task A_delayed_job_not_yet_due_does_not_block_its_partition(IJobStore store, MutableClock clock, string lane = "default")
+    {
+        var p = lane + "-P";
+        await store.EnqueueAsync(new JobSpec(lane, "t", "later", AvailableAt: clock.Now + TimeSpan.FromMinutes(10), PartitionKey: p));
+        clock.Advance(Tick);
+        var now = await store.EnqueueAsync(new JobSpec(lane, "t", "now", PartitionKey: p));
+
+        Assert.Equal(now, (await store.ClaimNextAsync(lane, "w1", Lease))!.Id);
+    }
+
+    /// <summary>A replayed job rejoins its partition at the BACK: a replay is a new arrival, so it waits behind the
+    /// jobs that queued while it was dead rather than taking back the place it lost.</summary>
+    public static async Task A_replayed_job_rejoins_its_partition_at_the_back(IJobStore store, MutableClock clock, string lane = "default")
+    {
+        var p = lane + "-P";
+        var j1 = await store.EnqueueAsync(new JobSpec(lane, "t", "1", PartitionKey: p));
+        clock.Advance(Tick);
+        var j2 = await store.EnqueueAsync(new JobSpec(lane, "t", "2", PartitionKey: p));
+
+        Assert.Equal(j1, (await store.ClaimNextAsync(lane, "w1", Lease))!.Id);
+        Assert.True(await store.DeadLetterAsync(j1, "w1", "exhausted"));
+        clock.Advance(Tick);
+        Assert.True(await store.ReplayAsync(j1));
+
+        Assert.Equal(j2, (await store.ClaimNextAsync(lane, "w2", Lease))!.Id);
+        Assert.True(await store.CompleteAsync(j2, "w2"));
+        Assert.Equal(j1, (await store.ClaimNextAsync(lane, "w2", Lease))!.Id);
+    }
+
     // ---- cross-process concurrency slots (D73) ------------------------------------------------------
     // These pin the properties `InMemoryJobStore.TryAcquireSlotAsync` names as "the semantics the SQL stores
     // must match": lowest free index wins, an index at or above the cap is never handed out, and a slot older

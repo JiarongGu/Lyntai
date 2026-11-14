@@ -43,7 +43,10 @@ public enum JobStatus
 /// <paramref name="PartitionKey"/> (null = unpartitioned, the default) turns a set of jobs sharing a
 /// <c>(lane, key)</c> into an actor mailbox: at most one such job runs at a time and they run in strict
 /// FIFO order (priority is IGNORED WITHIN a partition); jobs with different keys (or no key) still run in
-/// parallel up to the lane's concurrency.</summary>
+/// parallel up to the lane's concurrency. A job keeps its place from the moment it is first due: a head that
+/// retries or polls holds the partition until it finishes, fails or dead-letters, and since a poll consumes no
+/// attempt, a head that keeps polling holds it with no bound. A delayed job not yet due holds no place, and a
+/// replayed one rejoins at the back.</summary>
 public sealed record JobSpec(
     string Lane,
     string Type,

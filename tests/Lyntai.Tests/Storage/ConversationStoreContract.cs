@@ -32,6 +32,26 @@ public static class ConversationStoreContract
         Assert.Equal(["cut \uFFFD"], (await store.GetMessagesAsync(t)).Select(m => m.Payload));
     }
 
+    /// <summary>A NUL (U+0000), which Postgres refuses in text, is stored as U+FFFD on every backend, as a lone
+    /// surrogate is (D262) \u2014 in a thread id, a title, metadata and an event \u2014 and the id written with one finds its
+    /// thread, its messages and its delete.</summary>
+    public static async Task A_NUL_is_stored_as_U_FFFD(IConversationStore store, string key)
+    {
+        var t = key + "-nul\0";
+        await store.CreateThreadAsync(t, "title \0", metadata: "created \0");
+        await store.AppendMessageAsync(t, "assistant\0", "nul \0", metadata: "meta \0");
+
+        var thread = (await store.GetThreadAsync(t))!;
+        Assert.Equal((key + "-nul\uFFFD", "title \uFFFD", "created \uFFFD"), (thread.Id, thread.Title, thread.Metadata));
+        await store.SetThreadMetadataAsync(t, "set \0");
+        Assert.Equal("set \uFFFD", (await store.GetThreadAsync(t))!.Metadata);
+        var message = Assert.Single(await store.GetMessagesAsync(t));
+        Assert.Equal(("assistant\uFFFD", "nul \uFFFD", "meta \uFFFD"), (message.Kind, message.Payload, message.Metadata));
+
+        await store.DeleteThreadAsync(t);
+        Assert.Null(await store.GetThreadAsync(key + "-nul\uFFFD"));
+    }
+
     /// <summary>Eight writers appending to one thread at once all succeed and take distinct, gapless sequence numbers on every
     /// backend: Postgres retried a lost race four times, so a fifth contender could surface a raw unique violation
     /// (the steward's ruling, <c>docs/DECISIONS.md</c> D325).</summary>

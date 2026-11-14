@@ -74,7 +74,7 @@ internal sealed class MemoryEntryLog(LyntaiOptions options)
     /// is the one every backend finds.</para></summary>
     public IReadOnlyList<MemoryLogEntry> Recall(string taskKey, string? scope, string? query, int? limit, DateTimeOffset now)
     {
-        (taskKey, scope, query) = (Utf8Text.Scrub(taskKey), Utf8Text.Scrub(scope), Utf8Text.Scrub(query));
+        (taskKey, scope, query) = (Utf8Text.Scrub(taskKey), Utf8Text.Scrub(scope), Utf8Text.ScrubQuery(query));
         var asked = !string.IsNullOrWhiteSpace(query);
         var live = _entries.Where(e => e.TaskKey == taskKey && (scope is null || e.Scope == scope)
                                        && (e.ExpiresAt is null || e.ExpiresAt > now));

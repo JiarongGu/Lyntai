@@ -25,6 +25,7 @@ public sealed class SqliteMemoryStore(
 
     public async Task RememberAsync(string taskKey, string scope, string content, TimeSpan? ttl = null, CancellationToken ct = default)
     {
+        (taskKey, scope, content) = (Utf8Text.Scrub(taskKey), Utf8Text.Scrub(scope), Utf8Text.Scrub(content));
         var now = _clock();
         var policy = options.MemoryEviction;
         var expiresAt = (ttl ?? policy.DefaultTtl) is { } eff ? now + eff : (DateTimeOffset?)null; // per-call ttl wins over the policy default
@@ -78,6 +79,7 @@ public sealed class SqliteMemoryStore(
 
     public async Task<int> PruneAsync(string? taskKey = null, TimeSpan? olderThan = null, CancellationToken ct = default)
     {
+        taskKey = Utf8Text.Scrub(taskKey);
         var now = _clock();
         var cutoff = olderThan is null ? (DateTimeOffset?)null : now - olderThan.Value;
         await using var conn = await factory.OpenAsync(ct).ConfigureAwait(false);
@@ -94,6 +96,7 @@ public sealed class SqliteMemoryStore(
     {
         var take = limit ?? options.MemoryRecallLimit;
         if (take <= 0) return []; // asks for nothing — never the dialect's opinion of a negative LIMIT
+        (taskKey, scope, query) = (Utf8Text.Scrub(taskKey), Utf8Text.Scrub(scope), Utf8Text.ScrubQuery(query));
         var now = _clock(); // expired entries (@now past expires_at) are never returned
         // Queried-only, per MemoryEvictionPolicy.TracksAccess.
         var touch = options.MemoryEviction.TracksAccess && !string.IsNullOrWhiteSpace(query);
@@ -184,6 +187,7 @@ public sealed class SqliteMemoryStore(
 
     public async Task ForgetAsync(string taskKey, string? scope = null, CancellationToken ct = default)
     {
+        (taskKey, scope) = (Utf8Text.Scrub(taskKey), Utf8Text.Scrub(scope));
         await using var conn = await factory.OpenAsync(ct).ConfigureAwait(false);
         await conn.ExecuteAsync(new CommandDefinition("""
             DELETE FROM lyntai_memory_entry WHERE task_key = @taskKey AND (@scope IS NULL OR scope = @scope)

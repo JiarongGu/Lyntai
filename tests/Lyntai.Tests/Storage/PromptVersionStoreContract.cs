@@ -19,6 +19,19 @@ public static class PromptVersionStoreContract
         Assert.Equal(("cut \uFFFD", "al\uFFFD"), (active!.Template, active.Author));
     }
 
+    /// <summary>A NUL (U+0000), which Postgres refuses in text, is stored as U+FFFD on every backend, as a lone
+    /// surrogate is (D262) \u2014 in a name, a template and an author \u2014 and the name written with one finds its history.</summary>
+    public static async Task A_NUL_is_stored_as_U_FFFD(IPromptVersionStore store, string key)
+    {
+        var name = key + "-nul\0";
+        await store.SaveAsync(name, "nul \0", author: "al\0");
+        await store.SaveAsync(name, "second");
+
+        var first = (await store.RollbackAsync(name, 1))!;
+        Assert.Equal((key + "-nul\uFFFD", "nul \uFFFD", "al\uFFFD"), (first.Name, first.Template, first.Author));
+        Assert.Equal(2, (await store.HistoryAsync(key + "-nul\uFFFD")).Count);
+    }
+
     public static async Task No_version_yet_returns_null_active_and_empty_history(IPromptVersionStore store, string key)
     {
         Assert.Null(await store.GetActiveAsync(key + "-greeting"));

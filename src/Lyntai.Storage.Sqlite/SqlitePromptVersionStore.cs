@@ -11,6 +11,7 @@ public sealed class SqlitePromptVersionStore(IDbConnectionFactory factory) : IPr
 
     public async Task<PromptVersion?> GetActiveAsync(string name, CancellationToken ct = default)
     {
+        name = Utf8Text.Scrub(name);
         await using var conn = await factory.OpenAsync(ct).ConfigureAwait(false);
         var row = await conn.QuerySingleOrDefaultAsync<PromptVersionRow>(new CommandDefinition(
             $"SELECT {SelectColumns} FROM lyntai_prompt_version WHERE name = @name AND is_active = 1",
@@ -20,6 +21,7 @@ public sealed class SqlitePromptVersionStore(IDbConnectionFactory factory) : IPr
 
     public async Task<PromptVersion> SaveAsync(string name, string template, string? author = null, CancellationToken ct = default)
     {
+        (name, template, author) = (Utf8Text.Scrub(name), Utf8Text.Scrub(template), Utf8Text.Scrub(author));
         var createdAt = DateTimeOffset.UtcNow;
         await using var conn = await factory.OpenAsync(ct).ConfigureAwait(false);
         await using var tx = await conn.BeginTransactionAsync(ct).ConfigureAwait(false);
@@ -43,6 +45,7 @@ public sealed class SqlitePromptVersionStore(IDbConnectionFactory factory) : IPr
 
     public async Task<IReadOnlyList<PromptVersion>> HistoryAsync(string name, CancellationToken ct = default)
     {
+        name = Utf8Text.Scrub(name);
         await using var conn = await factory.OpenAsync(ct).ConfigureAwait(false);
         var rows = await conn.QueryAsync<PromptVersionRow>(new CommandDefinition(
             $"SELECT {SelectColumns} FROM lyntai_prompt_version WHERE name = @name ORDER BY version DESC",
@@ -52,6 +55,7 @@ public sealed class SqlitePromptVersionStore(IDbConnectionFactory factory) : IPr
 
     public async Task<PromptVersion?> RollbackAsync(string name, int version, CancellationToken ct = default)
     {
+        name = Utf8Text.Scrub(name);
         await using var conn = await factory.OpenAsync(ct).ConfigureAwait(false);
         await using var tx = await conn.BeginTransactionAsync(ct).ConfigureAwait(false);
 

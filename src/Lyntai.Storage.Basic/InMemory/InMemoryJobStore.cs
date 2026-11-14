@@ -9,6 +9,8 @@ public sealed class InMemoryJobStore(Func<DateTimeOffset>? clock = null, int ste
 {
     private readonly Lock _lock = new();
     private readonly Dictionary<Guid, JobRecord> _jobs = [];
+    // the SQL stores' queued_at: a job's place in its partition, which a retry or a poll does not move
+    private readonly Dictionary<Guid, DateTimeOffset> _queuedAt = [];
     private readonly Func<DateTimeOffset> _clock = clock ?? (() => DateTimeOffset.UtcNow);
 
     public Task<Guid> EnqueueAsync(JobSpec spec, CancellationToken ct = default)
@@ -19,7 +21,11 @@ public sealed class InMemoryJobStore(Func<DateTimeOffset>? clock = null, int ste
             Attempts: 0, MaxAttempts: spec.MaxAttempts ?? JobSpec.DefaultMaxAttempts, LastError: null,
             AvailableAt: spec.AvailableAt ?? now, ClaimedAt: null, ClaimedBy: null, CreatedAt: now, UpdatedAt: now,
             Priority: spec.Priority, PartitionKey: spec.PartitionKey);
-        lock (_lock) _jobs[id] = rec;
+        lock (_lock)
+        {
+            _jobs[id] = rec;
+            _queuedAt[id] = rec.AvailableAt;
+        }
         return Task.FromResult(id);
     }
 
@@ -162,6 +168,7 @@ public sealed class InMemoryJobStore(Func<DateTimeOffset>? clock = null, int ste
                 Status = JobStatus.Pending, Attempts = 0, LastError = null, AvailableAt = now,
                 ClaimedBy = null, ClaimedAt = null, UpdatedAt = now, CancelRequested = false,
             };
+            _queuedAt[id] = now; // a replay is a new arrival: the back of its partition
             return Task.FromResult(true);
         }
     }
@@ -314,7 +321,8 @@ public sealed class InMemoryJobStore(Func<DateTimeOffset>? clock = null, int ste
     // NULL partition_key is unguarded (current semantics). For a non-null key P within (lane, P):
     //   - one-at-a-time: no OTHER live-leased Running of P may exist;
     //   - a Pending candidate must additionally see NO Running of P at all (a stale Running must be RECLAIMED
-    //     first, not skipped) AND be the EARLIEST available Pending of P (FIFO, ignoring priority);
+    //     first, not skipped) AND be the EARLIEST QUEUED Pending of P that has been due (FIFO, ignoring priority;
+    //     a retrying or polling head keeps its place, a delayed job not yet due holds none);
     //   - a stale-Running candidate (reclaim) is subject only to the one-at-a-time guard — it keeps its slot.
     // Must be called under _lock.
     private bool PartitionClaimable(JobRecord j, string lane, DateTimeOffset now, DateTimeOffset staleBefore)
@@ -331,15 +339,18 @@ public sealed class InMemoryJobStore(Func<DateTimeOffset>? clock = null, int ste
         {
             // a stale Running of the partition must be reclaimed first — a Pending can't jump it
             if (peers.Any(p => p.Status == JobStatus.Running)) return false;
-            // FIFO within the partition: no earlier available Pending of the partition exists
-            if (peers.Any(p => p.Id != j.Id && p.Status == JobStatus.Pending && p.AvailableAt <= now &&
-                    (p.AvailableAt < j.AvailableAt ||
-                     (p.AvailableAt == j.AvailableAt && string.CompareOrdinal(p.Id.ToString(), j.Id.ToString()) < 0))))
+            // FIFO within the partition: no earlier queued Pending of the partition that has been due
+            var place = QueuedAt(j);
+            if (peers.Any(p => p.Id != j.Id && p.Status == JobStatus.Pending && QueuedAt(p) <= now &&
+                    (QueuedAt(p) < place ||
+                     (QueuedAt(p) == place && string.CompareOrdinal(p.Id.ToString(), j.Id.ToString()) < 0))))
                 return false;
         }
         // else: a stale Running candidate (reclaim) — only the one-at-a-time guard above applied
         return true;
     }
+
+    private DateTimeOffset QueuedAt(JobRecord j) => _queuedAt.GetValueOrDefault(j.Id, j.AvailableAt);
 
     // fencing: a mutating write only lands if THIS worker still holds the Running claim
     private bool Owned(Guid id, string workerId, out JobRecord job)

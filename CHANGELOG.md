@@ -21,6 +21,15 @@ every addition.
 
 ### Breaking
 
+- **A retrying or polling job keeps its place in its partition** (**D357**). Through 3.5.3 a partition's head that retried or polled
+  moved its `available_at`, and the next job ran first despite `JobSpec`'s strict FIFO. `lyntai_job` gains a nullable `queued_at`
+  (`M202611151000_JobQueuedAt`, backfilled), which `JobStoreSql.Insert`, `Replay` and `ClaimCandidateWhere` read; a replayed job rejoins
+  at the back, and a head that keeps polling holds its partition with no bound. **A host store running `JobStoreSql` over its own table
+  must add a nullable timestamp column `queued_at` backfilled from `available_at`, and a host's own `IJobStore` must keep a retrying or
+  polling head ahead of its partition.**
+- **A trace step's `Sequence` outside `int`'s range is refused** (**D358**). Through 3.5.3 SQLite and the in-memory store kept one and
+  Postgres threw; `ITraceStore.SaveAsync` now throws `ArgumentException` on every backend and writes nothing. **A host that stamps its own
+  `Sequence` must keep it within `int`'s range.**
 - **The memory tools' `<engine>_expand` expands only inside the task the host pinned** (**D241**). Through 3.5.3 it read the
   node a reference named in whichever task held it, so an agent could expand, and reinforce, an entry of another task. It now
   asks the engine through the new optional `ITaskExpandableMemory`, which `GraphMemoryEngine` and the blend implement, and a
@@ -48,6 +57,11 @@ every addition.
 
 ### Changed
 
+- **A NUL in stored text is U+FFFD on every backend, and Postgres now stores a lone surrogate** (**D359**). Through 3.5.3 SQLite kept
+  U+0000, the in-process stores returned it, and Postgres refused it, as its driver also refused a lone surrogate the other backends
+  stored as U+FFFD. The key-value, conversation, prompt, curated and memory stores now replace both at the write and the lookup on every
+  backend; a NUL in a search query still splits it. A SQLite or file-system row that already holds a raw NUL in its key is no longer
+  found by that key.
 - **A secret is bound to its name** (**D355**). `KeyValueSecretVault` and `EnvelopeSecretVault` now seal each secret's name with its
   value, so a blob copied over another name in the store throws `CryptographicException` there instead of decrypting past an access
   policy that gates by name; a secret written before still reads. **A build that predates this cannot read a secret it writes: once a
@@ -877,6 +891,9 @@ every addition.
 
 ### Fixed
 
+- **Postgres stores and matches a curated metadata value past about 2.7 KB** (**D360**), which the other backends always took.
+  `M202611151010_CuratedMetaPrefixIndex` indexes `(key, left(value, 256))`, and a metadata match still compares the whole value. A key
+  that long is still refused.
 - **A failed credential temp file write no longer leaves the file behind.** `OwnerOnlyTempFile.Write` deletes the partial file and
   rethrows when the write itself fails (a full disk), where the path never reached the caller and nothing could remove it.
 - **An emoji inside a CJK query is no longer cut in half, a NaN salience no longer erases a real one, a tiny rate limit no longer throws,

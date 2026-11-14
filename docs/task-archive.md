@@ -7177,3 +7177,15 @@ two processes agree on one master key (**D356**). The Part is empty and leaves t
 
 - `tests/Lyntai.Tests/Tools/McpToolsTests.cs`, `ToolLoopTests`, `SecretVaultTests`, `SecretKeyEnvelopeTests`, `KeyValueStoreContract`
 - D354 to D356, the changelog entries
+
+## Part 527 — `TASKS.md` Parts 483, 488 and 496: a partition's FIFO, the trace ordinal, a NUL in stored text and a large curated value (2026-11-15)
+
+✅ done 2026-11-15 — **Outcome:** four decision-only rows ruled with a Fable design agent and built test first in a builder's worktree,
+the Postgres leg run. A retrying or polling job keeps its partition's place through `queued_at` (**D357**,
+`M202611151000_JobQueuedAt`). A trace `Sequence` outside `int` is refused on every backend (**D358**). A NUL is U+FFFD on every
+backend, `Utf8Text` now shared by the SQL stores, which also fixed five Postgres lone-surrogate facts red since 2026-11-09 (**D359**).
+Postgres indexes a curated metadata value by its first 256 characters (**D360**, `M202611151010_CuratedMetaPrefixIndex`). The merge
+added the scrub to the parallel builder's `SetIfAbsentAsync`, red first. The three Parts are empty and leave the backlog.
+
+- `JobStoreContract`, `TraceStoreContract`, the five store contracts' `A_NUL_is_stored_as_U_FFFD`, `CuratedMemoryStoreContract`
+- D357 to D360, the changelog entries; `.agents/knowledge/storage.md` §Migrations counts

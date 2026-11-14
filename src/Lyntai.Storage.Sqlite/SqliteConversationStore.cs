@@ -12,7 +12,7 @@ public sealed class SqliteConversationStore(IDbConnectionFactory factory) : ICon
     // MAX(seq)+1 within the INSERT). SQLite serializes writers, so the subquery can't race here.
     public async Task<ChatThread> CreateThreadAsync(string id, string? title = null, string? metadata = null, CancellationToken ct = default)
     {
-        var thread = new ChatThread(id, title, DateTimeOffset.UtcNow, metadata);
+        var thread = new ChatThread(Utf8Text.Scrub(id), Utf8Text.Scrub(title), DateTimeOffset.UtcNow, Utf8Text.Scrub(metadata));
         await using var conn = await factory.OpenAsync(ct).ConfigureAwait(false);
         await conn.ExecuteAsync(new CommandDefinition(
             ConversationStoreSql.InsertThread,
@@ -22,6 +22,7 @@ public sealed class SqliteConversationStore(IDbConnectionFactory factory) : ICon
 
     public async Task<ChatThread?> GetThreadAsync(string id, CancellationToken ct = default)
     {
+        id = Utf8Text.Scrub(id);
         await using var conn = await factory.OpenAsync(ct).ConfigureAwait(false);
         return await conn.QuerySingleOrDefaultAsync<ChatThread>(new CommandDefinition(
             ConversationStoreSql.GetThread,
@@ -49,6 +50,7 @@ public sealed class SqliteConversationStore(IDbConnectionFactory factory) : ICon
 
     public async Task SetThreadMetadataAsync(string id, string? metadata, CancellationToken ct = default)
     {
+        (id, metadata) = (Utf8Text.Scrub(id), Utf8Text.Scrub(metadata));
         await using var conn = await factory.OpenAsync(ct).ConfigureAwait(false);
         await conn.ExecuteAsync(new CommandDefinition(
             ConversationStoreSql.SetThreadMetadata,
@@ -57,6 +59,7 @@ public sealed class SqliteConversationStore(IDbConnectionFactory factory) : ICon
 
     public async Task<ChatMessage> AppendMessageAsync(string threadId, string kind, string payload, string? metadata = null, CancellationToken ct = default)
     {
+        (threadId, kind, payload, metadata) = (Utf8Text.Scrub(threadId), Utf8Text.Scrub(kind), Utf8Text.Scrub(payload), Utf8Text.Scrub(metadata));
         var id = Guid.NewGuid().ToString();
         var createdAt = DateTimeOffset.UtcNow;
         await using var conn = await factory.OpenAsync(ct).ConfigureAwait(false);
@@ -66,6 +69,7 @@ public sealed class SqliteConversationStore(IDbConnectionFactory factory) : ICon
 
     public async Task<IReadOnlyList<ChatMessage>> GetMessagesAsync(string threadId, CancellationToken ct = default)
     {
+        threadId = Utf8Text.Scrub(threadId);
         await using var conn = await factory.OpenAsync(ct).ConfigureAwait(false);
         var rows = await conn.QueryAsync<ChatMessage>(new CommandDefinition(ConversationStoreSql.GetMessages, new { threadId }, cancellationToken: ct)).ConfigureAwait(false);
         return [.. rows];
@@ -73,6 +77,7 @@ public sealed class SqliteConversationStore(IDbConnectionFactory factory) : ICon
 
     public async Task DeleteThreadAsync(string id, CancellationToken ct = default)
     {
+        id = Utf8Text.Scrub(id);
         await using var conn = await factory.OpenAsync(ct).ConfigureAwait(false);
         // messages go with it via ON DELETE CASCADE (foreign_keys=ON from the factory)
         await conn.ExecuteAsync(new CommandDefinition(

@@ -64,6 +64,21 @@ public static class KeyValueStoreContract
         Assert.Equal([ns + "/cut \uFFFD"], await store.ListKeysAsync(ns));
     }
 
+    /// <summary>A NUL (U+0000), which Postgres refuses in text, is stored as U+FFFD on every backend, in a key and in
+    /// a value, as a lone surrogate is (D262). The key written with one reads, lists and deletes by that same key.</summary>
+    public static async Task A_NUL_is_stored_as_U_FFFD(IKeyValueStore store, string ns)
+    {
+        var key = ns + "/nul \0 key";
+        await store.SetAsync(key, "value \0 nul");
+
+        Assert.Equal("value \uFFFD nul", await store.GetAsync(key));
+        Assert.Equal("value \uFFFD nul", await store.GetAsync(ns + "/nul \uFFFD key"));
+        Assert.Equal([ns + "/nul \uFFFD key"], await store.ListKeysAsync(ns + "/nul \0"));
+
+        await store.DeleteAsync(key);
+        Assert.Empty(await store.ListKeysAsync(ns));
+    }
+
     /// <summary>"Ordinal" is the key's UTF-8 BYTES, as SQLite's BINARY and Postgres's <c>COLLATE "C"</c> sort: a code
     /// point past U+FFFF comes AFTER U+E000 to U+FFFF (UTF-16 units put it before), and an empty remainder, the
     /// prefix on its own, comes before either (the steward's ruling, <c>docs/DECISIONS.md</c> D263).</summary>
@@ -101,6 +116,19 @@ public static class KeyValueStoreContract
         await store.DeleteAsync(key);
         Assert.True(await conditional.SetIfAbsentAsync(key, "again"));   // a deleted key is absent again
         Assert.Equal("again", await store.GetAsync(key));
+    }
+
+    /// <summary>An insert-if-absent scrubs its key and value as a set does (D262), so a key holding a NUL or a lone surrogate is
+    /// found by that same key, and a second insert of it is refused.</summary>
+    public static async Task SetIfAbsent_scrubs_its_key_and_value_as_a_set_does(IKeyValueStore store, string ns)
+    {
+        var conditional = Assert.IsAssignableFrom<IConditionalKeyValueStore>(store);
+        var key = ns + "/nul \0 cut \uD83D";
+
+        Assert.True(await conditional.SetIfAbsentAsync(key, "value \0 \uDE00"));
+        Assert.False(await conditional.SetIfAbsentAsync(key, "second"));
+        const char replacement = (char)0xFFFD;
+        Assert.Equal($"value {replacement} {replacement}", await store.GetAsync(key));
     }
 
     public static async Task List_keys_without_prefix_lists_all_keys(IKeyValueStore store, string ns)

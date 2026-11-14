@@ -21,6 +21,8 @@
     <!-- The dialect-free relational plumbing, compiled into BOTH relational adapters from one source as
          internal types: shared without an adapter→adapter reference (docs/DECISIONS.md). -->
     <Compile Include="..\Shared\Relational\*.cs" LinkBase="Shared\Relational" />
+    <!-- the text every store writes: a lone surrogate or a NUL as U+FFFD (docs/DECISIONS.md D262) -->
+    <Compile Include="..\Shared\Text\Utf8Text.cs" Link="Shared\Text\Utf8Text.cs" />
   </ItemGroup>
 
   <ItemGroup>

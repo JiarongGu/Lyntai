@@ -27,6 +27,7 @@ lyntai_job|partition_key|text|YES|
 lyntai_job|payload|text|NO|
 lyntai_job|priority|integer|NO|0
 lyntai_job|progress|integer|NO|0
+lyntai_job|queued_at|timestamp with time zone|YES|
 lyntai_job|stage|text|YES|
 lyntai_job|stage_detail|text|YES|
 lyntai_job|status|text|NO|
@@ -183,7 +184,7 @@ lyntai_curated_memory|ix_lyntai_curated_content_trgm|CREATE INDEX ix_lyntai_cura
 lyntai_curated_memory|ix_lyntai_curated_memory_kind|CREATE INDEX ix_lyntai_curated_memory_kind ON public.lyntai_curated_memory USING btree (kind, enabled)
 lyntai_curated_memory|ix_lyntai_curated_memory_task|CREATE INDEX ix_lyntai_curated_memory_task ON public.lyntai_curated_memory USING btree (task, enabled)
 lyntai_curated_memory|lyntai_curated_memory_pkey|CREATE UNIQUE INDEX lyntai_curated_memory_pkey ON public.lyntai_curated_memory USING btree (id)
-lyntai_curated_meta|ix_lyntai_curated_meta_kv|CREATE INDEX ix_lyntai_curated_meta_kv ON public.lyntai_curated_meta USING btree (key, value)
+lyntai_curated_meta|ix_lyntai_curated_meta_kp|CREATE INDEX ix_lyntai_curated_meta_kp ON public.lyntai_curated_meta USING btree (key, "left"(value, 256))
 lyntai_curated_meta|lyntai_curated_meta_pkey|CREATE UNIQUE INDEX lyntai_curated_meta_pkey ON public.lyntai_curated_meta USING btree (memory_id, key)
 lyntai_job|ix_lyntai_job_claim|CREATE INDEX ix_lyntai_job_claim ON public.lyntai_job USING btree (lane, status, priority DESC, available_at)
 lyntai_job|ix_lyntai_job_partition|CREATE INDEX ix_lyntai_job_partition ON public.lyntai_job USING btree (lane, partition_key)

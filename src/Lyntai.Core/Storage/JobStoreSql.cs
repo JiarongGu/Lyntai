@@ -12,7 +12,9 @@ namespace Lyntai.Storage;
 /// identical across backends. Only the LOCKING frames of the job claim and the slot acquire stay per-dialect
 /// (single-writer UPDATE…RETURNING on SQLite vs FOR UPDATE SKIP LOCKED on Postgres), along with each
 /// dialect's null-probe list filter.
-/// A BYO relational backend can reuse these the same way.
+/// A BYO relational backend can reuse these the same way, over a table carrying <c>lyntai_job</c>'s columns —
+/// <see cref="Insert"/>, <see cref="Replay"/> and <see cref="ClaimCandidateWhere"/> also name <c>queued_at</c>, which
+/// <see cref="Cols"/> does not.
 /// </summary>
 public static class JobStoreSql
 {
@@ -22,10 +24,11 @@ public static class JobStoreSql
         "available_at, claimed_at, claimed_by, created_at, updated_at, priority, cancel_requested, " +
         "progress, total, stage, step_log, partition_key, stage_detail";
 
-    /// <summary>Enqueue (binds <c>@f</c> = false for <c>cancel_requested</c>).</summary>
+    /// <summary>Enqueue (binds <c>@f</c> = false for <c>cancel_requested</c>). <c>queued_at</c>, the job's place in its
+    /// partition, starts at its first availability; a retry or a poll moves <c>available_at</c> and never it.</summary>
     public const string Insert =
-        $"INSERT INTO lyntai_job ({Cols}) VALUES " +
-        "(@id, @lane, @type, @payload, 'Pending', NULL, 0, @maxAttempts, NULL, @availableAt, NULL, NULL, @now, @now, @priority, @f, 0, 0, NULL, NULL, @partitionKey, NULL)";
+        $"INSERT INTO lyntai_job ({Cols}, queued_at) VALUES " +
+        "(@id, @lane, @type, @payload, 'Pending', NULL, 0, @maxAttempts, NULL, @availableAt, NULL, NULL, @now, @now, @priority, @f, 0, 0, NULL, NULL, @partitionKey, NULL, @availableAt)";
 
     /// <summary>The write fence: a mutating statement lands only while THIS worker holds the Running claim.</summary>
     public const string FenceWhere = "WHERE id=@id AND claimed_by=@workerId AND status='Running'";
@@ -68,14 +71,17 @@ public static class JobStoreSql
             NOT EXISTS (SELECT 1 FROM lyntai_job p WHERE p.lane=c.lane AND p.partition_key=c.partition_key
                           AND p.id<>c.id AND p.status='Running' AND p.claimed_at>=@staleBefore)
             -- a Pending candidate: no Running of the partition AT ALL (a stale Running is RECLAIMED
-            -- first, not skipped), and it's the EARLIEST available Pending of the partition (FIFO)
+            -- first, not skipped), and it's the EARLIEST QUEUED Pending of the partition (FIFO). A peer
+            -- counts once it has been due: a retrying or polling head keeps its place, a delayed job
+            -- not yet due holds none. queued_at is NULL on a row a writer outside the store inserted.
             AND (c.status<>'Pending' OR (
               NOT EXISTS (SELECT 1 FROM lyntai_job p WHERE p.lane=c.lane AND p.partition_key=c.partition_key
                             AND p.status='Running')
               AND NOT EXISTS (SELECT 1 FROM lyntai_job p WHERE p.lane=c.lane AND p.partition_key=c.partition_key
-                            AND p.status='Pending' AND p.available_at<=@now
-                            AND (p.available_at<c.available_at
-                              OR (p.available_at=c.available_at AND p.id<c.id)))))))
+                            AND p.status='Pending' AND COALESCE(p.queued_at, p.available_at)<=@now
+                            AND (COALESCE(p.queued_at, p.available_at)<COALESCE(c.queued_at, c.available_at)
+                              OR (COALESCE(p.queued_at, p.available_at)=COALESCE(c.queued_at, c.available_at)
+                                AND p.id<c.id)))))))
         """;
 
     // ── fenced SET clauses (compose as $"UPDATE lyntai_job {SetX} {FenceWhere}") ─────────────────────
@@ -98,8 +104,9 @@ public static class JobStoreSql
     public const string SetCancelled = "SET status='Cancelled', updated_at=@now";
 
     // ── unfenced transitions (admin/API paths gated by status predicates) ────────────────────────────
+    /// <summary>Re-pend a dead or failed job as a new arrival: <c>queued_at=@now</c> puts it at the back of its partition.</summary>
     public const string Replay =
-        "UPDATE lyntai_job SET status='Pending', attempts=0, last_error=NULL, available_at=@now, " +
+        "UPDATE lyntai_job SET status='Pending', attempts=0, last_error=NULL, available_at=@now, queued_at=@now, " +
         "claimed_by=NULL, claimed_at=NULL, cancel_requested=@f, updated_at=@now WHERE id=@id AND status IN ('Dead','Failed')";
     public const string Pause = "UPDATE lyntai_job SET status='Paused', updated_at=@now WHERE id=@id AND status='Pending'";
     public const string Resume = "UPDATE lyntai_job SET status='Pending', updated_at=@now WHERE id=@id AND status='Paused'";

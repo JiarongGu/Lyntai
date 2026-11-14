@@ -27,6 +27,8 @@ public sealed class PostgresCuratedMemoryStore(IDbConnectionFactory factory,
         string? taskKey = null, string? scope = null, bool dedup = false,
         IReadOnlyDictionary<string, string>? metadata = null, CancellationToken ct = default)
     {
+        (kind, content, taskKey, scope, metadata) = (Utf8Text.Scrub(kind), Utf8Text.Scrub(content), Utf8Text.Scrub(taskKey),
+            Utf8Text.Scrub(scope), Utf8Text.Scrub(metadata));
         var now = _clock();
         var metaJson = CuratedMetadataJson.Serialize(metadata);
         await using var conn = await factory.OpenAsync(ct).ConfigureAwait(false);
@@ -67,6 +69,8 @@ public sealed class PostgresCuratedMemoryStore(IDbConnectionFactory factory,
     private async Task<CuratedUpdateOutcome> UpdateCoreAsync(long id, long? expectedRevision, string? content, bool? enabled,
         string? kind, string? taskKey, string? scope, IReadOnlyDictionary<string, string>? metadata, CancellationToken ct)
     {
+        (content, kind, taskKey, scope, metadata) = (Utf8Text.Scrub(content), Utf8Text.Scrub(kind), Utf8Text.Scrub(taskKey),
+            Utf8Text.Scrub(scope), Utf8Text.Scrub(metadata));
         var now = _clock();
         var replaceMeta = metadata is not null;                    // non-null (incl. empty) = replace; null = leave
         var metaJson = replaceMeta ? CuratedMetadataJson.Serialize(metadata) : null;
@@ -151,6 +155,8 @@ public sealed class PostgresCuratedMemoryStore(IDbConnectionFactory factory,
         IReadOnlyDictionary<string, string>? metadataMatch = null, CancellationToken ct = default)
     {
         if (limit <= 0) return []; // asks for nothing — never the dialect's opinion of a negative LIMIT
+        (kind, taskKey, scope, metadataMatch) = (Utf8Text.Scrub(kind), Utf8Text.Scrub(taskKey), Utf8Text.Scrub(scope),
+            Utf8Text.Scrub(metadataMatch));
         var p = new DynamicParameters(new { kind, enabledOnly, task = taskKey, scope, limit });
         var meta = BuildMetaClause(metadataMatch, "lyntai_curated_memory.id", p);
         await using var conn = await factory.OpenAsync(ct).ConfigureAwait(false);
@@ -172,6 +178,8 @@ public sealed class PostgresCuratedMemoryStore(IDbConnectionFactory factory,
         IReadOnlyDictionary<string, string>? metadataMatch = null, CancellationToken ct = default)
     {
         if (string.IsNullOrWhiteSpace(query) || limit <= 0) return [];
+        (query, kind, taskKey, scope, metadataMatch) = (Utf8Text.ScrubQuery(query), Utf8Text.Scrub(kind), Utf8Text.Scrub(taskKey),
+            Utf8Text.Scrub(scope), Utf8Text.Scrub(metadataMatch));
         try
         {
             await using var conn = await factory.OpenAsync(ct).ConfigureAwait(false);
@@ -214,7 +222,8 @@ public sealed class PostgresCuratedMemoryStore(IDbConnectionFactory factory,
     public async Task<IReadOnlyList<CuratedMemory>> ForCompositionAsync(string taskKey, IEnumerable<string> scopes,
         bool enabledOnly = true, CancellationToken ct = default)
     {
-        var scopeArr = scopes as string[] ?? [.. scopes];
+        taskKey = Utf8Text.Scrub(taskKey);
+        string[] scopeArr = [.. scopes.Select(s => Utf8Text.Scrub(s))];
         // empty scopes → scope filter disabled; else scope must be null/empty (applies everywhere) or one of
         // the requested scopes (= ANY(...) binds a native array via Npgsql). task-null rows apply to every task.
         var scopeClause = scopeArr.Length == 0 ? "" : " AND (scope IS NULL OR scope = '' OR scope = ANY(@scopes))";
@@ -238,7 +247,8 @@ public sealed class PostgresCuratedMemoryStore(IDbConnectionFactory factory,
                 new { id, k = kv.Key, v = kv.Value }, transaction: tx, cancellationToken: ct)).ConfigureAwait(false);
     }
 
-    // metadataMatch → an AND of EXISTS against the relational index (params bound; no interpolated user text)
+    // metadataMatch → an AND of EXISTS against the relational index (params bound; no interpolated user text).
+    // The left(…, 256) term is what ix_lyntai_curated_meta_kp serves; the whole-value compare beside it decides.
     private static string BuildMetaClause(IReadOnlyDictionary<string, string>? match, string idExpr, DynamicParameters p)
     {
         if (match is null || match.Count == 0) return "";
@@ -251,6 +261,7 @@ public sealed class PostgresCuratedMemoryStore(IDbConnectionFactory factory,
             sb.Append(" AND EXISTS (SELECT 1 FROM lyntai_curated_meta mm").Append(i)
               .Append(" WHERE mm").Append(i).Append(".memory_id = ").Append(idExpr)
               .Append(" AND mm").Append(i).Append(".key = @mk").Append(i)
+              .Append(" AND left(mm").Append(i).Append(".value, 256) = left(@mv").Append(i).Append("::text, 256)")
               .Append(" AND mm").Append(i).Append(".value = @mv").Append(i).Append(')');
             i++;
         }

@@ -25,6 +25,31 @@ public static class MemoryStoreContract
         Assert.Equal(["cut \uFFFD"], (await store.RecallAsync(key)).Select(m => m.Content));
     }
 
+    /// <summary>A NUL (U+0000), which Postgres refuses in text, is stored as U+FFFD on every backend, as a lone
+    /// surrogate is (D262) \u2014 in a task key, a scope and a fact \u2014 and the task key and scope written with one recall
+    /// and forget it.</summary>
+    public static async Task A_NUL_is_stored_as_U_FFFD(IMemoryStore store, string key)
+    {
+        await store.RememberAsync(key + "\0", "notes\0", "nul \0 fact");
+
+        var recalled = Assert.Single(await store.RecallAsync(key + "\0", scope: "notes\0"));
+        Assert.Equal((key + "\uFFFD", "notes\uFFFD", "nul \uFFFD fact"), (recalled.TaskKey, recalled.Scope, recalled.Content));
+        Assert.Single(await store.RecallAsync(key + "\uFFFD", query: "fact"));
+
+        await store.ForgetAsync(key + "\0", "notes\0");
+        Assert.Empty(await store.RecallAsync(key + "\uFFFD"));
+    }
+
+    /// <summary>A NUL in a QUERY is not stored text: it still splits the query as whitespace does on every backend
+    /// (D326), so the stores that replace a stored NUL with U+FFFD leave a query's alone.</summary>
+    public static async Task A_NUL_in_a_query_still_splits_it(IMemoryStore store, string key)
+    {
+        await store.RememberAsync(key, "notes", "alpha only");
+        await store.RememberAsync(key, "notes", "unrelated");
+
+        Assert.Equal(["alpha only"], (await store.RecallAsync(key, query: "alpha\0bravo")).Select(m => m.Content));
+    }
+
     /// <summary>A query below the index floor is matched by a substring scan, and that scan folds case beyond ASCII on
     /// every backend: <c>Да</c> finds <c>да</c> and <c>ÉC</c> finds <c>école</c> (the steward's ruling,
     /// <c>docs/DECISIONS.md</c> D324). SQLite's <c>LIKE</c> folds ASCII alone, so its stores fold the column and

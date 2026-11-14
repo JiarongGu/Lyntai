@@ -13,7 +13,7 @@
 
   <!-- Linked source, as in the storage packages: the one UTF-8 byte order the in-process stores sort by. -->
   <ItemGroup>
-    <Compile Include="..\Shared\Text\*.cs" LinkBase="Shared\Text" />
+    <Compile Include="..\Shared\Text\Utf8Ordinal.cs" Link="Shared\Text\Utf8Ordinal.cs" />
   </ItemGroup>
 
   <ItemGroup>

@@ -217,14 +217,16 @@ skipped). Use `dev.mjs new-migration` to get a unique monotonic number. **Backfi
 adds a structure** — a structure correct only for rows written after it shipped is a bug waiting for the
 first old row.
 
-**A fresh database applies 21 migrations on SQLite and 20 on POSTGRES, and the two sets differ,
+**A fresh database applies 22 migrations on SQLite and 22 on POSTGRES, and the two sets differ,
 deliberately:**
 `M202608152310_MemoryHeadlineSearch` adds a trigram index on `headline` so a recall can match an authored
 one without a sequential scan, and SQLite needs no counterpart because its FTS5 mirror has indexed
 `headline, content` since the graph store shipped. `M202610281422_VectorBlob` adds a binary column to
 `lyntai_vector` and fills it, and Postgres needs none because `PostgresVectorStore` keeps pgvector's own column
 in a table it creates itself. `M202611091017_MemorySubjectNodeIndex` indexes `lyntai_memory_subject(node_id)` for the
-cascade a node delete runs, and Postgres has none because its plan was not measured (**D296**). Migrations are
+cascade a node delete runs, and Postgres has none because its plan was not measured (**D296**).
+`M202611151010_CuratedMetaPrefixIndex` re-keys Postgres's curated metadata index on `left(value, 256)`, because a
+btree entry there is refused past about 2.7 KB, and SQLite's takes one of any length. Migrations are
 per-backend projects; forcing the numbers to match would mean shipping a migration that does nothing.
 `check-counts` holds the first number.
 

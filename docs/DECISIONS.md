@@ -426,8 +426,12 @@ new decision overturns an old one, rewrite the old entry as a stub pointing here
 | [D354](#d354--an-mcp-image-reaches-the-model-when-the-host-opts-in-beside-its-line-2026-11-15) | 2026-11-15 | an MCP image reaches the model when the host opts in, beside its line |
 | [D355](#d355--a-secret-is-bound-to-its-name-for-new-writes-2026-11-15) | 2026-11-15 | a secret is bound to its name for new writes |
 | [D356](#d356--the-master-key-is-created-insert-if-absent-where-the-store-can-2026-11-15) | 2026-11-15 | the master key is created insert-if-absent where the store can |
+| [D357](#d357--a-retrying-or-polling-job-keeps-its-place-in-its-partition-through-queued_at-2026-11-15) | 2026-11-15 | a retrying or polling job keeps its place in its partition through `queued_at` |
+| [D358](#d358--a-trace-steps-ordinal-is-32-bit-on-every-backend-and-one-past-it-is-refused-before-any-write-2026-11-15) | 2026-11-15 | a trace step's ordinal is 32-bit on every backend, and one past it is refused before any write |
+| [D359](#d359--a-nul-is-stored-as-ufffd-by-every-backend-as-a-lone-surrogate-is-and-a-query-keeps-its-nul-2026-11-15) | 2026-11-15 | a NUL is stored as U+FFFD by every backend, as a lone surrogate is, and a query keeps its NUL |
+| [D360](#d360--postgres-indexes-a-curated-metadata-value-by-its-first-256-characters-2026-11-15) | 2026-11-15 | Postgres indexes a curated metadata value by its first 256 characters |
 
-**351 live decisions.** The rest are stubs — `D<n>` is a permanent identifier, so a number is never reused or renumbered (5): [D36](#d36--a-translation-between-two-verdict-taxonomies-gets-one-arm-per-member-gated-by-a-test-2026-08-05) → D136 · [D80](#d80--merged-into-d77-2026-08-16-folded-2026-08-17) → D77 · [D131](#d131--a-backends-produces-is-derived-from-its-configuration-so-a-modality-is-a-field-2026-09-14) → D133 · [D134](#d134--a-registration-names-the-backend-the-provider-suffix-is-gone-from-all-seventeen-2026-09-14) → D137 · [D145](#d145--the-microsoftextensionsai-module-is-a-bridge-not-a-provider-2026-09-15) → D146
+**355 live decisions.** The rest are stubs — `D<n>` is a permanent identifier, so a number is never reused or renumbered (5): [D36](#d36--a-translation-between-two-verdict-taxonomies-gets-one-arm-per-member-gated-by-a-test-2026-08-05) → D136 · [D80](#d80--merged-into-d77-2026-08-16-folded-2026-08-17) → D77 · [D131](#d131--a-backends-produces-is-derived-from-its-configuration-so-a-modality-is-a-field-2026-09-14) → D133 · [D134](#d134--a-registration-names-the-backend-the-provider-suffix-is-gone-from-all-seventeen-2026-09-14) → D137 · [D145](#d145--the-microsoftextensionsai-module-is-a-bridge-not-a-provider-2026-09-15) → D146
 
 <!-- index:end -->
 
@@ -7620,7 +7624,7 @@ recall and its write-back is already a silent skip).
 
 **Rejected.** Refusing it everywhere (a cut reply would fail the turn that produced it, and the SQL stores would need a check SQLite never made). A different replacement (SQLite's is the one a restore from it would show).
 
-**Re-opens** when the Postgres leg shows its driver refusing one: the fact then fails there, and the store gets the same scrub. The graph, score, trace, job, cache, usage and vector stores still hold a lone surrogate as given (**D288** has the graph export's).
+**Re-opens** when one of the stores left out must hold one: the graph, score, trace, job, cache, usage and vector stores still hold a lone surrogate as given (**D288** has the graph export's). The Postgres driver did refuse one, and the SQL stores now share the scrub (**D359**).
 
 ## D263 — a key's order is its UTF-8 bytes, in process as in SQLite and Postgres (2026-11-09)
 
@@ -7994,7 +7998,7 @@ recall and its write-back is already a silent skip).
 
 ## D293 — the migration passes and `CREATE EXTENSION` run under a lock: an advisory lock on Postgres, a named mutex on SQLite (2026-11-09)
 
-**Standing.** A ruling on `TASKS.md` Part 496's first row, **the steward's under the owner's delegation, which the owner may reverse** — not the owner's words. Built; no public member moves.
+**Standing.** A ruling on `docs/task-archive.md` Part 514's first row, **the steward's under the owner's delegation, which the owner may reverse** — not the owner's words. Built; no public member moves.
 
 **Decided.** Both `MigrationRunnerService`s take a lock around every feature pass: Postgres a session `pg_advisory_lock` on a connection of its own (released explicitly, then the connection is disposed), SQLite a named mutex keyed on the hash of the database's full path. `PostgresVectorStore`'s `CREATE EXTENSION` and table creation take the same Postgres lock. A holder that died leaves an abandoned mutex, which the waiter owns and carries on: the migrations are idempotent and the version table says what ran.
 
@@ -8006,7 +8010,7 @@ recall and its write-back is already a silent skip).
 
 ## D294 — the in-memory and file stores recall in two passes, as the SQL stores do (2026-11-09)
 
-**Standing.** A ruling on `TASKS.md` Part 496's third row, **the steward's under the owner's delegation, which the owner may reverse** — not the owner's words. Built; no public member moves.
+**Standing.** A ruling on `docs/task-archive.md` Part 514's third row, **the steward's under the owner's delegation, which the owner may reverse** — not the owner's words. Built; no public member moves.
 
 **Decided.** `MemoryEntryLog.Recall` matches on `SearchTerms.Extract` first, the whole query as one literal when that yields no term, and widens to `SubstringTerms` only when nothing hit and the query has a short spaceless term. A mixed fact, "客户 deploy", returns the row holding `deploy` and not the one holding only 客户, on every backend, and still finds that one when nothing holds `deploy`.
 
@@ -8018,7 +8022,7 @@ recall and its write-back is already a silent skip).
 
 ## D295 — the row a write just stored is never evicted (2026-11-09)
 
-**Standing.** A ruling on `TASKS.md` Part 496's fourth row, **the steward's under the owner's delegation, which the owner may reverse** — not the owner's words. Built; two overloads and no change to an existing member.
+**Standing.** A ruling on `docs/task-archive.md` Part 514's fourth row, **the steward's under the owner's delegation, which the owner may reverse** — not the owner's words. Built; two overloads and no change to an existing member.
 
 **Decided.** `MemoryEviction.Survivors`, `ApplyAsync` and `CapEvictSql` each gain an overload naming the written row, which ranks first (`Survivors`) or is left out of the delete (`CapEvictSql`, which binds `@writtenId`, so the excess comes off the other rows and the scope still ends at its cap). Every store takes the id from `RETURNING id` on its upsert. A scope already over its cap, re-remembering its oldest fact on a fixed clock, keeps that fact. `Lru_recency_tie_broken_by_id` still holds: it writes a new, highest id.
 
@@ -8030,7 +8034,7 @@ recall and its write-back is already a silent skip).
 
 ## D296 — `lyntai_memory_subject(node_id)` is indexed on SQLite, where the plan scanned, and not yet on Postgres, where it was not measured (2026-11-09)
 
-**Standing.** A ruling on `TASKS.md` Part 496's fifth row, **the steward's under the owner's delegation, which the owner may reverse** — not the owner's words. Built on SQLite; Postgres waits on a measurement.
+**Standing.** A ruling on `docs/task-archive.md` Part 514's fifth row, **the steward's under the owner's delegation, which the owner may reverse** — not the owner's words. Built on SQLite; Postgres waits on a measurement.
 
 **Decided.** The plan of the statement SQLite runs for the node cascade, `DELETE FROM lyntai_memory_subject WHERE node_id = ?`, is `SCAN lyntai_memory_subject` today and `SEARCH … USING COVERING INDEX … (node_id=?)` with an index on `node_id`. `M202611091017_MemorySubjectNodeIndex` adds it on SQLite, with a test that fails on a scan. Postgres gets no twin yet: Docker was down, so its plan was not read, and the key `(engine, node_id, subject)` cannot serve `node_id` alone before a version that skips a leading column.
 
@@ -8042,7 +8046,7 @@ recall and its write-back is already a silent skip).
 
 ## D297 — `UseSqliteStorage` and the connection factory refuse an in-memory database (2026-11-09)
 
-**Standing.** A ruling on `TASKS.md` Part 496's sixth row, **the steward's under the owner's delegation, which the owner may reverse** — not the owner's words. Built; the factory's constructor and `MigrationRunnerService` now throw where they used to accept.
+**Standing.** A ruling on `docs/task-archive.md` Part 514's sixth row, **the steward's under the owner's delegation, which the owner may reverse** — not the owner's words. Built; the factory's constructor and `MigrationRunnerService` now throw where they used to accept.
 
 **Decided.** `SqliteConnectionFactory`'s constructor, and so every `UseSqliteStorage(path)` overload, and the migration runner throw `ArgumentException` (parameter `dbPath`) for `:memory:` and for a `file:` URI naming memory (`file::memory:`, `mode=memory`), shared cache included.
 
@@ -8054,7 +8058,7 @@ recall and its write-back is already a silent skip).
 
 ## D298 — the file backend's prompt save keeps its two writes, with the window documented and a cut test (2026-11-09)
 
-**Standing.** A ruling on `TASKS.md` Part 496's seventh row, **the steward's under the owner's delegation, which the owner may reverse** — not the owner's words. Behaviour unchanged.
+**Standing.** A ruling on `docs/task-archive.md` Part 514's seventh row, **the steward's under the owner's delegation, which the owner may reverse** — not the owner's words. Behaviour unchanged.
 
 **Decided.** `FileSystemPromptVersionStore` still writes the revision and then the active pointer. A process killed between them leaves a revision in the history that was never active and the previous one active; the next save numbers past it and a rollback can activate it. The class says so, and `FileSystemPromptSaveCutTests` builds the disk state the kill leaves and reads it.
 
@@ -8066,7 +8070,7 @@ recall and its write-back is already a silent skip).
 
 ## D299 — each store refuses a caller's NULL key before SQL, and the SQLite table rebuild is not done (2026-11-09)
 
-**Standing.** A ruling on `TASKS.md` Part 496's eighth row, **the steward's under the owner's delegation, which the owner may reverse** — not the owner's words. Built; the table rebuild stays the owner's.
+**Standing.** A ruling on `docs/task-archive.md` Part 514's eighth row, **the steward's under the owner's delegation, which the owner may reverse** — not the owner's words. Built; the table rebuild stays the owner's.
 
 **Decided.** Of the six `TEXT PRIMARY KEY` columns, `lyntai_usage.consumer` already refused null (`UsageTrackerSql.Consumer`) and `lyntai_message.id`, `lyntai_job.id` and `lyntai_usage_reservation.id` are generated by the store. The two a caller supplies are now refused with `ArgumentNullException` before any SQL, on SQLite and Postgres: `IResponseCache.SetAsync`'s key, and a graph write's `Engine` (and the import's engine), with a contract fact for each on every backend. The gap that remains is a NULL bound straight to SQL, outside a store.
 
@@ -8078,7 +8082,7 @@ recall and its write-back is already a silent skip).
 
 ## D300 — `SqliteConnectionFactory.DbPath` is documented as no backup, and no checkpoint method is offered (2026-11-09)
 
-**Standing.** A ruling on `TASKS.md` Part 496's last ruled row, **the steward's under the owner's delegation, which the owner may reverse** — not the owner's words. Doc only.
+**Standing.** A ruling on `docs/task-archive.md` Part 514's last ruled row, **the steward's under the owner's delegation, which the owner may reverse** — not the owner's words. Doc only.
 
 **Decided.** The `DbPath` doc no longer lists backup as a use. It says copying the `.db` alone loses commits still in the `-wal` file, and names the ways to back up: `VACUUM INTO`, SQLite's backup API, or the `.db` copied with its `-wal` and `-shm` while nothing writes.
 
@@ -8258,7 +8262,7 @@ recall and its write-back is already a silent skip).
 
 ## D315 — a missing handler keeps `Failed`, and the mixed-fleet replay is documented (2026-11-09)
 
-**Standing.** A ruling on `TASKS.md` Part 483's missing-handler row, recorded in `docs/task-archive.md` Part 516, **the steward's under the owner's delegation, which the owner may reverse** — not the owner's words. Documentation only.
+**Standing.** A ruling on `docs/task-archive.md` Part 516's missing-handler row, recorded in `docs/task-archive.md` Part 516, **the steward's under the owner's delegation, which the owner may reverse** — not the owner's words. Documentation only.
 
 **Decided.** A job whose type the claiming worker has no handler for stays terminal `Failed`, as `Unknown_type_fails_the_job` pins. `JobRunner` and the guide say why a rolling deploy meets it, and the two ways out: a lane the older workers do not claim (`LaneConcurrency` 0), or `ReplayAsync` once every worker has the handler.
 
@@ -8270,7 +8274,7 @@ recall and its write-back is already a silent skip).
 
 ## D316 — an interval schedule counts from its due slot (2026-11-09)
 
-**Standing.** A ruling on `TASKS.md` Part 483's drift row, recorded in `docs/task-archive.md` Part 516, **the steward's under the owner's delegation, which the owner may reverse** — not the owner's words. Built.
+**Standing.** A ruling on `docs/task-archive.md` Part 516's drift row, recorded in `docs/task-archive.md` Part 516, **the steward's under the owner's delegation, which the owner may reverse** — not the owner's words. Built.
 
 **Decided.** After a fire, the next run is `due + k·interval`, the first slot after now. First sight and a changed trigger still anchor at now. A lapsed ticker still coalesces to one run.
 
@@ -8282,7 +8286,7 @@ recall and its write-back is already a silent skip).
 
 ## D317 — a cancel request seen plus any exception ends `Cancelled` (2026-11-09)
 
-**Standing.** A ruling on `TASKS.md` Part 483's cancel row, recorded in `docs/task-archive.md` Part 516, **the steward's under the owner's delegation, which the owner may reverse** — not the owner's words. Built.
+**Standing.** A ruling on `docs/task-archive.md` Part 516's cancel row, recorded in `docs/task-archive.md` Part 516, **the steward's under the owner's delegation, which the owner may reverse** — not the owner's words. Built.
 
 **Decided.** When the poll has cancelled a job's token and the runner is not shutting down, any exception the handler throws finalises the job `Cancelled`, as an `OperationCanceledException` does.
 
@@ -8294,7 +8298,7 @@ recall and its write-back is already a silent skip).
 
 ## D318 — a cron that never occurs is refused at registration (2026-11-09)
 
-**Standing.** A ruling on `TASKS.md` Part 483's cron row, recorded in `docs/task-archive.md` Part 516, **the steward's under the owner's delegation, which the owner may reverse** — not the owner's words. Built.
+**Standing.** A ruling on `docs/task-archive.md` Part 516's cron row, recorded in `docs/task-archive.md` Part 516, **the steward's under the owner's delegation, which the owner may reverse** — not the owner's words. Built.
 
 **Decided.** `JobScheduleRules.Validate` throws `FormatException` for a cron that parses and has no occurrence (`0 0 30 2 *`), so `AddCronSchedule`, `AddJobSchedule` and the shipped store's `SetAsync` refuse it and a stored one is skipped as invalid. A schedule handed to `JobScheduler` directly is still quarantined at the tick.
 
@@ -8306,7 +8310,7 @@ recall and its write-back is already a silent skip).
 
 ## D319 — removing a stored schedule deletes the shared next-run keys only when they are its own (2026-11-09)
 
-**Standing.** A ruling on `TASKS.md` Part 483's removal row, recorded in `docs/task-archive.md` Part 516, **the steward's under the owner's delegation, which the owner may reverse** — not the owner's words. Built.
+**Standing.** A ruling on `docs/task-archive.md` Part 516's removal row, recorded in `docs/task-archive.md` Part 516, **the steward's under the owner's delegation, which the owner may reverse** — not the owner's words. Built.
 
 **Decided.** `KeyValueJobScheduleStore.RemoveAsync` deletes the next-run and trigger keys only when the recorded trigger equals the removed definition's fingerprint. A build-time schedule of the same name, which shadows it (D192), keeps its slot.
 
@@ -8366,7 +8370,7 @@ recall and its write-back is already a silent skip).
 
 ## D324 — SQLite's substring fallback folds case beyond ASCII, by a function on the connection (2026-11-09)
 
-**Standing.** A ruling on `TASKS.md` Part 488's second row, **the steward's under the owner's delegation, which the owner may reverse** — not the owner's words. Built; no public member moves.
+**Standing.** A ruling on `docs/task-archive.md` Part 517's second row, **the steward's under the owner's delegation, which the owner may reverse** — not the owner's words. Built; no public member moves.
 
 **Decided.** `SqliteConnectionFactory` registers a scalar function `lyntai_fold` (upper case by the invariant culture) on every connection it opens. The memory, curated and graph `LIKE` fallbacks apply it to the column and fold each pattern in .NET (`SqliteLike`), so a query below the trigram floor, which skips full-text search, finds `да` for `Да` and `école` for `ÉC`. `MemoryStoreContract`, the curated contract and the graph contract each carry a fact with a non-ASCII query.
 
@@ -8378,7 +8382,7 @@ recall and its write-back is already a silent skip).
 
 ## D325 — a Postgres conversation append takes a per-thread advisory lock in a transaction (2026-11-09)
 
-**Standing.** A ruling on `TASKS.md` Part 488's third row, **the steward's under the owner's delegation, which the owner may reverse** — not the owner's words. Built; the Postgres leg was not run (Docker was down), so the new fact passed on SQLite and in memory only.
+**Standing.** A ruling on `docs/task-archive.md` Part 517's third row, **the steward's under the owner's delegation, which the owner may reverse** — not the owner's words. Built; the Postgres leg was not run (Docker was down), so the new fact passed on SQLite and in memory only.
 
 **Decided.** `PostgresConversationStore.AppendMessageAsync` opens a transaction, takes `pg_advisory_xact_lock(hashtextextended(thread, 0))` and runs the insert, replacing the four tries on a `23505`. Appenders to one thread queue and the lock lets go at commit, as **D293** locked the migration. `ConversationStoreContract` has an eight-appender fact for every backend.
 
@@ -8390,15 +8394,15 @@ recall and its write-back is already a silent skip).
 
 ## D326 — an empty vector is refused at every upsert, and a NUL in a query splits it (2026-11-09)
 
-**Standing.** A ruling on `TASKS.md` Part 488's fourth row, **the steward's under the owner's delegation, which the owner may reverse** — not the owner's words. Built; the Postgres leg was not run (Docker was down).
+**Standing.** A ruling on `docs/task-archive.md` Part 517's fourth row, **the steward's under the owner's delegation, which the owner may reverse** — not the owner's words. Built; the Postgres leg was not run (Docker was down).
 
 **Decided.** `FiniteVector.Require` and Core's copy in `InMemoryVectorStore` throw `ArgumentException` for an empty vector, as for a non-finite one (**D264**), and `IVectorStore.UpsertAsync` says an implementation must. `SearchTerms` reads U+0000 in a query as whitespace, in its terms and in its whole-query fallback, so a query holding one never reaches a Postgres parameter. **A NUL in STORED text is not decided here.**
 
 **Why.** pgvector needs a dimension and refused an empty vector alone, while the other stores kept a row no query could score. `text` cannot hold `\0`, so `RecallAsync` failed open to `[]` for a query that held one.
 
-**Rejected.** Scoring an empty vector 0 (it stores a vector that can never be found). Stripping or replacing a NUL in stored text (the same family as **D262**, and the owner's: it changes what a store returns).
+**Rejected.** Scoring an empty vector 0 (it stores a vector that can never be found). A NUL in stored text is ruled by **D359**, which replaces it while a query keeps its NUL to split on.
 
-**Re-opens** when a NUL in stored text is ruled; the query half is already portable.
+**Re-opens** when a store must hold an empty vector.
 
 ## D327 — an OpenAI `refusal` is Refused on both wires (2026-11-09)
 
@@ -8759,3 +8763,51 @@ recall and its write-back is already a silent skip).
 **Rejected.** A member on `IKeyValueStore` (every host store would break). A documented single-process rule alone (the shipped stores can do better). A general compare-and-set (nothing else needs it).
 
 **Re-opens** when a store that wraps another ships (it must forward the capability), or a second caller needs compare-and-set.
+
+## D357 — a retrying or polling job keeps its place in its partition through `queued_at` (2026-11-15)
+
+**Standing.** A ruling on a row closed as `docs/task-archive.md` Part 527 (the partition's FIFO), read by the agent that built it with a Fable design agent; the owner may reverse it. Built.
+
+**Decided.** `lyntai_job` gains a nullable `queued_at` (`M202611151000_JobQueuedAt` on both SQL backends, backfilled from `available_at`), the job's first availability: a retry or a poll moves only `available_at`, and a replay sets `queued_at` to now, so a replayed job rejoins at the back. `ClaimCandidateWhere` holds a candidate behind any due Pending peer with an earlier `(COALESCE(queued_at, available_at), id)`; the in-memory store keeps the same place privately. A retrying or polling head holds its partition until it finishes or dead-letters, a polling one with no bound, and a delayed job not yet due holds no place.
+
+**Why.** `JobSpec` promises strict FIFO per partition, and the guard counted only peers already due, so a head's backoff let the next job run first; no existing column tells a polled head from a never-started delayed job.
+
+**Rejected.** Documenting that a retry reorders (it weakens a shipped promise to match a defect). Ordering by `created_at` (a delayed job would block before it is due). A positional `JobRecord` member (it would break the record).
+
+**Re-opens** when a host needs a polling head to yield its partition, which needs a bound the job states.
+
+## D358 — a trace step's ordinal is 32-bit on every backend, and one past it is refused before any write (2026-11-15)
+
+**Standing.** A ruling on a row closed as `docs/task-archive.md` Part 527 (the trace `seq`), read by the agent that built it with a Fable design agent; the owner may reverse it. Built.
+
+**Decided.** `TraceOrdinals.Stored` throws `ArgumentException` for a `TraceStep.Sequence` outside `int`'s range, at either end, and both SQL stores call it before opening a connection, so a refused save writes nothing. No migration.
+
+**Why.** Postgres stores `seq` as `INTEGER` and refused a larger one while SQLite and the in-memory store kept it, and the library's own recorder stamps it from a list count.
+
+**Rejected.** Widening the Postgres column (a table rewrite under lock on every deployment for a value nobody writes). Narrowing `Sequence` to `int` (a break of the frozen record).
+
+**Re-opens** when a recorder needs an ordinal past 2^31.
+
+## D359 — a NUL is stored as U+FFFD by every backend, as a lone surrogate is, and a query keeps its NUL (2026-11-15)
+
+**Standing.** A ruling on a row closed as `docs/task-archive.md` Part 527 (a NUL in stored text), read by the agent that built it with a Fable design agent; the owner may reverse it. Built, the Postgres leg run.
+
+**Decided.** `Utf8Text` moves to `src/Shared/Text/`, linked into the basic and both SQL adapters, and replaces U+0000 as well as a lone surrogate. The SQLite and Postgres key-value, conversation, prompt, curated and memory stores run it on every write and lookup, `SetIfAbsentAsync` included, as the in-process stores already did. A search query goes through `ScrubQuery`, which keeps a NUL so `SearchTerms` still splits there (**D326**). This closes **D262**'s re-open: the Postgres driver refused a lone surrogate, and its five facts were red.
+
+**Why.** Postgres refuses `\0` in `text` while SQLite kept it and the in-process stores returned it, and the backend that cannot spell the text is the reference, as **D262** reasoned for a surrogate.
+
+**Rejected.** Refusing a NUL (model output is not the caller's mistake worth a failed turn, **D262**). Stripping it (it silently joins words). Scrubbing a query's NUL (it would stop splitting, and the in-process stores would find different entries from the SQL ones).
+
+**Re-opens** when one of the stores left out (graph, score, trace, job, cache, usage, vector) must hold one.
+
+## D360 — Postgres indexes a curated metadata value by its first 256 characters (2026-11-15)
+
+**Standing.** A ruling on a row closed as `docs/task-archive.md` Part 527 (a large metadata value), read by the agent that built it with a Fable design agent; the owner may reverse it. Built.
+
+**Decided.** The Postgres-only migration `M202611151010_CuratedMetaPrefixIndex` creates `ix_lyntai_curated_meta_kp` on `(key, left(value, 256))` and drops the `(key, value)` index; `BuildMetaClause` adds the prefix compare beside the whole-value compare. SQLite is unchanged. A key past about 2.7 KB is still refused by the primary key.
+
+**Why.** A btree entry is refused past about a third of a page, so Postgres refused a value of about 2.7 KB that the other backends took; 256 characters is at most 1 KB.
+
+**Rejected.** An `md5(value)` index (it errors on a FIPS-mode server). Refusing a large value everywhere (it narrows three backends to one engine's index limit). A stated cap (the limit is after compression, so no honest number exists).
+
+**Re-opens** when a metadata key that long is needed, or a plan read shows the expression index unused.

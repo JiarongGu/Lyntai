@@ -147,6 +147,28 @@ public static class TraceStoreContract
         Assert.Equal([1L, 2L, 3L], loaded.Steps.Select(s => s.Sequence));
     }
 
+    /// <summary>A step's ordinal is 32-bit on every backend, since Postgres stores it as <c>INTEGER</c>: a
+    /// <see cref="TraceStep.Sequence"/> past either end of <see cref="int"/> is refused before anything is written, so
+    /// the trace already saved under the session survives, and <see cref="int.MaxValue"/> itself round-trips.</summary>
+    public static async Task A_sequence_past_int_MaxValue_is_refused(ITraceStore store, string key)
+    {
+        await store.SaveAsync(Sample(key));
+
+        foreach (var past in new[] { int.MaxValue + 1L, int.MinValue - 1L })
+            await Assert.ThrowsAsync<ArgumentException>(() => store.SaveAsync(Sample(key) with
+            {
+                Mode = "past",
+                Steps = [new TraceStep { Kind = "phase", Label = "past", Sequence = past }],
+            }));
+
+        var kept = await store.GetAsync(key);
+        Assert.Equal("chat", kept!.Mode);
+        Assert.Equal(3, kept.Steps.Count);
+
+        await store.SaveAsync(Sample(key + "-max") with { Steps = [new TraceStep { Kind = "phase", Label = "max", Sequence = int.MaxValue }] });
+        Assert.Equal([(long)int.MaxValue], (await store.GetAsync(key + "-max"))!.Steps.Select(s => s.Sequence));
+    }
+
     public static async Task Step_sequence_and_offset_round_trip(ITraceStore store, string key)
     {
         await store.SaveAsync(Sample(key));

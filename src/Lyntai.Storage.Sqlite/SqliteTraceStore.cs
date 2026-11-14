@@ -7,6 +7,7 @@ public sealed class SqliteTraceStore(IDbConnectionFactory factory) : ITraceStore
 {
     public async Task SaveAsync(RunTrace trace, CancellationToken ct = default)
     {
+        var steps = TraceOrdinals.Stored(trace.Steps); // refuses an ordinal past 32 bits before any write
         await using var conn = await factory.OpenAsync(ct).ConfigureAwait(false);
         await using var tx = await conn.BeginTransactionAsync(ct).ConfigureAwait(false);
 
@@ -16,7 +17,7 @@ public sealed class SqliteTraceStore(IDbConnectionFactory factory) : ITraceStore
         await conn.ExecuteAsync(new CommandDefinition(TraceStoreSql.InsertTrace,
             new { trace.SessionId, trace.Mode, trace.StartedAt, trace.EndedAt, trace.TraceId },
             tx, cancellationToken: ct)).ConfigureAwait(false);
-        foreach (var s in TraceOrdinals.Stored(trace.Steps))
+        foreach (var s in steps)
             await conn.ExecuteAsync(new CommandDefinition(TraceStoreSql.InsertStep,
                 new { trace.SessionId, seq = s.Sequence, s.OffsetMs, s.Kind, s.Label, s.InputTokens, s.OutputTokens, s.CostUsd, s.DurationMs, s.Detail },
                 tx, cancellationToken: ct)).ConfigureAwait(false);

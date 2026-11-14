@@ -29,6 +29,8 @@ public sealed class SqliteCuratedMemoryStore(IDbConnectionFactory factory,
         string? taskKey = null, string? scope = null, bool dedup = false,
         IReadOnlyDictionary<string, string>? metadata = null, CancellationToken ct = default)
     {
+        (kind, content, taskKey, scope, metadata) = (Utf8Text.Scrub(kind), Utf8Text.Scrub(content), Utf8Text.Scrub(taskKey),
+            Utf8Text.Scrub(scope), Utf8Text.Scrub(metadata));
         var now = _clock();
         var metaJson = CuratedMetadataJson.Serialize(metadata);
         await using var conn = await factory.OpenAsync(ct).ConfigureAwait(false);
@@ -68,6 +70,8 @@ public sealed class SqliteCuratedMemoryStore(IDbConnectionFactory factory,
     private async Task<CuratedUpdateOutcome> UpdateCoreAsync(long id, long? expectedRevision, string? content, bool? enabled,
         string? kind, string? taskKey, string? scope, IReadOnlyDictionary<string, string>? metadata, CancellationToken ct)
     {
+        (content, kind, taskKey, scope, metadata) = (Utf8Text.Scrub(content), Utf8Text.Scrub(kind), Utf8Text.Scrub(taskKey),
+            Utf8Text.Scrub(scope), Utf8Text.Scrub(metadata));
         var now = _clock();
         var replaceMeta = metadata is not null;                    // non-null (incl. empty) = replace; null = leave
         var metaJson = replaceMeta ? CuratedMetadataJson.Serialize(metadata) : null;
@@ -150,6 +154,8 @@ public sealed class SqliteCuratedMemoryStore(IDbConnectionFactory factory,
         IReadOnlyDictionary<string, string>? metadataMatch = null, CancellationToken ct = default)
     {
         if (limit <= 0) return []; // asks for nothing; the -1 below is this dialect's own spelling of "no cap"
+        (kind, taskKey, scope, metadataMatch) = (Utf8Text.Scrub(kind), Utf8Text.Scrub(taskKey), Utf8Text.Scrub(scope),
+            Utf8Text.Scrub(metadataMatch));
         var p = new DynamicParameters(new { kind, task = taskKey, scope, enabledOnly, limit = limit ?? -1 });
         var meta = BuildMetaClause(metadataMatch, "lyntai_curated_memory.id", p);
         await using var conn = await factory.OpenAsync(ct).ConfigureAwait(false);
@@ -168,6 +174,8 @@ public sealed class SqliteCuratedMemoryStore(IDbConnectionFactory factory,
         IReadOnlyDictionary<string, string>? metadataMatch = null, CancellationToken ct = default)
     {
         if (string.IsNullOrWhiteSpace(query) || limit <= 0) return [];
+        (query, kind, taskKey, scope, metadataMatch) = (Utf8Text.ScrubQuery(query), Utf8Text.Scrub(kind), Utf8Text.Scrub(taskKey),
+            Utf8Text.Scrub(scope), Utf8Text.Scrub(metadataMatch));
         try
         {
             await using var conn = await factory.OpenAsync(ct).ConfigureAwait(false);
@@ -222,7 +230,8 @@ public sealed class SqliteCuratedMemoryStore(IDbConnectionFactory factory,
     public async Task<IReadOnlyList<CuratedMemory>> ForCompositionAsync(string taskKey, IEnumerable<string> scopes,
         bool enabledOnly = true, CancellationToken ct = default)
     {
-        var scopeList = scopes as IReadOnlyList<string> ?? [.. scopes];
+        taskKey = Utf8Text.Scrub(taskKey);
+        IReadOnlyList<string> scopeList = [.. scopes.Select(s => Utf8Text.Scrub(s))];
         // empty scopes → scope filter disabled; else the entry's scope must be null/empty (applies everywhere)
         // or one of the requested scopes. task-key-null rows apply to every task.
         var scopeClause = scopeList.Count == 0 ? "" : " AND (scope IS NULL OR scope = '' OR scope IN (SELECT value FROM json_each(@scopes)))";

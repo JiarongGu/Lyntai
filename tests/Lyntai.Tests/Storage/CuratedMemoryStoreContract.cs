@@ -1,3 +1,4 @@
+using System.Security.Cryptography;
 using Lyntai.Storage;
 
 namespace Lyntai.Tests.Storage;
@@ -36,6 +37,43 @@ public static class CuratedMemoryStoreContract
         var got = await store.GetAsync(id);
         Assert.Equal("cut \uFFFD", got!.Content);
         Assert.Equal("half \uFFFD", got.Metadata!["note"]);
+    }
+
+    /// <summary>A NUL (U+0000), which Postgres refuses in text, is stored as U+FFFD on every backend, as a lone
+    /// surrogate is (D262) \u2014 in a kind, content, task key, scope and metadata \u2014 and each filter written with one
+    /// finds the entry.</summary>
+    public static async Task A_NUL_is_stored_as_U_FFFD(ICuratedMemoryStore store, string kind = "persona")
+    {
+        var id = await store.AddAsync(kind + "\0", "nul \0 fact", taskKey: "task\0", scope: "scope\0",
+            metadata: Meta(("note\0", "nul \0")));
+
+        var got = (await store.GetAsync(id))!;
+        Assert.Equal((kind + "\uFFFD", "nul \uFFFD fact", "task\uFFFD", "scope\uFFFD"), (got.Kind, got.Content, got.TaskKey, got.Scope));
+        Assert.Equal("nul \uFFFD", got.Metadata!["note\uFFFD"]);
+
+        Assert.Equal([id], (await store.ListAsync(kind + "\0", taskKey: "task\0", scope: "scope\0",
+            metadataMatch: Meta(("note\0", "nul \0")))).Select(e => e.Id));
+        Assert.Equal([id], (await store.SearchAsync("fact", kind + "\0", "task\0", "scope\0")).Select(e => e.Id));
+        Assert.Contains(id, (await store.ForCompositionAsync("task\0", ["scope\0"])).Select(e => e.Id));
+
+        Assert.True(await store.UpdateAsync(id, content: "edited \0", metadata: Meta(("k", "v\0"))));
+        got = (await store.GetAsync(id))!;
+        Assert.Equal(("edited \uFFFD", "v\uFFFD"), (got.Content, got.Metadata!["k"]));
+    }
+
+    /// <summary>A metadata VALUE far past a btree entry's limit (about 2.7 KB on Postgres) is stored and matched on every
+    /// backend: Postgres indexes the value's first 256 characters, and a match still compares the whole of it, so two
+    /// values sharing that prefix stay apart.</summary>
+    public static async Task A_large_metadata_value_is_stored_and_matched(ICuratedMemoryStore store, string kind = "persona")
+    {
+        var large = Convert.ToHexString(RandomNumberGenerator.GetBytes(5 * 1024)); // ~10 KB that does not compress
+        var sibling = large[..256] + Convert.ToHexString(RandomNumberGenerator.GetBytes(5 * 1024 - 128));
+        var id = await store.AddAsync(kind, "large", metadata: Meta(("blob", large)));
+        var other = await store.AddAsync(kind, "sibling", metadata: Meta(("blob", sibling)));
+
+        Assert.Equal(large, (await store.GetAsync(id))!.Metadata!["blob"]);
+        Assert.Equal([id], (await store.ListAsync(kind, metadataMatch: Meta(("blob", large)))).Select(e => e.Id));
+        Assert.Equal([other], (await store.ListAsync(kind, metadataMatch: Meta(("blob", sibling)))).Select(e => e.Id));
     }
 
     public static async Task Update_changes_only_the_provided_fields(ICuratedMemoryStore store)

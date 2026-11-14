@@ -15,39 +15,35 @@ LLM-ops layer (prompt registry, scoring, traces, memory). `AddLyntai(...)` and g
 
 <!-- open-items:begin — GENERATED. Edit the per-item `item:` markers, never this table. -->
 
-## Open items — 26 across 15 Parts: 2 startable, 7 blocked, 1 watch, 16 decision-only
+## Open items — 22 across 12 Parts: 2 startable, 7 blocked, 1 watch, 12 decision-only
 
 _Generated from the per-item `<!-- item: … -->` markers by `node devtools/dev.mjs check-backlog --write`._
 _Edit a marker, never this table — `verify` fails the moment the two disagree._
 
 | line | Part | item | state | waiting on |
 | ---: | ---: | --- | --- | --- |
-| 127 | 33 | GEN-VERIFY-FAL, the last line — the Hugging Face route | blocked · env | an hf_ token for the router route; re-checked 2026-11-15, none on this mach… |
-| 168 | 75 | Decide what an aggregator's in-band `code` means | blocked · env+data | two or three real aggregators to measure an in-band code against; re-checke… |
-| 195 | 99 | `verify`'s test step intermittently fails EXACTLY 9 tests, and once aborted… | watch · data | the same nine tests to recur — the fix is unconfirmed as the cure, and a gr… |
-| 269 | 417 | MC8 — run the wrong-end instrument on an adjudicated corpus, with a bar wri… | blocked · decision+data | two reviewers' independent labels on a sample of the pairs, and a bar a per… |
-| 292 | 479 | The write tools let a model end, revive or demote an entry the approver nev… | decision-only | a ruling: whether the tool may state validity and a grade at all, or the re… |
-| 298 | 479 | A supersession whose successor is an entry that already ended leaves nothin… | decision-only | a ruling: may a restated claim revive an ended entry, or does the supersess… |
-| 302 | 479 | What the approver is shown is not all that is applied | decision-only | a ruling: which of by, at, validity and scope the request must carry, or a … |
-| 305 | 479 | A keyed end or confirmation's file is written before its receipt, so a cras… | decision-only | a ruling: accept and document the window (a guarded repeat then reads Chang… |
-| 309 | 479 | A host's `IMemoryViewCheck` is asked about an expansion's root only, not th… | decision-only | a ruling: whether the check also filters each neighbour an expansion return… |
-| 312 | 479 | A future `at` on an end or a confirmation sets `EndedReason` while recall s… | decision-only | a ruling: may an end or a failed check state an instant after now, or does … |
-| 314 | 479 | A receipt expires by the caller's clock and the purge runs on it | decision-only | a ruling: whether a receipt expires by the store's clock or the caller's (D… |
-| 325 | 481 | A rejected limit is never cleared inside a turn | blocked · data | a capture of the CLI sending a rejected rate_limit_event and then an allowe… |
-| 337 | 483 | A retried or polled job leaves its partition's FIFO | decision-only | a ruling: whether a retrying or polling head blocks its partition, or the d… |
-| 346 | 485 | How long a quiet Codex step runs is unmeasured | blocked · env | one real Codex turn on an account with room: re-checked 2026-11-15, the own… |
-| 358 | 486 | The HTTP chat engine's own failures still drop the usage its wire read | startable |  |
-| 367 | 488 | A trace step's `seq` is `INTEGER` on Postgres and 64-bit on SQLite | decision-only | a ruling: widen the column with a migration, which rewrites and locks the t… |
-| 369 | 488 | A NUL in stored text is refused on Postgres and stored elsewhere | decision-only | a ruling: strip, replace or refuse U+0000 in stored text (the same family a… |
-| 377 | 490 | `Model2VecProvider` embeds and counts an unknown token | decision-only | a ruling: skip the unknown id, which changes every vector already stored fr… |
-| 379 | 490 | A `ContextSize` past the model's trained context is not refused | decision-only | a ruling: refuse a ContextSize past the model's trained context (read from … |
-| 387 | 491 | A ComfyUI run lost to a server restart polls for ever | decision-only | a ruling: consult /queue and fail or call it inconclusive when the id is in… |
-| 389 | 491 | Cancelling a durable generation job does not cancel the backend render | decision-only | a ruling: a best-effort CancelAsync when a cancel is seen with an operation… |
-| 390 | 491 | `generate_fetch` bills and delivers again on every call, and the job engine… | decision-only | a ruling: whether the spend ledger or the tool owns de-duplication per (bac… |
-| 398 | 495 | The usage read's scratch folder is created with the default mode | blocked · env | a Unix run: the mode is not observable on Windows, so a test of the fix can… |
-| 406 | 496 | Postgres refuses a curated metadata value over about 2.7 KB, which the othe… | decision-only | a ruling among the three costs below: index md5(value) in a new Postgres mi… |
-| 416 | 518 | AG50 — a kept run on `codex-acp` and dsh (A-LQ19) | blocked · data | Daoris's recorded Codex sitting and dsh probe frames; re-checked 2026-11-15… |
-| 418 | 518 | AG51 — a kept run on the Claude CLI with stdin held (A-LQ21) | startable |  |
+| 123 | 33 | GEN-VERIFY-FAL, the last line — the Hugging Face route | blocked · env | an hf_ token for the router route; re-checked 2026-11-15, none on this mach… |
+| 164 | 75 | Decide what an aggregator's in-band `code` means | blocked · env+data | two or three real aggregators to measure an in-band code against; re-checke… |
+| 191 | 99 | `verify`'s test step intermittently fails EXACTLY 9 tests, and once aborted… | watch · data | the same nine tests to recur — the fix is unconfirmed as the cure, and a gr… |
+| 265 | 417 | MC8 — run the wrong-end instrument on an adjudicated corpus, with a bar wri… | blocked · decision+data | two reviewers' independent labels on a sample of the pairs, and a bar a per… |
+| 288 | 479 | The write tools let a model end, revive or demote an entry the approver nev… | decision-only | a ruling: whether the tool may state validity and a grade at all, or the re… |
+| 294 | 479 | A supersession whose successor is an entry that already ended leaves nothin… | decision-only | a ruling: may a restated claim revive an ended entry, or does the supersess… |
+| 298 | 479 | What the approver is shown is not all that is applied | decision-only | a ruling: which of by, at, validity and scope the request must carry, or a … |
+| 301 | 479 | A keyed end or confirmation's file is written before its receipt, so a cras… | decision-only | a ruling: accept and document the window (a guarded repeat then reads Chang… |
+| 305 | 479 | A host's `IMemoryViewCheck` is asked about an expansion's root only, not th… | decision-only | a ruling: whether the check also filters each neighbour an expansion return… |
+| 308 | 479 | A future `at` on an end or a confirmation sets `EndedReason` while recall s… | decision-only | a ruling: may an end or a failed check state an instant after now, or does … |
+| 310 | 479 | A receipt expires by the caller's clock and the purge runs on it | decision-only | a ruling: whether a receipt expires by the store's clock or the caller's (D… |
+| 321 | 481 | A rejected limit is never cleared inside a turn | blocked · data | a capture of the CLI sending a rejected rate_limit_event and then an allowe… |
+| 332 | 485 | How long a quiet Codex step runs is unmeasured | blocked · env | one real Codex turn on an account with room: re-checked 2026-11-15, the own… |
+| 344 | 486 | The HTTP chat engine's own failures still drop the usage its wire read | startable |  |
+| 353 | 490 | `Model2VecProvider` embeds and counts an unknown token | decision-only | a ruling: skip the unknown id, which changes every vector already stored fr… |
+| 355 | 490 | A `ContextSize` past the model's trained context is not refused | decision-only | a ruling: refuse a ContextSize past the model's trained context (read from … |
+| 363 | 491 | A ComfyUI run lost to a server restart polls for ever | decision-only | a ruling: consult /queue and fail or call it inconclusive when the id is in… |
+| 365 | 491 | Cancelling a durable generation job does not cancel the backend render | decision-only | a ruling: a best-effort CancelAsync when a cancel is seen with an operation… |
+| 366 | 491 | `generate_fetch` bills and delivers again on every call, and the job engine… | decision-only | a ruling: whether the spend ledger or the tool owns de-duplication per (bac… |
+| 374 | 495 | The usage read's scratch folder is created with the default mode | blocked · env | a Unix run: the mode is not observable on Windows, so a test of the fix can… |
+| 380 | 518 | AG50 — a kept run on `codex-acp` and dsh (A-LQ19) | blocked · data | Daoris's recorded Codex sitting and dsh probe frames; re-checked 2026-11-15… |
+| 382 | 518 | AG51 — a kept run on the Claude CLI with stdin held (A-LQ21) | startable |  |
 
 <!-- open-items:end -->
 
@@ -328,16 +324,6 @@ before it was filed. Lanes `inference` and `platform`._
   **The rule a capture would select is written first:** the latest report per `rateLimitType` stands, so an `allowed` clears only a rejection of the
   same window; a capture with no such pair closes the row as unreachable.
 
-## Part 483 — what the 2026-11-08 review of the durable jobs found and did not fix yet
-
-_Opened by `docs/task-archive.md` **Part 483**: a read-only review of `Lyntai.Core/Jobs` and the job stores of every backend, each finding read
-against the code before it was filed. Its certain and small findings closed in that Part, and five of the six rows in `docs/task-archive.md` **Part 516**; what stays is the one
-that needs a shared claim predicate and a migration. Lane `platform`._
-
-- [ ] **A retried or polled job leaves its partition's FIFO.** `JobStoreSql`'s FIFO test counts only earlier Pending jobs already <!-- item: state=decision-only needs="a ruling: whether a retrying or polling head blocks its partition, or the doc says a retry reorders (JobSpec promises strict FIFO)" -->
-  available, and a retry or a poll moves the head's `available_at` into the future, so a later job of the partition runs first.
-  No contract fact pins a retry inside a partition.
-
 ## Part 485 — what the 2026-11-08 review of the Codex door and the process runner found and did not fix yet
 
 _Opened by `docs/task-archive.md` **Part 483**: a read-only review of the Codex exec door and `ProcessRunner`, each finding read against the code before it
@@ -358,16 +344,6 @@ filed and none reproduced. The certain and small findings closed in that Part. L
 - [ ] **The HTTP chat engine's own failures still drop the usage its wire read.** **D350** has a failed reply carry what was billed, and the CLI engine, the router and <!-- item: state=startable -->
   the budget do; `HttpChatEngine`'s streamed content-filter, tool-call-failure and zero-content `Error` terminals and its buffered empty-body failure (with its one resend)
   still carry none. Found by the builder of `docs/task-archive.md` Part 525; summing the resend's two attempts needs `TextUsage.Sum` reachable from `Lyntai.Providers.Basic`.
-
-## Part 488 — what the 2026-11-08 review of the SQLite and Postgres adapters found and did not fix yet
-
-_Opened by `docs/task-archive.md` **Part 484**: a read-only review of the key-value, conversation, score, trace, prompt, job, vector, cache and usage stores of both SQL adapters against each other and
-the in-memory reference, outside the memory graph. None was run: where a row rests on an engine's behaviour it says so. Lane `storage`._
-
-- [ ] **A trace step's `seq` is `INTEGER` on Postgres and 64-bit on SQLite.** `Sequence` is a `long`; a value past 2^31 is stored by one and refused by the other. <!-- item: state=decision-only needs="a ruling: widen the column with a migration, which rewrites and locks the trace-step table for every deployment to serve a value nobody has written, or refuse a sequence past int.MaxValue on every backend, which narrows what SQLite stores today" -->
-  A shipped migration is not edited, so the first is a new Postgres-only one (which moves the per-backend migration counts `.agents/knowledge/storage.md` §Migrations keeps); low impact.
-- [ ] **A NUL in stored text is refused on Postgres and stored elsewhere.** `text` cannot hold `\0`, so a `RememberAsync` of one fails there and succeeds on the other backends. <!-- item: state=decision-only needs="a ruling: strip, replace or refuse U+0000 in stored text (the same family as the lone-surrogate ruling, D262)" -->
-  The empty vector and a NUL in a query closed in `docs/DECISIONS.md` D326; not run against Postgres.
 
 ## Part 490 — what the 2026-11-08 review of the local inference backends found and did not fix yet
 
@@ -396,18 +372,6 @@ _Opened by `docs/task-archive.md` **Part 497**: a read-only review of `CliProvid
 The certain and small findings closed in that Part. The `.cmd` shim re-parsing argv through `cmd.exe` is already `TASKS.md` Part 485's first row and is not filed again. Lanes `inference` and `platform`._
 
 - [ ] **The usage read's scratch folder is created with the default mode.** `CliUsageSource` makes `lyntai-usage-<guid>` under the temp folder with `Directory.CreateDirectory`, where the engine's working directory is user-only on Unix. <!-- item: state=blocked kind=env needs="a Unix run: the mode is not observable on Windows, so a test of the fix cannot fail here" -->
-
-## Part 496 — what the 2026-11-08 review of the curated and legacy memory stores, the migrations and the connection lifecycle found and did not fix yet
-
-_Opened by `docs/task-archive.md` **Part 503**: two read-only reviews, the curated and legacy `IMemoryStore` with their shared search helpers across the four backends, and the SQLite and
-Postgres migrations with the connection factories and the file backend's write safety, each finding read against the code, none run against two processes. The certain and small findings
-closed in that Part, and the steward's rulings on eight more are built (`docs/task-archive.md` **Part 514**). Lane `storage`._
-
-- [ ] **Postgres refuses a curated metadata value over about 2.7 KB, which the other backends store.** `ix_lyntai_curated_meta_kv` is a btree on `(key, value)`. <!-- item: state=decision-only needs="a ruling among the three costs below: index md5(value) in a new Postgres migration, refuse a large value on every backend, or state a cap" -->
-  **Not ruled by the steward; what each side costs.** `(key, md5(value))` is a migration that ships to every deployment and blocks writes to `lyntai_curated_meta` while the index builds, and the
-  `EXISTS` filters in `PostgresCuratedMemoryStore` compare `mm.value` by equality, so each would change to `md5(mm.value) = md5(@v)` or stop using the index. A refusal on every backend narrows what
-  SQLite, the in-memory and the file stores take (a value of any size) to what Postgres holds, a behaviour change to three backends that every caller of those stores meets. A stated cap changes
-  no code and tells the caller what Postgres refuses, and leaves the three backends disagreeing.
 
 ## Part 518 — what Daoris's third request to the agent layer left to build (A-LQ18, A-LQ19, A-LQ21 and A-LQ24's half)
 

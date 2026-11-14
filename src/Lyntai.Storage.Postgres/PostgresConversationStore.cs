@@ -6,7 +6,7 @@ public sealed class PostgresConversationStore(IDbConnectionFactory factory) : IC
 {
     public async Task<ChatThread> CreateThreadAsync(string id, string? title = null, string? metadata = null, CancellationToken ct = default)
     {
-        var thread = new ChatThread(id, title, DateTimeOffset.UtcNow, metadata);
+        var thread = new ChatThread(Utf8Text.Scrub(id), Utf8Text.Scrub(title), DateTimeOffset.UtcNow, Utf8Text.Scrub(metadata));
         await using var conn = await factory.OpenAsync(ct).ConfigureAwait(false);
         await conn.ExecuteAsync(new CommandDefinition(
             ConversationStoreSql.InsertThread,
@@ -16,6 +16,7 @@ public sealed class PostgresConversationStore(IDbConnectionFactory factory) : IC
 
     public async Task<ChatThread?> GetThreadAsync(string id, CancellationToken ct = default)
     {
+        id = Utf8Text.Scrub(id);
         await using var conn = await factory.OpenAsync(ct).ConfigureAwait(false);
         return await conn.QuerySingleOrDefaultAsync<ChatThread>(new CommandDefinition(
             ConversationStoreSql.GetThread,
@@ -43,6 +44,7 @@ public sealed class PostgresConversationStore(IDbConnectionFactory factory) : IC
 
     public async Task SetThreadMetadataAsync(string id, string? metadata, CancellationToken ct = default)
     {
+        (id, metadata) = (Utf8Text.Scrub(id), Utf8Text.Scrub(metadata));
         await using var conn = await factory.OpenAsync(ct).ConfigureAwait(false);
         await conn.ExecuteAsync(new CommandDefinition(
             ConversationStoreSql.SetThreadMetadata,
@@ -56,6 +58,7 @@ public sealed class PostgresConversationStore(IDbConnectionFactory factory) : IC
         // transaction-scoped advisory lock first: appenders to one thread queue, the lock lets go at commit,
         // and the statement that follows reads what the last one wrote (SQLite serializes writes and InMemory
         // locks — this keeps the three backends' observable behavior aligned, D325).
+        (threadId, kind, payload, metadata) = (Utf8Text.Scrub(threadId), Utf8Text.Scrub(kind), Utf8Text.Scrub(payload), Utf8Text.Scrub(metadata));
         var id = Guid.NewGuid().ToString();
         var createdAt = DateTimeOffset.UtcNow;
         await using var conn = await factory.OpenAsync(ct).ConfigureAwait(false);
@@ -70,6 +73,7 @@ public sealed class PostgresConversationStore(IDbConnectionFactory factory) : IC
 
     public async Task<IReadOnlyList<ChatMessage>> GetMessagesAsync(string threadId, CancellationToken ct = default)
     {
+        threadId = Utf8Text.Scrub(threadId);
         await using var conn = await factory.OpenAsync(ct).ConfigureAwait(false);
         var rows = await conn.QueryAsync<ChatMessage>(new CommandDefinition(ConversationStoreSql.GetMessages, new { threadId }, cancellationToken: ct)).ConfigureAwait(false);
         return [.. rows];
@@ -77,6 +81,7 @@ public sealed class PostgresConversationStore(IDbConnectionFactory factory) : IC
 
     public async Task DeleteThreadAsync(string id, CancellationToken ct = default)
     {
+        id = Utf8Text.Scrub(id);
         await using var conn = await factory.OpenAsync(ct).ConfigureAwait(false);
         await conn.ExecuteAsync(new CommandDefinition(
             ConversationStoreSql.DeleteThread, new { id }, cancellationToken: ct)).ConfigureAwait(false);
