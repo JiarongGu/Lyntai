@@ -15,22 +15,21 @@ LLM-ops layer (prompt registry, scoring, traces, memory). `AddLyntai(...)` and g
 
 <!-- open-items:begin — GENERATED. Edit the per-item `item:` markers, never this table. -->
 
-## Open items — 9 across 8 Parts: 1 startable, 7 blocked, 1 watch
+## Open items — 8 across 7 Parts: 7 blocked, 1 watch
 
 _Generated from the per-item `<!-- item: … -->` markers by `node devtools/dev.mjs check-backlog --write`._
 _Edit a marker, never this table — `verify` fails the moment the two disagree._
 
 | line | Part | item | state | waiting on |
 | ---: | ---: | --- | --- | --- |
-| 110 | 33 | GEN-VERIFY-FAL, the last line — the Hugging Face route | blocked · env | an hf_ token for the router route; re-checked 2026-11-15, none on this mach… |
-| 151 | 75 | Decide what an aggregator's in-band `code` means | blocked · env+data | two or three real aggregators to measure an in-band code against; re-checke… |
-| 178 | 99 | `verify`'s test step intermittently fails EXACTLY 9 tests, and once aborted… | watch · data | the same nine tests to recur — the fix is unconfirmed as the cure, and a gr… |
-| 252 | 417 | MC8 — run the wrong-end instrument on an adjudicated corpus, with a bar wri… | blocked · decision+data | two reviewers' independent labels on a sample of the pairs, and a bar a per… |
-| 275 | 481 | A rejected limit is never cleared inside a turn | blocked · data | a capture of the CLI sending a rejected rate_limit_event and then an allowe… |
-| 286 | 485 | How long a quiet Codex step runs is unmeasured | blocked · env | one real Codex turn on an account with room: re-checked 2026-11-15, the own… |
-| 298 | 495 | Two process-runner grandchild facts fail on Linux | startable |  |
-| 308 | 518 | AG50 — a kept run on `codex-acp` and dsh (A-LQ19) | blocked · data | Daoris's recorded Codex sitting and dsh probe frames; re-checked 2026-11-15… |
-| 310 | 518 | AG53 — the replay echo that would tell a word folded into a running CLI tur… | blocked · data | a host's STEER3 streaming-step row re-run on held stdin with --replay-user-… |
+| 109 | 33 | GEN-VERIFY-FAL, the last line — the Hugging Face route | blocked · env | an hf_ token for the router route; re-checked 2026-11-15, none on this mach… |
+| 150 | 75 | Decide what an aggregator's in-band `code` means | blocked · env+data | two or three real aggregators to measure an in-band code against; re-checke… |
+| 177 | 99 | `verify`'s test step intermittently fails EXACTLY 9 tests, and once aborted… | watch · data | the same nine tests to recur — the fix is unconfirmed as the cure, and a gr… |
+| 251 | 417 | MC8 — run the wrong-end instrument on an adjudicated corpus, with a bar wri… | blocked · decision+data | two reviewers' independent labels on a sample of the pairs, and a bar a per… |
+| 274 | 481 | A rejected limit is never cleared inside a turn | blocked · data | a capture of the CLI sending a rejected rate_limit_event and then an allowe… |
+| 285 | 485 | How long a quiet Codex step runs is unmeasured | blocked · env | one real Codex turn on an account with room: re-checked 2026-11-15, the own… |
+| 296 | 518 | AG50 — a kept run on `codex-acp` and dsh (A-LQ19) | blocked · data | Daoris's recorded Codex sitting and dsh probe frames; re-checked 2026-11-15… |
+| 298 | 518 | AG53 — the replay echo that would tell a word folded into a running CLI tur… | blocked · data | a host's STEER3 streaming-step row re-run on held stdin with --replay-user-… |
 
 <!-- open-items:end -->
 
@@ -289,17 +288,6 @@ was filed. Three closed in that Part. What stays needs a measurement against a r
   answers it (`codex exec --json --sandbox read-only` asked to sleep 120 s, each line timestamped): no line between the command's `item.started` and
   `item.completed` means the window must cover the longest step, which only the host knows (`LyntaiOptions.AgentTimeout`); lines between mean
   15 minutes bounds true inactivity.
-
-## Part 495 — what the 2026-11-08 review of the one-shot CLI providers and the agent briefs found and did not fix yet
-
-_Opened by `docs/task-archive.md` **Part 497**: a read-only review of `CliProviderEngine` and the Claude and Codex ONE-SHOT providers, the usage source and the hand-over brief, each finding read against the code, none run.
-The certain and small findings closed in that Part. The `.cmd` shim re-parsing argv through `cmd.exe` is already `TASKS.md` Part 485's first row and is not filed again. Lanes `inference` and `platform`._
-
-- [ ] **Two process-runner grandchild facts fail on Linux.** `ProcessRunnerTests.A_buffered_run_returns_when_a_grandchild_keeps_the_pipes_open_after_the_child_exited` <!-- item: state=startable -->
-  and its streamed twin fail in `mcr.microsoft.com/dotnet/sdk:10.0` before and after the stdin-order fix (`docs/FIXES.md` 2026-11-15): a detached grandchild whose parent
-  exited by itself is reparented to init, beyond the tree kill (`.agents/knowledge/pitfalls.md`, the Unix tree-kill trap). Green on Windows. First step: decide whether the
-  runner should end such a grandchild (a process group or session kill on Unix) or the test asserts what Windows alone can promise; `AssertGrandchildGone` has the same
-  zombie-blind probe the usage tests had. The scratch harness is `devtools/_usage-linux/` (untracked).
 
 ## Part 518 — what Daoris's third request to the agent layer left to build (A-LQ18, A-LQ19, A-LQ21 and A-LQ24's half)
 

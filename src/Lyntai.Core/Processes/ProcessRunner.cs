@@ -62,8 +62,10 @@ public sealed class ProcessTimeoutException(string command, TimeSpan timeout)
 /// (prompts carry newlines/metacharacters — never a shell), prompt over stdin, BOM-less UTF-8 both
 /// directions, resolved-path cache (where.exe/which, prefer .cmd/.exe/.ps1), a <c>.ps1</c> launcher shim
 /// hosted in PowerShell (CreateProcess can't exec it directly), Kill(entireProcessTree) on cancel/timeout.
-/// This makes the default runner work for the common Windows CLI shims out of the box — a BYO
-/// <see cref="IProcessRunner"/> is only needed for a genuinely different launch policy (sandbox, remote, …).
+/// The tree is the child and each descendant reached through a living parent: off Windows, a process whose parent
+/// already exited, or one that left for its own session, is beyond it. This makes the default runner work for the
+/// common Windows CLI shims out of the box — a BYO <see cref="IProcessRunner"/> is only needed for a genuinely
+/// different launch policy (sandbox, remote, …).
 /// </summary>
 public sealed class ProcessRunner : IProcessRunner
 {
@@ -676,8 +678,9 @@ public sealed class ProcessRunner : IProcessRunner
     private static readonly TimeSpan DrainBound = TimeSpan.FromSeconds(2);
 
     /// <summary>Wait for a pipe's reader to finish. True when it reached EOF; false when the child had exited and
-    /// the pipe then stayed silent for <see cref="DrainBound"/> — a grandchild is holding it, and only a kill
-    /// ends that read. A pipe still producing after the exit is drained for as long as it does.</summary>
+    /// the pipe then stayed silent for <see cref="DrainBound"/> — a grandchild is holding it, and the caller gives up
+    /// on the read and kills the tree, which ends the holder only where the kill reaches it (Windows). A pipe still
+    /// producing after the exit is drained for as long as it does.</summary>
     private static async Task<bool> DrainedAsync(Task pump, Task exited, PipeCapture capture)
     {
         await Task.WhenAny(pump, exited).ConfigureAwait(false);

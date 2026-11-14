@@ -445,8 +445,9 @@ new decision overturns an old one, rewrite the old entry as a stub pointing here
 | [D373](#d373--a-write-tool-refuses-a-stated-instant-it-cannot-read-naming-the-field-2026-11-15) | 2026-11-15 | a write tool refuses a stated instant it cannot read, naming the field |
 | [D374](#d374--model2vec-cuts-a-text-as-the-reference-does-with-an-opt-out-2026-11-15) | 2026-11-15 | Model2Vec cuts a text as the reference does, with an opt-out |
 | [D375](#d375--the-claude-cli-keeps-a-run-on-one-held-stdin-process-stops-it-by-its-interrupt-and-takes-no-word-into-a-running-turn-2026-11-15) | 2026-11-15 | the claude CLI keeps a run on one held-stdin process, stops it by its interrupt, and takes no wor… |
+| [D376](#d376--a-grandchild-left-holding-the-pipes-is-ended-where-the-tree-kill-reaches-it-and-nothing-is-added-to-reach-it-off-windows-2026-11-15) | 2026-11-15 | a grandchild left holding the pipes is ended where the tree kill reaches it, and nothing is added… |
 
-**370 live decisions.** The rest are stubs — `D<n>` is a permanent identifier, so a number is never reused or renumbered (5): [D36](#d36--a-translation-between-two-verdict-taxonomies-gets-one-arm-per-member-gated-by-a-test-2026-08-05) → D136 · [D80](#d80--merged-into-d77-2026-08-16-folded-2026-08-17) → D77 · [D131](#d131--a-backends-produces-is-derived-from-its-configuration-so-a-modality-is-a-field-2026-09-14) → D133 · [D134](#d134--a-registration-names-the-backend-the-provider-suffix-is-gone-from-all-seventeen-2026-09-14) → D137 · [D145](#d145--the-microsoftextensionsai-module-is-a-bridge-not-a-provider-2026-09-15) → D146
+**371 live decisions.** The rest are stubs — `D<n>` is a permanent identifier, so a number is never reused or renumbered (5): [D36](#d36--a-translation-between-two-verdict-taxonomies-gets-one-arm-per-member-gated-by-a-test-2026-08-05) → D136 · [D80](#d80--merged-into-d77-2026-08-16-folded-2026-08-17) → D77 · [D131](#d131--a-backends-produces-is-derived-from-its-configuration-so-a-modality-is-a-field-2026-09-14) → D133 · [D134](#d134--a-registration-names-the-backend-the-provider-suffix-is-gone-from-all-seventeen-2026-09-14) → D137 · [D145](#d145--the-microsoftextensionsai-module-is-a-bridge-not-a-provider-2026-09-15) → D146
 
 <!-- index:end -->
 
@@ -7558,7 +7559,7 @@ labelled `Ok`, an empty `exit 1:`, an agent started without the tools it was emb
 
 **Rejected.** Keeping the error line as content and documenting that the stream commits first (the router could never fall back from an
 authentication failure). Classifying the stdout tail (it is mostly protocol lines, so a token count could read as a status code; the half
-stays open in `TASKS.md` Part 495). Treating an empty failure message as no failure (the in-band failure is the backend's account, and its
+went to a row closed as unreachable in `docs/task-archive.md` Part 521). Treating an empty failure message as no failure (the in-band failure is the backend's account, and its
 words are optional).
 
 **Re-opens** when a partial `max_output_tokens` reply must reach a streaming caller, or when the CLI is measured printing a classifiable error on
@@ -8529,7 +8530,7 @@ recall and its write-back is already a silent skip).
 
 ## D336 — an assistant message after the first opens with a blank line (2026-11-09)
 
-**Standing.** A ruling on `TASKS.md` Part 495's first row and Part 481's Codex row, **the steward's under the owner's delegation, which the owner may reverse** — not the owner's words. Built.
+**Standing.** A ruling on the 2026-11-08 review's first row and Part 481's Codex row (both closed in `docs/task-archive.md` Part 517), **the steward's under the owner's delegation, which the owner may reverse** — not the owner's words. Built.
 
 **Decided.** `ClaudeCliProvider.StreamAsync` opens the second and later content chunks with `\n\n`, each chunk being one assistant message, so a call that spoke between tool uses streams `I'll search.` then `Answer` as two paragraphs. `CodexAgentReader`'s `FinalText` joins its agent messages the same way, each after the first after a blank line. The buffered Claude answer is still the `result` line's text, and the Codex one-shot provider's streamed and buffered answers still concatenate.
 
@@ -8541,7 +8542,7 @@ recall and its write-back is already a silent skip).
 
 ## D337 — a flag-shaped argument prompt is Unsupported, and the flattened prompt keeps tool calls and says it dropped attachments (2026-11-09)
 
-**Standing.** A ruling on `TASKS.md` Part 495's fifth row, **the steward's under the owner's delegation, which the owner may reverse** — not the owner's words. Built; no shipped backend delivers by argument.
+**Standing.** A ruling on the 2026-11-08 review's fifth row (closed in `docs/task-archive.md` Part 517), **the steward's under the owner's delegation, which the owner may reverse** — not the owner's words. Built; no shipped backend delivers by argument.
 
 **Decided.** Under `CliPromptDelivery.Argument`, a prompt that starts with `-` answers `Unsupported` before anything is spawned, on both doors. `CliPrompt.Flatten` renders an assistant turn's calls as `[call <id>] <name> <arguments>` and a result as `[tool <id>]`, and the engine logs a warning naming the count when a message carries attachments.
 
@@ -8553,7 +8554,7 @@ recall and its write-back is already a silent skip).
 
 ## D338 — a hand-over resumes only over its own newest turn (2026-11-09)
 
-**Standing.** A ruling on `TASKS.md` Part 495's sixth row, **the steward's under the owner's delegation, which the owner may reverse** — not the owner's words. Built.
+**Standing.** A ruling on the 2026-11-08 review's sixth row (closed in `docs/task-archive.md` Part 517), **the steward's under the owner's delegation, which the owner may reverse** — not the owner's words. Built.
 
 **Decided.** `AgentHandover.Decide` resumes only when the NEWEST turn's source (provider, door, account) equals the session turn's and the target's. A newest turn that ran elsewhere gives `FreshWithBrief` for the first differing field, with the existing reasons `ProviderChanged`, `DoorChanged` and `AccountChanged`. A newer turn with the same source and no id still resumes.
 
@@ -8565,7 +8566,7 @@ recall and its write-back is already a silent skip).
 
 ## D339 — the recorder keeps only the host's request from a prompt a hand-over built (2026-11-09)
 
-**Standing.** A ruling on `TASKS.md` Part 495's seventh row, **the steward's under the owner's delegation, which the owner may reverse** — not the owner's words. Built; no public member moves.
+**Standing.** A ruling on the 2026-11-08 review's seventh row (closed in `docs/task-archive.md` Part 517), **the steward's under the owner's delegation, which the owner may reverse** — not the owner's words. Built; no public member moves.
 
 **Decided.** `AgentTranscriptRecorder.BeginTurn` records the part after `AgentHandoverDecision.Apply`'s marker when the prompt opens with `HAND-OVER BRIEF` and a newline, and the prompt as given otherwise. The header and the marker are one internal pair, `HandoverFraming`, shared by `Apply`, the composer and the recorder.
 
@@ -9006,3 +9007,15 @@ recall and its write-back is already a silent skip).
 **Rejected.** Taking the word (only the replay echo could tell where it landed, and it is recorded for the tool step alone). `priority: "now"` as a steer (it ends the turn, which `Injected` promises it does not). A wrapping provider (it hides the usage and sign-in sources). A registration option (the door is one agent, unlike the protocol door's **D251**). An `initialize` control request at the open (the record needs none).
 
 **Re-opens** when STEER3's streaming row is re-run with `--replay-user-messages` and the echo tells a fold from a next turn (`TASKS.md` Part 518's AG53), when a record shows the CLI's own turn after a task's end on held stdin, or when a model is changed between turns.
+
+## D376 — a grandchild left holding the pipes is ended where the tree kill reaches it, and nothing is added to reach it off Windows (2026-11-15)
+
+**Standing.** A ruling on the process-runner row of the 2026-11-08 review (closed as `docs/task-archive.md` Part 535), read by the agent that built it with a Fable design agent; the owner may reverse it. Built.
+
+**Decided.** When the child has exited and a grandchild still holds its pipes, `ProcessRunner` promises a return within the drain bound with what was read, then kills the tree. That kill ends the holder on Windows, where it is still found under its exited parent, and not off Windows, where it was reparented to init. Nothing is added to reach it there. The two grandchild tests assert the bounded return everywhere and the holder's end on Windows alone, then end it by pid; `IProcessRunner` says what the tree is.
+
+**Why.** Logged in a `dotnet/sdk:10.0` container: .NET's Unix spawn leaves the child in the host's process group and session, and the grandchild Node's `detached: true` starts leads a session of its own. No group or session the runner could own holds it. On Windows a probe that skipped the kill of an exited child left the grandchild running, so the remaining assertion tests the runner.
+
+**Rejected.** A process-group kill: it needs a launcher (`setsid` is absent on macOS, and a shell breaks the spawn hygiene), and it still misses a `setsid` grandchild. `PR_SET_CHILD_SUBREAPER`: it is Linux-only and process-wide, so the host would inherit and have to reap every orphan under it. A cgroup: Linux-only, and it needs a delegated writable cgroup that containers often withhold. A native wrapper per runtime: it needs one of the others anyway.
+
+**Re-opens** when .NET gives `ProcessStartInfo` a Unix process-group or job option, or when a host shows a holder that never detached outliving a run.

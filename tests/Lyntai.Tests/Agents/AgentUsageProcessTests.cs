@@ -1,4 +1,3 @@
-using System.Diagnostics;
 using Lyntai.Agents;
 using Lyntai.Inference.Cli;
 using Lyntai.Processes;
@@ -127,24 +126,7 @@ public class AgentUsageProcessTests
         throw new Xunit.Sdk.XunitException("the stand-in never wrote its pids");
     }
 
-    private static bool Alive(int pid)
-    {
-        try { using var p = Process.GetProcessById(pid); return !p.HasExited && !Zombie(pid); }
-        catch (ArgumentException) { return false; }
-    }
-
-    // A zombie has exited and waits only for its parent to collect it. A killed grandchild is reparented to PID 1, and
-    // in a container whose PID 1 never reaps it stays one, which HasExited (does the pid exist?) reads as running.
-    private static bool Zombie(int pid)
-    {
-        if (!OperatingSystem.IsLinux()) return false;
-        try
-        {
-            var stat = File.ReadAllText($"/proc/{pid}/stat");
-            return stat[(stat.LastIndexOf(')') + 2)..] is ['Z' or 'X', ..];
-        }
-        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or ArgumentOutOfRangeException) { return false; }
-    }
+    private static bool Alive(int pid) => ChildProcesses.Alive(pid);
 
     private static async Task AssertNoneAlive(List<int> pids, List<int>? alsoEnd = null)
     {
@@ -157,8 +139,7 @@ public class AgentUsageProcessTests
         finally
         {
             // only the pids this test's stand-in wrote: a regression must not leave them for the next run
-            foreach (var pid in pids.Concat(alsoEnd ?? []).Where(Alive))
-                try { using var p = Process.GetProcessById(pid); p.Kill(entireProcessTree: true); } catch { /* gone */ }
+            foreach (var pid in pids.Concat(alsoEnd ?? [])) ChildProcesses.End(pid);
         }
     }
 

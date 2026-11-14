@@ -7274,3 +7274,20 @@ failures (a self-exited parent's detached grandchild) are the new `TASKS.md` Par
 
 - `tests/Lyntai.Tests/Processes/ProcessRunnerTests.cs`, `tests/Lyntai.Tests/Agents/AgentUsageProcessTests.cs`
 - the fix entry and the trap
+
+## Part 535 — `TASKS.md` Part 495: the two process-runner grandchild facts that failed on Linux (2026-11-15)
+
+- [x] **Two process-runner grandchild facts fail on Linux.** `ProcessRunnerTests.A_buffered_run_returns_when_a_grandchild_keeps_the_pipes_open_after_the_child_exited`
+  and its streamed twin fail in `mcr.microsoft.com/dotnet/sdk:10.0` before and after the stdin-order fix (`docs/FIXES.md` 2026-11-15): a detached grandchild whose parent
+  exited by itself is reparented to init, beyond the tree kill (`.agents/knowledge/pitfalls.md`, the Unix tree-kill trap). Green on Windows. First step: decide whether the
+  runner should end such a grandchild (a process group or session kill on Unix) or the test asserts what Windows alone can promise; `AssertGrandchildGone` has the same
+  zombie-blind probe the usage tests had.
+
+✅ done 2026-11-15 — **Outcome:** ruled with a Fable design agent (**D376**): the tests assert what Windows alone can promise, and the
+runner adds no Unix reach. A container log showed the child sharing the host's group and session and the `detached` grandchild leading
+its own, so no group or session kill would reach it. A Windows probe that skipped the kill left the grandchild running, so the remaining
+assertion tests the runner. No product code changed: `IProcessRunner` and `ProcessRunner` now say what the tree is, and the zombie-aware
+probe moved into the shared `ChildProcesses` helper. Both facts pass on Linux and Windows. Part 495 is empty and leaves the backlog.
+
+- `tests/Lyntai.Tests/Processes/ProcessRunnerTests.cs`, `tests/Lyntai.Tests/Fakes/ChildProcesses.cs`, `AgentUsageProcessTests`
+- D376, the trap's added line

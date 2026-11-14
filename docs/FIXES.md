@@ -15,7 +15,7 @@ to `.agents/knowledge/pitfalls.md`; the release-facing line goes to `CHANGELOG.m
 
 **Fix.** While the run is being killed (the caller's or the kill token cancelled), `WriteStdinLinesAsync` holds stdin open until the child has exited, bounded at 2 s, then closes it; a run not being killed closes stdin at once, as before. Two test corrections ride with it: the exits-by-itself test asserts only the server (a child a server orphans by exiting is beyond any tree kill on Linux), and the probe reads a `/proc` zombie as ended. The trap is in `.agents/knowledge/pitfalls.md`.
 
-**Verify.** Failed before the change: `A_cancelled_exchange_kills_the_child_before_it_sees_stdin_end` and `An_exchange_ended_by_its_ceiling_kills_the_child_before_it_sees_stdin_end` on Windows, and the two usage facts above on Linux; all pass after, on Windows and on Linux with `--init`, with `dotnet test` as PID 1 and with a PID 1 that never reaps. **Not fixed:** two `ProcessRunnerTests` grandchild-holding-the-pipes facts fail on Linux before and after (`TASKS.md` Part 495).
+**Verify.** Failed before the change: `A_cancelled_exchange_kills_the_child_before_it_sees_stdin_end` and `An_exchange_ended_by_its_ceiling_kills_the_child_before_it_sees_stdin_end` on Windows, and the two usage facts above on Linux; all pass after, on Windows and on Linux with `--init`, with `dotnet test` as PID 1 and with a PID 1 that never reaps. **Not fixed:** two `ProcessRunnerTests` grandchild-holding-the-pipes facts fail on Linux before and after: they assert what only Windows can promise, ruled in **D376** (`docs/task-archive.md` Part 535).
 
 **Introduced by.** `d26224e1` (2026-10-28), the live-stdin writer added for the protocol door; unreleased, so no changelog line.
 

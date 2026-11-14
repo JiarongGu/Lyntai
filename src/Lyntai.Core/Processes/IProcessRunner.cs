@@ -9,6 +9,8 @@ namespace Lyntai.Processes;
 /// sets that variable, and a NULL value REMOVES one the host process holds — an empty string would leave it
 /// set, and a CLI may read a set variable as present. <c>ProcessStartInfo.Environment</c>'s own convention, so
 /// a runner copying the entries into it removes as the shipped one does.</para>
+/// <para>The process TREE a run kills is the child and the descendants reached through a living parent. Off
+/// Windows, a process whose parent already exited, or one that left for its own session, is not reached.</para>
 /// </summary>
 public interface IProcessRunner
 {

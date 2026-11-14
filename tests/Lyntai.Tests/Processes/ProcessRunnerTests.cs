@@ -834,24 +834,21 @@ public class ProcessRunnerTests
         "const c=spawn(process.execPath,['-e','setTimeout(()=>{},40000)'],{detached:true,stdio:['ignore','inherit','inherit']});" +
         "console.log('pid:'+c.pid);console.log('parent-done');c.unref();";
 
-    private static async Task AssertGrandchildGone(string line)
+    // The bounded return is every platform's promise; the grandchild's end is Windows' alone (D376). Off Windows it was
+    // reparented to init when its parent exited, beyond the tree kill, so the test ends it itself.
+    private static async Task AssertGrandchildEndedWhereReachable(string line)
     {
         var pid = int.Parse(line["pid:".Length..]);
         try
         {
+            if (!OperatingSystem.IsWindows()) return;
             var deadline = DateTime.UtcNow.AddSeconds(10);
-            while (DateTime.UtcNow < deadline && IsAlive(pid)) await Task.Delay(100);
-            Assert.False(IsAlive(pid), "the grandchild holding the pipe was left running");
+            while (DateTime.UtcNow < deadline && ChildProcesses.Alive(pid)) await Task.Delay(100);
+            Assert.False(ChildProcesses.Alive(pid), "the grandchild holding the pipe was left running");
         }
         finally
         {
-            try { Process.GetProcessById(pid).Kill(); } catch { /* already gone */ }
-        }
-
-        static bool IsAlive(int pid)
-        {
-            try { return !Process.GetProcessById(pid).HasExited; }
-            catch (ArgumentException) { return false; }
+            ChildProcesses.End(pid);
         }
     }
 
@@ -866,7 +863,7 @@ public class ProcessRunnerTests
         Assert.Equal(0, result.ExitCode);
         Assert.False(result.TimedOut);
         Assert.Contains("parent-done", result.StdOut);
-        await AssertGrandchildGone(result.StdOut.Split('\n').First(l => l.StartsWith("pid:")).Trim());
+        await AssertGrandchildEndedWhereReachable(result.StdOut.Split('\n').First(l => l.StartsWith("pid:")).Trim());
     }
 
     [Fact]
@@ -879,7 +876,7 @@ public class ProcessRunnerTests
 
         Assert.True(sw.Elapsed < TimeSpan.FromSeconds(20), $"took {sw.Elapsed} — the drain is unbounded");
         Assert.Contains("parent-done", lines);
-        await AssertGrandchildGone(lines.First(l => l.StartsWith("pid:")).Trim());
+        await AssertGrandchildEndedWhereReachable(lines.First(l => l.StartsWith("pid:")).Trim());
     }
 
     private static async IAsyncEnumerable<string> OneLineThenThrow()
