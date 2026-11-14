@@ -243,6 +243,7 @@ sealed class Lyntai.Providers.Model2Vec.Model2VecProvider
     static FromDirectory(String directory, Model2VecProviderOptions options = null) : Model2VecProvider
 sealed class Lyntai.Providers.Model2Vec.Model2VecProviderOptions
     .ctor()
+    EmbedWholeText : Boolean { get; set; }
     Id : String { get; set; }
     IncludeUnknownToken : Boolean { get; set; }
     Normalize : Nullable<Boolean> { get; set; }

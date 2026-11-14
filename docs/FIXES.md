@@ -206,7 +206,7 @@ to `.agents/knowledge/pitfalls.md`; the release-facing line goes to `CHANGELOG.m
 
 **Fix.** The weights load into a local and are disposed if the executor throws; `Dispose` waits on the gate, frees, and releases it without disposing it, so a call queued behind it reads `_disposed` and answers `Failed`.
 
-**Verify.** Measured on 2026-11-08 against a 135M GGUF and the CPU backend added to the test project for the run only: the live completion and the new `Dispose_during_a_generation_waits_for_it_and_the_stream_ends_cleanly` pass, and the dispose test is the only one of the two that exercises the change. **Not proved:** the failed-build leak. A `ContextSize` past memory aborts the host natively instead of throwing (`TASKS.md` Part 490), so no executor-build throw was reproduced and that half is read from the code. `A_call_after_Dispose_answers_Failed…` runs without a model.
+**Verify.** Measured on 2026-11-08 against a 135M GGUF and the CPU backend added to the test project for the run only: the live completion and the new `Dispose_during_a_generation_waits_for_it_and_the_stream_ends_cleanly` pass, and the dispose test is the only one of the two that exercises the change. **Not proved:** the failed-build leak. A `ContextSize` past memory aborts the host natively instead of throwing (refused since **D368**), so no executor-build throw was reproduced and that half is read from the code. `A_call_after_Dispose_answers_Failed…` runs without a model.
 
 **Introduced by.** Not traced to a commit.
 
@@ -380,7 +380,7 @@ announces an `init` once; the HTTP door states `Turn` from the events it forward
 
 ## 2026-11-08 — a keyed retry threw once the world had moved, and the faults beside it in the memory-currency write path
 
-**Symptom.** None reported; the rows of `TASKS.md` Part 479 that `docs/task-archive.md` Part 479 left open. A keyed relation, end or supersession repeated after an endpoint
+**Symptom.** None reported; the rows `docs/task-archive.md` Part 479 left open (closed since in `docs/task-archive.md` Part 528). A keyed relation, end or supersession repeated after an endpoint
 ended, a successor was removed or a predecessor was removed threw instead of answering its receipt. A supersession refused for a stale review still advanced the age policy. The
 file store could answer a repeat `Refreshed` for a refresh its memory file never took. A relational supersession with no predecessor stored a successor and a receipt.
 

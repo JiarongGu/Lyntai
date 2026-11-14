@@ -355,14 +355,38 @@ public class MemoryWriteToolsTests : IDisposable
         Assert.Equal((Jan, new DateTimeOffset(2099, 1, 1, 0, 0, 0, TimeSpan.Zero)), (rome.Validity!.From, rome.Validity.To!.Value));
     }
 
-    // The approver reviewed a revision; a model restating the entry's text afterwards must not make that review stale. A SQL store
-    // advances the revision on every write that lands (IEndableMemoryGraphStore), so this holds for the in-process stores.
+    // The host's metadata on an entry survives a model restating its text: the tool's stamp lands on a new entry only, as its grade does.
+    [Theory]
+    [InlineData("memory")]
+    [InlineData("file")]
+    [InlineData("sqlite")]
+    public async Task Remember_OfAHostEntrysText_KeepsItsMetadata(string store)
+    {
+        using var sp = Build(options: new MemoryWriteToolOptions { Metadata = new Dictionary<string, string> { ["by"] = "agent-7" } },
+            store: Store(store));
+        var engine = sp.GetRequiredService<IMemoryEngineFactory>().Get(Engine);
+        await engine.RememberAsync(new MemoryWrite("t", "s", "the client's deploy key rotates monthly",
+            Metadata: new Dictionary<string, string> { ["source"] = "runbook" }));
+
+        await CallAsync(sp, "project_graph_remember", """{"content":"the client's deploy key rotates monthly"}""");
+        await CallAsync(sp, "project_graph_remember", """{"content":"the client's office is in Oslo"}""");
+
+        var held = (await engine.RecallAsync(new MemoryQuery("t", "s", "client", Detail: MemoryDetail.Full))).Items;
+        var host = held.Single(i => i.Content!.Contains("deploy", StringComparison.Ordinal)).Metadata!;
+        Assert.Equal(("runbook", false), (host["source"], host.ContainsKey("by")));
+        Assert.Equal("agent-7", held.Single(i => i.Content!.Contains("Oslo", StringComparison.Ordinal)).Metadata!["by"]);
+    }
+
+    // The approver reviewed a revision; a model restating the entry's text afterwards must not make that review stale, stamp or no
+    // stamp. A SQL store advances the revision on every write that lands (IEndableMemoryGraphStore), so this holds for the in-process
+    // stores.
     [Theory]
     [InlineData("memory")]
     [InlineData("file")]
     public async Task Remember_OfALiveEntrysText_LeavesItsRevision(string store)
     {
-        using var sp = Build(b => b.AddMemoryChangeApprover<Approves>(), store: Store(store));
+        using var sp = Build(b => b.AddMemoryChangeApprover<Approves>(),
+            new MemoryWriteToolOptions { Metadata = new Dictionary<string, string> { ["by"] = "agent-7" } }, store: Store(store));
         var engine = sp.GetRequiredService<IMemoryEngineFactory>().Get(Engine);
         await engine.RememberAsync(new MemoryWrite("t", "s", "the client's deploy key rotates monthly", Grade: MemoryGrade.Authoritative)
         { ValidFrom = Jan });
@@ -372,6 +396,106 @@ public class MemoryWriteToolsTests : IDisposable
 
         Assert.Equal(read.Revision, (await ReadAsync(sp, "deploy key")).Revision);
         var ended = await CallAsync(sp, "project_graph_end", $$"""{"ref":"{{read.Ref}}","revision":"{{read.Revision}}","reason":"rotated weekly now"}""");
+        Assert.Equal("Applied", ended.GetProperty("status").GetString());
+    }
+
+    // An instant a model states and the tool cannot read is refused naming the field and what was passed, never read as absent: an
+    // unreadable bound would be stored unbounded, which the model would believe it had bounded.
+    [Theory]
+    [InlineData("validFrom", "\"next tuesday\"", "'validFrom' is 'next tuesday'")]
+    [InlineData("validTo", "\"2026-13-45T00:00:00Z\"", "'validTo' is '2026-13-45T00:00:00Z'")]
+    [InlineData("validFrom", "20260101", "'validFrom' is '20260101'")]
+    [InlineData("validTo", "{\"year\":2026}", "'validTo' is '{\"year\":2026}'")]
+    [InlineData("validFrom", "\"\"", "'validFrom' is ''")]
+    [InlineData("validTo", "\"   \"", "'validTo' is '   '")]
+    public async Task Remember_StatingAnUnreadableInstant_IsRefusedNamingTheField(string field, string value, string named)
+    {
+        using var sp = Build(options: new MemoryWriteToolOptions { ModelMayStateValidity = true });
+        var engine = sp.GetRequiredService<IMemoryEngineFactory>().Get(Engine);
+
+        var refused = await CallAsync(sp, "project_graph_remember", $$"""{"content":"the client lives in Rome","{{field}}":{{value}}}""");
+
+        var error = refused.GetProperty("error").GetString()!;
+        Assert.StartsWith(named, error, StringComparison.Ordinal);
+        Assert.Contains("not an ISO 8601 instant such as 2026-11-15T09:30:00Z", error, StringComparison.Ordinal);
+        Assert.Empty((await engine.RecallAsync(new MemoryQuery("t", "s", "Rome") { Validity = MemoryValidityReading.History })).Items);
+    }
+
+    [Fact]
+    public async Task Remember_StatingALongUnreadableInstant_QuotesItCapped()
+    {
+        using var sp = Build(options: new MemoryWriteToolOptions { ModelMayStateValidity = true });
+
+        var refused = await CallAsync(sp, "project_graph_remember",
+            $$"""{"content":"the client lives in Rome","validFrom":"{{new string('9', 5000)}}"}""");
+
+        var error = refused.GetProperty("error").GetString()!;
+        Assert.StartsWith("'validFrom' is '999", error, StringComparison.Ordinal);
+        Assert.True(error.Length < 300, $"the refusal quotes {error.Length} characters");
+    }
+
+    // JSON null is absent, as an omitted field is; a readable instant is taken as before.
+    [Fact]
+    public async Task Remember_StatingANullInstant_ReadsItAsAbsent()
+    {
+        using var sp = Build(options: new MemoryWriteToolOptions { ModelMayStateValidity = true });
+        var engine = sp.GetRequiredService<IMemoryEngineFactory>().Get(Engine);
+
+        var written = await CallAsync(sp, "project_graph_remember",
+            """{"content":"the client lives in Rome","validFrom":null,"validTo":"2099-01-01T00:00:00Z"}""");
+
+        Assert.True(written.TryGetProperty("ref", out _));
+        var rome = (await engine.RecallAsync(new MemoryQuery("t", "s", "Rome"))).Items.Single();
+        Assert.Equal(((DateTimeOffset?)null, new DateTimeOffset(2099, 1, 1, 0, 0, 0, TimeSpan.Zero)), (rome.Validity!.From, rome.Validity.To!.Value));
+    }
+
+    // Where the host has not let a model state valid time, the refusal says so, whatever was passed.
+    [Fact]
+    public async Task Remember_StatingAnUnreadableInstant_WhereValidityIsTheHosts_IsRefusedAsValidity()
+    {
+        using var sp = Build();
+
+        var refused = await CallAsync(sp, "project_graph_remember", """{"content":"the client lives in Rome","validTo":"soon"}""");
+
+        var error = refused.GetProperty("error").GetString()!;
+        Assert.Contains("project_graph_end", error, StringComparison.Ordinal);
+        Assert.DoesNotContain("ISO 8601", error, StringComparison.Ordinal);
+    }
+
+    [Theory]
+    [InlineData("\"yesterday\"", "'at' is 'yesterday'")]
+    [InlineData("1767225600", "'at' is '1767225600'")]
+    [InlineData("\"\"", "'at' is ''")]
+    public async Task End_WithAnUnreadableAt_IsRefusedAndEndsNothing(string value, string named)
+    {
+        using var sp = Build(b => b.AddMemoryChangeApprover<Approves>());
+        await CallAsync(sp, "project_graph_remember", """{"content":"the client lives in Paris"}""");
+        var paris = await ReadAsync(sp, "Paris");
+
+        var refused = await CallAsync(sp, "project_graph_end",
+            $$"""{"ref":"{{paris.Ref}}","revision":"{{paris.Revision}}","reason":"moved","at":{{value}}}""");
+
+        var error = refused.GetProperty("error").GetString()!;
+        Assert.StartsWith(named, error, StringComparison.Ordinal);
+        Assert.Contains("not an ISO 8601 instant", error, StringComparison.Ordinal);
+        Assert.Equal(paris.Revision, (await ReadAsync(sp, "Paris")).Revision);
+    }
+
+    // An unreadable `at` far in the future is refused for what it is, not as a future instant; a null one ends now.
+    [Fact]
+    public async Task End_WithAnUnreadableFutureAt_IsRefusedAsUnreadable_AndANullAtEndsNow()
+    {
+        using var sp = Build(b => b.AddMemoryChangeApprover<Approves>(),
+            new MemoryWriteToolOptions { Clock = new FixedTime(new DateTimeOffset(2026, 7, 1, 0, 0, 0, TimeSpan.Zero)) });
+        await CallAsync(sp, "project_graph_remember", """{"content":"the client lives in Paris"}""");
+        var paris = await ReadAsync(sp, "Paris");
+
+        var unreadable = await CallAsync(sp, "project_graph_end",
+            $$"""{"ref":"{{paris.Ref}}","revision":"{{paris.Revision}}","reason":"moving","at":"2099-02-30T00:00:00Z"}""");
+        Assert.Contains("not an ISO 8601 instant", unreadable.GetProperty("error").GetString()!, StringComparison.Ordinal);
+
+        var ended = await CallAsync(sp, "project_graph_end",
+            $$"""{"ref":"{{paris.Ref}}","revision":"{{paris.Revision}}","reason":"moved","at":null}""");
         Assert.Equal("Applied", ended.GetProperty("status").GetString());
     }
 

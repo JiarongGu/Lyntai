@@ -441,8 +441,11 @@ new decision overturns an old one, rewrite the old entry as a stub pointing here
 | [D369](#d369--a-comfyui-run-in-neither-its-queue-nor-its-history-is-lost-and-a-queued-stage-may-bound-its-polling-2026-11-15) | 2026-11-15 | a ComfyUI run in neither its queue nor its history is lost, and a queued stage may bound its polling |
 | [D370](#d370--a-backend-render-is-cancelled-by-the-hosts-call-and-comfyuis-cancel-reaches-only-its-own-id-2026-11-15) | 2026-11-15 | a backend render is cancelled by the host's call, and ComfyUI's cancel reaches only its own id |
 | [D371](#d371--the-ledger-records-a-queued-renders-bill-once-per-operation-through-an-optional-capability-2026-11-15) | 2026-11-15 | the ledger records a queued render's bill once per operation, through an optional capability |
+| [D372](#d372--a-write-tools-remember-keeps-a-held-entrys-metadata-as-it-keeps-its-grade-2026-11-15) | 2026-11-15 | a write tool's remember keeps a held entry's metadata, as it keeps its grade |
+| [D373](#d373--a-write-tool-refuses-a-stated-instant-it-cannot-read-naming-the-field-2026-11-15) | 2026-11-15 | a write tool refuses a stated instant it cannot read, naming the field |
+| [D374](#d374--model2vec-cuts-a-text-as-the-reference-does-with-an-opt-out-2026-11-15) | 2026-11-15 | Model2Vec cuts a text as the reference does, with an opt-out |
 
-**366 live decisions.** The rest are stubs — `D<n>` is a permanent identifier, so a number is never reused or renumbered (5): [D36](#d36--a-translation-between-two-verdict-taxonomies-gets-one-arm-per-member-gated-by-a-test-2026-08-05) → D136 · [D80](#d80--merged-into-d77-2026-08-16-folded-2026-08-17) → D77 · [D131](#d131--a-backends-produces-is-derived-from-its-configuration-so-a-modality-is-a-field-2026-09-14) → D133 · [D134](#d134--a-registration-names-the-backend-the-provider-suffix-is-gone-from-all-seventeen-2026-09-14) → D137 · [D145](#d145--the-microsoftextensionsai-module-is-a-bridge-not-a-provider-2026-09-15) → D146
+**369 live decisions.** The rest are stubs — `D<n>` is a permanent identifier, so a number is never reused or renumbered (5): [D36](#d36--a-translation-between-two-verdict-taxonomies-gets-one-arm-per-member-gated-by-a-test-2026-08-05) → D136 · [D80](#d80--merged-into-d77-2026-08-16-folded-2026-08-17) → D77 · [D131](#d131--a-backends-produces-is-derived-from-its-configuration-so-a-modality-is-a-field-2026-09-14) → D133 · [D134](#d134--a-registration-names-the-backend-the-provider-suffix-is-gone-from-all-seventeen-2026-09-14) → D137 · [D145](#d145--the-microsoftextensionsai-module-is-a-bridge-not-a-provider-2026-09-15) → D146
 
 <!-- index:end -->
 
@@ -3633,9 +3636,9 @@ resources of the application's own model"*.
 **12** on a purely embedding-bound selective task. **How much an embedder is worth is a property of the
 ARM**, which is why both figures ship rather than the headline alone.
 
-**It has no context limit**, unlike every sub-100 MB transformer embedder, which reject an input past 512
-tokens: a lookup table has no positional embeddings, so a long document is more rows to average. That is
-the one capability this class has over its transformer neighbour and it is not a small one.
+**It needs no context limit**, unlike every sub-100 MB transformer embedder, which reject an input past 512
+tokens: a lookup table has no positional embeddings, so a long document is more rows to average. By default it
+still cuts a text where the reference `model2vec` does (**D374**), and `EmbedWholeText` keeps that capability.
 
 **The GPU column stays unbuilt.** STATIC × GPU has no matmul to accelerate, and a CUDA backend would be the
 library choosing the user's hardware — what **D68** refuses. If a GPU cell is ever built it is DirectML,
@@ -7717,7 +7720,7 @@ recall and its write-back is already a silent skip).
 
 ## D269 — the Onnx reader refuses an export it cannot run, reads a RoBERTa export's padding offset, and caps a pass at 128 rows (2026-11-09)
 
-**Standing.** Four rulings on `TASKS.md` Part 490's rows, **the steward's under the owner's delegation, which the owner may reverse** — not the owner's words. Built, and frozen from release (**D70**).
+**Standing.** Four rulings on `docs/task-archive.md` Part 511's rows, **the steward's under the owner's delegation, which the owner may reverse** — not the owner's words. Built, and frozen from release (**D70**).
 
 **Decided.**
 - **An explicit unsupported declaration** (`pooling_mode_lasttoken`, `_max_tokens`, `_weightedmean_tokens`, a `pooling_mode` outside cls, mean and mean_sqrt_len_tokens, or a `modules.json` entry other than Transformer, Pooling and Normalize, such as `Dense`) throws `InvalidDataException` from `OnnxProvider.FromDirectory`. An absent or unreadable file keeps its default, and an explicit `OnnxProviderOptions.Pooling` (or a cross-encoder) skips the check.
@@ -7733,7 +7736,7 @@ recall and its write-back is already a silent skip).
 
 ## D270 — Model2Vec divides by the rows it read, and a `ContextSize` the machine cannot hold is the host's to bound (2026-11-09)
 
-**Standing.** Two rulings on `TASKS.md` Part 490's rows, **the steward's under the owner's delegation, which the owner may reverse** — not the owner's words. Built, and frozen from release (**D70**).
+**Standing.** Two rulings on `docs/task-archive.md` Part 511's rows, **the steward's under the owner's delegation, which the owner may reverse** — not the owner's words. Built, and frozen from release (**D70**).
 
 **Decided.** `SafetensorsTable.AccumulateInto` returns whether it read a row and `Model2VecProvider` counts only those, so a vocabulary longer than the table dilutes nothing. `LlamaSharpOptions.ContextSize` states in its doc that the host bounds it, because a value past memory aborts the host process natively; a value past the model's trained context is refused (**D368**), and the unknown token is left out of the mean (**D367**).
 
@@ -8833,7 +8836,7 @@ recall and its write-back is already a silent skip).
 
 **Rejected.** Keeping a stated end and a stronger grade in the stores themselves (a new store field on four stores and the implementer contract, not the smallest fix). The tool writing an inherited grade (an annotator's suggestion could make a first write authoritative). Dropping a stated bound silently (the model would believe it held).
 
-**Re-opens** when a host needs a model to state valid time by default, or the tool's metadata stamp on a held entry is ruled (it still replaces the stored bag, `TASKS.md` Part 479).
+**Re-opens** when a host needs a model to state valid time by default, The metadata stamp on a held entry is ruled the same way by **D372**.
 
 ## D362 — an ended entry stays ended: a restated claim neither reopens it nor takes anything over (2026-11-15)
 
@@ -8905,7 +8908,7 @@ recall and its write-back is already a silent skip).
 
 **Rejected.** Keeping the row as the table was built with it (the reference never reads it at inference). Skipping with no opt-out (a forced re-embed for every deployment). Skipping only on an opt-in (the wrong default would live on).
 
-**Re-opens** if the reference starts pooling the unknown token. Its 512-token truncation, which this provider does not apply, is `TASKS.md` Part 490's row.
+**Re-opens** if the reference starts pooling the unknown token. Its cut to `max_length`, which drops the unknown token after the cut, is **D374**.
 
 ## D368 — a LlamaSharp `ContextSize` past the trained context is refused after the weights load, before any native context (2026-11-15)
 
@@ -8954,3 +8957,39 @@ recall and its write-back is already a silent skip).
 **Rejected.** The tool owning de-duplication (it cannot see the engine's bills). A member on `IUsageTracker` (every host tracker would break). Clearing keys on reset (a re-fetch after a window boundary would bill again). Automatic expiry (how long a key must live is how long the host lets an operation be fetched).
 
 **Re-opens** when a ledger needs keys per consumer, or a host's operations outlive any prune interval it can choose.
+
+## D372 — a write tool's remember keeps a held entry's metadata, as it keeps its grade (2026-11-15)
+
+**Standing.** A ruling on a row closed as `docs/task-archive.md` Part 532 (the metadata stamp), read by the agent that built it with a Fable design agent; the owner may reverse it. Built.
+
+**Decided.** `MemoryWrite.KeepStoredMetadata` (init, default false), as `KeepStoredGrade` is: a write landing on a held entry keeps the bag stored there, or none, and a new entry takes the write's. `<prefix>_remember` sets it, so the tool's stamp lands on a new entry only. `GraphNodeWrite.KeepStoredMetadata` carries it to `MemoryGraphState.Refresh` and both SQL upserts, and the keyed fingerprints fold it in only when set. The relational stores still advance a revision on any refresh, so there a restatement moves the revision, stamp or no stamp.
+
+**Why.** Content is identity (**D241**), so a model's restatement lands on the host's entry, and the stamp replaced the host's bag and moved its revision, staling a pending review; **D361** kept the grade for the same reason.
+
+**Rejected.** Merging the stamp into the stored bag (it still changes the entry and needs a rule for which key wins). Replacing as documented (**D361** refused it for the grade). The engine reading then writing (a race the store's one statement has not). Keeping unconditionally (metadata write-once again, against **D91**).
+
+**Re-opens** when a host needs the stamp on a restated entry, or the relational stores stop advancing a revision on a refresh that changes nothing.
+
+## D373 — a write tool refuses a stated instant it cannot read, naming the field (2026-11-15)
+
+**Standing.** A ruling on a row closed as `docs/task-archive.md` Part 532 (a malformed instant), read by the agent that built it with a Fable design agent; the owner may reverse it. Built.
+
+**Decided.** The write tools read `validFrom`, `validTo` and `at` as a try-form: absent or JSON null is none, and a non-string, a blank or an unparseable string answers an error naming the field and quoting at most 64 characters of it, and writes nothing. On remember the `ModelMayStateValidity` refusal still comes first; on end the check precedes the after-now test. The parse itself stays as lenient as it was.
+
+**Why.** Read leniently, an unparseable `at` ended an entry now and an unparseable bound stored it unbounded, with nothing back to a model that believed its statement held, and **D361**'s rule is "refused, never dropped".
+
+**Rejected.** Reading it as absent and saying so in the schema (a model that misspells a date never learns it did). Narrowing the parse to strict ISO 8601 (spellings that parse unambiguously today would start failing, which no row found).
+
+**Re-opens** when a host needs a model's relative instants ("yesterday") read, which is a parser the library would own.
+
+## D374 — Model2Vec cuts a text as the reference does, with an opt-out (2026-11-15)
+
+**Standing.** A ruling on a row closed as `docs/task-archive.md` Part 532 (the reference's cut), read by the agent that built it with a Fable design agent; the owner may reverse it. Built.
+
+**Decided.** `Model2VecProvider` cuts a text to its first `max_length` × median-token-length code points, then to its first `max_length` tokens, and drops the unknown id after that (**D367**); `max_length` is `config.json`'s (512 when it names none, no cut when it is null) and the median is over the vocabulary's distinct tokens. `Model2VecProviderOptions.EmbedWholeText` (default false) pools every token, as earlier releases did.
+
+**Why.** The reference `StaticModel` at `v0.10.0` (`_encode_dispatch`, `tokenize` and `_loading_helper` in `model2vec/model.py`) does exactly this, so a long text embedded there and here disagreed, and the order matters (dropping the unknown id first would keep other tokens). One release with **D367** asks one re-embed decision, not two; a live test on potion-base-8M pins the 512-token cut.
+
+**Rejected.** Embedding the whole text and documenting the difference (a long query here never matches a reference corpus). Cutting on tokens alone (the character pre-cut changes which tokens survive). No opt-out (a forced re-embed for every deployment).
+
+**Re-opens** if the reference changes its cut, or a host needs a `max_length` other than its model's config states.

@@ -15,25 +15,22 @@ LLM-ops layer (prompt registry, scoring, traces, memory). `AddLyntai(...)` and g
 
 <!-- open-items:begin — GENERATED. Edit the per-item `item:` markers, never this table. -->
 
-## Open items — 12 across 10 Parts: 2 startable, 6 blocked, 1 watch, 3 decision-only
+## Open items — 9 across 8 Parts: 2 startable, 6 blocked, 1 watch
 
 _Generated from the per-item `<!-- item: … -->` markers by `node devtools/dev.mjs check-backlog --write`._
 _Edit a marker, never this table — `verify` fails the moment the two disagree._
 
 | line | Part | item | state | waiting on |
 | ---: | ---: | --- | --- | --- |
-| 113 | 33 | GEN-VERIFY-FAL, the last line — the Hugging Face route | blocked · env | an hf_ token for the router route; re-checked 2026-11-15, none on this mach… |
-| 154 | 75 | Decide what an aggregator's in-band `code` means | blocked · env+data | two or three real aggregators to measure an in-band code against; re-checke… |
-| 181 | 99 | `verify`'s test step intermittently fails EXACTLY 9 tests, and once aborted… | watch · data | the same nine tests to recur — the fix is unconfirmed as the cure, and a gr… |
-| 255 | 417 | MC8 — run the wrong-end instrument on an adjudicated corpus, with a bar wri… | blocked · decision+data | two reviewers' independent labels on a sample of the pairs, and a bar a per… |
-| 280 | 479 | A write tool's metadata stamp replaces a held entry's stored bag on a refre… | decision-only | a ruling: keep a held entry's stored metadata on a refresh (the shape of D3… |
-| 283 | 479 | A stated but malformed `validFrom`, `validTo` or `at` is read as absent | decision-only | a ruling: refuse a stated instant that does not parse, naming the field, or… |
-| 293 | 481 | A rejected limit is never cleared inside a turn | blocked · data | a capture of the CLI sending a rejected rate_limit_event and then an allowe… |
-| 304 | 485 | How long a quiet Codex step runs is unmeasured | blocked · env | one real Codex turn on an account with room: re-checked 2026-11-15, the own… |
-| 316 | 490 | `Model2VecProvider` embeds a text of any length, where the reference trunca… | decision-only | a ruling: truncate to the reference's 512 (or the config's max_length) with… |
-| 325 | 495 | Two usage-process lifetime facts fail on Linux | startable |  |
-| 334 | 518 | AG50 — a kept run on `codex-acp` and dsh (A-LQ19) | blocked · data | Daoris's recorded Codex sitting and dsh probe frames; re-checked 2026-11-15… |
-| 336 | 518 | AG51 — a kept run on the Claude CLI with stdin held (A-LQ21) | startable |  |
+| 110 | 33 | GEN-VERIFY-FAL, the last line — the Hugging Face route | blocked · env | an hf_ token for the router route; re-checked 2026-11-15, none on this mach… |
+| 151 | 75 | Decide what an aggregator's in-band `code` means | blocked · env+data | two or three real aggregators to measure an in-band code against; re-checke… |
+| 178 | 99 | `verify`'s test step intermittently fails EXACTLY 9 tests, and once aborted… | watch · data | the same nine tests to recur — the fix is unconfirmed as the cure, and a gr… |
+| 252 | 417 | MC8 — run the wrong-end instrument on an adjudicated corpus, with a bar wri… | blocked · decision+data | two reviewers' independent labels on a sample of the pairs, and a bar a per… |
+| 275 | 481 | A rejected limit is never cleared inside a turn | blocked · data | a capture of the CLI sending a rejected rate_limit_event and then an allowe… |
+| 286 | 485 | How long a quiet Codex step runs is unmeasured | blocked · env | one real Codex turn on an account with room: re-checked 2026-11-15, the own… |
+| 298 | 495 | Two usage-process lifetime facts fail on Linux | startable |  |
+| 307 | 518 | AG50 — a kept run on `codex-acp` and dsh (A-LQ19) | blocked · data | Daoris's recorded Codex sitting and dsh probe frames; re-checked 2026-11-15… |
+| 309 | 518 | AG51 — a kept run on the Claude CLI with stdin held (A-LQ21) | startable |  |
 
 <!-- open-items:end -->
 
@@ -268,21 +265,6 @@ unreleased until a release carries it (**D70**, **D235**). **What a YES does to 
   `docs/memory-measurements.md` §5 as one whose proposal a host may confirm by review of a bounded claim pair; **a NO changes nothing** and is
   recorded as a refutation. **Stop rule.** The first actionable rate stops the instrument; no run is spent after it.
 
-## Part 479 — what the 2026-11-07 review of the memory-currency layer found and did not fix yet
-
-_Opened by `docs/task-archive.md` **Part 479**: three read-only reviews of what MC1 to MC12 built (the relational receipt and
-supersession runners, the file and in-process stores, and the engine, the gate, the write tools and the view), each finding read
-against the code before it was filed. The certain and small ones closed with a test in that Part. What stays needs a design
-choice, or is a crash window to close with a store test of its own. Lanes `memory` and `storage`._
-
-_The seven rows it opened with are built (`docs/task-archive.md` Part 528, **D361** to **D366**); the two below were found by that build._
-
-- [ ] **A write tool's metadata stamp replaces a held entry's stored bag on a refresh.** `MemoryGraphState.Refresh` takes the write's <!-- item: state=decision-only needs="a ruling: keep a held entry's stored metadata on a refresh (the shape of D361's grade rule), merge the stamp into it, or keep replacing it as documented" -->
-  non-empty `Metadata` over the stored one, and the SQL upserts `COALESCE(@metadata, …)`, so a model restating a host entry's text overwrites
-  the host's metadata and moves its revision, which makes a pending review stale. **D361** kept the grade for the same reason and left this.
-- [ ] **A stated but malformed `validFrom`, `validTo` or `at` is read as absent.** The write tools parse an instant leniently, so a model's <!-- item: state=decision-only needs="a ruling: refuse a stated instant that does not parse, naming the field, or keep reading it as absent and say so in the schema" -->
-  unparseable `at` on the end tool becomes "now" and an unparseable bound becomes "unbounded", with no error back to the model.
-
 ## Part 481 — what the 2026-11-08 review of the Claude door and the agent core found and did not fix yet
 
 _Opened by `docs/task-archive.md` **Part 481**; its five startable rows closed in `docs/task-archive.md` **Part 482**, leaving the five that need a ruling. Two read-only reviews of what the earlier agent-layer review did not read — the Claude
@@ -307,15 +289,6 @@ was filed. Three closed in that Part. What stays needs a measurement against a r
   answers it (`codex exec --json --sandbox read-only` asked to sleep 120 s, each line timestamped): no line between the command's `item.started` and
   `item.completed` means the window must cover the longest step, which only the host knows (`LyntaiOptions.AgentTimeout`); lines between mean
   15 minutes bounds true inactivity.
-
-## Part 490 — what the 2026-11-08 review of the local inference backends found and did not fix yet
-
-_Opened by `docs/task-archive.md` **Part 488**: a read-only review of `Lyntai.Providers.Onnx`, `LlamaSharp`, `Model2Vec`, `Text`, `Diagnostics` and `Prompts`. The certain and small findings closed in
-that Part (the `JsonExtract` first-brace row was already filed in Part 487). A row resting on a reference implementation says so. Lane `inference`. Five of its rows closed and one narrowed in `docs/task-archive.md` Part 511._
-
-- [ ] **`Model2VecProvider` embeds a text of any length, where the reference truncates to 512 tokens.** `model2vec` `v0.10.0` truncates to its <!-- item: state=decision-only needs="a ruling: truncate to the reference's 512 (or the config's max_length) with an opt-out, as D367 matched the unknown token, which moves the vectors of long texts already stored, or keep embedding the whole text and say it differs from the reference" -->
-  `DEFAULT_MAX_LENGTH = 512` when the model's `config.json` names no `max_length` (potion-base-8M's does not), and this provider documents and tests "no context limit",
-  so a text past 512 tokens embeds differently here and there. Read by the builder of `docs/task-archive.md` Part 529 beside the unknown-token row (**D367**).
 
 ## Part 495 — what the 2026-11-08 review of the one-shot CLI providers and the agent briefs found and did not fix yet
 

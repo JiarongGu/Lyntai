@@ -126,8 +126,9 @@ public sealed class SqliteMemoryGraphStore(
                               grade = CASE WHEN @gradeStated THEN @grade ELSE lyntai_memory_node.grade END,
                               signals = COALESCE(@signals, lyntai_memory_node.signals),
                               -- an ABSENT metadata bag is "no opinion" and keeps what is stored; a supplied
-                              -- one REPLACES it (D91)
-                              metadata = COALESCE(@metadata, lyntai_memory_node.metadata),
+                              -- one REPLACES it (D91), unless the write keeps it for a new entry only
+                              metadata = CASE WHEN @keepMetadata THEN lyntai_memory_node.metadata
+                                              ELSE COALESCE(@metadata, lyntai_memory_node.metadata) END,
                               salience = CASE WHEN @signals IS NULL THEN lyntai_memory_node.salience ELSE @salience END,
                               difficulty = CASE WHEN @hasDifficultySignal THEN @difficulty ELSE lyntai_memory_node.difficulty END,
                               -- provenance_salience follows signals' own "empty incoming keeps what's
@@ -155,7 +156,7 @@ public sealed class SqliteMemoryGraphStore(
             engine = write.Engine, taskKey = write.TaskKey, scope = write.Scope,
             headline = write.Headline, content = write.Content, hash, grade = (int)write.Grade,
             metadata, signals, salience, difficulty, hasDifficultySignal, now, position = totals.Position,
-            gradeStated = write.GradeStated, headlineStated = write.HeadlineStated,
+            gradeStated = write.GradeStated, headlineStated = write.HeadlineStated, keepMetadata = write.KeepStoredMetadata,
             validFrom = write.ValidFrom?.ToUniversalTime(), validTo = write.ValidTo?.ToUniversalTime(),
             validFromIfUnset = write.ValidFromIfUnset?.ToUniversalTime(), recheck = write.Recheck,
             stability = write.InitialStability, ordinal = totals.Ordinal, chars = totals.Chars,

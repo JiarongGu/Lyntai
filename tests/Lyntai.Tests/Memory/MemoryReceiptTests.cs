@@ -67,6 +67,26 @@ public class MemoryReceiptTests
         Assert.Equal(MemoryOperationOutcome.Refreshed, landed.Receipt!.Outcome);
     }
 
+    // Keeping the stored metadata is part of what a write stated, so a repeat that drops it is another call; it is folded in only when
+    // set, so every other write's fingerprint, and every receipt already stored, is as it was.
+    [Fact]
+    public async Task A_keyed_write_that_keeps_the_stored_metadata_fingerprints_apart_from_one_that_does_not()
+    {
+        var store = new InMemoryMemoryGraphStore();
+        var engine = Build(store);
+        var stamp = new Dictionary<string, string> { ["by"] = "agent-7" };
+        var keeps = Fact("lives in Paris", "k1") with { Metadata = stamp, KeepStoredMetadata = true };
+
+        await engine.RememberAsync(keeps);
+        Assert.True((await engine.RememberAsync(keeps)).Receipt!.Replayed);
+        await Assert.ThrowsAsync<MemoryKeyConflictException>(() => engine.RememberAsync(keeps with { KeepStoredMetadata = false }));
+
+        await engine.RememberAsync(Fact("lives in Rome", "k2") with { Metadata = stamp });
+        var held = await store.ReceiptAsync(Name, "t", "k2", Jan);
+        Assert.Equal(MemoryFingerprint.Of(MemoryOperationKind.Remember, Name, "t", "s", "lives in Rome", null, MemoryGrade.Inherit,
+            MemoryFingerprint.Bag(stamp), null, null, null), held!.Fingerprint);
+    }
+
     [Fact]
     public async Task A_key_reused_for_other_content_or_another_call_is_refused_and_applies_nothing()
     {

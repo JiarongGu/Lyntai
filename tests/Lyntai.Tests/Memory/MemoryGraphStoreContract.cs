@@ -1971,6 +1971,37 @@ public static class MemoryGraphStoreContract
         Assert.DoesNotContain("stale", node.Metadata.Keys);
     }
 
+    /// <summary><b>A write that keeps the stored metadata stamps a NEW entry only</b> (<see cref="GraphNodeWrite.KeepStoredMetadata"/>):
+    /// on a held entry its bag lands neither over the stored one nor into an entry that holds none, as
+    /// <see cref="GraphNodeWrite.GradeStated"/> keeps a grade. The write tools' stamp is the case: a model restating a host's entry
+    /// must not overwrite what the host recorded on it.</summary>
+    public static async Task A_write_that_keeps_the_stored_metadata_stamps_a_new_entry_only(IMemoryGraphStore store, string key)
+    {
+        const string engine = "keepmeta";
+        const string hosts = "the production database is db-prod-1";
+        const string bare = "the staging database is db-stage-2";
+        var stamp = new Dictionary<string, string> { ["by"] = "agent-7" };
+        GraphNodeWrite Stamped(string content) =>
+            new(engine, key, "s", content, content, MemoryGrade.Associative, Stability, 1, stamp) { KeepStoredMetadata = true };
+
+        var held = await store.UpsertAsync(new GraphNodeWrite(engine, key, "s", hosts, hosts, MemoryGrade.Associative, Stability, 1,
+            new Dictionary<string, string> { ["source"] = "runbook", ["owner"] = "ops" }));
+        var unstamped = await store.UpsertAsync(Write(engine, key, bare));
+
+        Assert.Equal(held, await store.UpsertAsync(Stamped(hosts)));
+        Assert.Equal(unstamped, await store.UpsertAsync(Stamped(bare)));
+        var fresh = await store.UpsertAsync(Stamped("the archive database is db-old-3"));
+
+        var kept = (await store.GetAsync(engine, held))!.Metadata!;
+        Assert.Equal(["owner=ops", "source=runbook"], kept.Select(p => $"{p.Key}={p.Value}").Order(StringComparer.Ordinal));
+        Assert.True((await store.GetAsync(engine, unstamped))!.Metadata is null or { Count: 0 });
+        Assert.Equal("agent-7", (await store.GetAsync(engine, fresh))!.Metadata!["by"]);
+
+        // without it, a supplied bag still replaces the stored one (D91)
+        await store.UpsertAsync(Stamped(hosts) with { KeepStoredMetadata = false });
+        Assert.Equal(["by"], (await store.GetAsync(engine, held))!.Metadata!.Keys);
+    }
+
     /// <summary><b>Every shipped store can COUNT what it holds, inside one engine and task</b>
     /// (<see cref="ICountableMemoryGraphStore"/>): entries, the authoritative among them, the stored edges leaving
     /// them, and the distinct subject handles in use — the same set <see cref="IMemoryGraphStore.KnownSubjectsAsync"/>

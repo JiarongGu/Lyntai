@@ -26,6 +26,11 @@ every addition.
   text of only such words was that row rather than the zero vector. `Model2VecProviderOptions.IncludeUnknownToken` keeps the old mean, and
   `WordPieceTokenizer.UnknownId` names the id. **A host with vectors this provider stored must re-embed them, set
   `IncludeUnknownToken = true`, or declare a new `UseVectorSpace` id.**
+- **Model2Vec cuts a long text as the reference `model2vec` does** (**D374**). Through 3.5.3 `Model2VecProvider` pooled every token of
+  a text, where the reference pools at most its model's `max_length` (512 when `config.json` names none, as potion-base-8M's does not):
+  the first `max_length` × median-token-length characters, then the first `max_length` tokens, the unknown one dropped after that.
+  `Model2VecProviderOptions.EmbedWholeText` keeps the whole text. **A host with vectors this provider stored for texts past the cut must
+  re-embed them, set `EmbedWholeText = true`, or declare a new `UseVectorSpace` id.**
 - **A LlamaSharp `ContextSize` past the model's trained context is refused** (**D368**). Through 3.5.3 it reached the native context: a
   modest overage ran with llama.cpp's overflow warning, and a size the machine could not hold killed the host process with no verdict. The
   provider now compares it with the trained context the loaded weights state and answers `Failed` before any native context exists. A
@@ -684,7 +689,9 @@ every addition.
   `disputes` and `amends` apply alone; `supersedes` and the end tool go through the approver, bound to the revision read. A remember
   that lands on a held entry keeps its grade (`MemoryWrite.KeepStoredGrade`), the tool states no `validFrom` or `validTo` unless
   `MemoryWriteToolOptions.ModelMayStateValidity` (a call passing one is refused, naming the end tool), and the end tool refuses an `at`
-  after now by `MemoryWriteToolOptions.Clock` (**D361**, **D363**). An ended entry stays ended: a refresh keeps its bounds, and a
+  after now by `MemoryWriteToolOptions.Clock` (**D361**, **D363**). Its metadata stamp lands on a new entry only, so a restatement
+  keeps the host's bag (`MemoryWrite.KeepStoredMetadata`, **D372**), and a `validFrom`, `validTo` or `at` that is not a string, is blank
+  or does not parse is refused with an error naming the field, never read as absent (**D373**). An ended entry stays ended: a refresh keeps its bounds, and a
   supersession whose successor has ended applies nothing, refusing every predecessor (**D362**).
 - **A proposed supersession or end can be put to an approver: `IMemoryChangeApprover`, `AddMemoryChangeApprover` and
   `MemoryChangeGate`** (**D241**). Each proposal names the exact references, the claim, the evidence and the revision read; with no

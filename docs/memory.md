@@ -1113,9 +1113,12 @@ that `AddMemoryTools` never makes, so no existing agent gains a write it did not
 remember landing on an entry already held keeps that entry's grade — `MemoryWrite.KeepStoredGrade` — so restating a fact never
 demotes one the host made authoritative), the scope (unless `ModelMayNameScope`), valid time (unless `ModelMayStateValidity`: the
 schema omits `validFrom` and `validTo`, and a call passing either is refused with an error naming `<engine>_end`, never stored
-without them) and a metadata stamp, and `MaxContentChars` bounds what a call may write (its `content`, `headline`, `reason` and
+without them) and a metadata stamp, which lands on a new entry only — `MemoryWrite.KeepStoredMetadata` — so restating a fact
+never overwrites what the host recorded on it. `MaxContentChars` bounds what a call may write (its `content`, `headline`, `reason` and
 `evidence`), as `MaxRefs` bounds each list of refs. **A model states no instant after now**: the end tool refuses a later `at`
-by `MemoryWriteToolOptions.Clock`. `_remember` returns its `ref` and `mayUpdate` — the live entries it may update, each with its `revision` — and
+by `MemoryWriteToolOptions.Clock`. **Nor one the tool cannot read**: a `validFrom`, `validTo` or `at` that is not a string, is blank
+or does not parse is refused with an error naming the field and quoting what was passed, never read as absent; JSON null is
+absent. `_remember` returns its `ref` and `mayUpdate` — the live entries it may update, each with its `revision` — and
 applies none. `disputes` and `amends` end nothing and apply alone; `supersedes` (each entry a ref and the revision read, with a
 `reason`) and `_end` go through `MemoryChangeGate`, so **with no approver registered the write lands live and unlinked and the
 end is refused as a result the model reads**, and an approval applies only to the revision the model read. An engine's refusal

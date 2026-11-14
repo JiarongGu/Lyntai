@@ -140,8 +140,8 @@ internal sealed class MemoryGraphState(Func<DateTimeOffset> clock)
                 Grade = write.GradeStated ? write.Grade : record.Grade,
                 // an AUTHORED headline survives a refresh that does not restate it (D91)
                 Headline = write.HeadlineStated ? write.Headline : record.Headline,
-                // an ABSENT bag is "no opinion" and keeps what is stored; a supplied one replaces it
-                Metadata = write.Metadata is null || write.Metadata.Count == 0 ? record.Metadata : write.Metadata,
+                // an ABSENT bag is "no opinion" and keeps what is stored; a supplied one replaces it, unless it is for a new entry only
+                Metadata = write.KeepStoredMetadata || write.Metadata is null || write.Metadata.Count == 0 ? record.Metadata : write.Metadata,
                 // a STATED bound replaces and an unstated one keeps what is stored; the start a superseding write
                 // stamps goes only where none is held, so repeating it moves nothing
                 ValidFrom = ended ? record.ValidFrom : Utc(write.ValidFrom) ?? record.ValidFrom ?? Utc(write.ValidFromIfUnset),

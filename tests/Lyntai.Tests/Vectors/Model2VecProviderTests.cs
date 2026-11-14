@@ -1,5 +1,4 @@
 using System.Text;
-using System.Text.Json;
 using Lyntai.Providers.Model2Vec;
 using Lyntai.Inference;
 using Lyntai.Text;
@@ -23,9 +22,10 @@ public class Model2VecProviderTests : IDisposable
 
     public void Dispose() => _scratch.Dispose();
 
-    /// <summary>Writes a model whose row <c>i</c> is all-<c>i</c>, so a mean over known ids is exact.</summary>
+    /// <summary>Writes a model whose row <c>i</c> is all-<c>i</c>, so a mean over known ids is exact. <paramref name="maxLength"/> is
+    /// the JSON value <c>config.json</c> states for <c>max_length</c> (<c>"null"</c> included); null states none.</summary>
     private string WriteModel(IReadOnlyList<string> vocabulary, int dimensions = 4, bool? normalize = false,
-        IReadOnlyList<string>? wordsPastTheTable = null)
+        IReadOnlyList<string>? wordsPastTheTable = null, string? maxLength = null)
     {
         var rows = vocabulary.Count;
         var data = new float[rows * dimensions];
@@ -50,9 +50,13 @@ public class Model2VecProviderTests : IDisposable
         File.WriteAllLines(Path.Combine(Dir, "vocab.txt"), [.. vocabulary, .. wordsPastTheTable ?? []]);
         if (normalize is { } n)
             File.WriteAllText(Path.Combine(Dir, "config.json"),
-                JsonSerializer.Serialize(new Dictionary<string, object> { ["normalize"] = n }));
+                "{\"normalize\":" + (n ? "true" : "false") + (maxLength is null ? "" : ",\"max_length\":" + maxLength) + "}");
         return Dir;
     }
+
+    /// <summary><paramref name="count"/> copies of each word in turn, space-separated: "a a a b b b".</summary>
+    private static string Runs(int count, params string[] words) =>
+        string.Join(" ", words.SelectMany(w => Enumerable.Repeat(w, count)));
 
     /// <summary>A BERT vocabulary needs its special tokens present, and WordPiece needs [UNK].</summary>
     private static List<string> Vocabulary(params string[] words) =>
@@ -243,20 +247,80 @@ public class Model2VecProviderTests : IDisposable
         Assert.Throws<InvalidDataException>(() => Model2VecProvider.FromDirectory(Dir));
     }
 
+    // The reference model2vec (StaticModel, v0.10.0) cuts a text before it pools: to its first max_length × median-token-length
+    // characters, then to its first max_length tokens, and only then drops the unknown id. A run of a's then a run of b's tells a cut
+    // from none: a's alone mean 5 and the whole text (5 + 6) / 2 = 5.5. Vocabulary("a", "b") has token lengths 5,5,5,5,6,1,1, so its
+    // median is 5.
+
     [Fact]
-    public async Task Has_NO_context_limit_which_is_the_one_thing_this_class_has_over_a_small_transformer()
+    public async Task Cuts_a_text_at_512_tokens_when_the_config_names_no_max_length()
     {
-        // Every sub-100 MB transformer vector backend rejects an input past 512 tokens. A lookup table has no
-        // positional embeddings, so a long document is just more rows to average.
-        // 4000 alphas THEN 4000 betas: the whole text means (5 + 6) / 2 = 5.5, while any truncation keeps only
-        // alphas and means 5 — a periodic text would average the same either way
-        var vectorProvider = Model2VecProvider.FromDirectory(WriteModel(Vocabulary("alpha", "beta")));
-        var text = string.Join(" ", [.. Enumerable.Repeat("alpha", 4000), .. Enumerable.Repeat("beta", 4000)]);
+        var vectorProvider = Model2VecProvider.FromDirectory(WriteModel(Vocabulary("a", "b")));
 
-        var vector = (await vectorProvider.EmbedAsync([text]))[0];
+        // 1024 tokens in 2047 characters, inside the 512 × 5 the character cut keeps, so the token cut decides
+        var vector = (await vectorProvider.EmbedAsync([Runs(512, "a", "b")]))[0];
 
-        Assert.Equal(vectorProvider.Dimensions, vector.Length);
-        Assert.All(vector, v => Assert.Equal(5.5f, v, 3));
+        Assert.All(vector, v => Assert.Equal(5f, v, 3));
+    }
+
+    [Fact]
+    public async Task Cuts_at_the_configs_max_length_and_a_null_one_cuts_nothing()
+    {
+        var three = Model2VecProvider.FromDirectory(WriteModel(Vocabulary("a", "b"), maxLength: "3"));
+        Assert.All((await three.EmbedAsync(["a a a b b b"]))[0], v => Assert.Equal(5f, v, 3));
+
+        var none = Model2VecProvider.FromDirectory(WriteModel(Vocabulary("a", "b"), maxLength: "null"));
+        Assert.All((await none.EmbedAsync([Runs(4000, "a", "b")]))[0], v => Assert.Equal(5.5f, v, 3));
+    }
+
+    [Fact]
+    public async Task Drops_the_unknown_token_after_the_cut_as_the_reference_does()
+    {
+        // [UNK] a b, cut to two tokens, is [UNK] a, which pools as a alone; dropping [UNK] first would keep a b and read 5.5
+        var vectorProvider = Model2VecProvider.FromDirectory(WriteModel(Vocabulary("a", "b"), maxLength: "2"));
+
+        var vector = (await vectorProvider.EmbedAsync(["z a b"]))[0];
+
+        Assert.All(vector, v => Assert.Equal(5f, v, 3));
+    }
+
+    [Fact]
+    public async Task Cuts_the_characters_first_at_max_length_times_the_vocabularys_median_token_length()
+    {
+        // token lengths 5,1,1,7,7,7: an even count, so the median is the mean of 5 and 7, truncated — 6, where the lower middle would
+        // be 5 and the upper 7. With max_length 2 the character cut keeps 12: "z…z a" of 12 keeps its a (row 1), of 13 does not.
+        var vectorProvider = Model2VecProvider.FromDirectory(
+            WriteModel(["[UNK]", "a", "b", "ccccccc", "ddddddd", "eeeeeee"], maxLength: "2"));
+
+        var vectors = await vectorProvider.EmbedAsync([new string('z', 10) + " a", new string('z', 11) + " a"]);
+
+        Assert.All(vectors[0], v => Assert.Equal(1f, v, 3));
+        Assert.All(vectors[1], v => Assert.Equal(0f, v));
+    }
+
+    [Fact]
+    public async Task The_character_cut_counts_code_points_as_the_reference_does()
+    {
+        // eight parrots (one unknown word, 16 UTF-16 units), alpha and beta are three tokens, so max_length 3 cuts no token, and the
+        // character cut keeps 15. Counted in code points it ends after "alpha " and pools alpha (5); uncut, beta stays in (5.5);
+        // counted in units it would end inside the eighth parrot and keep nothing (0)
+        var vectorProvider = Model2VecProvider.FromDirectory(WriteModel(Vocabulary("alpha", "beta"), maxLength: "3"));
+
+        var vector = (await vectorProvider.EmbedAsync([string.Concat(Enumerable.Repeat("\U0001F99C", 8)) + " alpha beta"]))[0];
+
+        Assert.All(vector, v => Assert.Equal(5f, v, 3));
+    }
+
+    [Fact]
+    public async Task EmbedWholeText_pools_every_token_as_earlier_releases_did()
+    {
+        var whole = Model2VecProvider.FromDirectory(WriteModel(Vocabulary("alpha", "beta")),
+            new Model2VecProviderOptions { EmbedWholeText = true });
+        var cut = Model2VecProvider.FromDirectory(WriteModel(Vocabulary("alpha", "beta")));
+        var text = Runs(4000, "alpha", "beta");
+
+        Assert.All((await whole.EmbedAsync([text]))[0], v => Assert.Equal(5.5f, v, 3));
+        Assert.All((await cut.EmbedAsync([text]))[0], v => Assert.Equal(5f, v, 3));
     }
 }
 
@@ -305,5 +369,26 @@ public class Model2VecProviderLiveTests
         var vectors = await vectorProvider.EmbedAsync(["the weather forecast for tomorrow", "the weather forecast for tomorrow 🦜"]);
 
         Assert.Equal(vectors[0], vectors[1]);
+    }
+
+    [SkippableFact]
+    public async Task A_text_past_512_tokens_embeds_as_its_first_512_do()
+    {
+        Skip.If(string.IsNullOrWhiteSpace(Directory), "set LYNTAI_STATIC_MODEL_DIR to a model2vec directory");
+
+        // vacuous unless the prefix is exactly 512 tokens and the tail adds more, so both are asserted first
+        string[] cycle = ["the", "cat", "sat", "on", "a", "mat"];
+        var prefix = string.Join(" ", Enumerable.Range(0, 512).Select(i => cycle[i % cycle.Length]));
+        var text = prefix + string.Concat(Enumerable.Repeat(" stock market share price quote", 50));
+        var tokenizer = WordPieceTokenizer.FromModelDirectory(Directory!);
+        Assert.Equal(512, tokenizer.EncodeToIds(prefix).Count);
+        Assert.True(tokenizer.EncodeToIds(text).Count > 512);
+
+        var cut = await Model2VecProvider.FromDirectory(Directory!).EmbedAsync([prefix, text]);
+        var whole = await Model2VecProvider.FromDirectory(Directory!, new Model2VecProviderOptions { EmbedWholeText = true })
+            .EmbedAsync([text]);
+
+        Assert.Equal(cut[0], cut[1]);
+        Assert.NotEqual(cut[1], whole[0]);
     }
 }

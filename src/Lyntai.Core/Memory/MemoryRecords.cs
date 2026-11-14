@@ -72,6 +72,12 @@ public sealed record MemoryWrite(
     /// engine that refreshes nothing by content ignores it.</summary>
     public bool KeepStoredGrade { get; init; }
 
+    /// <summary>Whether <see cref="Metadata"/> applies to a NEW entry only: on a graph engine, a write landing on an entry already held
+    /// keeps the bag stored there (or none, where it holds none), while a new entry takes <see cref="Metadata"/>. False, the default,
+    /// lets a supplied bag replace the stored one (D91). A writer that stamps every write — the write tools' — sets it, so restating a
+    /// fact never overwrites what the host recorded on it. An engine that refreshes nothing by content ignores it.</summary>
+    public bool KeepStoredMetadata { get; init; }
+
     /// <summary>Whether this write states valid time at all — what an engine that cannot hold it refuses.</summary>
     public bool StatesValidity => ValidFrom is not null || ValidTo is not null || Supersedes is { Count: > 0 };
 }

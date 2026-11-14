@@ -353,6 +353,7 @@ public sealed class GraphMemoryEngine(
             // no start already, so repeating the same write does not move it
             ValidFromIfUnset = startIfUnset,
             Recheck = write.Recheck,
+            KeepStoredMetadata = write.KeepStoredMetadata,
         };
 
         return (node, search, annotated, answered);
@@ -557,6 +558,10 @@ public sealed class GraphMemoryEngine(
     // call's fingerprint as it was
     private static object StatedGrade(MemoryWrite write) => write.KeepStoredGrade ? $"{write.Grade}/new-only" : write.Grade;
 
+    // the metadata bag as the call stated it, by the same rule
+    private static string? StatedMetadata(MemoryWrite write) =>
+        write.KeepStoredMetadata ? $"{MemoryFingerprint.Bag(write.Metadata)}/new-only" : MemoryFingerprint.Bag(write.Metadata);
+
     private static void RequireKeyText(string key)
     {
         if (string.IsNullOrWhiteSpace(key) || key.Length > MemoryLimits.MaxOperationKeyChars)
@@ -586,7 +591,7 @@ public sealed class GraphMemoryEngine(
                 $"{nameof(ISupersedingMemory.SupersedeAsync)} and {nameof(IKeyedMemory.RelateKeyedAsync)}. Nothing was written.", nameof(write));
         var (keyed, key) = Keyed(new KeyedCall(operationKey, MemoryOperationKind.Remember, MemoryFingerprint.Of(
             MemoryOperationKind.Remember, Name, write.TaskKey, write.Scope, write.Content, write.Headline, StatedGrade(write),
-            MemoryFingerprint.Bag(write.Metadata), write.ValidFrom, write.ValidTo, write.Recheck)), write.TaskKey);
+            StatedMetadata(write), write.ValidFrom, write.ValidTo, write.Recheck)), write.TaskKey);
         var held = await keyed.ReceiptAsync(Name, write.TaskKey, operationKey, key.At, ct).ConfigureAwait(false);
         if (held is null) return (keyed, key, null);
         if (held.Kind != key.Kind || !string.Equals(held.Fingerprint, key.Fingerprint, StringComparison.Ordinal))
@@ -643,7 +648,7 @@ public sealed class GraphMemoryEngine(
         {
             var (_, made) = Keyed(new KeyedCall(operationKey, MemoryOperationKind.Supersede, MemoryFingerprint.Of(
                 MemoryOperationKind.Supersede, Name, write.TaskKey, write.Scope, write.Content, write.Headline, StatedGrade(write),
-                MemoryFingerprint.Bag(write.Metadata), write.ValidFrom, write.ValidTo, write.Recheck, supersession.Reason.Trim(),
+                StatedMetadata(write), write.ValidFrom, write.ValidTo, write.Recheck, supersession.Reason.Trim(),
                 string.Join(',', ids.Select(i => FormattableString.Invariant($"{i}@{expected[i]}"))))), write.TaskKey);
             key = made;
             var held = await atomic.ReceiptAsync(Name, write.TaskKey, operationKey, key.At, ct).ConfigureAwait(false);

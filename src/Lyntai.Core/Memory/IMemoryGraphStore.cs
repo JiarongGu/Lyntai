@@ -267,6 +267,10 @@ public sealed record GraphNodeWrite(
     /// <summary>The opaque re-check text to store; null is "no opinion" — an INSERT stores none and a refresh keeps what is
     /// stored. Only a store implementing <see cref="IConfirmableMemoryGraphStore"/> may be handed one.</summary>
     public string? Recheck { get; init; }
+
+    /// <summary>Whether <see cref="Metadata"/> is for an INSERT only: a refresh keeps the stored bag, or none where none is held, whatever
+    /// this write supplies. False, the default, is <see cref="Metadata"/>'s own rule: an absent bag keeps, a supplied one replaces.</summary>
+    public bool KeepStoredMetadata { get; init; }
 }
 
 /// <summary>A reinforcement to record against one node. The store stamps the current position — a recall

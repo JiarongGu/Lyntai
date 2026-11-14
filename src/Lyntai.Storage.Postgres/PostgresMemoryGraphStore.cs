@@ -105,7 +105,8 @@ public sealed class PostgresMemoryGraphStore(
                               headline = CASE WHEN @headlineStated THEN @headline ELSE lyntai_memory_node.headline END,
                               grade = CASE WHEN @gradeStated THEN @grade ELSE lyntai_memory_node.grade END,
                               signals = COALESCE(@signals::jsonb, lyntai_memory_node.signals),
-                              metadata = COALESCE(@metadata, lyntai_memory_node.metadata),
+                              metadata = CASE WHEN @keepMetadata THEN lyntai_memory_node.metadata
+                                              ELSE COALESCE(@metadata, lyntai_memory_node.metadata) END,
                               salience = CASE WHEN @signals::jsonb IS NULL THEN lyntai_memory_node.salience ELSE @salience END,
                               difficulty = CASE WHEN @hasDifficultySignal THEN @difficulty ELSE lyntai_memory_node.difficulty END,
                               provenance_salience = CASE WHEN @signals::jsonb IS NULL THEN lyntai_memory_node.provenance_salience
@@ -128,7 +129,7 @@ public sealed class PostgresMemoryGraphStore(
             engine = write.Engine, taskKey = write.TaskKey, scope = write.Scope,
             headline = write.Headline, content = write.Content, hash, grade = (int)write.Grade,
             metadata, signals, salience, difficulty, hasDifficultySignal, now, position = totals.Position,
-            gradeStated = write.GradeStated, headlineStated = write.HeadlineStated,
+            gradeStated = write.GradeStated, headlineStated = write.HeadlineStated, keepMetadata = write.KeepStoredMetadata,
             validFrom = write.ValidFrom?.ToUniversalTime(), validTo = write.ValidTo?.ToUniversalTime(),
             validFromIfUnset = write.ValidFromIfUnset?.ToUniversalTime(), recheck = write.Recheck,
             stability = write.InitialStability, ordinal = totals.Ordinal, chars = totals.Chars,

@@ -9,11 +9,13 @@ namespace Lyntai.Memory;
 /// <para>The host owns the task (the tools take it from <see cref="MemoryToolScope"/>, never an argument), the grade (a new entry
 /// a tool writes is <see cref="MemoryGrade.Associative"/>, one already held keeps the grade it has, and no grade argument lets a
 /// model's words escape decay or demote what the host made authoritative), valid time (unless <see cref="ModelMayStateValidity"/>)
-/// and the stamp every write carries. A model states no instant after now.</para></summary>
+/// and the stamp a new entry carries. A model states no instant after now, and an instant it states must parse.</para></summary>
 public sealed class MemoryWriteToolOptions
 {
-    /// <summary>Metadata stamped on every entry a tool writes — the host's own vocabulary (who wrote it, from where), so a
-    /// reader can attribute what an agent asserted. Null stamps nothing.</summary>
+    /// <summary>Metadata stamped on every NEW entry a tool writes — the host's own vocabulary (who wrote it, from where), so a
+    /// reader can attribute what an agent asserted. A write landing on an entry already held keeps that entry's metadata
+    /// (<see cref="MemoryWrite.KeepStoredMetadata"/>), so restating a fact never overwrites what the host recorded on it. Null
+    /// stamps nothing.</summary>
     public IReadOnlyDictionary<string, string>? Metadata { get; init; }
 
     /// <summary>The longest content one call may write, in characters; a longer one is refused. The model picks the text, so it
@@ -61,9 +63,32 @@ internal static partial class MemoryTools
         catch (JsonException) { return null; }
     }
 
-    private static DateTimeOffset? ReadInstant(JsonElement root, string name) =>
-        JsonExtract.StringProperty(root, name) is { } s
-        && DateTimeOffset.TryParse(s, CultureInfo.InvariantCulture, DateTimeStyles.AssumeUniversal, out var at) ? at : null;
+    /// <summary>An instant the model stated: absent or JSON null is none; anything else must be a string that parses, or
+    /// <paramref name="refusal"/> names the field and quotes what was passed — an unreadable instant read as none would store a
+    /// bound the model believes it stated.</summary>
+    private static bool TryReadInstant(JsonElement root, string name, out DateTimeOffset? at, out string? refusal)
+    {
+        (at, refusal) = (null, null);
+        if (!root.TryGetProperty(name, out var value) || value.ValueKind == JsonValueKind.Null) return true;
+        var text = value.ValueKind == JsonValueKind.String ? value.GetString()! : value.GetRawText();
+        if (value.ValueKind == JsonValueKind.String && !string.IsNullOrWhiteSpace(text)
+            && DateTimeOffset.TryParse(text, CultureInfo.InvariantCulture, DateTimeStyles.AssumeUniversal, out var parsed))
+        {
+            at = parsed;
+            return true;
+        }
+        refusal = Error($"'{name}' is '{Quoted(text)}', not an ISO 8601 instant such as 2026-11-15T09:30:00Z; correct it or leave it out");
+        return false;
+    }
+
+    // what a refusal quotes back of a model's value: enough to recognise it, never a surrogate pair cut in half
+    private static string Quoted(string text)
+    {
+        const int Shown = 64;
+        if (text.Length <= Shown) return text;
+        var cut = char.IsHighSurrogate(text[Shown - 1]) ? Shown - 1 : Shown;
+        return text[..cut] + "...";
+    }
 
     /// <summary>The refs a model listed: each a string ref, or an object with <c>ref</c> and <c>revision</c>.</summary>
     private static List<(MemoryRef Ref, string? Revision)>? ReadRefs(JsonElement root, string name, out string? bad)
@@ -133,16 +158,20 @@ internal static partial class MemoryTools
                     if (!settings.ModelMayStateValidity && Stated(root, "validFrom", "validTo") is { } stated)
                         return Error($"'{stated}' is not taken here: when a fact held is the host's to state. To say an entry no " +
                             $"longer holds, call '{prefix}_end' with its 'ref', 'revision' and a 'reason'.");
+                    if (!TryReadInstant(root, "validFrom", out var validFrom, out var unreadable)
+                        || !TryReadInstant(root, "validTo", out var validTo, out unreadable))
+                        return unreadable!;
 
-                    // the grade is the host's: a new entry is associative, and one already held keeps the grade it has
+                    // the grade and the stamp are the host's: a new entry takes both, and one already held keeps what it has
                     var write = new MemoryWrite(task, writeScope, content, JsonExtract.StringProperty(root, "headline"),
                         MemoryGrade.Associative, settings.Metadata)
                     {
-                        ValidFrom = settings.ModelMayStateValidity ? ReadInstant(root, "validFrom") : null,
-                        ValidTo = settings.ModelMayStateValidity ? ReadInstant(root, "validTo") : null,
+                        ValidFrom = validFrom,
+                        ValidTo = validTo,
                         Disputes = disputes?.Select(r => r.Ref).ToList(),
                         Amends = amends?.Select(r => r.Ref).ToList(),
                         KeepStoredGrade = true,
+                        KeepStoredMetadata = true,
                     };
                     try
                     {
@@ -240,7 +269,7 @@ internal static partial class MemoryTools
                         return Error("pass the 'ref' of an item returned by the matching recall tool");
                     var by = JsonExtract.StringProperty(root, "by");
                     if (by is not null && Parse(by) is null) return Error($"'{by}' is not a ref returned by the matching recall tool");
-                    var at = ReadInstant(root, "at");
+                    if (!TryReadInstant(root, "at", out var at, out var unreadable)) return unreadable!;
                     var now = settings.Clock.GetUtcNow();
                     if (at > now)
                         return Error($"'at' is {at.Value:O}, after now ({now:O}): say when it stopped holding, which has happened. " +

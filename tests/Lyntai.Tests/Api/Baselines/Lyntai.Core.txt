@@ -3621,6 +3621,7 @@ sealed class Lyntai.Memory.GraphNodeWrite
     Headline : String { get; init; }
     HeadlineStated : Boolean { get; init; }
     InitialStability : Double { get; init; }
+    KeepStoredMetadata : Boolean { get; init; }
     Metadata : IReadOnlyDictionary<String,String> { get; init; }
     ProvenanceRetrievability : Int64 { get; init; }
     ProvenanceSalience : Int64 { get; init; }
@@ -4588,6 +4589,7 @@ sealed class Lyntai.Memory.MemoryWrite
     Grade : MemoryGrade { get; init; }
     Headline : String { get; init; }
     KeepStoredGrade : Boolean { get; init; }
+    KeepStoredMetadata : Boolean { get; init; }
     Metadata : IReadOnlyDictionary<String,String> { get; init; }
     OperationKey : String { get; init; }
     Recheck : String { get; init; }

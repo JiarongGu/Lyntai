@@ -7237,3 +7237,15 @@ caller. Ten cases, each red on its usage assertion first. The Part is empty and 
 
 - `tests/Lyntai.Tests/Providers/HttpModelProviderTests.cs`, `HttpAgentSessionTests.cs`
 - the changelog entry amended (**D350**)
+
+## Part 532 — the three rows the 2026-11-15 builds found: a held entry's metadata, an unreadable instant, the reference's cut (2026-11-15)
+
+✅ done 2026-11-15 — **Outcome:** `TASKS.md` Part 479's two rows and Part 490's row, ruled with a Fable design agent and built test
+first in a builder's worktree, the Postgres leg run. `<prefix>_remember` stamps a new entry only (`MemoryWrite.KeepStoredMetadata`,
+**D372**); the write tools refuse an unreadable `validFrom`, `validTo` or `at`, naming the field (**D373**); `Model2VecProvider` cuts a
+text as the reference does, characters then tokens then the unknown id, with `EmbedWholeText` to opt out (**D374**, Breaking), read
+from `model2vec/model.py` at `v0.10.0` and pinned by a potion-base-8M live test. The builder corrected the design's premise that the
+unknown token is dropped before the cut. Parts 479 and 490 are empty and leave the backlog.
+
+- `MemoryWriteToolsTests`, `MemoryReceiptTests`, the graph store contract, `Model2VecProviderTests`, `Model2VecProviderLiveTests`
+- D372 to D374, the changelog entries

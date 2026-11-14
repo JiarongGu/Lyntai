@@ -241,7 +241,8 @@ API searched three ways, zero results), so it was unreachable by every instrumen
 measurable. On tool routing (`docs/memory-measurements.md` §5, `affordance-static-embedders`):
 
 - **It works.** All three sizes screen HEALTHY, and **none has a context limit** — a lookup table has no
-  positional embeddings, so it swallows an input every sub-100 MB *transformer* embedder rejects at 512.
+  positional embeddings, so it swallows an input every sub-100 MB *transformer* embedder rejects at 512. The
+  reference `model2vec`, and `Model2VecProvider` unless `EmbedWholeText` is set, still pool only its first 512 tokens.
 - **A smaller TRANSFORMER still beats it**: `all-MiniLM-L6-v2` Q8_0 at **25,008,064 B** is ahead of
   `potion-retrieval-32M` at **129,210,456 B** at every roster size.
 - **Retrieval tuning does not close it** — the tuned member at 4.3× the bytes of `potion-base-8M` reads no

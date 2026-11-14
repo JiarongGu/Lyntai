@@ -17,8 +17,8 @@ namespace Lyntai.Providers.Onnx;
 /// tasks (<c>docs/memory-measurements.md</c> §5); what it costs is ~16 MB of native runtime and this
 /// package's trim/AOT claim.</para>
 ///
-/// <para><b>It HAS a context limit</b>, which the static class does not: a BERT encoder has positional
-/// embeddings, so input past <see cref="OnnxProviderOptions.MaxTokens"/> is truncated — or, where
+/// <para><b>It HAS a context limit</b>, where the static class only follows its reference's cut and can drop
+/// it: a BERT encoder has positional embeddings, so input past <see cref="OnnxProviderOptions.MaxTokens"/> is truncated — or, where
 /// <see cref="OnnxProviderOptions.Segmentation"/> says so, segmented by tokens and every window answered
 /// (<c>docs/DECISIONS.md</c> <b>D177</b>).</para>
 ///
