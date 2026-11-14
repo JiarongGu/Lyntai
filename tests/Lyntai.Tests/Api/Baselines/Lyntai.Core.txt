@@ -5682,6 +5682,7 @@ sealed class Lyntai.Text.WordPieceTokenizer
     EncodeToIds(String text) : IReadOnlyList<Int32>
     Frame(IReadOnlyList<Int32> content) : TokenEncoding
     Frame(IReadOnlyList<Int32> first, IReadOnlyList<Int32> second) : TokenEncoding
+    UnknownId : Int32 { get; }
     static FromModelDirectory(String directory) : WordPieceTokenizer
     static FromVocabulary(IReadOnlyList<String> vocabulary, String unknownToken = "[UNK]", Boolean lowercase = true, Nullable<Boolean> stripAccents = null, Boolean tokenizeChineseCharacters = true, String classificationToken = "[CLS]", String separatorToken = "[SEP]") : WordPieceTokenizer
 sealed class Lyntai.TextClientBuilder

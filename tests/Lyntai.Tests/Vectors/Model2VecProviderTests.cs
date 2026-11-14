@@ -2,6 +2,7 @@ using System.Text;
 using System.Text.Json;
 using Lyntai.Providers.Model2Vec;
 using Lyntai.Inference;
+using Lyntai.Text;
 using Microsoft.Extensions.DependencyInjection;
 using Lyntai.Tests.Fakes;
 using static Lyntai.Tests.Fakes.VectorMath;
@@ -147,6 +148,42 @@ public class Model2VecProviderTests : IDisposable
     }
 
     [Fact]
+    public async Task An_unknown_word_does_not_move_the_vector()
+    {
+        // The reference model2vec drops the unknown id before pooling (StaticModel.tokenize). [UNK] is row 1 here,
+        // so averaging it in would read (5 + 1) / 2 = 3 instead of alpha's own 5.
+        var vectorProvider = Model2VecProvider.FromDirectory(WriteModel(Vocabulary("alpha", "beta"), normalize: false));
+
+        var vector = (await vectorProvider.EmbedAsync(["alpha zzzz"]))[0];
+
+        Assert.All(vector, v => Assert.Equal(5f, v, 3));
+    }
+
+    [Fact]
+    public async Task An_all_unknown_text_is_the_zero_vector()
+    {
+        var vectorProvider = Model2VecProvider.FromDirectory(WriteModel(Vocabulary("alpha", "beta"), normalize: true));
+
+        var vector = (await vectorProvider.EmbedAsync(["zzzz qqqq"]))[0];
+
+        Assert.All(vector, component => Assert.Equal(0f, component));
+    }
+
+    [Fact]
+    public async Task IncludeUnknownToken_keeps_the_old_mean()
+    {
+        var vectorProvider = Model2VecProvider.FromDirectory(
+            WriteModel(Vocabulary("alpha", "beta"), normalize: false),
+            new Model2VecProviderOptions { IncludeUnknownToken = true });
+
+        var mixed = (await vectorProvider.EmbedAsync(["alpha zzzz"]))[0];
+        var unknown = (await vectorProvider.EmbedAsync(["zzzz"]))[0];
+
+        Assert.All(mixed, v => Assert.Equal(3f, v, 3));
+        Assert.All(unknown, v => Assert.Equal(1f, v, 3));
+    }
+
+    [Fact]
     public async Task Normalizes_to_unit_length_when_the_model_says_so_and_not_when_it_does_not()
     {
         var normalized = Model2VecProvider.FromDirectory(WriteModel(Vocabulary("alpha"), normalize: true));
@@ -255,4 +292,18 @@ public class Model2VecProviderLiveTests
             $"related {related:F4} should outrank unrelated {unrelated:F4} — a wrong row mapping looks like this");
     }
 
+    [SkippableFact]
+    public async Task An_unknown_word_does_not_move_a_real_models_vector()
+    {
+        Skip.If(string.IsNullOrWhiteSpace(Directory), "set LYNTAI_STATIC_MODEL_DIR to a model2vec directory");
+
+        // vacuous unless this vocabulary really pieces the word as unknown, so that is asserted first
+        var tokenizer = WordPieceTokenizer.FromModelDirectory(Directory!);
+        Assert.Equal([tokenizer.UnknownId], tokenizer.EncodeToIds("🦜"));
+
+        var vectorProvider = Model2VecProvider.FromDirectory(Directory!);
+        var vectors = await vectorProvider.EmbedAsync(["the weather forecast for tomorrow", "the weather forecast for tomorrow 🦜"]);
+
+        Assert.Equal(vectors[0], vectors[1]);
+    }
 }

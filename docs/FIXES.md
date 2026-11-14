@@ -7,6 +7,20 @@ to `.agents/knowledge/pitfalls.md`; the release-facing line goes to `CHANGELOG.m
 
 ---
 
+## 2026-11-15 — the usage read's scratch folder was created with the default mode
+
+**Symptom.** None reported; filed by the 2026-11-08 review of the one-shot CLI providers and the usage source (`docs/task-archive.md` Part 529 closes it). On Linux under a `022` umask the fresh `lyntai-usage-<guid>` folder the vendor's server starts in was `0755`, where the CLI engine's working directory is `0700`.
+
+**Root cause.** `CliUsageSource.ReadAllowanceAsync` created it with `Directory.CreateDirectory(workDir)`, which takes the umask; the engine's `EnsureDirectory` passes owner-only `UnixFileMode` bits and is internal to `Lyntai.Core`, out of the provider package's reach.
+
+**Fix.** Off Windows the fresh folder is created `UserRead | UserWrite | UserExecute`. A folder the host names through `AgentUsageReadingOptions.WorkingDirectory` keeps the default mode, since it is the host's.
+
+**Verify.** `The_fresh_folder_is_owner_only_off_Windows` (both doors) failed on Linux in `mcr.microsoft.com/dotnet/sdk:10.0` before the change (group and other bits set) and passes after; it skips on Windows, the first test in the suite that does. With `node` in the container, `The_default_working_directory_is_a_fresh_folder_removed_when_the_read_ends` passes on Linux. **Not covered:** two `AgentUsageProcessTests` lifetime facts fail on Linux with and without the change, and are a row of their own.
+
+**Introduced by.** `8a9ebaf8` (2026-10-28), the usage read's first version.
+
+---
+
 ## 2026-11-09 — a word queued behind a cancel, a forced dispose reported as a kill, a reading lifting a `Retry-After`, an interval drifting, a cancel retried, a removal skipping a fire, a listener fault ending the MCP host, a judge's `7` read as perfect, and prose braces hiding a verdict
 
 **Symptom.** None reported; filed by the 2026-11-07 and 2026-11-08 reviews of the agent layer, the durable jobs, the MCP bridge and the scorers (`TASKS.md` Parts 475, 483 and 487, steward's rulings D312 to D323). A word sent after `StopAsync` was written behind the `session/cancel`; a dispose that had to kill the agent ended the run `run-killed`; a reading that showed room lifted a service's `Retry-After` hold; a 60 s interval on a 2 s poll fired every 60 to 62 s; a handler's cancel wrapped in another exception was retried or dead-lettered; removing a stored schedule re-anchored a build-time one of the same name; an `HttpListenerException` ended the hosted MCP accept loop; `{"score": 7}` from a 0 to 10 judge scored `1.0`; `see {score}: {"score":0.8}` read as no verdict. The woken-turn quiet timer could be left unarmed by a stale reading.

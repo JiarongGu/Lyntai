@@ -13,10 +13,13 @@ public sealed class LlamaSharpOptions
     /// <summary>Context window (tokens) for the loaded model. Null uses the model's own trained
     /// maximum from its GGUF metadata — the right default for most models. Non-positive values are
     /// treated as null.
-    /// <para><b>The host bounds it.</b> A value the machine cannot hold (measured: <c>int.MaxValue / 2</c> against a
-    /// 135M GGUF on the CPU backend) does not throw: the native allocation aborts the host process, so no
-    /// <c>catch</c> and no <c>Failed</c> verdict answers it and the router cannot fall over. The library does not
-    /// refuse a value past the model's trained context; keep it within what the machine's memory holds.</para></summary>
+    /// <para><b>A value past the model's trained context is refused</b>: the weights load, the size is compared with the
+    /// trained context they declare, and the call answers <see cref="ProviderVerdict.Failed"/> naming both before any
+    /// native context exists, so the router can fall over. The weights are freed and loaded again by the next call, which
+    /// is refused the same way.</para>
+    /// <para><b>A value within the trained context can still exhaust memory, and that is not covered.</b> A context the
+    /// machine cannot hold does not throw: its native allocation fails silently and the first call on it aborts the host
+    /// process, which no verdict answers. Keep it within what the machine's memory holds.</para></summary>
     public int? ContextSize { get; set; }
 
     /// <summary>Layers to offload to the GPU. 0 (default) is pure CPU; a large value (e.g. 999)

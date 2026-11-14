@@ -108,6 +108,10 @@ public sealed class WordPieceTokenizer
             rules.ClassificationToken, rules.SeparatorToken);
     }
 
+    /// <summary>The id <see cref="EncodeToIds"/> emits for a word it cannot piece — the vocabulary's unknown
+    /// token, named by the model's own configuration — so a caller that pools ids can leave it out.</summary>
+    public int UnknownId => _unknownId;
+
     /// <summary>The ids of <paramref name="text"/>'s content tokens, in order. Never null; empty for text
     /// with no usable token.</summary>
     public IReadOnlyList<int> EncodeToIds(string text)

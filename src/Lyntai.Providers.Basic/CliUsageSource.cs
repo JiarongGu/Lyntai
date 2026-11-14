@@ -91,7 +91,11 @@ internal sealed class CliUsageSource(
         var workDir = named ?? Path.Combine(Path.GetTempPath(), $"lyntai-usage-{Guid.NewGuid():N}");
         try
         {
-            Directory.CreateDirectory(workDir);
+            // the fresh folder is owner-only off Windows, as the engine's working directory is; a named one is the host's
+            if (named is null && !OperatingSystem.IsWindows())
+                Directory.CreateDirectory(workDir, UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute);
+            else
+                Directory.CreateDirectory(workDir);
             var (lines, outcome) = await ExchangeAsync(exe, [.. prefix, .. dialect.ServerArgs], workDir,
                 AgentAccounts.Merge(environment, accountEnvironment), options.Timeout, ct).ConfigureAwait(false);
             return outcome is null

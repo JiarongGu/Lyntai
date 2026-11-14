@@ -17,6 +17,14 @@ public sealed class Model2VecProviderOptions
     /// <c>model2vec</c>, by default. Give each registration a distinct one when a deployment registers more
     /// than one: the first-wins router never reaches a second backend under the same id.</summary>
     public string Id { get; set; } = "model2vec";
+
+    /// <summary>Whether the unknown token's row counts in the mean. False by default, which is what the reference
+    /// <c>model2vec</c> does: it drops the unknown id before pooling, so a word the vocabulary cannot piece moves no
+    /// vector and a text of only such words is the zero vector. True reproduces the vectors earlier releases of this
+    /// provider stored, which averaged that row in. A text with an unknown word embeds differently under the two
+    /// settings, so a stored collection is comparable only with the setting that wrote it — change it together with
+    /// the deployment's declared vector space (<c>UseVectorSpace</c>), or re-embed.</summary>
+    public bool IncludeUnknownToken { get; set; }
 }
 
 /// <summary>An embedding backend that runs IN PROCESS with no server, no GPU and no port: a
@@ -43,12 +51,15 @@ public sealed class Model2VecProvider : IVectorProvider
     private readonly WordPieceTokenizer _tokenizer;
     private readonly SafetensorsTable _table;
     private readonly bool _normalize;
+    private readonly int? _skippedId;
 
-    private Model2VecProvider(WordPieceTokenizer tokenizer, SafetensorsTable table, bool normalize, string id)
+    private Model2VecProvider(WordPieceTokenizer tokenizer, SafetensorsTable table, bool normalize, string id,
+        bool includeUnknownToken)
     {
         _tokenizer = tokenizer;
         _table = table;
         _normalize = normalize;
+        _skippedId = includeUnknownToken ? null : tokenizer.UnknownId;
         Id = id;
     }
 
@@ -105,7 +116,7 @@ public sealed class Model2VecProvider : IVectorProvider
         var tokenizer = WordPieceTokenizer.FromModelDirectory(directory);
 
         return new Model2VecProvider(
-            tokenizer, table, options.Normalize ?? NormalizeFromConfig(directory), options.Id);
+            tokenizer, table, options.Normalize ?? NormalizeFromConfig(directory), options.Id, options.IncludeUnknownToken);
     }
 
     /// <inheritdoc />
@@ -120,8 +131,9 @@ public sealed class Model2VecProvider : IVectorProvider
             : VectorResponse.Success([.. request.Texts.Select(Embed)]));
     }
 
-    /// <summary>Mean of the rows the text's tokens select. <b>A text with no usable token yields a ZERO
-    /// vector rather than throwing</b> — it is what an empty string means, it compares as maximally
+    /// <summary>Mean of the rows the text's tokens select, the unknown token's left out unless
+    /// <see cref="Model2VecProviderOptions.IncludeUnknownToken"/> says otherwise. <b>A text with no usable token
+    /// — empty, or every word unknown — yields a ZERO vector rather than throwing</b>: it compares as maximally
     /// dissimilar to everything, and a store full of documents must not be refused over one of them.</summary>
     private float[] Embed(string text)
     {
@@ -132,6 +144,7 @@ public sealed class Model2VecProvider : IVectorProvider
         var counted = 0;
         foreach (var id in _tokenizer.EncodeToIds(text))
         {
+            if (id == _skippedId) continue;
             if (_table.AccumulateInto(id, span)) counted++;   // an id past the table adds no row, so it is no divisor
         }
 

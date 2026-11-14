@@ -72,7 +72,7 @@ public class WordPieceTokenizerTests
     [Fact]
     public void An_unmatchable_word_is_ONE_unk_not_one_per_character()
     {
-        // The dangerous alternative is per-character fallback, which floods the mean with [UNK]'s row
+        // The dangerous alternative is per-character fallback, which floods a transformer's sequence with [UNK]
         // proportionally to word length rather than once.
         var tokenizer = Tokenizer(Vocabulary("alpha"));
 
@@ -262,8 +262,8 @@ public class WordPieceTokenizerTests
         Assert.Equal([5, 6], theirs.EncodeToIds("alpha=beta"));
         Assert.Equal([5, 9, 6], ours.EncodeToIds("alpha=beta"));
 
-        // 4. An unmatchable SYMBOL is [UNK], not nothing. Dropping it is the worse direction: [UNK] is a
-        //    row the table has an opinion about, where a dropped character silently shortens the mean.
+        // 4. An unmatchable SYMBOL is [UNK], not nothing: a transformer reads that position, and the static
+        //    backend drops the id itself, as the reference does — the tokenizer must not decide for both.
         Assert.Empty(theirs.EncodeToIds("\U0001F600"));
         Assert.Equal([1], ours.EncodeToIds("\U0001F600"));
     }

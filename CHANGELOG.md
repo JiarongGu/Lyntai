@@ -21,6 +21,16 @@ every addition.
 
 ### Breaking
 
+- **Model2Vec leaves the unknown token out of the mean, as the reference `model2vec` does** (**D367**). Through 3.5.3 `Model2VecProvider`
+  averaged the `[UNK]` row in for every word its vocabulary could not piece, so such a text embedded differently from the reference, and a
+  text of only such words was that row rather than the zero vector. `Model2VecProviderOptions.IncludeUnknownToken` keeps the old mean, and
+  `WordPieceTokenizer.UnknownId` names the id. **A host with vectors this provider stored must re-embed them, set
+  `IncludeUnknownToken = true`, or declare a new `UseVectorSpace` id.**
+- **A LlamaSharp `ContextSize` past the model's trained context is refused** (**D368**). Through 3.5.3 it reached the native context: a
+  modest overage ran with llama.cpp's overflow warning, and a size the machine could not hold killed the host process with no verdict. The
+  provider now compares it with the trained context the loaded weights state and answers `Failed` before any native context exists. A
+  value within the trained context that exhausts memory still aborts the host. **A host that set `LlamaSharpOptions.ContextSize` above its
+  model's trained context must lower it or leave it unset.**
 - **A retrying or polling job keeps its place in its partition** (**D357**). Through 3.5.3 a partition's head that retried or polled
   moved its `available_at`, and the next job ran first despite `JobSpec`'s strict FIFO. `lyntai_job` gains a nullable `queued_at`
   (`M202611151000_JobQueuedAt`, backfilled), which `JobStoreSql.Insert`, `Replay` and `ClaimCandidateWhere` read; a replayed job rejoins

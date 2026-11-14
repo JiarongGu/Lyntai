@@ -436,8 +436,10 @@ new decision overturns an old one, rewrite the old entry as a stub pointing here
 | [D364](#d364--the-file-store-journals-a-keyed-ends-or-confirmations-receipt-first-and-a-load-drops-one-whose-effect-never-landed-2026-11-15) | 2026-11-15 | the file store journals a keyed end's or confirmation's receipt first, and a load drops one whose… |
 | [D365](#d365--a-views-check-gates-the-named-reference-never-what-the-task-returns-2026-11-15) | 2026-11-15 | a view's check gates the named reference, never what the task returns |
 | [D366](#d366--a-receipt-expires-by-the-calling-engines-clock-on-every-store-2026-11-15) | 2026-11-15 | a receipt expires by the calling engine's clock on every store |
+| [D367](#d367--model2vec-drops-the-unknown-token-before-pooling-as-the-reference-does-with-an-opt-out-2026-11-15) | 2026-11-15 | Model2Vec drops the unknown token before pooling, as the reference does, with an opt-out |
+| [D368](#d368--a-llamasharp-contextsize-past-the-trained-context-is-refused-after-the-weights-load-before-any-native-context-2026-11-15) | 2026-11-15 | a LlamaSharp `ContextSize` past the trained context is refused after the weights load, before any… |
 
-**361 live decisions.** The rest are stubs — `D<n>` is a permanent identifier, so a number is never reused or renumbered (5): [D36](#d36--a-translation-between-two-verdict-taxonomies-gets-one-arm-per-member-gated-by-a-test-2026-08-05) → D136 · [D80](#d80--merged-into-d77-2026-08-16-folded-2026-08-17) → D77 · [D131](#d131--a-backends-produces-is-derived-from-its-configuration-so-a-modality-is-a-field-2026-09-14) → D133 · [D134](#d134--a-registration-names-the-backend-the-provider-suffix-is-gone-from-all-seventeen-2026-09-14) → D137 · [D145](#d145--the-microsoftextensionsai-module-is-a-bridge-not-a-provider-2026-09-15) → D146
+**363 live decisions.** The rest are stubs — `D<n>` is a permanent identifier, so a number is never reused or renumbered (5): [D36](#d36--a-translation-between-two-verdict-taxonomies-gets-one-arm-per-member-gated-by-a-test-2026-08-05) → D136 · [D80](#d80--merged-into-d77-2026-08-16-folded-2026-08-17) → D77 · [D131](#d131--a-backends-produces-is-derived-from-its-configuration-so-a-modality-is-a-field-2026-09-14) → D133 · [D134](#d134--a-registration-names-the-backend-the-provider-suffix-is-gone-from-all-seventeen-2026-09-14) → D137 · [D145](#d145--the-microsoftextensionsai-module-is-a-bridge-not-a-provider-2026-09-15) → D146
 
 <!-- index:end -->
 
@@ -7730,11 +7732,13 @@ recall and its write-back is already a silent skip).
 
 **Standing.** Two rulings on `TASKS.md` Part 490's rows, **the steward's under the owner's delegation, which the owner may reverse** — not the owner's words. Built, and frozen from release (**D70**).
 
-**Decided.** `SafetensorsTable.AccumulateInto` returns whether it read a row and `Model2VecProvider` counts only those, so a vocabulary longer than the table dilutes nothing. `LlamaSharpOptions.ContextSize` states in its doc that the host bounds it, because a value past memory aborts the host process natively.
+**Decided.** `SafetensorsTable.AccumulateInto` returns whether it read a row and `Model2VecProvider` counts only those, so a vocabulary longer than the table dilutes nothing. `LlamaSharpOptions.ContextSize` states in its doc that the host bounds it, because a value past memory aborts the host process natively; a value past the model's trained context is refused (**D368**), and the unknown token is left out of the mean (**D367**).
 
 **Why.** A vocabulary id past the table added no row but was still a divisor. The abort cannot be caught, so a verdict cannot answer it.
 
-**Rejected.** Refusing a vocabulary longer than the table at load (a tokenizer and a table legitimately disagree at the edges, as `AccumulateInto` already says). Refusing a `ContextSize` past the trained context: it narrows a published option and stays the owner's (`TASKS.md` Part 490).
+**Rejected.** Refusing a vocabulary longer than the table at load (a tokenizer and a table legitimately disagree at the edges, as `AccumulateInto` already says). Refusing a `ContextSize` past the trained context was rejected here, as the owner's, and is now **D368**.
+
+**Re-opens** when a value within the trained context that the machine cannot hold must be refused too (it still aborts the host).
 
 ## D271 — a media submit throw that never reached the backend advances, and is rethrown only when no candidate accepted (2026-11-09)
 
@@ -7855,8 +7859,6 @@ recall and its write-back is already a silent skip).
 **Rejected.** Rolling the count back and rethrowing (the runner's own state would still diverge from the count, and a hold would fail for a fault in the observer). Logging (the type has no logger, and a library should not grow one for this).
 
 **Re-opens** when a swallowed fault is wanted visible, which wants a diagnostic event rather than a throw.
-
-**Re-opens** when the owner rules on the `ContextSize` refusal, or on `[UNK]` averaging (`TASKS.md` Part 490), which moves stored vectors.
 
 ## D281 — a score outside 0 to 1 is skipped with a warning, as a non-finite one is (2026-11-09)
 
@@ -8889,3 +8891,27 @@ recall and its write-back is already a silent skip).
 **Rejected.** The store's clock (SQLite has none, and the backends would diverge). A skew tolerance (a deployment's number the library would invent).
 
 **Re-opens** when hosts with divergent clocks share a store and need retention independent of skew.
+
+## D367 — Model2Vec drops the unknown token before pooling, as the reference does, with an opt-out (2026-11-15)
+
+**Standing.** A ruling on a row closed as `docs/task-archive.md` Part 529 (the unknown token), read by the agent that built it with a Fable design agent; the owner may reverse it. Built.
+
+**Decided.** `Model2VecProvider` skips `WordPieceTokenizer.UnknownId` before the mean, so an unknown word moves no vector and a text of only unknown words is the zero vector. `Model2VecProviderOptions.IncludeUnknownToken` (default false) keeps the old mean. The id is public on the tokenizer because Core's internals reach only the tests.
+
+**Why.** The reference `StaticModel.tokenize` removes `unk_token_id` before `_encode_batch` averages (read in `MinishLab/model2vec`'s `model2vec/model.py` at `v0.10.0` and at `main`), so a corpus embedded there and a query embedded here disagreed on every text with an unknown word; a live test on potion-base-8M pins it.
+
+**Rejected.** Keeping the row as the table was built with it (the reference never reads it at inference). Skipping with no opt-out (a forced re-embed for every deployment). Skipping only on an opt-in (the wrong default would live on).
+
+**Re-opens** if the reference starts pooling the unknown token. Its 512-token truncation, which this provider does not apply, is `TASKS.md` Part 490's row.
+
+## D368 — a LlamaSharp `ContextSize` past the trained context is refused after the weights load, before any native context (2026-11-15)
+
+**Standing.** A ruling on a row closed as `docs/task-archive.md` Part 529 (the context size), read by the agent that built it with a Fable design agent; the owner may reverse it. Built; it reverses **D270**'s `ContextSize` half.
+
+**Decided.** `EnsureLoaded` compares `ContextSize` with `LLamaWeights.ContextSize` (the GGUF's `*.context_length`) once the weights load, and a larger one frees them and fails through the load-failure path, so the call answers `Failed` and the router can fall over. A value within the trained context that the machine cannot hold still kills the host, as the option says.
+
+**Why.** Measured on SmolLM2-135M Q8 (trained 8192) with LLamaSharp 0.30.0 on the CPU: the weights load at any size, the KV-cache allocation then fails without a throw, the executor is built, and the first `llama_n_ctx` inside `InferAsync` is an access violation. The trained context is the one bound the weights state before that point.
+
+**Rejected.** Leaving it to the host (an abort no verdict answers). Clamping with a warning (it runs a configuration the host did not write). Probing a context's `NativeHandle.IsInvalid` (a second KV-cache allocation per load, and it does not cover the context the executor builds per call).
+
+**Re-opens** when a host needs a context past the trained one (16384 ran on the 8192 model and is now refused), or LLamaSharp throws for a failed context.

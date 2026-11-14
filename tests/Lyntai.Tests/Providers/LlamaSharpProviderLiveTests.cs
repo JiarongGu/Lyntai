@@ -67,6 +67,26 @@ public class LlamaSharpProviderLiveTests
     }
 
     [SkippableFact]
+    public async Task A_ContextSize_past_the_trained_context_is_refused_before_the_native_call()
+    {
+        Skip.IfNot(Live, Reason);
+
+        // past the machine's memory the native context fails to allocate WITHOUT throwing, and the first call on it
+        // kills the host — so red here is a crashed test host, and green is a verdict, twice
+        using var provider = new LlamaSharpProvider("local",
+            new LlamaSharpOptions { ModelPath = ModelPath!, ContextSize = int.MaxValue / 2, MaxTokens = 4 },
+            new LyntaiOptions { ProviderTimeout = TimeSpan.FromMinutes(5) });
+
+        foreach (var _ in new[] { 1, 2 })
+        {
+            var reply = await provider.CompleteAsync(Ask("ping"));
+
+            Assert.Equal(ProviderVerdict.Failed, reply.Verdict);
+            Assert.Contains("trained context", reply.Detail, StringComparison.Ordinal);
+        }
+    }
+
+    [SkippableFact]
     public async Task Streaming_against_a_real_local_model_yields_content_then_final()
     {
         Skip.IfNot(Live, Reason);

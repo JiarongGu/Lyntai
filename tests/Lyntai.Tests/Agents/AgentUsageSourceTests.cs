@@ -419,6 +419,27 @@ public class AgentUsageSourceTests
 
     // ── where the server runs, and what it is told of its client ──────────────────────────────────
 
+    [SkippableTheory, MemberData(nameof(Doors))]
+    public async Task The_fresh_folder_is_owner_only_off_Windows(Door door)
+    {
+        Skip.If(OperatingSystem.IsWindows(), "a Unix mode is not observable on Windows");
+
+        // the folder is removed when the read ends, so its mode is read while the server would be starting in it
+        var runner = Runner(door);
+        UnixFileMode? mode = null;
+        runner.OnSpawn = call =>
+        {
+            if (call.Args.Contains(door.ServerMarker) && call.WorkingDirectory is { } dir && !OperatingSystem.IsWindows())
+                mode = File.GetUnixFileMode(dir);
+        };
+        using var sp = Compose(runner, b => b.AddAgentUsageReading());
+
+        var reading = await Source(sp, door).ReadAllowanceAsync(Account(door.ProviderId));
+
+        Assert.True(reading.IsKnown, reading.UnknownReason);
+        Assert.Equal(UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute, mode);
+    }
+
     [Theory, MemberData(nameof(Doors))]
     public async Task A_named_working_directory_is_created_reached_and_left_with_what_it_held(Door door)
     {

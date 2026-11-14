@@ -168,11 +168,17 @@ public sealed class LlamaSharpProvider(
             ContextSize = options.ContextSize is int cs and > 0 ? (uint?)(uint)cs : null,
             GpuLayerCount = options.GpuLayerCount,
         };
-        // locals first: a throw building the executor (a ContextSize past memory) must free the weights, not
-        // leave them on the field for the next call to load a second copy over
+        // locals first: a refusal or a throw building the executor must free the weights, not leave them on the
+        // field for the next call to load a second copy over
         var weights = LLamaWeights.LoadFromFile(modelParams);
         try
         {
+            // the one bound the weights state, checked before any context exists: a context the machine cannot hold
+            // fails natively WITHOUT a throw and the first call on it kills the process, so no later check answers it
+            if (modelParams.ContextSize is uint asked && weights.ContextSize > 0 && asked > (uint)weights.ContextSize)
+                throw new InvalidOperationException(
+                    $"ContextSize {asked} is past the model's trained context of {weights.ContextSize} tokens; "
+                    + "leave it unset to use the trained context, or set one within it.");
             _executor = new StatelessExecutor(weights, modelParams);
         }
         catch

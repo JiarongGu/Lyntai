@@ -7201,3 +7201,16 @@ entries, so nothing is `### Breaking`. Two findings of the build are new rows in
 
 - `MemoryWriteToolsTests`, `MemoryChangeGateTests`, `FileSystemGraphRestartTests`, `MemoryViewTests`, the graph store contract
 - D361 to D366, the changelog entries amended
+
+## Part 529 — `TASKS.md` Part 490's two rows and Part 495's folder mode: checked first, then built (2026-11-15)
+
+✅ done 2026-11-15 — **Outcome:** each row's premise checked before its build, by a builder in its own worktree. The reference
+`model2vec` drops the unknown token before pooling (read at `v0.10.0` and `main`), so `Model2VecProvider` does too, with an opt-out
+(**D367**). A LlamaSharp probe on SmolLM2-135M showed the weights load at any size and the process dies inside `InferAsync`, so a
+`ContextSize` past the trained context is refused between the two (**D368**, reversing **D270**'s half; D270's re-open line, misplaced
+under D280, moved home). The usage read's fresh folder is owner-only off Windows, its test seen red then green on Linux in Docker
+(`docs/FIXES.md` 2026-11-15). Two findings are new rows: the reference's 512-token truncation (Part 490) and two lifetime facts that
+fail on Linux (Part 495).
+
+- `Model2VecProviderTests`, `LlamaSharpProviderLiveTests`, `AgentUsageSourceTests`
+- D367, D368, the changelog entries, the fix entry
