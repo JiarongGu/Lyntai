@@ -41,6 +41,9 @@ internal sealed class AcpAgentReader
     // a kept run's prompts count from here, so no id of the handshake's own can be read as one
     private const int KeptPromptBase = 100;
 
+    // and a run's steers from here, so no prompt's id reaches one
+    private const int SteerBase = 1 << 30;
+
     private enum Phase { Initializing, Opening, Configuring, Prompting, Kept, Done }
 
     private readonly AgentSessionOptions _options;
@@ -64,6 +67,10 @@ internal sealed class AcpAgentReader
     // each announced child's own words, calls and unread frames, so none of them is the turn's
     private readonly Dictionary<string, AcpTurnState> _children = new(StringComparer.Ordinal);
     private readonly Dictionary<string, string> _childEnds = new(StringComparer.Ordinal);
+    // each steer sent and not yet answered, with the turn it was sent into (null: none ran)
+    private readonly Dictionary<int, (TaskCompletionSource<AgentSteerResult> Answer, AcpTurnState? Into)> _steers = [];
+    private int _nextSteer = SteerBase;
+    private bool _steeringOffered;
     private AcpTurnState _current;
     private AcpTurnState? _frameTurn;
     private AcpTurnState? _woken;
@@ -256,14 +263,39 @@ internal sealed class AcpAgentReader
         }
     }
 
+    /// <summary>Send a steer on a kept run, decided and sent under one lock as a prompt is; the task completes with the agent's answer,
+    /// or at once with the refusal.</summary>
+    public Task<AgentSteerResult> TrySteer(string words)
+    {
+        lock (_gate)
+        {
+            (string Subtype, string Why)? refusal =
+                !_kept || _phase != Phase.Kept ? (AgentRunSubtypes.Over, "the run is not open.")
+                : !_steeringOffered ? (AgentRunSubtypes.SteeringUnavailable, "the agent's open did not state _meta.steering.supported.")
+                : _held.Count > 0 ? (AgentRunSubtypes.RequestHeld, "a permission request is held for the host, and no record shows a steer beside one.")
+                : _woken is not null ? (AgentRunSubtypes.WokenRunning, "the agent's own turn is running, and no record shows a steer into one.")
+                : _outstanding.Exists(t => t.CancelSent) ? (AgentRunSubtypes.Busy, "a stop is out, and the cancelled turn would take the words.")
+                : null;
+            if (refusal is { } no)
+                return Task.FromResult(new AgentSteerResult(AgentSteerOutcome.Refused) { Subtype = no.Subtype, Detail = no.Why });
+
+            var id = _nextSteer++;
+            var answer = new TaskCompletionSource<AgentSteerResult>(TaskCreationOptions.RunContinuationsAsynchronously);
+            _steers[id] = (answer, _outstanding.Count > 0 ? _outstanding[0] : null);
+            Send(AcpFrames.Steering(id, _sessionId!, words));
+            return answer.Task;
+        }
+    }
+
     /// <summary>Cancel the one sent turn that runs. False, sending nothing, where none runs, a stop is already out, or a word is on
-    /// its way: a cancel then loses that word's answer, since the agent keeps what is queued and runs it with its output dropped.</summary>
+    /// its way: a cancel then loses that word's answer, since the agent keeps what is queued and runs it with its output dropped. A
+    /// steer that waits for its answer is such a word.</summary>
     public bool TryCancelRun(out AcpTurnState? turn)
     {
         lock (_gate)
         {
             turn = _outstanding.Count == 1 ? _outstanding[0] : null;
-            if (!_kept || _phase != Phase.Kept || turn is null || turn.CancelSent || _sessionId is null) return false;
+            if (!_kept || _phase != Phase.Kept || turn is null || turn.CancelSent || _sessionId is null || _steers.Count > 0) return false;
             turn.CancelSent = true;
             Send(AcpFrames.Cancel(_sessionId));
             ReleaseHeld(answerCancelled: true);
@@ -324,6 +356,9 @@ internal sealed class AcpAgentReader
         {
             _phase = Phase.Done;
             ReleaseHeld(answerCancelled: false);
+            foreach (var (answer, _) in _steers.Values)
+                answer.TrySetResult(new AgentSteerResult(AgentSteerOutcome.Failed) { Detail = "the run ended before the agent answered the steer." });
+            _steers.Clear();
         }
     }
 
@@ -423,7 +458,8 @@ internal sealed class AcpAgentReader
         var result = WireJson.Object(root, "result") ?? default;
         if (_kept && _phase == Phase.Kept)
         {
-            if (id >= KeptPromptBase) ReadKeptAnswer(id, error, result, events);
+            if (id >= SteerBase) ReadSteerAnswer(id, error, result);
+            else if (id >= KeptPromptBase) ReadKeptAnswer(id, error, result, events);
             return;
         }
 
@@ -431,7 +467,12 @@ internal sealed class AcpAgentReader
         {
             case InitializeId when _phase == Phase.Initializing:
                 if (error is { } initializeError) End(events, FailedByError(initializeError));
-                else Open(AcpCapabilities.Read(result), events);
+                else
+                {
+                    var agent = AcpCapabilities.Read(result);
+                    _steeringOffered = agent.Steering;
+                    Open(agent, events);
+                }
                 break;
 
             case OpenId when _phase == Phase.Opening:
@@ -505,6 +546,31 @@ internal sealed class AcpAgentReader
         _current = answered;
         _frameTurn = answered;
         EndPrompt(error, result, events, later);
+    }
+
+    // A steer's answer says where its words went. Injected cuts the step in flight, so a call the turn had announced may never be
+    // finished (recorded), and no longer holds the turn open; a turn the agent began with the words is read as woken, by its first word.
+    private void ReadSteerAnswer(int id, JsonElement? error, JsonElement result)
+    {
+        if (!_steers.Remove(id, out var steer)) return;
+        AgentSteerResult answer;
+        if (error is { } refused)
+            answer = new AgentSteerResult(AgentSteerOutcome.Failed) { Detail = $"the agent answered the steer with an error: {AcpFailure.Words(refused)}" };
+        else
+        {
+            var outcome = WireJson.String(result, "outcome");
+            answer = outcome switch
+            {
+                "injected" => new AgentSteerResult(AgentSteerOutcome.Injected),
+                "startedNewTurn" => new AgentSteerResult(AgentSteerOutcome.StartedNewTurn),
+                "promptRequired" => new AgentSteerResult(AgentSteerOutcome.PromptRequired),
+                _ => new AgentSteerResult(AgentSteerOutcome.Failed)
+                    { Detail = $"the agent answered the steer with outcome '{outcome ?? "(none)"}', which this door has no reading for" },
+            };
+            if (answer.Outcome == AgentSteerOutcome.Injected) steer.Into?.OpenCalls.Clear();
+        }
+
+        steer.Answer.TrySetResult(answer);
     }
 
     // A mode is set through session/set_mode with an id the open's modes answer offers, an effort through the config option

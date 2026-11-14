@@ -54,6 +54,11 @@ internal static class AcpFailure
     public static ProviderVerdict VerdictOf(AgentFailure failure, string? words) =>
         ProviderVerdictClassifier.FromAgentFailure(failure, words);
 
+    /// <summary>An error's words alone, for an answer no failure is read from (a steer's).</summary>
+    public static string Words(JsonElement error) =>
+        Words(WireJson.String(error, "message") ?? (error.ValueKind == JsonValueKind.String ? error.GetString() : null),
+            WireJson.Object(error, "data") is { } data ? WireJson.String(data, "message") : null);
+
     private static string Words(string? message, string? detail) =>
         (message, detail) switch
         {

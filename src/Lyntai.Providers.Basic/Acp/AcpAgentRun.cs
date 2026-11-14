@@ -15,7 +15,7 @@ namespace Lyntai.Providers.Acp;
 /// terminal. The process's inactivity window counts only while a sent turn runs: between turns, and during a woken turn, the run
 /// holds it paused, since an idle agent is the host waiting and a woken turn's end is the host's bound
 /// (<see cref="AgentRunOptions.WokenTurnQuiet"/>), never the runner's.</summary>
-internal sealed class AcpAgentRun : IAgentRun
+internal sealed class AcpAgentRun : IAgentRun, IAgentRunSteering
 {
     /// <summary>What a run needs of the door that opens it.</summary>
     internal sealed record Host(
@@ -152,6 +152,16 @@ internal sealed class AcpAgentRun : IAgentRun
             default:
                 return Task.FromResult(Refused(AgentRunSubtypes.Over, "the run is not open."));
         }
+    }
+
+    /// <inheritdoc />
+    public Task<AgentSteerResult> SteerAsync(string words, CancellationToken ct = default)
+    {
+        ArgumentNullException.ThrowIfNull(words);
+        ct.ThrowIfCancellationRequested();
+        if (_ended.Task.IsCompleted)
+            return Task.FromResult(new AgentSteerResult(AgentSteerOutcome.Refused) { Subtype = AgentRunSubtypes.Over, Detail = "the run is over." });
+        return _reader.TrySteer(words).WaitAsync(ct);
     }
 
     /// <inheritdoc />
@@ -462,8 +472,11 @@ internal sealed class AcpAgentRun : IAgentRun
     }
 
     // a run that never started
-    private sealed class OverRun(SessionEnded refusal) : IAgentRun
+    private sealed class OverRun(SessionEnded refusal) : IAgentRun, IAgentRunSteering
     {
+        public Task<AgentSteerResult> SteerAsync(string words, CancellationToken ct = default) =>
+            Task.FromResult(new AgentSteerResult(AgentSteerOutcome.Refused) { Subtype = AgentRunSubtypes.Over, Detail = "the run is over: " + refusal.Diagnostic });
+
         public string? SessionId => null;
 
         public Task<SessionEnded> Ended { get; } = Task.FromResult(refusal);

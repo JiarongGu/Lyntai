@@ -992,4 +992,171 @@ public class AcpAgentRunTests
         Assert.Contains("spawning call", claimed.Evidence);
         Assert.Equal(AgentSupport.Unsupported, AcpAgentDoor.Describe("acp-test", null).Doors[0].SupportFor(AgentAbilities.ChildSessions));
     }
+
+    // ── AG49: a word that cuts into the running turn (D347) ──────────────────
+
+    // RECORDED (a host's steer note, claude-agent-acp 0.84.0): initialize answers _meta.steering.supported at the top of its result,
+    // and a steer mid-turn is answered {"outcome":"injected"} at once. READ from that adapter's source: an idle session answers
+    // startedNewTurn, or promptRequired when the request's _meta.steering.idleBehavior asks for it.
+    private static IEnumerable<string> SteeringHandshake(JsonNode frame) => Method(frame) switch
+    {
+        "initialize" => ["""{"jsonrpc":"2.0","id":1,"result":{"protocolVersion":1,"agentCapabilities":{"_meta":{"claudeCode":{"promptQueueing":true}}},"authMethods":[],"_meta":{"steering":{"supported":true}}}}"""],
+        _ => Handshake(frame),
+    };
+
+    private static async Task<JsonNode> SteerFrame(KeptAgent agent)
+    {
+        await agent.Wrote(f => Method(f) == "_session/steering");
+        return agent.Written.Single(f => Method(f) == "_session/steering");
+    }
+
+    private static string SteerAnswer(JsonNode steer, string outcome) =>
+        $$$"""{"jsonrpc":"2.0","id":{{{IdOf(steer)}}},"result":{"outcome":"{{{outcome}}}"}}""";
+
+    private static IAgentRunSteering Steering(IAgentRun run) => Assert.IsAssignableFrom<IAgentRunSteering>(run);
+
+    [Fact] // RECORDED outcome, ids made up: the word is taken into the running turn, which goes on to its one end
+    public async Task A_steer_mid_turn_is_injected_and_the_turn_goes_on_to_its_one_end()
+    {
+        var agent = new KeptAgent { Reply = SteeringHandshake };
+        await using var run = await Open(agent);
+        var turn = await run.SendAsync("read the five files");
+        agent.Say(Call("c1", "pending"));
+
+        var steered = Steering(run).SteerAsync("put MANGO after the words");
+        var steer = await SteerFrame(agent);
+        agent.Say(SteerAnswer(steer, "injected"));
+        var result = await steered.WaitAsync(Wait);
+        agent.Say(Chunk("echo MANGO"), Answer(100));
+        var events = await Read(turn);
+
+        Assert.Equal(AgentSteerOutcome.Injected, result.Outcome);
+        var parameters = steer["params"]!;
+        Assert.Equal("s1", parameters["sessionId"]!.GetValue<string>());
+        Assert.Equal("put MANGO after the words", parameters["prompt"]![0]!["text"]!.GetValue<string>());
+        Assert.Equal("text", parameters["prompt"]![0]!["type"]!.GetValue<string>());
+        Assert.Equal("promptRequired", parameters["_meta"]!["steering"]!["idleBehavior"]!.GetValue<string>());
+        Assert.Single(events.OfType<SessionEnded>());
+        Assert.Equal("echo MANGO", Ended(events).FinalText);
+        Assert.Equal(["initialize", "session/new", "session/prompt", "_session/steering"], Methods(agent));
+    }
+
+    [Fact] // READ: with idleBehavior promptRequired an idle session leaves the words to the client, and no turn begins
+    public async Task An_idle_steer_is_left_to_the_host()
+    {
+        var agent = new KeptAgent { Reply = SteeringHandshake };
+        await using var run = await Open(agent);
+
+        var steered = Steering(run).SteerAsync("are you there?");
+        agent.Say(SteerAnswer(await SteerFrame(agent), "promptRequired"));
+
+        Assert.Equal(AgentSteerOutcome.PromptRequired, (await steered.WaitAsync(Wait)).Outcome);
+        var turn = await run.SendAsync("are you there?");
+        Assert.Equal(AgentRunTurnOrigin.Sent, turn.Origin);
+    }
+
+    [Fact] // the ruling: a turn the agent began with the words is no prompt's, so it is read as a woken turn
+    public async Task A_turn_the_agent_began_with_the_words_is_a_woken_turn()
+    {
+        var agent = new KeptAgent { Reply = SteeringHandshake };
+        await using var run = await Open(agent);
+        await using var woken = run.WokenTurns.GetAsyncEnumerator();
+
+        var steered = Steering(run).SteerAsync("check the build");
+        agent.Say(SteerAnswer(await SteerFrame(agent), "startedNewTurn"), Chunk("on it"));
+
+        Assert.Equal(AgentSteerOutcome.StartedNewTurn, (await steered.WaitAsync(Wait)).Outcome);
+        Assert.True(await woken.MoveNextAsync().AsTask().WaitAsync(Wait));
+        Assert.Equal(AgentRunTurnOrigin.Woken, woken.Current.Origin);
+        await using var said = woken.Current.Events.GetAsyncEnumerator();
+        Assert.True(await said.MoveNextAsync().AsTask().WaitAsync(Wait));
+        Assert.Equal("on it", Assert.IsType<TextDelta>(said.Current).Text);
+    }
+
+    [Fact] // the claim is negotiated as well as recorded: an open that offers no steering is refused before a frame is written
+    public async Task A_steer_is_refused_where_the_open_did_not_offer_steering()
+    {
+        var agent = new KeptAgent();
+        await using var run = await Open(agent);
+        await run.SendAsync("go");
+
+        var result = await Steering(run).SteerAsync("faster").WaitAsync(Wait);
+
+        Assert.Equal((AgentSteerOutcome.Refused, AgentRunSubtypes.SteeringUnavailable), (result.Outcome, result.Subtype));
+        Assert.DoesNotContain("_session/steering", Methods(agent));
+    }
+
+    [Fact] // no record shows a steer beside a held request, and the adapter would queue it behind the request: not offered
+    public async Task A_steer_is_refused_while_a_permission_request_is_held()
+    {
+        var approver = new TokenApprover();
+        var agent = new KeptAgent { Reply = SteeringHandshake };
+        await using var run = await Open(agent, approver: approver);
+        await run.SendAsync("edit it");
+        agent.Say(PermissionRequest());
+        await approver.Asked.Task.WaitAsync(Wait);
+
+        var result = await Steering(run).SteerAsync("stop editing").WaitAsync(Wait);
+
+        Assert.Equal((AgentSteerOutcome.Refused, AgentRunSubtypes.RequestHeld), (result.Outcome, result.Subtype));
+        Assert.DoesNotContain("_session/steering", Methods(agent));
+    }
+
+    [Fact] // a stop with a steer unanswered could lose where the words went: the stop waits for the answer
+    public async Task A_stop_is_not_sent_while_a_steer_waits_for_its_answer()
+    {
+        var agent = new KeptAgent { Reply = SteeringHandshake };
+        await using var run = await Open(agent);
+        await run.SendAsync("go");
+
+        var steered = Steering(run).SteerAsync("faster");
+        var steer = await SteerFrame(agent);
+        var stoppedEarly = await run.StopAsync();
+        agent.Say(SteerAnswer(steer, "injected"));
+        await steered.WaitAsync(Wait);
+
+        Assert.False(stoppedEarly);
+        Assert.True(await run.StopAsync());
+    }
+
+    [Theory] // whether the words landed is not known: an error, a word this library has none for, or the run's end first
+    [InlineData("error")]
+    [InlineData("unknown-outcome")]
+    [InlineData("run-ends")]
+    public async Task A_steer_whose_landing_is_not_known_fails(string how)
+    {
+        var agent = new KeptAgent { Reply = SteeringHandshake };
+        await using var run = await Open(agent);
+        await run.SendAsync("go");
+
+        var steered = Steering(run).SteerAsync("faster");
+        var steer = await SteerFrame(agent);
+        switch (how)
+        {
+            case "error":
+                agent.Say($$$"""{"jsonrpc":"2.0","id":{{{IdOf(steer)}}},"error":{"code":-32603,"message":"internal"}}""");
+                break;
+            case "unknown-outcome":
+                agent.Say(SteerAnswer(steer, "queuedForLater"));
+                break;
+            default:
+                agent.EndOutput();
+                break;
+        }
+
+        var result = await steered.WaitAsync(Wait);
+        Assert.Equal(AgentSteerOutcome.Failed, result.Outcome);
+        Assert.NotNull(result.Detail);
+    }
+
+    [Fact]
+    public void The_door_states_steering_where_a_run_rests_on_the_record()
+    {
+        var claimed = AcpAgentDoor.Describe("acp-test", null, keptRun: AcpKeptRun.ClaudeAgentAcp).Doors[0].Abilities
+            .Single(a => a.Name == AgentAbilities.Steering);
+
+        Assert.Equal(AgentSupport.Supported, claimed.Support);
+        Assert.Equal("claude-agent-acp 0.84.0", claimed.AppliesTo);
+        Assert.Equal(AgentSupport.Unsupported, AcpAgentDoor.Describe("acp-test", null).Doors[0].SupportFor(AgentAbilities.Steering));
+    }
 }

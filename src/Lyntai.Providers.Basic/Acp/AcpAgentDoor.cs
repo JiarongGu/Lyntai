@@ -35,7 +35,10 @@ internal static class AcpAgentDoor
                     Declared(AgentAbilities.SystemPrompt, AgentSupport.Supported, "a leading text block of the prompt; the protocol has no system field"),
                     new AgentAbility(AgentAbilities.Model, AgentSupport.Unknown, AgentAbilitySource.Negotiated)
                         { Evidence = "per agent from session/new: a config option of category model, set by session/set_config_option before the prompt; none, or an agent that refuses the id, ends the turn before the prompt" },
-                    Declared(AgentAbilities.Steering, AgentSupport.Unsupported, "through IAgentSession a turn is one prompt in one process and a second is never sent during it; a word on a run is queued-words"),
+                    keptRun == AcpKeptRun.ClaudeAgentAcp
+                        ? Recorded(AgentAbilities.Steering, "claude-agent-acp 0.84.0",
+                            "on a run, IAgentRunSteering sends _session/steering where the open states _meta.steering.supported and refuses it elsewhere: answered injected mid-turn and the turn went on to its one end (a host's steer note); an idle session asked to leave the words to the host answers promptRequired (read from source); a turn the agent begins with them is a woken turn")
+                        : Declared(AgentAbilities.Steering, AgentSupport.Unsupported, "through IAgentSession a turn is one prompt in one process and a second is never sent during it; a steer needs a run, which this registration opens none of"),
                     Declared(AgentAbilities.PlanEvents, AgentSupport.Unknown, "the plan update is in the published schema and mapped; whether an agent sends one is its own"),
                     Declared(AgentAbilities.LiveUsage, AgentSupport.Unsupported, "usage_update carries context figures, not counts; the prompt's answer carries the turn's usage"),
                     Declared(AgentAbilities.TypedFailures, AgentSupport.Supported, "the JSON-RPC error's code and data, and the AIR sessionFailure field the door declares at initialize"),

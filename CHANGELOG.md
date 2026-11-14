@@ -282,6 +282,10 @@ every addition.
 
 ### Added
 
+- **A steer on a kept run** (**D347**). The protocol door's run is an `IAgentRunSteering`: `SteerAsync(words)` sends `_session/steering`
+  where the agent's open states `_meta.steering.supported`, and answers `Injected` (taken into the running turn at once, which goes on
+  to its one end), `PromptRequired` (no turn ran: send the words with `SendAsync`), `StartedNewTurn` (read as a woken turn), `Refused`
+  or `Failed`, never a throw. The door states `steering` supported for claude-agent-acp 0.84.0 on a run.
 - **A child agent as a session of its own, on the host's option** (**D346**). `AddAcpAgentSession(childSessions: AcpChildSessions.ClaudeAgentAcp)`
   declares AIR's `nativeSubagentSessions`, and a child then arrives as `ChildSessionStarted` (its id, name and task), its own events as
   `ChildSessionUpdate`s carrying that id and never the session's answer, and its end as `ChildSessionEnded`; the door states

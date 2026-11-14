@@ -1293,6 +1293,15 @@ only when you say so, by `AgentRunOptions.WokenTurnQuiet` passed to `OpenRunAsyn
 request held, ends it with subtype `quiet`); with none set the library never ends one, and `SendAsync` is refused, `run-woken-turn`,
 while one runs, since a prompt sent into it is never answered.
 
+**A steer** cuts into the running turn at once, where a word waits for the agent's next step: the run is an `IAgentRunSteering`,
+found by type test, and the door states `steering` `Supported` (**D347**). `SteerAsync(words)` answers where the words went:
+`Injected` (the step in flight is cut, the turn goes on to its one end, and a call it had announced may never be finished),
+`PromptRequired` (no turn ran, and the door asks the agent to leave the words to you: send them with `SendAsync`) or
+`StartedNewTurn` (an agent that began a turn with them anyway: it is a woken turn on `WokenTurns`). It is refused, as a result and
+never a throw, where the agent's open did not state `_meta.steering.supported` (`run-steering-unavailable`), while a request is held,
+while a woken turn runs or a stop is out, and a stop is not sent while a steer waits for its answer. `Failed` means the landing is
+not known: an error, an outcome the door has no reading for, or the run's end first.
+
 <!-- compile-given: IAgentRunProvider runs; -->
 ```csharp
 await using var run = await runs.OpenRunAsync("acp", new AgentSessionOptions { Prompt = "", WorkingDirectory = "/work" });

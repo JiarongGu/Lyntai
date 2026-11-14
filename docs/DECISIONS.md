@@ -416,8 +416,9 @@ new decision overturns an old one, rewrite the old entry as a stub pointing here
 | [D344](#d344--a-sessions-context-is-a-typed-append-only-log-the-library-renders-per-provider-and-the-brief-stays-2026-11-14) | 2026-11-14 | a session's context is a typed append-only log the library renders per provider, and the brief stays |
 | [D345](#d345--a-device-code-sign-in-is-a-request-flag-one-program-carries-and-the-other-refuses-2026-11-15) | 2026-11-15 | a device-code sign-in is a request flag one program carries and the other refuses |
 | [D346](#d346--a-child-agent-is-read-as-a-session-of-its-own-only-on-a-hosts-option-and-its-events-are-wrapped-not-stamped-2026-11-15) | 2026-11-15 | a child agent is read as a session of its own only on a host's option, and its events are wrapped… |
+| [D347](#d347--a-steer-is-an-optional-capability-of-a-run-asks-an-idle-agent-to-leave-the-words-to-the-host-and-a-turn-begun-with-them-is-woken-2026-11-15) | 2026-11-15 | a steer is an optional capability of a run, asks an idle agent to leave the words to the host, an… |
 
-**341 live decisions.** The rest are stubs — `D<n>` is a permanent identifier, so a number is never reused or renumbered (5): [D36](#d36--a-translation-between-two-verdict-taxonomies-gets-one-arm-per-member-gated-by-a-test-2026-08-05) → D136 · [D80](#d80--merged-into-d77-2026-08-16-folded-2026-08-17) → D77 · [D131](#d131--a-backends-produces-is-derived-from-its-configuration-so-a-modality-is-a-field-2026-09-14) → D133 · [D134](#d134--a-registration-names-the-backend-the-provider-suffix-is-gone-from-all-seventeen-2026-09-14) → D137 · [D145](#d145--the-microsoftextensionsai-module-is-a-bridge-not-a-provider-2026-09-15) → D146
+**342 live decisions.** The rest are stubs — `D<n>` is a permanent identifier, so a number is never reused or renumbered (5): [D36](#d36--a-translation-between-two-verdict-taxonomies-gets-one-arm-per-member-gated-by-a-test-2026-08-05) → D136 · [D80](#d80--merged-into-d77-2026-08-16-folded-2026-08-17) → D77 · [D131](#d131--a-backends-produces-is-derived-from-its-configuration-so-a-modality-is-a-field-2026-09-14) → D133 · [D134](#d134--a-registration-names-the-backend-the-provider-suffix-is-gone-from-all-seventeen-2026-09-14) → D137 · [D145](#d145--the-microsoftextensionsai-module-is-a-bridge-not-a-provider-2026-09-15) → D146
 
 <!-- index:end -->
 
@@ -8629,3 +8630,15 @@ recall and its write-back is already a silent skip).
 **Rejected.** A `ChildSessionId` on each event type (five members, and a host unaware of them merges the child into the session). Reading the spawn as `AgentTaskStarted` (it carries no task text, and the child is a conversation, not a background command). Declaring the protocol's own `subagents` beside AIR's (the record shows it switches nothing on). A value for any agent (codex-acp lists the AIR capability, and no run of it was recorded).
 
 **Re-opens** when a synchronous, nested or failed child is recorded, or a second agent's child sessions are.
+
+## D347 — a steer is an optional capability of a run, asks an idle agent to leave the words to the host, and a turn begun with them is woken (2026-11-15)
+
+**Standing.** A ruling on A-LQ18 (`TASKS.md` Part 518's AG49), read by the agent that built it; the owner may reverse it. Built.
+
+**Decided.** `IAgentRunSteering.SteerAsync(words)` is found by type test on an `IAgentRun`; the protocol door's run sends `_session/steering` with the words as a text block and `_meta.steering.idleBehavior: promptRequired`, under its own id range, where the open stated `_meta.steering.supported`, and answers `AgentSteerResult`: `Injected` (the turn's open calls stop holding it), `PromptRequired`, `StartedNewTurn`, `Refused` with an `AgentRunSubtypes` word, or `Failed` when the landing is not known. **A turn the agent began with the words is a woken turn**, since no prompt owns it and nothing would answer a sent turn's end. Refused while a request is held, a woken turn runs or a stop is out; a stop is not sent while a steer waits. The door states `steering` `Supported` for claude-agent-acp 0.84.0 on a run, and `Unsupported` without one.
+
+**Why.** A word folded at the next step waits out the step in flight; a host that must redirect the agent now needs the cut, and the record shows it answered at once with the turn going on to its one end.
+
+**Rejected.** A member on `IAgentRun` (every run a host wrote would break, **D70**). Reading `startedNewTurn` as a sent turn (it would wait for a prompt answer that never comes). Steering without `promptRequired` (an idle agent would start a turn the host did not ask for). Offering it beside a held request or into a woken turn (no record shows either).
+
+**Re-opens** when a record shows a steer beside a held request or into a woken turn, or codex-acp's steer on a run (its `startedNewTurn` when idle is recorded; a run on that door is not, AG50).

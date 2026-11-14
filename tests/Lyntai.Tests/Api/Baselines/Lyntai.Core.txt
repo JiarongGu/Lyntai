@@ -563,6 +563,7 @@ static class Lyntai.Agents.AgentRunSubtypes
     Over : String const
     Quiet : String const
     RequestHeld : String const
+    SteeringUnavailable : String const
     WokenRunning : String const
 sealed class Lyntai.Agents.AgentRunTurn
     .ctor(AgentRunTurnOrigin origin, IAsyncEnumerable<AgentStreamEvent> events, Task<SessionEnded> ended)
@@ -661,6 +662,23 @@ enum Lyntai.Agents.AgentSideEffects
     OpensListener : AgentSideEffects const
     RefreshesCredentials : AgentSideEffects const
     value__ : Int32
+enum Lyntai.Agents.AgentSteerOutcome
+    Failed : AgentSteerOutcome const
+    Injected : AgentSteerOutcome const
+    PromptRequired : AgentSteerOutcome const
+    Refused : AgentSteerOutcome const
+    StartedNewTurn : AgentSteerOutcome const
+    value__ : Int32
+sealed class Lyntai.Agents.AgentSteerResult
+    .ctor(AgentSteerOutcome Outcome)
+    Deconstruct(AgentSteerOutcome& Outcome) : Void
+    Detail : String { get; init; }
+    Equals(AgentSteerResult other) : Boolean
+    Equals(Object obj) : Boolean
+    GetHashCode() : Int32
+    Outcome : AgentSteerOutcome { get; init; }
+    Subtype : String { get; init; }
+    ToString() : String
 abstract class Lyntai.Agents.AgentStreamEvent
     .ctor()
     .ctor(AgentStreamEvent original)
@@ -1030,6 +1048,8 @@ interface Lyntai.Agents.IAgentRun
     WokenTurns : IAsyncEnumerable<AgentRunTurn> { get; }
 interface Lyntai.Agents.IAgentRunProvider
     OpenRunAsync(String doorId, AgentSessionOptions options, AgentRunOptions run = null, CancellationToken ct = default) : Task<IAgentRun>
+interface Lyntai.Agents.IAgentRunSteering
+    SteerAsync(String words, CancellationToken ct = default) : Task<AgentSteerResult>
 interface Lyntai.Agents.IAgentSession
     StreamAsync(AgentSessionOptions options, CancellationToken ct = default) : IAsyncEnumerable<AgentStreamEvent>
 interface Lyntai.Agents.IAgentUsageSource

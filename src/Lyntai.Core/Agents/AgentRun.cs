@@ -72,6 +72,53 @@ public interface IAgentRun : IAsyncDisposable
     IAsyncEnumerable<AgentRunTurn> WokenTurns { get; }
 }
 
+/// <summary>An optional capability of an <see cref="IAgentRun"/>, found by type test (<see cref="IAgentRun"/> gains no member): words that
+/// cut into the running turn at once, where <see cref="IAgentRun.SendAsync"/>'s word waits for the agent's next step. A run offers it
+/// where its door states <see cref="AgentAbilities.Steering"/> <see cref="AgentSupport.Supported"/>, and refuses it where the agent's open
+/// did not say it takes it.</summary>
+public interface IAgentRunSteering
+{
+    /// <summary>Send words into the running turn and say where they landed. <b>A refusal or a failure is a result, never a throw.</b>
+    /// Refused while a permission request is held, while a woken turn runs, while a stop is out, and on an ended run, since no record
+    /// shows a steer beside any of them. A stop is not sent while a steer waits for its answer.</summary>
+    /// <param name="words">The words, sent as the content of a prompt.</param>
+    /// <param name="ct">Cancels the wait; words already sent are not taken back.</param>
+    Task<AgentSteerResult> SteerAsync(string words, CancellationToken ct = default);
+}
+
+/// <summary>Where a steer's words landed, as the agent answered.</summary>
+public enum AgentSteerOutcome
+{
+    /// <summary>Taken into the running turn: the step in flight is cut, the turn goes on, and no turn ends. A call the agent had
+    /// announced may never be finished, and the turn's own end still arrives on its <see cref="AgentRunTurn"/>.</summary>
+    Injected,
+
+    /// <summary>No turn was running and the agent began one with the words. No prompt owns it, so it is a woken turn on
+    /// <see cref="IAgentRun.WokenTurns"/>, ended as a woken turn is.</summary>
+    StartedNewTurn,
+
+    /// <summary>No turn was running and the agent left the words to the host: send them with <see cref="IAgentRun.SendAsync"/>.</summary>
+    PromptRequired,
+
+    /// <summary>The run refused before sending; <see cref="AgentSteerResult.Subtype"/> says why, as an <see cref="AgentRunSubtypes"/> word.</summary>
+    Refused,
+
+    /// <summary>Whether the words landed is not known: the agent answered an error or an outcome this library has no word for, or the
+    /// run ended before it answered.</summary>
+    Failed,
+}
+
+/// <summary>What <see cref="IAgentRunSteering.SteerAsync"/> answered.</summary>
+/// <param name="Outcome">Where the words landed.</param>
+public sealed record AgentSteerResult(AgentSteerOutcome Outcome)
+{
+    /// <summary>For <see cref="AgentSteerOutcome.Refused"/>, the <see cref="AgentRunSubtypes"/> word saying why; null otherwise.</summary>
+    public string? Subtype { get; init; }
+
+    /// <summary>The reason in words, or the agent's own for a failure; null when there is nothing to add.</summary>
+    public string? Detail { get; init; }
+}
+
 /// <summary>Where a turn of a run came from.</summary>
 public enum AgentRunTurnOrigin
 {
@@ -127,6 +174,9 @@ public static class AgentRunSubtypes
 
     /// <summary>Refused, or a turn cut off: the run is over.</summary>
     public const string Over = "run-over";
+
+    /// <summary>A steer refused: the agent's open did not say it takes one.</summary>
+    public const string SteeringUnavailable = "run-steering-unavailable";
 
     /// <summary>The run's own end after <see cref="IAsyncDisposable.DisposeAsync"/>.</summary>
     public const string Disposed = "run-disposed";

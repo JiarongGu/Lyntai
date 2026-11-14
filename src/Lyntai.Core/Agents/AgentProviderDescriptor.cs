@@ -199,7 +199,8 @@ public static class AgentAbilities
     /// the turn before the prompt; none runs a turn on another model and says nothing.</summary>
     public const string Model = "model";
 
-    /// <summary>Take a word from the host while a turn is running.</summary>
+    /// <summary>Take a word from the host into a turn while it runs, at once rather than at the agent's next step: on a run, through
+    /// <see cref="IAgentRunSteering"/>.</summary>
     public const string Steering = "steering";
 
     /// <summary>Emit <see cref="PlanUpdated"/> when the agent keeps a plan.</summary>

@@ -7130,3 +7130,15 @@ The default is unchanged (**D343**). The guide's sign-in paragraph, stale since 
 
 - `tests/Lyntai.Tests/Providers/AcpAgentRunTests.cs` (§AG52)
 - D346, the changelog entry
+
+## Part 523 — AG49, a steer on a kept run (A-LQ18) (2026-11-15)
+
+✅ done 2026-11-15 — **Outcome:** `IAgentRunSteering` on the protocol door's run sends `_session/steering` with
+`idleBehavior: promptRequired` where the open states `_meta.steering.supported`, and answers `Injected`, `PromptRequired`,
+`StartedNewTurn`, `Refused` or `Failed` (**D347**). The ruling the row asked for first: a turn the agent begins with the words is a
+woken turn. The fixtures follow a host's steer note (claude-agent-acp 0.84.0's open and `injected` answer recorded, the idle answers
+read from its source), and the tests went red with the open's offer ignored. The door's `steering` claim follows the kept-run
+registration. Codex's steer is recorded (STEER3) but its run is not (AG50), so it is offered nowhere.
+
+- `tests/Lyntai.Tests/Providers/AcpAgentRunTests.cs` (§AG49)
+- D347, the changelog entry

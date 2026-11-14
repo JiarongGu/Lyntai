@@ -75,6 +75,15 @@ internal static class AcpFrames
             (JsonNode)new JsonObject { ["type"] = "text", ["text"] = text })]),
     });
 
+    // the extension's own request: the prompt's content blocks, and an idle session asked to leave the words to the client, which
+    // claude-agent-acp honours and codex-acp does not read (a host's steer note)
+    public static string Steering(int id, string sessionId, string words) => Request(id, "_session/steering", new JsonObject
+    {
+        ["sessionId"] = sessionId,
+        ["prompt"] = new JsonArray((JsonNode)new JsonObject { ["type"] = "text", ["text"] = words }),
+        ["_meta"] = new JsonObject { ["steering"] = new JsonObject { ["idleBehavior"] = "promptRequired" } },
+    });
+
     public static string Cancel(string sessionId) =>
         Notification("session/cancel", new JsonObject { ["sessionId"] = sessionId });
 

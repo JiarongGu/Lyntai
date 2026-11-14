@@ -398,7 +398,7 @@ no signed-in agent and no installed `codex` was used.
 
 | Need | Answer | Where |
 |---|---|---|
-| **A-LQ18** words that cut into the running turn, on a kept run | **planned**: an optional member beside `IAgentRun`, answering `injected`, `startedNewTurn` or left to the host; `claude-agent-acp` 0.84.0 is the only record | AG49 |
+| **A-LQ18** words that cut into the running turn, on a kept run | **built as AG49**: `IAgentRunSteering` beside `IAgentRun`, answering `injected`, `startedNewTurn` (read as a woken turn) or left to the host; `claude-agent-acp` 0.84.0 is the only record | **D347** |
 | **A-LQ19** a kept run on `codex-acp` and dsh | **planned, blocked on the records Daoris will send**; the §11.1 cells stay `Unknown` until then | AG50 |
 | **A-LQ20** another writer told apart | **built**: `AgentFailure.Conflict` `ConversationHeld`, read from `data.reason` and never the sentence | **D340** |
 | **A-LQ21** a Claude CLI kept run with stdin held | **planned**, design first: its measured frames are two turns on one process and an interrupt, and the rest was never run | AG51 |
