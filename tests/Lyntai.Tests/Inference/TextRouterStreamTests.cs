@@ -130,6 +130,54 @@ public class TextRouterStreamTests
         Assert.Equal(1, p2.StreamCalls); // the empty chunk didn't commit, so it fell over — and did not leak
     }
 
+    [Fact] // the empty Final was billed: its usage joins the terminal the router yields, so the budget sees both
+    public async Task An_empty_Final_that_falls_over_bills_both_attempts()
+    {
+        var p1 = new FakeTextProvider("p1") { StreamScript = _ => [TextChunk.Final(new TextUsage(10, 0, CostUsd: 0.01))] };
+        var p2 = new FakeTextProvider("p2")
+        {
+            StreamScript = _ => [TextChunk.Content("answer"), TextChunk.Final(new TextUsage(20, 5, CostUsd: 0.02))],
+        };
+
+        var chunks = await Router(p1, p2).StreamAsync([new("p1"), new("p2")], Req).ToListAsync();
+
+        var final = chunks[^1];
+        Assert.Equal(TextChunkKind.Final, final.Kind);
+        Assert.Equal((30L, 5L), (final.Usage!.InputTokens, final.Usage.OutputTokens));
+        Assert.Equal(0.03, final.Usage.CostUsd!.Value, 9);
+    }
+
+    [Fact] // nothing answered, and the one attempt was still billed: its usage rides the closing error
+    public async Task An_empty_Final_from_the_last_candidate_carries_its_usage_on_the_error()
+    {
+        var p1 = new FakeTextProvider("p1") { StreamScript = _ => [TextChunk.Final(new TextUsage(10, 0, CostUsd: 0.01))] };
+
+        var chunks = await Router(p1).StreamAsync([new("p1")], Req).ToListAsync();
+
+        var error = Assert.Single(chunks);
+        Assert.Equal(TextChunkKind.Error, error.Kind);
+        Assert.Equal(new TextUsage(10, 0, CostUsd: 0.01), error.Usage);
+    }
+
+    [Fact] // a pre-content Error that reported usage is billed too, and a refusal that surfaces carries the sum
+    public async Task A_surfaced_refusal_carries_the_usage_of_the_attempts_before_it()
+    {
+        var p1 = new FakeTextProvider("p1")
+        {
+            StreamScript = _ => [TextChunk.Error(ProviderVerdict.Failed, "died") with { Usage = new TextUsage(4, 1) }],
+        };
+        var p2 = new FakeTextProvider("p2")
+        {
+            StreamScript = _ => [TextChunk.Error(ProviderVerdict.Refused, "no") with { Usage = new TextUsage(6, 2) }],
+        };
+
+        var chunks = await Router(p1, p2).StreamAsync([new("p1"), new("p2")], Req).ToListAsync();
+
+        var error = Assert.Single(chunks);
+        Assert.Equal(ProviderVerdict.Refused, error.Verdict);
+        Assert.Equal(new TextUsage(10, 3), error.Usage);
+    }
+
     [Fact] // Zero chunks = a contract-violating empty stream → Failed + fall over (not a silent end)
     public async Task Zero_chunk_stream_falls_over_to_the_next_candidate()
     {

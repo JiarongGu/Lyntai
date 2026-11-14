@@ -1,4 +1,5 @@
 using Lyntai.Inference;
+using Lyntai.Inference.Cli;
 using Lyntai.Providers.ClaudeCli;
 
 namespace Lyntai.Tests.Providers;
@@ -100,6 +101,56 @@ public class StreamJsonParserTests
 
         Assert.Equal(StreamJsonEventKind.Failure, evt.Kind);
         Assert.NotEmpty(evt.Text);   // the backend's own words, which is what gets classified
+    }
+
+    /// <summary>The RECORDED fact: claude 2.1.325 (haiku, <c>--max-turns 1</c>) printed this on stdout, stderr empty,
+    /// exit 1. Trimmed only of its per-model usage blocks, the usage object's detail and an account timestamp.</summary>
+    internal const string RecordedMaxTurnsResult = """{"duration_api_ms":2258,"stop_reason":"tool_use","session_id":"62bdcb70-d56d-4163-b2c9-40e391e4bb1e","total_cost_usd":0.006008830000000001,"usage":{"input_tokens":2,"cache_creation_input_tokens":28850,"cache_read_input_tokens":16813,"output_tokens":141},"permission_denials":[],"terminal_reason":"max_turns","fast_mode_state":"off","fast_mode_disabled_reason":"sdk_opt_in_required","safety_stops":0,"is_error":true,"num_turns":2,"subtype":"error_max_turns","errors":["Reached maximum number of turns (1)"],"type":"result","duration_ms":4941,"uuid":"38dc495e-1909-49e7-a585-b1e5e5e6fb04","queued_turn_count":0,"result_index":0}""";
+
+    [Fact] // 2.1.325 pairs the failing subtype with is_error:true, so the rule below is defence; this pins the real line
+    public void The_recorded_max_turns_result_is_a_failure_naming_its_subtype()
+    {
+        var evt = StreamJsonParser.Parse(RecordedMaxTurnsResult);
+
+        Assert.Equal(StreamJsonEventKind.Failure, evt.Kind);
+        Assert.Equal("error_max_turns", evt.Text);
+    }
+
+    /// <summary>A failing <c>subtype</c> is a failure whatever <c>is_error</c> says. SYNTHETIC: no capture shows
+    /// <c>is_error:false</c> beside an <c>error_*</c> subtype (the recorded 2.1.325 line pairs it with <c>true</c>);
+    /// the fixture is the case the rule defends against.</summary>
+    [Theory]
+    [InlineData("""{"type":"result","subtype":"error_max_turns","is_error":false,"result":"partial text"}""")]
+    [InlineData("""{"type":"result","subtype":"error_during_execution","result":"partial text"}""")]
+    public void An_error_subtype_without_is_error_is_a_failure(string line)
+    {
+        var evt = StreamJsonParser.Parse(line);
+
+        Assert.Equal(StreamJsonEventKind.Failure, evt.Kind);
+        Assert.Equal("partial text", evt.Text);
+    }
+
+    /// <summary>SYNTHETIC: a subtype this reader has never seen, that does not begin with <c>error</c>, stays an
+    /// answer — only the prefix reads as failure, so a new success-shaped subtype cannot fail a healthy turn.</summary>
+    [Fact]
+    public void An_unknown_subtype_without_is_error_is_an_answer()
+    {
+        var evt = StreamJsonParser.Parse("""{"type":"result","subtype":"success_with_notes","is_error":false,"result":"the answer"}""");
+
+        Assert.Equal(StreamJsonEventKind.Result, evt.Kind);
+        Assert.Equal("the answer", evt.Text);
+    }
+
+    [Fact] // a failed turn was still billed: the backend hands the engine the result's usage beside its words
+    public void A_failed_result_keeps_its_usage()
+    {
+        const string line = """{"type":"result","is_error":true,"subtype":"error_during_execution","result":"overloaded","total_cost_usd":0.05,"usage":{"input_tokens":120,"output_tokens":7,"cache_read_input_tokens":30}}""";
+
+        var evt = new ClaudeCliBackend().ParseLine(line);
+
+        Assert.Equal(CliOutputEventKind.Failure, evt.Kind);
+        Assert.Equal("overloaded", evt.Text);
+        Assert.Equal(new TextUsage(120, 7, 30, 0.05), evt.Usage);
     }
 
     [Fact]

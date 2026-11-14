@@ -21,7 +21,8 @@ public sealed class HttpModelOptions
 {
     /// <summary>Endpoint base, e.g. <c>https://api.openai.com</c>, <c>http://localhost:8080</c>,
     /// <c>https://openrouter.ai/api/v1</c>. Requests compose the <c>/v1</c> convention over it (a base
-    /// whose last path segment is already a version — <c>/v1</c>, <c>/v4</c>, <c>/v1beta</c> — is used as given).
+    /// whose last path segment is already a version — <c>/v1</c>, <c>/v4</c>, <c>/v1beta</c> — is used as given;
+    /// <see cref="AppendVersionSegment"/> overrides the inference).
     /// It must be an absolute http or https URL: registration refuses <c>localhost:11434</c>. An Ollama server ROOT given to <c>AddHttpProvider</c>
     /// composes the Ollama-native provider instead — see <c>AddOllamaProvider</c>.</summary>
     public string BaseUrl { get; set; } = "https://api.openai.com";
@@ -39,6 +40,31 @@ public sealed class HttpModelOptions
     /// BaseUrl host (<c>*.openai.azure.com</c>); set <see langword="true"/> for a custom domain fronting an
     /// Azure resource, or <see langword="false"/> to suppress the conventions on an Azure-looking host.</summary>
     public bool? AzureConventions { get; set; }
+
+    /// <summary>Whether requests compose <c>/v1</c> over <see cref="BaseUrl"/>, for every route — chat, embeddings,
+    /// rerank and the models listing. Null (the default) infers it: a bare Azure resource gets <c>/openai/v1</c>, a
+    /// base whose last path segment is a version (<c>/v1</c>, <c>/v4</c>, <c>/v1beta</c>) is used as given, and any
+    /// other base gets <c>/v1</c>. <see langword="false"/> uses the base VERBATIM, so
+    /// <c>https://host.example.com/v1beta/openai</c> posts to <c>…/v1beta/openai/chat/completions</c>, a version in
+    /// a middle segment the inference cannot see. <see langword="true"/> always appends <c>/v1</c>. Either value
+    /// beats both inferences, Azure's included; the <c>api-key</c> header still follows
+    /// <see cref="AzureConventions"/>. The <c>…/v1beta/openai</c> shape is believed from a vendor's documentation,
+    /// not run here. Ignored when <c>AddHttpProvider</c> is given an Ollama server root: the native provider it
+    /// composes has its own routes.</summary>
+    public bool? AppendVersionSegment { get; set; }
+
+    /// <summary>The name of the JSON member that carries <see cref="TextRequest.MaxTokens"/> in a
+    /// <c>chat/completions</c> body. Null (the default) sends <c>max_tokens</c>, as every OpenAI-shaped server
+    /// reads it; a name such as <c>max_completion_tokens</c> renames that one member and changes nothing else in the
+    /// body. A call that leaves <see cref="TextRequest.MaxTokens"/> null sends neither.
+    /// <para><b>What this is for.</b> OpenAI's reasoning models are believed to refuse <c>max_tokens</c> and take
+    /// <c>max_completion_tokens</c> — believed from the vendor's documentation, not run here. <b>The library knows no
+    /// model's spelling</b>: the name is the server's, and yours to set per registration.</para>
+    /// <para>The provider throws <see cref="ArgumentException"/> when the name is blank or names another member the
+    /// request body carries (<c>model</c>, <c>temperature</c>, …), and <see cref="SuppressReasoningFields"/> may not
+    /// set it. Ignored unless <see cref="Produces"/> is <see cref="ProviderKinds.Text"/>, and when
+    /// <c>AddHttpProvider</c> is given an Ollama server root: the native provider sends its own cap.</para></summary>
+    public string? MaxTokensField { get; set; }
 
     /// <summary>What this backend puts out — <see cref="ProviderKinds.Text"/> (default) posts to
     /// <c>chat/completions</c>, <see cref="ProviderKinds.Vector"/> to <c>embeddings</c>,
@@ -132,8 +158,8 @@ public sealed class HttpModelOptions
     ///
     /// <para>Each top-level member is added as given, never merged into one the request sets: a member the
     /// provider sets itself (<c>model</c>, <c>messages</c>, <c>stream</c>, <c>stream_options</c>,
-    /// <c>max_tokens</c>, <c>temperature</c>, <c>tools</c>, <c>response_format</c>) is refused, in any letter
-    /// case. The provider throws <see cref="ArgumentException"/> naming the problem when the value is not one
+    /// <c>max_tokens</c>, <c>temperature</c>, <c>tools</c>, <c>response_format</c>, and the name
+    /// <see cref="MaxTokensField"/> gives) is refused, in any letter case. The provider throws <see cref="ArgumentException"/> naming the problem when the value is not one
     /// JSON object or holds such a member. Ignored unless <see cref="Produces"/> is
     /// <see cref="ProviderKinds.Text"/>, and when <c>AddHttpProvider</c> is given an Ollama server root: the
     /// native provider it composes sends its own <c>think: false</c>.</para></summary>

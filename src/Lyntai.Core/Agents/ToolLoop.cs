@@ -321,6 +321,7 @@ public sealed class ToolLoop(
                 case TextChunkKind.Error:
                     result.Verdict = chunk.Verdict;
                     result.Detail = chunk.Detail;
+                    turnUsage = chunk.Usage; // a failed turn bills too, as a failed buffered reply's usage counts
                     break;
             }
         }
@@ -428,19 +429,7 @@ public sealed class ToolLoop(
     {
         public TextUsage? Value { get; private set; }
 
-        public void Add(TextUsage? next)
-        {
-            if (next is null) return;
-            if (Value is null) { Value = next; return; }
-            var a = Value;
-            // CostUsd sums only when at least one side reported one; both-null stays null (not 0).
-            var cost = a.CostUsd is null && next.CostUsd is null ? (double?)null : (a.CostUsd ?? 0) + (next.CostUsd ?? 0);
-            Value = new TextUsage(
-                a.InputTokens + next.InputTokens,
-                a.OutputTokens + next.OutputTokens,
-                a.CacheReadTokens + next.CacheReadTokens,
-                cost);
-        }
+        public void Add(TextUsage? next) => Value = TextUsage.Sum(Value, next);
     }
 
     /// <summary>The instruction half of the prompt-protocol system message, as shipped. Public so a

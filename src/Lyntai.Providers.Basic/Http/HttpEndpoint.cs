@@ -16,14 +16,23 @@ internal static class HttpEndpoint
     internal static bool AzureFor(HttpModelOptions config) =>
         config.AzureConventions ?? ProviderDetect.IsAzureHost(config.BaseUrl);
 
+    /// <summary>The absolute endpoint of <paramref name="openAiRoute"/> for a registration — what chat, embeddings,
+    /// rerank and the models listing each post or get to, so a URL rule cannot reach one route and miss another.</summary>
+    internal static Uri For(HttpModelOptions config, string openAiRoute) =>
+        Build(config.BaseUrl, AzureFor(config), openAiRoute, config.AppendVersionSegment);
+
     /// <summary>Compose the absolute endpoint for an OpenAI-shaped route.</summary>
     /// <param name="baseUrl">The configured base URL.</param>
     /// <param name="azureConventions">Whether Azure's resource conventions apply (see <see cref="AzureFor"/>).</param>
     /// <param name="openAiRoute">The route, UNrooted and without the version segment —
     /// e.g. <c>chat/completions</c>, <c>embeddings</c>, <c>rerank</c>.</param>
-    internal static Uri Build(string baseUrl, bool azureConventions, string openAiRoute)
+    /// <param name="appendVersionSegment"><see cref="HttpModelOptions.AppendVersionSegment"/>: set, it decides
+    /// <c>/v1</c> outright, Azure's rule included; null infers.</param>
+    internal static Uri Build(string baseUrl, bool azureConventions, string openAiRoute, bool? appendVersionSegment = null)
     {
         var b = baseUrl.TrimEnd('/');
+        if (appendVersionSegment is { } append)
+            return new Uri(b + (append ? $"/v1/{openAiRoute}" : $"/{openAiRoute}"));
         // Azure's OpenAI-shaped v1 surface lives under /openai/v1 on the resource host — a bare
         // resource URL (https://my-res.openai.azure.com) would otherwise compose /v1/… and 404. A base
         // that already includes /openai(…/v1) falls through to the generic suffix logic below.

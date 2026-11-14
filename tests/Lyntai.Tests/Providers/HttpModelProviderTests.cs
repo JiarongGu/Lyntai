@@ -367,6 +367,92 @@ public class HttpModelProviderTests
         Assert.Equal(new Uri(expected), handler.Requests[0].Uri);
     }
 
+    // ── AppendVersionSegment: the host's word on /v1, over every route ───────
+
+    [Fact] // a version in a MIDDLE segment is one the inference cannot see; the shape is a vendor's documented one, not run
+    public async Task A_base_marked_verbatim_gets_no_v1()
+    {
+        const string verbatim = "https://vendor.example.com/v1beta/openai";
+        var chat = new StubHttpHandler().Enqueue(HttpStatusCode.OK, OkBody);
+        var listing = new StubHttpHandler().Enqueue(HttpStatusCode.OK, """{"data":[{"id":"m"}]}""");
+
+        await Provider(chat, o => { o.BaseUrl = verbatim + "/"; o.AppendVersionSegment = false; }).CompleteAsync(Req);
+        await Provider(listing, o => { o.BaseUrl = verbatim; o.AppendVersionSegment = false; }).ProbeAsync();
+
+        Assert.Equal(new Uri(verbatim + "/chat/completions"), chat.Requests[0].Uri);
+        Assert.Equal(new Uri(verbatim + "/models"), listing.Requests[0].Uri);
+    }
+
+    [Theory] // the four routes compose at ONE point, so the flag cannot reach chat and miss embeddings
+    [InlineData("chat/completions")]
+    [InlineData("embeddings")]
+    [InlineData("rerank")]
+    [InlineData("models")]
+    public void Every_route_honours_the_flag(string route)
+    {
+        var options = new HttpModelOptions { BaseUrl = "https://vendor.example.com/v1beta/openai" };
+
+        var inferred = HttpEndpoint.For(options, route);
+        options.AppendVersionSegment = false;
+        var verbatim = HttpEndpoint.For(options, route);
+
+        Assert.Equal(new Uri($"https://vendor.example.com/v1beta/openai/v1/{route}"), inferred);
+        Assert.Equal(new Uri($"https://vendor.example.com/v1beta/openai/{route}"), verbatim);
+    }
+
+    [Theory] // null is D332's inference, unchanged: Azure's /openai/v1, a trailing version used as given, else /v1
+    [InlineData("https://api.example.com", "https://api.example.com/v1/chat/completions")]
+    [InlineData("https://open.example.com/api/paas/v4", "https://open.example.com/api/paas/v4/chat/completions")]
+    [InlineData("https://vendor.example.com/v1beta/openai", "https://vendor.example.com/v1beta/openai/v1/chat/completions")]
+    [InlineData("https://my-res.openai.azure.com", "https://my-res.openai.azure.com/openai/v1/chat/completions")]
+    public async Task Null_infers_as_before(string baseUrl, string expected)
+    {
+        var handler = new StubHttpHandler().Enqueue(HttpStatusCode.OK, OkBody);
+
+        await Provider(handler, o => { o.BaseUrl = baseUrl; o.AppendVersionSegment = null; }).CompleteAsync(Req);
+
+        Assert.Equal(new Uri(expected), handler.Requests[0].Uri);
+    }
+
+    [Theory] // true appends /v1 whatever the base ends in, Azure's bare resource included
+    [InlineData("https://open.example.com/api/paas/v4", "https://open.example.com/api/paas/v4/v1/chat/completions")]
+    [InlineData("https://api.example.com/", "https://api.example.com/v1/chat/completions")]
+    [InlineData("https://my-res.openai.azure.com", "https://my-res.openai.azure.com/v1/chat/completions")]
+    public async Task True_forces_v1(string baseUrl, string expected)
+    {
+        var handler = new StubHttpHandler().Enqueue(HttpStatusCode.OK, OkBody);
+
+        await Provider(handler, o => { o.BaseUrl = baseUrl; o.AppendVersionSegment = true; }).CompleteAsync(Req);
+
+        Assert.Equal(new Uri(expected), handler.Requests[0].Uri);
+    }
+
+    [Fact] // an explicit false beats Azure's /openai/v1 rule too, and the api-key header still follows AzureConventions
+    public async Task An_explicit_false_beats_the_Azure_route_and_keeps_its_key_header()
+    {
+        var handler = new StubHttpHandler().Enqueue(HttpStatusCode.OK, OkBody);
+
+        await Provider(handler, o =>
+        {
+            o.BaseUrl = "https://my-res.openai.azure.com/gateway";
+            o.ApiKey = "azure-key";
+            o.AppendVersionSegment = false;
+        }).CompleteAsync(Req);
+
+        Assert.Equal(new Uri("https://my-res.openai.azure.com/gateway/chat/completions"), handler.Requests[0].Uri);
+        Assert.Equal("azure-key", handler.Requests[0].ApiKeyHeader);
+    }
+
+    [Fact] // the native provider an Ollama root composes has its own routes, so the flag does not move it
+    public void An_Ollama_root_still_composes_the_native_provider_whatever_the_flag()
+    {
+        var services = new ServiceCollection();
+        services.AddLyntai(b => b.AddHttpProvider("o", o => { o.BaseUrl = "http://localhost:11434"; o.AppendVersionSegment = false; }));
+        using var sp = services.BuildServiceProvider();
+
+        Assert.IsType<Lyntai.Providers.Ollama.OllamaProvider>(sp.GetServices<IModelProvider>().Single(p => p.Id == "o"));
+    }
+
     /// <summary>A proxy that ignores <c>stream:true</c> answers one buffered <c>chat.completion</c>, which read as no output
     /// because the stream path looked for <c>delta</c> only (the steward's ruling, <c>docs/DECISIONS.md</c> D331).</summary>
     [Fact]

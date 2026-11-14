@@ -12,7 +12,8 @@ internal enum StreamJsonEventKind
     /// <summary>The terminal result line: final text + usage/cost.</summary>
     Result,
 
-    /// <summary>A terminal result the CLI itself flagged as failed (<c>is_error</c>). Carries the backend's
+    /// <summary>A terminal result the CLI itself reported as failed (<c>is_error</c>, or an <c>error…</c>
+    /// subtype: <c>StreamJsonFields.IsFailedResult</c>). Carries the backend's
     /// OWN words so the engine can classify them, which is what turns a 401 into <c>AuthFailed</c> rather
     /// than a bare <c>Failed</c>. Without it a failed turn would come back as an <c>Ok</c> reply carrying
     /// whatever text had arrived; the sibling reader of this wire (<c>StreamJsonAgentReader</c>) reads the
@@ -83,10 +84,8 @@ internal static class StreamJsonParser
 
         // The backend's own failure flag OUTRANKS the presence of text: a run that produced partial output
         // and then failed is a failed run, and returning its text as the answer is the defect this reads for.
-        // Only an explicit `true` counts — absent or false is the ordinary success path, and a looser test
-        // here would fail every healthy turn.
-        var isError = root.TryGetProperty("is_error", out var e) && e.ValueKind == JsonValueKind.True;
-        if (!isError) return new StreamJsonEvent(StreamJsonEventKind.Result, text, usage);
+        // The rule is shared with the agent reader, so the two cannot disagree about whether a turn failed.
+        if (!StreamJsonFields.IsFailedResult(root)) return new StreamJsonEvent(StreamJsonEventKind.Result, text, usage);
 
         // Carry the CLI's OWN words so ProviderVerdictClassifier can see them; `subtype` is the machine-readable
         // reason and is included when `result` is empty, so the message is never blank (an empty failure

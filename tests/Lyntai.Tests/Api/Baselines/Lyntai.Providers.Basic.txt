@@ -212,11 +212,13 @@ sealed class Lyntai.Providers.CodexCli.CodexCliProvider
 sealed class Lyntai.Providers.Http.HttpModelOptions
     .ctor()
     ApiKey : String { get; set; }
+    AppendVersionSegment : Nullable<Boolean> { get; set; }
     AzureConventions : Nullable<Boolean> { get; set; }
     BaseUrl : String { get; set; }
     BatchSize : Int32 { get; set; }
     DocumentPrefix : String { get; set; }
     MaxInputChars : Nullable<Int32> { get; set; }
+    MaxTokensField : String { get; set; }
     Model : String { get; set; }
     Produces : String { get; set; }
     QueryPrefix : String { get; set; }

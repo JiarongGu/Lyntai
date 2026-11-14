@@ -590,6 +590,48 @@ public class StreamJsonAgentReaderTests
         Assert.Null(ended.FinalText);
     }
 
+    [Fact] // the RECORDED 2.1.325 line (StreamJsonParserTests.RecordedMaxTurnsResult): a failure naming its subtype
+    public void The_recorded_max_turns_result_ends_the_turn_failed_naming_its_subtype()
+    {
+        var ended = Assert.IsType<SessionEnded>(new StreamJsonAgentReader().Read(StreamJsonParserTests.RecordedMaxTurnsResult).Last());
+
+        Assert.True(ended.IsError);
+        Assert.Equal(ProviderVerdict.Failed, ended.Verdict);
+        Assert.Equal("error_max_turns", ended.Subtype);
+        Assert.NotNull(ended.Failure);
+    }
+
+    /// <summary>A failing <c>subtype</c> ends the turn failed whatever <c>is_error</c> says, and its partial text is
+    /// not the answer. SYNTHETIC: no capture shows <c>is_error:false</c> beside an <c>error_*</c> subtype; the
+    /// recorded 2.1.325 line pairs it with <c>true</c>, so this is the case the rule defends against.</summary>
+    [Theory]
+    [InlineData("""{"type":"result","subtype":"error_max_turns","is_error":false,"session_id":"s"}""")]
+    [InlineData("""{"type":"result","subtype":"error_during_execution","session_id":"s"}""")]
+    public void An_error_subtype_without_is_error_is_a_failure(string line)
+    {
+        var reader = new StreamJsonAgentReader();
+        _ = reader.Read("""{"type":"assistant","message":{"content":[{"type":"text","text":"half an answ"}]}}""").ToList();
+
+        var ended = Assert.IsType<SessionEnded>(reader.Read(line).Last());
+
+        Assert.True(ended.IsError);
+        Assert.Equal(ProviderVerdict.Failed, ended.Verdict);
+        Assert.NotNull(ended.Failure);
+        Assert.Null(ended.FinalText);
+    }
+
+    /// <summary>SYNTHETIC: an unknown subtype that does not begin with <c>error</c> stays an answer.</summary>
+    [Fact]
+    public void An_unknown_subtype_without_is_error_is_an_answer()
+    {
+        var ended = Assert.IsType<SessionEnded>(new StreamJsonAgentReader()
+            .Read("""{"type":"result","subtype":"success_with_notes","is_error":false,"result":"the answer","session_id":"s"}""").Last());
+
+        Assert.False(ended.IsError);
+        Assert.Equal(ProviderVerdict.Ok, ended.Verdict);
+        Assert.Equal("the answer", ended.FinalText);
+    }
+
     /// <summary>A failed turn's verdict is CLASSIFIED from the backend's own words, not hard-coded.
     /// <para>A bare <c>isError ? Failed : Ok</c> skips <c>ProviderVerdictClassifier</c>, so an expired login
     /// reports <c>Failed</c> and a host switching on the verdict retries immediately instead of prompting to

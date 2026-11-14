@@ -40,6 +40,35 @@ public class TextRouterCompleteTests
         Assert.Single(p2.Calls);
     }
 
+    [Fact] // the failed candidate was billed: what the caller is told it spent is both calls, not the second alone
+    public async Task A_failed_candidates_usage_joins_the_reply_that_answers()
+    {
+        var p1 = new FakeTextProvider("p1");
+        p1.Replies.Enqueue(new TextResponse("", ProviderVerdict.Failed, new TextUsage(10, 0, CostUsd: 0.01), "boom"));
+        var p2 = new FakeTextProvider("p2");
+        p2.Replies.Enqueue(new TextResponse("from p2", ProviderVerdict.Ok, new TextUsage(20, 5, CostUsd: 0.02)));
+
+        var reply = await Router(null, p1, p2).CompleteAsync([new("p1"), new("p2")], Req);
+
+        Assert.Equal("from p2", reply.Text);
+        Assert.Equal((30L, 5L), (reply.Usage!.InputTokens, reply.Usage.OutputTokens));
+        Assert.Equal(0.03, reply.Usage.CostUsd!.Value, 9);
+    }
+
+    [Fact] // every candidate failed: the reply the caller is told about carries what all of them billed
+    public async Task When_every_candidate_fails_the_answer_carries_every_attempts_usage()
+    {
+        var p1 = new FakeTextProvider("p1");
+        p1.Replies.Enqueue(new TextResponse("", ProviderVerdict.Failed, new TextUsage(10, 1), "boom"));
+        var p2 = new FakeTextProvider("p2");
+        p2.Replies.Enqueue(new TextResponse("", ProviderVerdict.Failed, new TextUsage(20, 2), "bang"));
+
+        var reply = await Router(null, p1, p2).CompleteAsync([new("p1"), new("p2")], Req);
+
+        Assert.Equal("bang", reply.Detail);
+        Assert.Equal(new TextUsage(30, 3), reply.Usage);
+    }
+
     [Fact] // A THROWING provider is classified through ProviderVerdictClassifier, not flattened to Failed
     public async Task A_thrown_429_is_classified_RateLimited_and_cools_the_host()
     {

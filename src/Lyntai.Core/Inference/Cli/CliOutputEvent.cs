@@ -32,7 +32,8 @@ public enum CliOutputEventKind
 /// emits) never leaves the backend.</summary>
 /// <param name="Kind">What this line was.</param>
 /// <param name="Text">The content or final text; empty for <see cref="CliOutputEventKind.Ignored"/>.</param>
-/// <param name="Usage">Token/cost usage, when the line carries it (typically only the result line).</param>
+/// <param name="Usage">Token/cost usage, when the line carries it (typically only the terminal line, a result or
+/// a failure).</param>
 public sealed record CliOutputEvent(CliOutputEventKind Kind, string Text = "", TextUsage? Usage = null)
 {
     /// <summary>A line the provider should skip.</summary>
@@ -52,6 +53,11 @@ public sealed record CliOutputEvent(CliOutputEventKind Kind, string Text = "", T
     /// <see cref="ProviderVerdictClassifier"/> and surfaced as the reply's detail — pass the backend's own
     /// wording, not a paraphrase.</summary>
     public static CliOutputEvent Failure(string message) => new(CliOutputEventKind.Failure, message);
+
+    /// <summary>A TERMINAL turn failure the backend reports it billed for. The engine carries
+    /// <paramref name="usage"/> onto the failed reply and the error chunk, so a turn that spent and failed still
+    /// reaches a budget and a ledger. Otherwise as <see cref="Failure(string)"/>.</summary>
+    public static CliOutputEvent Failure(string message, TextUsage? usage) => new(CliOutputEventKind.Failure, message, usage);
 }
 
 /// <summary>How a CLI expects the prompt to arrive.</summary>

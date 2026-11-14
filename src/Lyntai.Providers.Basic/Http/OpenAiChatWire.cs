@@ -15,9 +15,9 @@ internal sealed class OpenAiChatWire(HttpModelOptions config) : IHttpChatWire
     private readonly bool _azure = HttpEndpoint.AzureFor(config);
 
     private readonly JsonObject? _suppressReasoningFields =
-        OpenAiPayload.ParseSuppressReasoningFields(config.SuppressReasoningFields);
+        OpenAiPayload.ParseSuppressReasoningFields(config.SuppressReasoningFields, config.MaxTokensField);
 
-    public Uri Endpoint => HttpEndpoint.Build(config.BaseUrl, _azure, "chat/completions");
+    public Uri Endpoint => HttpEndpoint.For(config, "chat/completions");
 
     public string? DefaultModel => config.Model;
 
@@ -30,7 +30,7 @@ internal sealed class OpenAiChatWire(HttpModelOptions config) : IHttpChatWire
     public bool EndsStreamOnFinal => false;
 
     public JsonObject BuildPayload(TextRequest req, string model, bool stream) =>
-        OpenAiPayload.Build(req, model, stream, _suppressReasoningFields);
+        OpenAiPayload.Build(req, model, stream, _suppressReasoningFields, config.MaxTokensField);
 
     public string? ConfiguredFieldsOption(TextRequest req) =>
         req.Reasoning == TextReasoning.Suppress && _suppressReasoningFields is not null

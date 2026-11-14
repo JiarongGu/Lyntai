@@ -170,7 +170,7 @@ public sealed class CliProviderEngine(
         var stderrTail = result.StdErrTail();
 
         string text = "", contentText = "";
-        TextUsage? usage = null;
+        TextUsage? usage = null;  // what the backend says the turn billed, read off its terminal line, whatever the verdict
         string? failure = null;   // non-null once the backend reported a failure, whatever its message
         var sawResult = false;
         foreach (var raw in result.StdOut.Split('\n'))
@@ -180,7 +180,11 @@ public sealed class CliProviderEngine(
             // here and only here (an exact-match ParseLine would then work streamed and fail buffered)
             var evt = backend.ParseLine(raw.TrimEnd('\r'));
             if (evt.Kind == CliOutputEventKind.Content) contentText += evt.Text;
-            if (evt.Kind == CliOutputEventKind.Failure) failure = evt.Text;
+            if (evt.Kind == CliOutputEventKind.Failure)
+            {
+                failure = evt.Text;
+                usage = evt.Usage ?? usage;
+            }
             if (evt.Kind == CliOutputEventKind.Result)
             {
                 sawResult = true;
@@ -197,7 +201,7 @@ public sealed class CliProviderEngine(
         if (failure is not null)
         {
             var said = FailureMessage(failure, stderrTail);
-            return new TextResponse("", ProviderVerdictClassifier.FromErrorText(said),
+            return new TextResponse("", ProviderVerdictClassifier.FromErrorText(said), usage,
                 Detail: result.ExitCode != 0 ? $"exit {result.ExitCode}: {said}" : said);
         }
 
@@ -208,21 +212,22 @@ public sealed class CliProviderEngine(
         if (result.ExitCode != 0)
         {
             var exited = CliFault.Exited(result.ExitCode, stderrTail);
-            return new TextResponse("", exited.Verdict,
+            return new TextResponse("", exited.Verdict, usage,
                 Detail: stderrTail.Length > 0 ? exited.Detail : $"exit {result.ExitCode}: {result.OutputTail()}");
         }
 
         if (text.Length == 0)
         {
             _logger.LogWarning("{Provider} produced no content ({SawResult}); stderr: {Tail}", backend.Id, sawResult, stderrTail);
-            return new TextResponse("", ProviderVerdict.Failed,
+            return new TextResponse("", ProviderVerdict.Failed, usage,
                 Detail: stderrTail.Length > 0 ? stderrTail : "no output produced");
         }
         return new TextResponse(text, ProviderVerdict.Ok, usage);
     }
 
     /// <summary>Stream one completion. Content chunks arrive as the CLI prints them, followed by exactly one
-    /// terminal chunk (<c>Final</c> when anything was delivered, otherwise <c>Error</c>).</summary>
+    /// terminal chunk (<c>Final</c> when anything was delivered, otherwise <c>Error</c>), which carries the usage
+    /// the backend read off its terminal line, a failed turn's included.</summary>
     /// <remarks>Bounded by the same two clocks as <see cref="CompleteAsync"/> — the resolved timeout as an
     /// inactivity window, <see cref="LyntaiOptions.MaxProviderTimeout"/> as the absolute backstop — plus
     /// caller cancellation, which also kills the process tree when the enumerator is abandoned.</remarks>
@@ -292,7 +297,8 @@ public sealed class CliProviderEngine(
                     // first token anyway), but the stream must END as an Error so the consumer isn't handed a
                     // truncated answer labelled complete.
                     var said = FailureMessage(evt.Text, "");
-                    yield return TextChunk.Error(ProviderVerdictClassifier.FromErrorText(said), said);
+                    yield return TextChunk.Error(ProviderVerdictClassifier.FromErrorText(said), said)
+                        with { Usage = evt.Usage ?? usage };
                     yield break;
                 }
             }
@@ -309,7 +315,7 @@ public sealed class CliProviderEngine(
         if (sawContent)
             yield return TextChunk.Final(usage);
         else
-            yield return TextChunk.Error(ProviderVerdict.Failed, "no output produced");
+            yield return TextChunk.Error(ProviderVerdict.Failed, "no output produced") with { Usage = usage };
     }
 
     /// <summary>Assemble argv + stdin for one call: prefix args, the backend's completion args, any tool-host

@@ -18,8 +18,10 @@ public static class HttpAgentBuilderExtensions
     /// <see cref="IAgentSession"/>.
     /// <para><b>A turn runs <see cref="ToolLoop"/> over one pinned route.</b> The loop's tools are the registered
     /// <see cref="ITool"/>s, gated by the registered guards, selector and <see cref="IToolApprover"/>s; the endpoint is
-    /// the registration's alone, with no fallback to another, so a retry is <see cref="RetryingAgentSession"/>'s
-    /// (<c>AddAgentRetry</c>) and nothing else's. A read-only turn is offered no tool.</para>
+    /// the registration's alone, with no fallback to another, and each request is sent once (an empty or malformed
+    /// body fails the turn, where <c>AddHttpProvider</c>'s provider sends the request once more), so a retry is
+    /// <see cref="RetryingAgentSession"/>'s (<c>AddAgentRetry</c>) and nothing else's. A read-only turn is offered no
+    /// tool.</para>
     /// <para><b>What a turn's events and failure are:</b> the loop's events at turn granularity, one
     /// <see cref="SessionEnded"/>, and on failure an <see cref="AgentFailure"/> read from the response's own status,
     /// <c>Retry-After</c> and error envelope. The door states what it measurably does (read the descriptor): no resume,

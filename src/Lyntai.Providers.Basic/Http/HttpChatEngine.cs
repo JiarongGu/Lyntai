@@ -16,7 +16,8 @@ namespace Lyntai.Providers.Http;
 ///   5xx Failed, deadline Timeout), with the credentials-aware NotConfigured/AuthFailed split,</item>
 /// <item>an error the backend reports IN BAND under HTTP 200, classified BEFORE the retry — re-sending to a
 ///   host that just said it was rate-limited is the harm, not the symptom,</item>
-/// <item>exactly one retry on a malformed or empty body,</item>
+/// <item>exactly one retry on a malformed or empty buffered body, unless <c>resendOnEmptyBody</c> is false (the
+///   agent door, whose retry budget is the retry layer's alone),</item>
 /// <item>a content filter classified <see cref="ProviderVerdict.Refused"/> on both paths,</item>
 /// <item>the streaming timeout as an INACTIVITY clock re-armed per read, never one wall clock,</item>
 /// <item>streamed tool calls assembled from their fragments and delivered complete,</item>
@@ -32,7 +33,8 @@ internal sealed class HttpChatEngine(
     LyntaiOptions options,
     ILogger logger,
     bool disposeHttpClient,
-    HttpExchanges? exchanges = null)
+    HttpExchanges? exchanges = null,
+    bool resendOnEmptyBody = true)
 {
     /// <summary>Get the per-call HttpClient. Lyntai-created clients (from the named IHttpClientFactory
     /// client) are disposed after each call; an APP-supplied (BYO) client is NEVER disposed — the app
@@ -94,6 +96,8 @@ internal sealed class HttpChatEngine(
                 return InBandFailure(inBand);
             }
 
+            if (!resendOnEmptyBody)
+                return new TextResponse("", ProviderVerdict.Failed, Detail: $"{id}: malformed or empty response");
             if (attempt == 0)
             {
                 logger.LogWarning("{Id}: malformed or empty response body; retrying once", id);

@@ -10,9 +10,10 @@ public sealed record TextRequest
     public string? Model { get; init; }
 
     /// <summary>The most tokens to generate, or null to leave it to the host. The OpenAI-shaped wire sends it as
-    /// <c>max_tokens</c>; OpenAI's reasoning models are believed to refuse that member (they take
-    /// <c>max_completion_tokens</c>, which this library does not send) and a non-default
-    /// <see cref="Temperature"/> too, so <b>leave both null for such a host</b>.</summary>
+    /// <c>max_tokens</c>, or under the member its registration's <c>HttpModelOptions.MaxTokensField</c> names;
+    /// OpenAI's reasoning models are believed to refuse <c>max_tokens</c> (they take <c>max_completion_tokens</c>)
+    /// and a non-default <see cref="Temperature"/> too, so for such a host <b>name the member there, or leave this
+    /// null, and leave the temperature null</b>.</summary>
     public int? MaxTokens { get; init; }
 
     /// <summary>The sampling temperature, or null to leave it to the host (see <see cref="MaxTokens"/> for the hosts

@@ -155,6 +155,19 @@ public class UsageBudgetTests
         Assert.Equal(ProviderVerdict.Refused, only.Verdict);
     }
 
+    [Fact] // a turn that spent and failed is billed: the Error terminal's usage reaches the ledger as a Final's does
+    public async Task A_failed_stream_that_reported_usage_is_recorded()
+    {
+        var (client, inner, tracker) = Budgeted(_ => { });
+        inner.StreamScript = _ => [TextChunk.Error(ProviderVerdict.Failed, "died") with { Usage = new TextUsage(7, 3, CostUsd: 0.4) }];
+
+        await foreach (var _ in client.StreamAsync(Ask())) { }
+
+        var total = await tracker.TotalAsync();
+        Assert.Equal((7L, 3L), (total.InputTokens, total.OutputTokens));
+        Assert.Equal(0.4, total.CostUsd, 5);
+    }
+
     [Fact]
     public async Task GetCapabilitiesAsync_delegates_to_the_inner_client()
     {

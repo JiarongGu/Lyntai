@@ -10,7 +10,7 @@ namespace Lyntai.Inference.Budgeting;
 /// Decorates the front door with token/cost governance: before each call it checks the applicable
 /// accumulated total against the configured caps and, if a cap is reached, REFUSES without hitting a
 /// provider (a <see cref="ProviderVerdict.Refused"/> reply / an Error stream chunk). After a call it records the
-/// reported usage. Wired by <c>AddUsageBudget()</c>. The ceiling is soft — the call that crosses a cap
+/// reported usage, whatever the verdict: a failed reply or an Error chunk that carries usage was billed. Wired by <c>AddUsageBudget()</c>. The ceiling is soft — the call that crosses a cap
 /// still runs (its cost isn't known until it returns); the next one is refused.
 /// <para>The soft check-and-record is NOT atomic across a call, so under concurrency the cap can overshoot by
 /// the combined cost of the calls in flight when it is crossed, not "one call past the cap". For a hard ceiling
@@ -55,7 +55,8 @@ public sealed class BudgetedTextClient(
         {
             await foreach (var chunk in Inner.StreamAsync(req, ct).ConfigureAwait(false))
             {
-                if (chunk is { Kind: TextChunkKind.Final, Usage: not null })
+                // a failed stream that reported usage was billed, so an Error terminal settles as a Final does
+                if (chunk is { Kind: TextChunkKind.Final or TextChunkKind.Error, Usage: not null })
                     await admission.SettleAsync(chunk.Usage.ToProviderUsage()).ConfigureAwait(false);
                 yield return chunk;
             }

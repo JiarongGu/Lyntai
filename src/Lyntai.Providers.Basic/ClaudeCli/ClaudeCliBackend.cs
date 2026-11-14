@@ -83,8 +83,9 @@ public sealed class ClaudeCliBackend : CliBackendBase
             StreamJsonEventKind.AssistantText => CliOutputEvent.Content(evt.Text),
             StreamJsonEventKind.Result => CliOutputEvent.Result(evt.Text, evt.Usage),
             // a turn the CLI flagged `is_error`, in the backend's OWN words, so a 401 classifies as
-            // AuthFailed (which cools the host) rather than a bare Failed (which merely advances)
-            StreamJsonEventKind.Failure => CliOutputEvent.Failure(evt.Text),
+            // AuthFailed (which cools the host) rather than a bare Failed (which merely advances); the turn
+            // was billed, so its usage travels with it
+            StreamJsonEventKind.Failure => CliOutputEvent.Failure(evt.Text, evt.Usage),
             _ => CliOutputEvent.Ignored,
         };
     }

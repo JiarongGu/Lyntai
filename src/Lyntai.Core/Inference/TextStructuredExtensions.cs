@@ -25,7 +25,7 @@ public static class TextStructuredExtensions
         for (var attempt = 0; ; attempt++)
         {
             var reply = await client.CompleteAsync(current, ct).ConfigureAwait(false);
-            if (attempt > 0) reply = reply with { Usage = Sum(spent, reply.Usage) };
+            if (attempt > 0) reply = reply with { Usage = TextUsage.Sum(spent, reply.Usage) };
             if (reply.Verdict != ProviderVerdict.Ok) return reply;
 
             // CODE first: extract the object out of prose, and repair the punctuation a model gets wrong
@@ -53,11 +53,4 @@ public static class TextStructuredExtensions
             };
         }
     }
-
-    private static TextUsage? Sum(TextUsage? first, TextUsage? second) =>
-        first is null ? second
-        : second is null ? first
-        : new TextUsage(first.InputTokens + second.InputTokens, first.OutputTokens + second.OutputTokens,
-            first.CacheReadTokens + second.CacheReadTokens,
-            first.CostUsd is null && second.CostUsd is null ? null : (first.CostUsd ?? 0) + (second.CostUsd ?? 0));
 }

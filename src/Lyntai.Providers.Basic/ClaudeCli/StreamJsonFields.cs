@@ -47,6 +47,14 @@ internal static class StreamJsonFields
         return counts is { Input: null, Output: null, CacheRead: null, CacheCreate: null } ? null : counts;
     }
 
+    /// <summary>Whether a terminal <c>result</c> line reports a failed turn: <c>is_error: true</c>, or a <c>subtype</c>
+    /// beginning with <c>error</c> (<c>error_max_turns</c>, <c>error_during_execution</c>) whatever <c>is_error</c>
+    /// says. <c>is_error: true</c> leads, so a <c>success</c> subtype beside it is still a failure — a rejected key has
+    /// been recorded with exactly that pair — and any other subtype, unknown ones included, is an answer.</summary>
+    public static bool IsFailedResult(JsonElement root) =>
+        (root.TryGetProperty("is_error", out var isError) && isError.ValueKind == JsonValueKind.True)
+        || WireJson.String(root, "subtype") is { } subtype && subtype.StartsWith("error", StringComparison.Ordinal);
+
     /// <summary>Concatenate the text of every <c>{"type":"text","text":…}</c> block in a content array
     /// (Anthropic message content is an array of typed blocks). Empty for a non-array / no text blocks; a
     /// block that is not an object is skipped.</summary>

@@ -2097,6 +2097,7 @@ sealed class Lyntai.Inference.Cli.CliOutputEvent
     Usage : TextUsage { get; init; }
     static Content(String text) : CliOutputEvent
     static Failure(String message) : CliOutputEvent
+    static Failure(String message, TextUsage usage) : CliOutputEvent
     static Ignored : CliOutputEvent
     static Result(String text, TextUsage usage = null) : CliOutputEvent
 enum Lyntai.Inference.Cli.CliOutputEventKind

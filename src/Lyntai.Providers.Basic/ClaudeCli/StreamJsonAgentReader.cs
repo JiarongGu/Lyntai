@@ -457,7 +457,7 @@ internal sealed class StreamJsonAgentReader : ICliAgentLineReader
     private IEnumerable<AgentStreamEvent> ReadResult(JsonElement root)
     {
         _readResult = true;
-        var isError = root.TryGetProperty("is_error", out var isErrorEl) && isErrorEl.ValueKind == JsonValueKind.True;
+        var isError = StreamJsonFields.IsFailedResult(root);
 
         var subtype = root.TryGetProperty("subtype", out var subtypeEl) && subtypeEl.ValueKind == JsonValueKind.String
             ? subtypeEl.GetString()

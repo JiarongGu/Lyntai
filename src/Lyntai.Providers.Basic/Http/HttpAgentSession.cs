@@ -10,7 +10,8 @@ namespace Lyntai.Providers.Http;
 /// <summary>One turn of an agent whose executor is Lyntai's own <see cref="ToolLoop"/> over a chat-completions
 /// endpoint. A turn builds its provider and loop afresh, so the response facts it collects
 /// (<see cref="HttpExchanges"/>) belong to that turn alone, and routes to the ONE endpoint the registration names:
-/// nothing falls over to another, so the retry budget stays <see cref="RetryingAgentSession"/>'s.
+/// nothing falls over to another and each request is sent once — an empty or malformed body is a failed reply here,
+/// where the one-shot provider sends it once more — so the retry budget is <see cref="RetryingAgentSession"/>'s alone.
 /// <list type="bullet">
 /// <item>Events are the loop's own: assistant text per turn, a <see cref="ToolCall"/> and a
 /// <see cref="ToolResult"/> per round trip, a <see cref="UsageFinal"/> and exactly one <see cref="SessionEnded"/>.
@@ -54,7 +55,10 @@ internal sealed class HttpAgentSession(
         }
 
         var exchanges = new HttpExchanges(time);
-        var provider = new HttpModelProvider(id, config, httpFactory, options, providerLogger, disposeHttpClient, exchanges);
+        // each request goes out once: the engine's resend on an empty body would be a second billed call beneath
+        // the retry layer, which owns the door's retry budget (D233)
+        var provider = new HttpModelProvider(id, config, httpFactory, options, providerLogger, disposeHttpClient, exchanges,
+            resendOnEmptyBody: false);
         var loop = new ToolLoop(new PinnedTextClient(provider), Roster(turn), options, loopLogger, guards, selector, approvers);
         var request = new TextRequest
         {

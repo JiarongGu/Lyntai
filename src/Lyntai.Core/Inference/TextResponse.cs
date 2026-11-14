@@ -2,7 +2,10 @@
 namespace Lyntai.Inference;
 
 /// <summary>The outcome of a non-streaming completion. <paramref name="Detail"/> carries the error
-/// context (stderr tail, HTTP status, …) when the verdict is not <see cref="ProviderVerdict.Ok"/>.</summary>
+/// context (stderr tail, HTTP status, …) when the verdict is not <see cref="ProviderVerdict.Ok"/>.
+/// <para><paramref name="Usage"/> is what the backend reported it billed for the call, whatever the verdict: a
+/// failed reply carries it when the provider read one, the router's reply adds every attempt it moved on from,
+/// and a response-cache hit carries none. Null means nothing was reported, never zero spend.</para></summary>
 public sealed record TextResponse(string Text, ProviderVerdict Verdict, TextUsage? Usage = null, string? Detail = null)
     : IProviderOutcome
 {

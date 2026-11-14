@@ -313,6 +313,22 @@ public class ResponseCacheTests
         Assert.Single(inner.Calls); // the provider was hit once; the second came from cache
     }
 
+    [Fact] // a hit reached no backend, so it bills nothing: a caller summing replies would count the first call twice
+    public async Task A_cache_hit_carries_no_usage()
+    {
+        var (client, inner) = Decorated();
+        inner.Replies.Enqueue(new TextResponse("answer", ProviderVerdict.Ok, new TextUsage(10, 5, CostUsd: 0.01)));
+        var req = Req(TextMessage.User("q"));
+
+        var first = await client.CompleteAsync(req);
+        var hit = await client.CompleteAsync(req);
+
+        Assert.Equal(new TextUsage(10, 5, CostUsd: 0.01), first.Usage);
+        Assert.Equal("answer", hit.Text);
+        Assert.Null(hit.Usage);
+        Assert.Single(inner.Calls);
+    }
+
     [Fact]
     public async Task A_non_Ok_reply_is_not_cached()
     {

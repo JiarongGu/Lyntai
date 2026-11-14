@@ -380,6 +380,10 @@ services.AddLyntai(cfg => cfg
 - **The rate limit** is a token bucket: over the rate a call waits briefly for a permit, then is refused with
   `RateLimited`. Register your own `IRateLimiter` for a limiter shared across processes.
 
+**A reply's `Usage` is what the backend reported it billed, whatever the verdict**: a failed reply or an `Error`
+chunk carries it when the provider read one, the router's answer adds every candidate it moved on from, and a cache
+hit carries none. So the budget, a tool loop's total and a trace step each count a call once, failures included.
+
 They compose **cache outermost, rate-limit innermost**, so a cached hit spends nothing. `UseSqliteResponseCache()`
 and `UseSqliteUsageTracking()` (or their Postgres twins) persist the cache and spend across restarts, or register
 your own `IResponseCache` / `IUsageTracker` for a shared store. **The same wallet reaches embeds and reranks**
@@ -848,7 +852,12 @@ with (`docs/DECISIONS.md` **D193**).
 ## Bridging a backend Lyntai has no provider for (`AddBridgeProvider`)
 
 `AddHttpProvider` reaches any endpoint speaking OpenAI's schema, and `AddOllamaProvider` Ollama's native one.
-For anything else — its own wire format, an in-house service, an SDK you already use — **a bridge is a
+Two `HttpModelOptions` cover a host that departs from the schema's conventions, each null by default and then
+sending today's bytes: `AppendVersionSegment` (`false` uses `BaseUrl` verbatim, for a version in a middle segment
+such as `…/v1beta/openai`; `true` always appends `/v1`; either beats the Azure rule) and `MaxTokensField` (the member
+the cap travels in, such as `max_completion_tokens`, which OpenAI's reasoning models are believed, from their
+documentation and not by a run here, to require). Neither moves an Ollama server root, which composes the native
+provider. For anything else — its own wire format, an in-house service, an SDK you already use — **a bridge is a
 lambda**, and the library takes no dependency on whatever you wrapped:
 
 <!-- compile-given: static class Vendor { public static System.Threading.Tasks.Task<string> AskAsync(string prompt, System.Threading.CancellationToken ct) => System.Threading.Tasks.Task.FromResult(""); } -->
@@ -1383,7 +1392,8 @@ endpoint's: a single-model `llama-server` answers with the one it loaded), and e
 before any call. **The turn's prompt, system prompt and each tool's result go to the endpoint, which may be a remote
 service**; which repositories that may include is yours to admit. A failed turn's `Failure` is read from the response's
 own status, `Retry-After` and error envelope (`ProviderVerdictClassifier.ReadHttpFailure`), a transport fault being
-`Transient`. `Delivery` is `NeverSent` only when the connection never opened, `Taken` once any response arrived,
+`Transient`. Each request goes out once: an empty or malformed body is the turn's failure, where `AddHttpProvider`'s
+provider sends the request once more, so the retry below is the only one the door has. `Delivery` is `NeverSent` only when the connection never opened, `Taken` once any response arrived,
 `Uncertain` once a tool ran and for a request that may have left without an answer. Cancelling the token propagates
 as on the other doors, never as a failure. Like every session it is not bound by the front door: no cap, limiter,
 cache or refusal screen applies.

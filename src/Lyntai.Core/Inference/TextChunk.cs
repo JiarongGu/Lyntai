@@ -10,7 +10,8 @@ public enum TextChunkKind
     /// <summary>Successful end of stream; carries usage/cost when the provider reports them.</summary>
     Final,
 
-    /// <summary>The stream ended in an error; <see cref="TextChunk.Verdict"/> says how.</summary>
+    /// <summary>The stream ended in an error; <see cref="TextChunk.Verdict"/> says how. Carries usage/cost when the
+    /// provider reports the failed call was billed.</summary>
     Error,
 
     /// <summary>The model asked for a tool. <see cref="TextChunk.ToolCall"/> carries it, COMPLETE — a
@@ -30,6 +31,9 @@ public sealed record TextChunk
     /// <summary>Meaningful on <see cref="TextChunkKind.Error"/> (and Ok on Final).</summary>
     public ProviderVerdict Verdict { get; init; } = ProviderVerdict.Ok;
 
+    /// <summary>What the backend reported it billed, on the terminal chunk — a <see cref="TextChunkKind.Final"/>
+    /// or an <see cref="TextChunkKind.Error"/> alike. The router's terminal adds every attempt it fell over from.
+    /// Null means nothing was reported.</summary>
     public TextUsage? Usage { get; init; }
 
     public string? Detail { get; init; }

@@ -39,7 +39,8 @@ public sealed class HttpModelProvider : IModelProvider, IVectorProvider, IScoreP
     /// positive, or leaves an embedding prefix no room for text.</exception>
     /// <exception cref="ArgumentException"><see cref="HttpModelOptions.Produces"/> is not
     /// <see cref="ProviderKinds.Text"/>, <see cref="ProviderKinds.Vector"/> or <see cref="ProviderKinds.Score"/>;
-    /// or <see cref="HttpModelOptions.SuppressReasoningFields"/> is not one JSON object, or names a member the
+    /// <see cref="HttpModelOptions.MaxTokensField"/> is blank or names another member the request sets; or
+    /// <see cref="HttpModelOptions.SuppressReasoningFields"/> is not one JSON object, or names a member the
     /// request sets itself.</exception>
     public HttpModelProvider(
         string id,
@@ -53,7 +54,8 @@ public sealed class HttpModelProvider : IModelProvider, IVectorProvider, IScoreP
     }
 
     /// <summary>The constructor an agent turn builds the provider through, so its chat calls report the
-    /// response's own facts to <paramref name="exchanges"/>.</summary>
+    /// response's own facts to <paramref name="exchanges"/>. <paramref name="resendOnEmptyBody"/> false sends each
+    /// buffered request once: an empty or malformed 200 body is the reply, not a reason for a second billed call.</summary>
     internal HttpModelProvider(
         string id,
         HttpModelOptions config,
@@ -61,7 +63,8 @@ public sealed class HttpModelProvider : IModelProvider, IVectorProvider, IScoreP
         LyntaiOptions options,
         ILogger<HttpModelProvider>? logger,
         bool disposeHttpClient,
-        HttpExchanges? exchanges)
+        HttpExchanges? exchanges,
+        bool resendOnEmptyBody = true)
     {
         Validate(config);
         _id = id;
@@ -72,7 +75,8 @@ public sealed class HttpModelProvider : IModelProvider, IVectorProvider, IScoreP
         Capabilities = CapabilitiesFor(config);
         ILogger log = logger ?? NullLogger<HttpModelProvider>.Instance;
         _chat = ServesText(config)
-            ? new HttpChatEngine(id, new OpenAiChatWire(config), httpFactory, options, log, disposeHttpClient, exchanges)
+            ? new HttpChatEngine(id, new OpenAiChatWire(config), httpFactory, options, log, disposeHttpClient, exchanges,
+                resendOnEmptyBody)
             : null;
         // A transport needs an absolute endpoint, so a registration with no BaseUrl builds none and answers
         // NotConfigured: it is unavailable, not a throw while the container resolves providers.
@@ -120,7 +124,7 @@ public sealed class HttpModelProvider : IModelProvider, IVectorProvider, IScoreP
     private static bool ServesScores(HttpModelOptions c) => Serves(c, ProviderKinds.Score);
 
     private static HttpVectorTransport.Settings VectorSettings(HttpModelOptions c) => new(
-        Endpoint: HttpEndpoint.Build(c.BaseUrl, HttpEndpoint.AzureFor(c), "embeddings"),
+        Endpoint: HttpEndpoint.For(c, "embeddings"),
         ApiKey: c.ApiKey,
         AzureConventions: HttpEndpoint.AzureFor(c),
         Model: c.Model,
@@ -133,7 +137,7 @@ public sealed class HttpModelProvider : IModelProvider, IVectorProvider, IScoreP
     /// <summary>The Cohere-shaped <c>rerank</c> route under the <c>/v1</c> convention — there is no Ollama
     /// arm, since Ollama serves no rerank surface and its provider refuses a Score registration.</summary>
     private static HttpRerankTransport.Settings RerankSettings(HttpModelOptions c) => new(
-        Endpoint: HttpEndpoint.Build(c.BaseUrl, HttpEndpoint.AzureFor(c), "rerank"),
+        Endpoint: HttpEndpoint.For(c, "rerank"),
         ApiKey: c.ApiKey,
         AzureConventions: HttpEndpoint.AzureFor(c),
         Model: c.Model,
@@ -141,8 +145,8 @@ public sealed class HttpModelProvider : IModelProvider, IVectorProvider, IScoreP
         Segmentation: c.Segmentation);
 
     /// <summary>Throws when <see cref="HttpModelOptions.Produces"/> is a kind this wire does not serve,
-    /// <see cref="HttpModelOptions.MaxInputChars"/> cannot bound a piece, or
-    /// <see cref="HttpModelOptions.SuppressReasoningFields"/> is not a usable object — run at registration as
+    /// <see cref="HttpModelOptions.MaxInputChars"/> cannot bound a piece, <see cref="HttpModelOptions.MaxTokensField"/>
+    /// names no usable member, or <see cref="HttpModelOptions.SuppressReasoningFields"/> is not a usable object — run at registration as
     /// well as here, so a bad value fails composition rather than a first call.</summary>
     internal static void Validate(HttpModelOptions c)
     {
@@ -156,7 +160,10 @@ public sealed class HttpModelProvider : IModelProvider, IVectorProvider, IScoreP
         if (ServesVectors(c) || ServesScores(c))
             InputSegmenter.ValidateBound(c.MaxInputChars, ServesVectors(c), c.DocumentPrefix, c.QueryPrefix);
         if (ServesText(c))
-            OpenAiPayload.ParseSuppressReasoningFields(c.SuppressReasoningFields);
+        {
+            OpenAiPayload.ValidateMaxTokensField(c.MaxTokensField);
+            OpenAiPayload.ParseSuppressReasoningFields(c.SuppressReasoningFields, c.MaxTokensField);
+        }
     }
 
     /// <summary>The <c>/embeddings</c> wire shape, or null when this backend produces something else. It is
@@ -178,7 +185,7 @@ public sealed class HttpModelProvider : IModelProvider, IVectorProvider, IScoreP
         if (!IsAvailable) return Task.FromResult(new ProviderProbeResult(false, "not configured: no BaseUrl"));
         var azure = HttpEndpoint.AzureFor(_config);
         return HttpProbe.RunAsync(_httpFactory, _disposeHttpClient, _timeout,
-            HttpEndpoint.Build(_config.BaseUrl, azure, "models"),
+            HttpEndpoint.For(_config, "models"),
             request => HttpEndpoint.ApplyAuth(request, _config.ApiKey, azure),
             HttpEndpoint.HasCredentials(_config.ApiKey), _config.Model,
             root => root.GetProperty("data").EnumerateArray().Select(m => m.GetProperty("id").GetString()).OfType<string>(),

@@ -15,10 +15,31 @@ internal static class OpenAiPayload
         "model", "messages", "stream", "stream_options", "max_tokens", "temperature", "tools", "response_format",
     };
 
+    /// <summary>The member that carries the cap when <see cref="HttpModelOptions.MaxTokensField"/> is null.</summary>
+    internal const string DefaultMaxTokensField = "max_tokens";
+
+    /// <summary>Refuse a <see cref="HttpModelOptions.MaxTokensField"/> that names no member, or names another member
+    /// <see cref="Build"/> writes, which the body would then carry twice.</summary>
+    /// <exception cref="ArgumentException">The name is blank, or another <see cref="WireMembers"/> member's.</exception>
+    internal static void ValidateMaxTokensField(string? name)
+    {
+        const string option = nameof(HttpModelOptions.MaxTokensField);
+        if (name is null) return;
+        if (string.IsNullOrWhiteSpace(name))
+            throw new ArgumentException(
+                $"{option} is blank; leave it null to send \"{DefaultMaxTokensField}\", or name the member the server reads.",
+                option);
+        if (WireMembers.Contains(name) && !string.Equals(name, DefaultMaxTokensField, StringComparison.OrdinalIgnoreCase))
+            throw new ArgumentException(
+                $"{option} is \"{name}\", which the request body already carries for something else.", option);
+    }
+
     /// <summary>Parse <see cref="HttpModelOptions.SuppressReasoningFields"/>: null when unset or blank.</summary>
+    /// <param name="json">The option's value.</param>
+    /// <param name="maxTokensField"><see cref="HttpModelOptions.MaxTokensField"/>, which the fields may not name either.</param>
     /// <exception cref="ArgumentException">The value is not one JSON object, or names a
-    /// <see cref="WireMembers"/> member.</exception>
-    internal static JsonObject? ParseSuppressReasoningFields(string? json)
+    /// <see cref="WireMembers"/> member or <paramref name="maxTokensField"/>.</exception>
+    internal static JsonObject? ParseSuppressReasoningFields(string? json, string? maxTokensField = null)
     {
         const string name = nameof(HttpModelOptions.SuppressReasoningFields);
         if (string.IsNullOrWhiteSpace(json)) return null;
@@ -44,7 +65,7 @@ internal static class OpenAiPayload
                 name);
         }
         foreach (var (key, _) in fields)
-            if (WireMembers.Contains(key))
+            if (WireMembers.Contains(key) || string.Equals(key, maxTokensField, StringComparison.OrdinalIgnoreCase))
                 throw new ArgumentException(
                     $"{name} may not set \"{key}\": the request sets that member itself, and this option only "
                     + "adds members.", name);
@@ -56,9 +77,10 @@ internal static class OpenAiPayload
     /// <param name="stream">Whether to ask for the SSE stream.</param>
     /// <param name="suppressReasoningFields">Added, as deep copies, when the request asks
     /// <see cref="TextReasoning.Suppress"/>; from <see cref="ParseSuppressReasoningFields"/>.</param>
+    /// <param name="maxTokensField">The member the cap goes in; null is <c>max_tokens</c>.</param>
     /// <exception cref="InvalidOperationException">A field names a member the body already holds.</exception>
     public static JsonObject Build(TextRequest req, string model, bool stream,
-        JsonObject? suppressReasoningFields = null)
+        JsonObject? suppressReasoningFields = null, string? maxTokensField = null)
     {
         var payload = new JsonObject
         {
@@ -69,7 +91,7 @@ internal static class OpenAiPayload
         // ask the server to append a usage chunk to the SSE stream — without it a streamed call ends with
         // Final(usage: null) and silently bypasses budget/telemetry accounting (buffered calls report fine)
         if (stream) payload["stream_options"] = new JsonObject { ["include_usage"] = true };
-        if (req.MaxTokens is not null) payload["max_tokens"] = req.MaxTokens;
+        if (req.MaxTokens is not null) payload[maxTokensField ?? DefaultMaxTokensField] = req.MaxTokens;
         if (req.Temperature is not null) payload["temperature"] = req.Temperature;
 
         if (req.Tools is { Count: > 0 }) payload["tools"] = Tools(req.Tools);

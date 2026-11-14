@@ -25,8 +25,10 @@ public static class HttpProviderBuilderExtensions
     /// <exception cref="ArgumentOutOfRangeException"><see cref="HttpModelOptions.MaxInputChars"/> is not
     /// positive, or leaves an embedding prefix no room for text.</exception>
     /// <exception cref="ArgumentException"><see cref="HttpModelOptions.Produces"/> is a kind the wire does not
-    /// serve; <see cref="HttpModelOptions.BaseUrl"/> is neither blank nor an absolute http or https URL; or <see cref="HttpModelOptions.SuppressReasoningFields"/> is not one JSON object, or names a
-    /// member the request sets itself.</exception>
+    /// serve; <see cref="HttpModelOptions.BaseUrl"/> is neither blank nor an absolute http or https URL;
+    /// <see cref="HttpModelOptions.MaxTokensField"/> is blank or names another member the request sets; or
+    /// <see cref="HttpModelOptions.SuppressReasoningFields"/> is not one JSON object, or names a member the request
+    /// sets itself.</exception>
     public static LyntaiBuilder AddHttpProvider(this LyntaiBuilder builder, string id,
         Action<HttpModelOptions> configure, Func<IServiceProvider, HttpClient>? httpClient = null)
     {

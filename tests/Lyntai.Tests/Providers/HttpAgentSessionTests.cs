@@ -278,6 +278,41 @@ public class HttpAgentSessionTests
         Assert.Single(handler.Requests);
     }
 
+    private const string EmptyCompletion =
+        """{"choices":[{"message":{"role":"assistant","content":""},"finish_reason":"stop"}]}""";
+
+    [Fact] // the door's retry budget is the retry layer's alone (D233): a second billed request beneath it is not
+    public async Task An_empty_200_body_is_sent_once_and_ends_the_turn_failed()
+    {
+        var handler = new StubHttpHandler()
+            .Enqueue(HttpStatusCode.OK, EmptyCompletion)
+            .Enqueue(HttpStatusCode.OK, Completion("a resend would have read this"));
+
+        var events = await Run(Session(handler));
+
+        var ended = Ended(events);
+        Assert.Single(handler.Requests);
+        Assert.Equal((ProviderVerdict.Failed, true), (ended.Verdict, ended.IsError));
+        Assert.DoesNotContain(events, e => e is TextDelta);
+        // an empty body carries no field to type it by, so the failure is Fatal and the retry layer leaves it too
+        Assert.Equal((AgentFailureKind.Fatal, "no-failure-fields", AgentDelivery.Taken),
+            (ended.Failure!.Kind, ended.Failure.By, ended.Failure.Delivery));
+    }
+
+    [Fact] // the one-shot provider keeps its resend: a single empty body there is a blip the next call clears
+    public async Task The_one_shot_provider_still_resends_an_empty_200_body_once()
+    {
+        var handler = new StubHttpHandler()
+            .Enqueue(HttpStatusCode.OK, EmptyCompletion)
+            .Enqueue(HttpStatusCode.OK, Completion("recovered"));
+
+        var reply = await HttpProviders.Provider(handler, o => { o.BaseUrl = Url; o.ApiKey = "k"; })
+            .CompleteAsync(new TextRequest { Messages = [TextMessage.User("q")] });
+
+        Assert.Equal((ProviderVerdict.Ok, "recovered"), (reply.Verdict, reply.Text));
+        Assert.Equal(2, handler.Requests.Count);
+    }
+
     [Fact]
     public async Task An_error_a_gateway_reports_in_band_under_a_200_is_read_as_the_failure_it_says()
     {

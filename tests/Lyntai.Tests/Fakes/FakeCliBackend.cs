@@ -9,7 +9,8 @@ namespace Lyntai.Tests.Fakes;
 /// the claude dialect happens to do.
 ///
 /// Its line protocol is deliberately trivial: <c>text:…</c> → content, <c>result:…</c> → the terminal
-/// result, anything else → ignored.</summary>
+/// result, <c>fail:…</c> and <c>paidfail:…</c> → a reported failure (the second with usage), anything else →
+/// ignored.</summary>
 public sealed class FakeCliBackend : CliBackendBase
 {
     public override string Id => IdValue;
@@ -59,6 +60,8 @@ public sealed class FakeCliBackend : CliBackendBase
         var l when l.StartsWith("text:") => CliOutputEvent.Content(l["text:".Length..]),
         var l when l.StartsWith("result:") => CliOutputEvent.Result(l["result:".Length..], new TextUsage(1, 2)),
         var l when l.StartsWith("fail:") => CliOutputEvent.Failure(l["fail:".Length..]),
+        // a failure the backend says it billed for, as a stream-json is_error result reports
+        var l when l.StartsWith("paidfail:") => CliOutputEvent.Failure(l["paidfail:".Length..], new TextUsage(7, 3, CostUsd: 0.02)),
         _ => CliOutputEvent.Ignored,
     };
 

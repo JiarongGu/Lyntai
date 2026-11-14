@@ -7153,3 +7153,16 @@ conversation holds out of it, beside a token only (**D349**). No released member
 
 - `tests/Lyntai.Tests/Agents/RetryingAgentSessionTests.cs`; the Codex, protocol and Claude door tests (`A_continuation_…`)
 - D348, D349, the changelog entry amended
+
+## Part 525 — usage on failure, the HTTP options, the HTTP door's one request and the error subtype: `TASKS.md` Parts 481, 486, 489 and 495 (2026-11-15)
+
+✅ done 2026-11-15 — **Outcome:** six decision-only rows ruled with a Fable design agent and built test first in a builder's worktree.
+A reply's `Usage` is what was billed whatever the verdict: a failed CLI reply and an `Error` chunk carry it, the router sums the
+attempts it fell over from, a cache hit carries none and the budget records a failed stream (**D350**, Part 486 and Part 495's first
+row). `HttpModelOptions.MaxTokensField` and `AppendVersionSegment`, defaulting to today's bytes (**D351**, Part 489). The HTTP agent
+door sends each request once (**D352**, Part 481's first row). A stream-json `result` whose `subtype` begins with `error` fails
+(**D353**, Part 495's second row), with the recorded 2.1.325 max-turns line as a fixture beside the synthetic ones.
+<br>**Left open:** the HTTP chat engine's own failure paths, which still drop the usage they read (`TASKS.md` Part 486).
+
+- the inference, HTTP, CLI-engine and stream-json tests named in the commit
+- D350 to D353, the changelog entries

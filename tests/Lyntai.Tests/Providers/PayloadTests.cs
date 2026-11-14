@@ -1,7 +1,10 @@
 using System.Text.Json.Nodes;
 using Lyntai.Inference;
+using Lyntai.Providers.Http;
 using Lyntai.Providers.Http.Payloads;
 using Lyntai.Providers.Ollama;
+using Lyntai.Tests.Fakes;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace Lyntai.Tests.Providers;
 
@@ -29,6 +32,70 @@ public class PayloadTests
         Assert.Equal("hi", (string)messages[1]!["content"]!);
         Assert.Equal(128, (int)p["max_tokens"]!);
         Assert.Equal(0.3, (double)p["temperature"]!);
+    }
+
+    // ── MaxTokensField: the cap's member name, and nothing else ──────────────
+
+    private static readonly TextRequest Capped = new()
+    {
+        Messages = [TextMessage.User("hi")], Model = "m", MaxTokens = 100, Temperature = 0.2,
+    };
+
+    private static async Task<string> SentBody(Action<HttpModelOptions> configure, TextRequest req)
+    {
+        var handler = new StubHttpHandler().Enqueue(System.Net.HttpStatusCode.OK,
+            """{"choices":[{"message":{"role":"assistant","content":"ok"},"finish_reason":"stop"}]}""");
+        await HttpProviders.Provider(handler, configure).CompleteAsync(req);
+        return handler.Requests[0].Body;
+    }
+
+    [Fact] // null sends today's bytes: the option exists for a server that refuses them, and costs no one else anything
+    public async Task The_default_body_is_unchanged()
+    {
+        const string today = """{"model":"m","messages":[{"role":"user","content":"hi"}],"stream":false,"max_tokens":100,"temperature":0.2}""";
+
+        Assert.Equal(today, await SentBody(_ => { }, Capped));
+        Assert.Equal(today, await SentBody(o => o.MaxTokensField = "max_tokens", Capped));
+    }
+
+    [Fact]
+    public async Task MaxTokensField_renames_the_cap_and_nothing_else()
+    {
+        var renamed = await SentBody(o => o.MaxTokensField = "max_completion_tokens", Capped);
+        var uncapped = await SentBody(o => o.MaxTokensField = "max_completion_tokens", Capped with { MaxTokens = null });
+
+        Assert.Equal(
+            """{"model":"m","messages":[{"role":"user","content":"hi"}],"stream":false,"max_completion_tokens":100,"temperature":0.2}""",
+            renamed);
+        Assert.DoesNotContain("max_", uncapped, StringComparison.Ordinal); // no cap asked, none sent under either name
+    }
+
+    [Theory] // a member the provider writes itself, in any letter case, would collide; SuppressReasoningFields cannot set it
+    [InlineData("""{"max_completion_tokens":5}""")]
+    [InlineData("""{"MAX_COMPLETION_TOKENS":5}""")]
+    public void SuppressReasoningFields_naming_the_configured_field_is_refused(string fields)
+    {
+        var ex = Assert.Throws<ArgumentException>(() => new ServiceCollection().AddLyntai(b => b.AddHttpProvider("h", o =>
+        {
+            o.MaxTokensField = "max_completion_tokens";
+            o.SuppressReasoningFields = fields;
+        })));
+
+        Assert.Contains(nameof(HttpModelOptions.SuppressReasoningFields), ex.Message, StringComparison.Ordinal);
+    }
+
+    [Theory] // blank names no member, and another member's name would make the body carry it twice
+    [InlineData("")]
+    [InlineData("   ")]
+    [InlineData("temperature")]
+    [InlineData("Model")]
+    [InlineData("messages")]
+    public void A_blank_or_colliding_MaxTokensField_is_refused_at_registration(string name)
+    {
+        var ex = Assert.Throws<ArgumentException>(() => new ServiceCollection().AddLyntai(b =>
+            b.AddHttpProvider("h", o => o.MaxTokensField = name)));
+
+        Assert.Contains(nameof(HttpModelOptions.MaxTokensField), ex.Message, StringComparison.Ordinal);
     }
 
     [Fact]

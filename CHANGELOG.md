@@ -48,6 +48,15 @@ every addition.
 
 ### Changed
 
+- **A reply's `Usage` is what the backend billed for the call, whatever the verdict** (**D350**). Through 3.5.3 a failed CLI turn's
+  usage was dropped, an empty `Final` the router fell over from lost its usage while the next candidate was billed, and a response-cache
+  hit replayed the first call's usage into a tool loop, the orchestrator and a trace step. A failed reply and an `Error` chunk now carry
+  the usage the provider read (`CliOutputEvent.Failure(string, TextUsage?)` is the new overload), the router adds every candidate it
+  moved on from to what it returns, a cache hit carries none, and `BudgetedTextClient` records a failed stream's spend. After a fall-over a
+  router reply's `Usage.InputTokens` is the attempts' sum; each attempt's own figure stays on its `chat` span.
+- **A Claude `result` whose `subtype` begins with `error` is a failed turn whatever `is_error` says** (**D353**), on the one-shot
+  provider and the agent door alike. Any other subtype stays an answer, and `is_error: true` beside `success` stays a failure. claude
+  2.1.325 was recorded pairing `error_max_turns` with `is_error: true`, so this guards a CLI that drops the flag.
 - **SQLite, Postgres and the HTTP, generation and agent layers: sixteen edges ruled** (**D324**–**D339**). SQLite's substring fallback (a query under three characters) folds case beyond ASCII, so `Да` finds `да`; a NUL in a query splits it as whitespace does. A Postgres conversation append takes a per-thread advisory lock, so eight concurrent appenders to one thread all succeed. An OpenAI `refusal` ends `Refused` on both wires with one request, a stream that errors after content and never reaches its terminator ends `Error`, a NaN or infinite `Temperature` answers `Unsupported` before sending, a server that ignores `stream:true` is read as its buffered answer, and a base ending in any version segment (`/v4`, `/v1beta`) gets no `/v1`. A `Timeout` or `RateLimited` fetch retries a generation job (bounded by its attempts) where it failed for good; `generate_backends` lists only providers that produce an image, video, audio or 3d asset; ComfyUI's `temp` previews are dropped when the run saved an output. A streamed Claude answer and Codex's `FinalText` separate assistant messages with a blank line; a CLI prompt starting with `-` under argument delivery answers `Unsupported`, and the flattened prompt keeps tool calls and results with their ids; a hand-over resumes only over its own newest turn and the recorder keeps only the host's request from a prompt a hand-over built. `TextRequest.MaxTokens` and `Temperature` say to leave both unset for an OpenAI reasoning model.
 - **Five places where the file, in-memory and SQL stores disagreed now agree** (**D261**–**D265**). The file backend keeps a `next-id` file beside
   its curated and memory records, so a removed id is never handed out again after a restart (through 3.5.3 removing the highest freed it, and a stale
@@ -282,6 +291,11 @@ every addition.
 
 ### Added
 
+- **`HttpModelOptions.MaxTokensField` and `AppendVersionSegment`** (**D351**), both null by default, when the provider sends the same
+  bytes as before. `MaxTokensField` names the JSON member the cap travels in, such as `max_completion_tokens`, which OpenAI's reasoning
+  models are documented to require (not measured here); a blank name or another member the body writes is refused at registration.
+  `AppendVersionSegment = false` uses `BaseUrl` verbatim for chat, embeddings, rerank and the models listing (`…/v1beta/openai`), and
+  `true` always appends `/v1`; either beats the Azure `/openai/v1` rule, and an Ollama root still composes the native provider.
 - **A steer on a kept run** (**D347**). The protocol door's run is an `IAgentRunSteering`: `SteerAsync(words)` sends `_session/steering`
   where the agent's open states `_meta.steering.supported`, and answers `Injected` (taken into the running turn at once, which goes on
   to its one end), `PromptRequired` (no turn ran: send the words with `SendAsync`), `StartedNewTurn` (read as a woken turn), `Refused`
@@ -522,7 +536,8 @@ every addition.
 - **`AddHttpAgentSession(id, configure, httpClient)` makes a chat-completions endpoint one more agent provider, and `AgentDoorKinds.Http`
   names its door.** `ToolLoop` already yielded `AgentStreamEvent`s and one `SessionEnded`, but nothing described it as a provider. The
   registration adds a keyed `IAgentSession` and an `IAgentProvider` with one door, `"http"`, and no unkeyed session. Lyntai's own tool
-  loop is the executor, over **one pinned route with no fallback**, so a retry is `AddAgentRetry`'s alone. The door states what the loop
+  loop is the executor, over **one pinned route with no fallback**, so a retry is `AddAgentRetry`'s alone: the door sends each request
+  once, where the one-shot provider resends an empty or malformed 200 body (**D352**). The door states what the loop
   measurably does: `system-prompt`, `disallowed-tools`, `read-only-gate` (a read-only turn is offered no tool) and `typed-failures`
   `Supported`; `resume`, `mcp-servers`, `steering`, `plan-events`, `live-usage`, `accounts` and `usage-reading` `Unsupported`; `model`
   `Unknown`, since whether the endpoint runs the id a turn names is the endpoint's. An option it cannot honour is refused before any call,

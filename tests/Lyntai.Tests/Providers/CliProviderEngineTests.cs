@@ -320,6 +320,45 @@ public class CliProviderEngineTests
         Assert.Equal(buffered.Detail, chunks[^1].Detail);
     }
 
+    [Fact] // a turn that spent and failed is billed: the backend's usage reaches the failed reply
+    public async Task A_failure_event_with_usage_reaches_the_reply()
+    {
+        var runner = new FakeProcessRunner { RunResult = Ok("text:partial\npaidfail:rate limit exceeded") };
+
+        var reply = await Engine(runner, new FakeCliBackend()).CompleteAsync(Ask());
+
+        Assert.Equal(ProviderVerdict.RateLimited, reply.Verdict);
+        Assert.Equal(new TextUsage(7, 3, CostUsd: 0.02), reply.Usage);
+    }
+
+    [Fact]
+    public async Task A_failure_event_with_usage_reaches_the_error_chunk()
+    {
+        var runner = new FakeProcessRunner(["text:partial", "paidfail:rate limit exceeded"]);
+
+        var chunks = new List<TextChunk>();
+        await foreach (var c in Engine(runner, new FakeCliBackend()).StreamAsync(Ask()))
+            chunks.Add(c);
+
+        Assert.Equal(TextChunkKind.Error, chunks[^1].Kind);
+        Assert.Equal(new TextUsage(7, 3, CostUsd: 0.02), chunks[^1].Usage);
+    }
+
+    [Fact] // a result line that billed and said nothing is still a failure, and still billed
+    public async Task An_empty_result_that_reported_usage_fails_with_it_on_both_paths()
+    {
+        var buffered = await Engine(new FakeProcessRunner { RunResult = Ok("result:") }, new FakeCliBackend())
+            .CompleteAsync(Ask());
+        var chunks = new List<TextChunk>();
+        await foreach (var c in Engine(new FakeProcessRunner(["result:"]), new FakeCliBackend()).StreamAsync(Ask()))
+            chunks.Add(c);
+
+        Assert.Equal(ProviderVerdict.Failed, buffered.Verdict);
+        Assert.Equal(new TextUsage(1, 2), buffered.Usage);
+        Assert.Equal(TextChunkKind.Error, chunks[^1].Kind);
+        Assert.Equal(new TextUsage(1, 2), chunks[^1].Usage);
+    }
+
     [Fact]
     public async Task A_stream_that_fails_after_content_ends_in_an_error_chunk()
     {

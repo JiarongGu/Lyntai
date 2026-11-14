@@ -419,8 +419,12 @@ new decision overturns an old one, rewrite the old entry as a stub pointing here
 | [D347](#d347--a-steer-is-an-optional-capability-of-a-run-asks-an-idle-agent-to-leave-the-words-to-the-host-and-a-turn-begun-with-them-is-woken-2026-11-15) | 2026-11-15 | a steer is an optional capability of a run, asks an idle agent to leave the words to the host, an… |
 | [D348](#d348--a-session-addagentretry-wraps-stays-the-containers-to-dispose-built-through-a-tracked-holder-2026-11-15) | 2026-11-15 | a session `AddAgentRetry` wraps stays the container's to dispose, built through a tracked holder |
 | [D349](#d349--a-resumed-retry-is-marked-a-continuation-and-the-door-decides-what-it-leaves-out-2026-11-15) | 2026-11-15 | a resumed retry is marked a continuation, and the door decides what it leaves out |
+| [D350](#d350--a-replys-usage-is-what-the-backend-billed-for-the-call-whatever-the-verdict-2026-11-15) | 2026-11-15 | a reply's `Usage` is what the backend billed for the call, whatever the verdict |
+| [D351](#d351--maxtokensfield-names-the-caps-member-and-appendversionsegment-states-the-v1-2026-11-15) | 2026-11-15 | `MaxTokensField` names the cap's member, and `AppendVersionSegment` states the `/v1` |
+| [D352](#d352--the-http-agent-door-sends-each-request-once-2026-11-15) | 2026-11-15 | the HTTP agent door sends each request once |
+| [D353](#d353--a-stream-json-result-whose-subtype-begins-with-error-is-a-failure-whatever-is_error-says-2026-11-15) | 2026-11-15 | a stream-json `result` whose `subtype` begins with `error` is a failure whatever `is_error` says |
 
-**344 live decisions.** The rest are stubs — `D<n>` is a permanent identifier, so a number is never reused or renumbered (5): [D36](#d36--a-translation-between-two-verdict-taxonomies-gets-one-arm-per-member-gated-by-a-test-2026-08-05) → D136 · [D80](#d80--merged-into-d77-2026-08-16-folded-2026-08-17) → D77 · [D131](#d131--a-backends-produces-is-derived-from-its-configuration-so-a-modality-is-a-field-2026-09-14) → D133 · [D134](#d134--a-registration-names-the-backend-the-provider-suffix-is-gone-from-all-seventeen-2026-09-14) → D137 · [D145](#d145--the-microsoftextensionsai-module-is-a-bridge-not-a-provider-2026-09-15) → D146
+**348 live decisions.** The rest are stubs — `D<n>` is a permanent identifier, so a number is never reused or renumbered (5): [D36](#d36--a-translation-between-two-verdict-taxonomies-gets-one-arm-per-member-gated-by-a-test-2026-08-05) → D136 · [D80](#d80--merged-into-d77-2026-08-16-folded-2026-08-17) → D77 · [D131](#d131--a-backends-produces-is-derived-from-its-configuration-so-a-modality-is-a-field-2026-09-14) → D133 · [D134](#d134--a-registration-names-the-backend-the-provider-suffix-is-gone-from-all-seventeen-2026-09-14) → D137 · [D145](#d145--the-microsoftextensionsai-module-is-a-bridge-not-a-provider-2026-09-15) → D146
 
 <!-- index:end -->
 
@@ -8395,7 +8399,7 @@ recall and its write-back is already a silent skip).
 
 ## D327 — an OpenAI `refusal` is Refused on both wires (2026-11-09)
 
-**Standing.** A ruling on `TASKS.md` Part 489's first row, **the steward's under the owner's delegation, which the owner may reverse** — not the owner's words. Built; rests on OpenAI's documented `refusal` field, not run against a server.
+**Standing.** A ruling on `docs/task-archive.md` Part 517's first row, **the steward's under the owner's delegation, which the owner may reverse** — not the owner's words. Built; rests on OpenAI's documented `refusal` field, not run against a server.
 
 **Decided.** `OpenAiChatWire` reads `message.refusal` and `delta.refusal`; a non-empty one ends the call `Refused` with the refusal as the reply text, whatever `finish_reason` says beside it (it says `stop`). One request is sent, no dead-host strike follows, and a streamed refusal sticks across the `stop` after it and delivers no content.
 
@@ -8407,7 +8411,7 @@ recall and its write-back is already a silent skip).
 
 ## D328 — an in-band error after streamed content with no terminator ends Error (2026-11-09)
 
-**Standing.** A ruling on `TASKS.md` Part 489's second row, **the steward's under the owner's delegation, which the owner may reverse** — not the owner's words. Built; a plain end of stream stays Final.
+**Standing.** A ruling on `docs/task-archive.md` Part 517's second row, **the steward's under the owner's delegation, which the owner may reverse** — not the owner's words. Built; a plain end of stream stays Final.
 
 **Decided.** `HttpChatEngine` ends a stream `Error` with the error's own verdict when content streamed, an error line was seen and no terminator arrived (`[DONE]`, `done:true` or a finish reason). The recovered `Reconnecting… 2/5` case ends in `[DONE]` and is kept; an end of stream with no error line is Final, as before.
 
@@ -8419,7 +8423,7 @@ recall and its write-back is already a silent skip).
 
 ## D329 — a non-finite request number answers Unsupported before sending, and a scheme-only base URL is refused at registration (2026-11-09)
 
-**Standing.** A ruling on `TASKS.md` Part 489's fourth row, **the steward's under the owner's delegation, which the owner may reverse** — not the owner's words. Built.
+**Standing.** A ruling on `docs/task-archive.md` Part 517's fourth row, **the steward's under the owner's delegation, which the owner may reverse** — not the owner's words. Built.
 
 **Decided.** `HttpChatEngine` answers a NaN or infinite `TextRequest.Temperature` with `Unsupported`, naming the field, before anything is sent, on both doors and both wires. `AddHttpProvider` and `AddOllamaProvider` throw `ArgumentException` at registration for a non-blank `BaseUrl` that is not an absolute http or https URL (`localhost:11434` parses as scheme `localhost`); a blank one stays the unavailable registration.
 
@@ -8431,19 +8435,19 @@ recall and its write-back is already a silent skip).
 
 ## D330 — a reasoning model's `max_tokens` and `temperature` stay the host's to leave unset (2026-11-09)
 
-**Standing.** A ruling on `TASKS.md` Part 489's third row, **the steward's under the owner's delegation, which the owner may reverse** — not the owner's words. **Documented only; the option stays the owner's.**
+**Standing.** A ruling on `docs/task-archive.md` Part 517's third row, **the steward's under the owner's delegation, which the owner may reverse** — not the owner's words. **Documented only; the option stays the owner's.**
 
-**Decided.** `TextRequest.MaxTokens` and `Temperature` say that OpenAI's reasoning models are believed to refuse `max_tokens` (they take `max_completion_tokens`) and a non-default temperature, and that a host calling one leaves both null. No `MaxTokensField` option is added.
+**Decided.** `TextRequest.MaxTokens` and `Temperature` say that OpenAI's reasoning models are believed to refuse `max_tokens` (they take `max_completion_tokens`) and a non-default temperature, and that a host calling one leaves both null. The cap's field name is now the host's option, **D351**.
 
 **Why.** A field choice is a new public member of a frozen surface, and the vendor's refusal is believed from its documentation, not run. Unset, the library sends neither.
 
 **Rejected.** A per-model rule in the wire (it names vendor models the library cannot keep current).
 
-**Re-opens** when the owner rules a `MaxTokensField` option, or the refusal is measured.
+**Re-opens** when the refusal is measured; the option it waited on is **D351**.
 
 ## D331 — a server that ignores `stream:true` is read as its buffered answer (2026-11-09)
 
-**Standing.** A ruling on `TASKS.md` Part 489's fifth row, **the steward's under the owner's delegation, which the owner may reverse** — not the owner's words. Built.
+**Standing.** A ruling on `docs/task-archive.md` Part 517's fifth row, **the steward's under the owner's delegation, which the owner may reverse** — not the owner's words. Built.
 
 **Decided.** `OpenAiChatWire.ParseStreamLine` reads a line whose choice has `message` and no `delta` as the whole answer: its content, usage, finish reason (a refusal included) and complete tool calls, with `IsFinal` set. A body spread over several lines is not read.
 
@@ -8455,15 +8459,15 @@ recall and its write-back is already a silent skip).
 
 ## D332 — a base URL ending in a version segment is used as given (2026-11-09)
 
-**Standing.** A ruling on `TASKS.md` Part 489's sixth row, **the steward's under the owner's delegation, which the owner may reverse** — not the owner's words. Built; **the use-verbatim flag stays the owner's.**
+**Standing.** A ruling on `docs/task-archive.md` Part 517's sixth row, **the steward's under the owner's delegation, which the owner may reverse** — not the owner's words. Built; **the use-verbatim flag stays the owner's.**
 
-**Decided.** `HttpEndpoint.Build` appends no `/v1` when the base's last path segment is `v` and a digit and then letters or digits, so `…/api/paas/v4` composes `…/api/paas/v4/chat/completions`. `…/v1beta/openai` ends in `openai` and still composes `/v1/…`, a case only a verbatim flag serves.
+**Decided.** `HttpEndpoint.Build` appends no `/v1` when the base's last path segment is `v` and a digit and then letters or digits, so `…/api/paas/v4` composes `…/api/paas/v4/chat/completions`. `…/v1beta/openai` ends in `openai` and still composes `/v1/…` unless the host states `AppendVersionSegment` (**D351**).
 
 **Why.** Only a trailing `/v1` was recognised, so any other version composed `…/v4/v1/…` and a 404.
 
 **Rejected.** A flag to use the base verbatim (a new public member). Searching every segment for a version (an `api/v2/proxy` base would lose its `/v1`).
 
-**Re-opens** when a verbatim flag is ruled.
+**Re-opens** when a base's version inference misreads a measured host; the verbatim flag is **D351**.
 
 ## D333 — a transient fetch failure retries the generation job (2026-11-09)
 
@@ -8668,3 +8672,51 @@ recall and its write-back is already a silent skip).
 **Rejected.** The decorator dropping `SystemPrompt` (the Claude door would lose it). A door inferring continuation from a token alone (a host's own resume with a new system prompt would lose it). Reading the flag without a token (the instruction would be silently lost).
 
 **Re-opens** when an agent is measured keeping or dropping a system prompt across a resume other than its door assumes.
+
+## D350 — a reply's `Usage` is what the backend billed for the call, whatever the verdict (2026-11-15)
+
+**Standing.** A ruling on `TASKS.md` Part 486's two rows and Part 495's first, read by the agent that built it; the owner may reverse it. Built.
+
+**Decided.** A failed `TextResponse` and an `Error` chunk carry the usage the provider read: the CLI engine from a reported failure (`CliOutputEvent.Failure(string, TextUsage?)`, an overload) and from a result line on any failed reply, the Claude backend from a failed `result`. The router adds every attempt it moved on from to the reply or terminal it yields, on both doors, through one internal `TextUsage.Sum`; each attempt's `chat` span keeps its own figure. A response-cache hit carries none. `BudgetedTextClient` settles an `Error` chunk's usage as a `Final`'s, and `ToolLoop` counts it.
+
+**Why.** A turn that spent and failed reached no ledger or budget, an empty `Final` the router fell over from dropped its usage while the next candidate was billed, and a hit replayed the first call's spend into every caller that sums replies.
+
+**Rejected.** Keeping a hit's usage and marking the reply (every summing caller would have to test the mark). Stating a failed stream unmetered (a failed buffered reply already carried usage). Zero usage on a hit (it reads as a free answer).
+
+**Re-opens** when a host needs per-attempt usage on the reply itself, or a reader is found treating a router reply's `InputTokens` as one prompt's size (none in `src/` does).
+
+## D351 — `MaxTokensField` names the cap's member, and `AppendVersionSegment` states the `/v1` (2026-11-15)
+
+**Standing.** A ruling on `docs/task-archive.md` Part 525's two HTTP rows, read by the agent that built it with a Fable design agent; the owner may reverse it. Built; it closes the open halves of **D330** and **D332**.
+
+**Decided.** `HttpModelOptions.MaxTokensField` (null sends `max_tokens`) renames only the cap's JSON member; registration refuses a blank name or another member the body writes, and `SuppressReasoningFields` may not name it. `HttpModelOptions.AppendVersionSegment` (null infers as **D332**) applies at `HttpEndpoint.For`, where chat, embeddings, rerank and the models listing compose: `false` uses the base verbatim, `true` always appends `/v1`, and either beats Azure's `/openai/v1` rule while the `api-key` header still follows `AzureConventions`. An Ollama root composes the native provider whatever the flag. Temperature gets no option: null already omits it.
+
+**Why.** Which spelling a host takes is the deployment's (**generic-library** rule 7), and "leave the cap unset" cost a reasoning-model host its cost control. Both default to today's bytes; the vendor's refusal and the `v1beta/openai` shape are believed from its documentation, not run.
+
+**Rejected.** A per-model rule in the wire (**D330**). Flipping the default to `max_completion_tokens` (older servers take only `max_tokens`). A generic extra-body option (it lets a host override members the provider owns).
+
+**Re-opens** when a host needs a version other than `v1` appended, or the refusal is measured.
+
+## D352 — the HTTP agent door sends each request once (2026-11-15)
+
+**Standing.** A ruling on `TASKS.md` Part 481's first row, read by the agent that built it; the owner may reverse it. Built.
+
+**Decided.** `HttpAgentSession` builds its provider with the internal `resendOnEmptyBody: false`, so an empty or malformed 200 body is a `Failed` reply on the first request, read as `Fatal`, `no-failure-fields`, `Taken`; the one-shot `HttpModelProvider` keeps its one resend.
+
+**Why.** The door's retry budget is `RetryingAgentSession`'s (**D233**), opt-in; a resend beneath it was a second billed request for the same turn that the budget never saw.
+
+**Rejected.** Stating the resend as inside the door (its documentation promised nothing below the retry layer). Turning it off for every caller (a one-shot call has no retry layer above it). Classifying the empty body `Transient` so the retry layer resends it (no field says so, **D219**).
+
+**Re-opens** when a host shows empty 200 bodies recurring often enough that a turn should absorb one.
+
+## D353 — a stream-json `result` whose `subtype` begins with `error` is a failure whatever `is_error` says (2026-11-15)
+
+**Standing.** A ruling on `TASKS.md` Part 495's second row, read by the agent that built it; the owner may reverse it. Built.
+
+**Decided.** `StreamJsonFields.IsFailedResult` reads a result as failed when `is_error` is `true` or its `subtype` begins with `error` (ordinal); `StreamJsonParser` and `StreamJsonAgentReader` both call it. Any other subtype, an unknown one included, is an answer, and `is_error: true` leads, so `success` beside it is a failure.
+
+**Why.** Only an explicit `true` failed a turn, so a CLI that sent `error_max_turns` without it would return partial text as `Ok`. Recorded on claude 2.1.325: `is_error: true` beside `error_max_turns`, and a refused key's `is_error: true` beside `success`, so the prefix is defence and its `is_error: false` fixtures are synthetic.
+
+**Rejected.** A list of known failing subtypes (a new one reads as an answer). Any subtype but `success` as a failure (an unknown success-shaped one would fail a healthy turn). The subtype outranking `is_error` (the refused-key capture).
+
+**Re-opens** when a capture shows a failing subtype not beginning with `error`, or `is_error: false` beside one.

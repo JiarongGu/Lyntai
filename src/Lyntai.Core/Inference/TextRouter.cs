@@ -78,6 +78,7 @@ public sealed class TextRouter(
         var routing = await LiveRouteAsync(candidates, req, ct).ConfigureAwait(false);
         TextResponse? last = null;           // the last SUBSTANTIVE failure — what the caller is told
         TextResponse? lastBlameless = null;  // …kept apart, so it can answer only when there was no real failure
+        TextUsage? spent = null;             // what every attempt the router moved on from billed
         var skipped = new SkippedCandidates(ProviderOperation.Complete);
 
         foreach (var (provider, effectiveModel, key) in LiveCandidates(routing, req, ProviderOperation.Complete, skipped))
@@ -93,16 +94,22 @@ public sealed class TextRouter(
                     return reply;
                 },
                 // a blameless verdict must never MASK a real one — see IsBlameless
-                reply => { if (reply.Verdict.IsBlameless()) lastBlameless = reply; else last = reply; },
+                reply =>
+                {
+                    if (reply.Verdict.IsBlameless()) lastBlameless = reply; else last = reply;
+                    spent = TextUsage.Sum(spent, reply.Usage);
+                },
                 Policy, deadHosts, key, (verdict, retry) => LogRetry("", provider, verdict, retry), ct)
                 .ConfigureAwait(false);
-            if (returned is not null) return returned;
+            // a reply's Usage is what was billed to reach it, so the attempts before it join the one that answers
+            if (returned is not null)
+                return spent is null ? returned : returned with { Usage = TextUsage.Sum(spent, returned.Usage) };
         }
 
         // a real failure outranks a blameless one; with no real failure the blameless verdict is still the
         // honest answer (a host turns "not configured" into a setup prompt), and only a candidate list that
-        // produced nothing at all falls through to the synthetic reply
-        if ((last ?? lastBlameless) is { } answer) return answer;
+        // produced nothing at all falls through to the synthetic reply. Every filed reply is in `spent`.
+        if ((last ?? lastBlameless) is { } answer) return answer with { Usage = spent };
         var (verdict, detail) = skipped.Outcome();
         return new TextResponse("", verdict, Detail: detail);
     }
@@ -167,23 +174,26 @@ public sealed class TextRouter(
 
                     // Trust boundary: a Final with NO preceding content is the empty-reply trap in
                     // stream form (pitfalls: empty output must be fall-over-able, never a clean end) —
-                    // convert it to an Error so the pre-content fallback path below handles it.
+                    // convert it to an Error so the pre-content fallback path below handles it. It was still
+                    // billed, so the error keeps its usage.
                     if (chunk.Kind == TextChunkKind.Final && !attempt.Committed)
-                        chunk = TextChunk.Error(ProviderVerdict.Failed, $"{provider.Id}: empty stream (Final with no content)");
+                        chunk = TextChunk.Error(ProviderVerdict.Failed, $"{provider.Id}: empty stream (Final with no content)")
+                            with { Usage = chunk.Usage };
 
                     if (chunk.Kind == TextChunkKind.Error)
                     {
                         outcome = chunk.Verdict;
                         outcomeDetail = chunk.Detail;
                     }
-                    if (chunk.Kind == TextChunkKind.Final) usage = chunk.Usage;
+                    // the span records this attempt's own usage; the yielded terminal carries the call's sum
+                    if (chunk.Kind is TextChunkKind.Final or TextChunkKind.Error) usage = chunk.Usage;
 
                     if (chunk.Kind == TextChunkKind.Error && !attempt.Committed)
                     {
                         if (!MayFallOver(provider, chunk, key, failures, attempt))
                         {
                             attempt.Done = true;
-                            yield return chunk; // no fallback (same as non-streaming)
+                            yield return failures.Billed(chunk); // no fallback (same as non-streaming)
                             yield break;
                         }
                         break; // leave the enumerator; decide retry-vs-advance in the caller
@@ -217,9 +227,9 @@ public sealed class TextRouter(
 
                     // Final, or an Error AFTER content committed — the only kinds that reach here
                     // (Content continues above; a pre-content Error/Final breaks/converts above).
-                    // Both are terminal: pass through unchanged and end the stream.
+                    // Both are terminal: pass through, billed for the attempts before it, and end the stream.
                     attempt.Done = true;
-                    yield return chunk;
+                    yield return failures.Billed(chunk);
                     yield break;
                 }
             }
@@ -281,6 +291,7 @@ public sealed class TextRouter(
         if (action == FallbackAction.CooldownAndAdvance) deadHosts.MarkDead(key);
         // PenalizeAndAdvance records ONE failure on advance (in the caller), not per retry
         attempt.RetryVerdict = error.Verdict;
+        failures.Spent = TextUsage.Sum(failures.Spent, error.Usage); // moved on from, and billed all the same
         return true;
     }
 
@@ -295,17 +306,25 @@ public sealed class TextRouter(
         /// <summary>…kept apart, so it answers only when there was no real failure.</summary>
         public TextChunk? LastBlameless { get; set; }
 
+        /// <summary>What every attempt the router fell over from billed; the terminal it yields carries it.</summary>
+        public TextUsage? Spent { get; set; }
+
         /// <summary>File an error into the slot its verdict belongs in.</summary>
         public void Record(TextChunk error)
         {
             if (error.Verdict.IsBlameless()) LastBlameless = error; else LastError = error;
         }
 
+        /// <summary>A terminal the router yields, its usage joined by what the attempts before it billed.</summary>
+        public TextChunk Billed(TextChunk terminal) =>
+            Spent is null ? terminal : terminal with { Usage = TextUsage.Sum(Spent, terminal.Usage) };
+
         /// <summary>A real failure outranks a blameless one; only a candidate list that produced nothing at
-        /// all falls through to the synthetic chunk, which <paramref name="skipped"/> words.</summary>
+        /// all falls through to the synthetic chunk, which <paramref name="skipped"/> words. Every attempt's
+        /// usage is already in <see cref="Spent"/>, so the closing chunk carries that sum.</summary>
         public TextChunk Closing(SkippedCandidates skipped)
         {
-            if ((LastError ?? LastBlameless) is { } error) return error;
+            if ((LastError ?? LastBlameless) is { } error) return error with { Usage = Spent };
             var (verdict, detail) = skipped.Outcome();
             return TextChunk.Error(verdict, detail);
         }

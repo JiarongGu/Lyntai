@@ -698,6 +698,20 @@ public class ToolLoopTests
         Assert.Empty(result.Steps);
     }
 
+    [Fact] // a failed turn was billed: its Error terminal's usage counts as the buffered path counts a failed reply's
+    public async Task A_streamed_error_that_reported_usage_is_counted()
+    {
+        var client = new FakeTextClient
+        {
+            StreamScript = _ => [TextChunk.Error(ProviderVerdict.Failed, "died") with { Usage = new TextUsage(9, 1) }],
+        };
+
+        var result = await StreamingNativeLoop(client, Echo()).RunAsync(Ask());
+
+        Assert.Equal(ProviderVerdict.Failed, result.Verdict);
+        Assert.Equal(new TextUsage(9, 1), result.Usage);
+    }
+
     [Fact]
     public async Task Streamed_usage_from_the_terminal_chunk_is_accumulated_across_turns()
     {

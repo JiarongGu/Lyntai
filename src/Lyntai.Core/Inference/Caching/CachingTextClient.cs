@@ -16,6 +16,8 @@ namespace Lyntai.Inference.Caching;
 /// through, neither read nor stored, because a key without the route could serve another backend's reply).
 /// A store that fails to read is a miss and one that fails to write returns the reply uncached: the call was
 /// the point, and it is already billed.
+/// <b>A hit carries no <see cref="TextResponse.Usage"/></b>: it reached no backend, so it billed nothing, and a
+/// caller summing replies (a tool loop, a trace step) would otherwise count the first call's spend again.
 /// Caching assumes the consumer accepts that identical inputs return an identical stored answer — that
 /// determinism is the point (cost + latency), so a request whose output must vary per call should skip the
 /// cache or use a short TTL.</para>
@@ -63,7 +65,7 @@ public sealed class CachingTextClient(
         {
             _logger.LogDebug("response-cache hit (consumer {Consumer})", req.Consumer);
             LyntaiDiagnostics.RecordCacheAccess(hit: true);
-            return cached;
+            return cached with { Usage = null };
         }
 
         LyntaiDiagnostics.RecordCacheAccess(hit: false);

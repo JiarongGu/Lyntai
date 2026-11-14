@@ -154,7 +154,12 @@ public class TextCallTracingTests
         await client.CompleteAsync(Req());
 
         Assert.Single(provider.Calls);
-        Assert.Equal(2, sp.GetRequiredService<CapturingTraceStore>().Saved.Count);
+        var saved = sp.GetRequiredService<CapturingTraceStore>().Saved;
+        Assert.Equal(2, saved.Count);
+        // the hit billed nothing, so its step carries no usage: the trace's totals are the one call's
+        var hit = Assert.Single(saved[1].Steps);
+        Assert.Equal((0L, 0L, 0d), (hit.InputTokens, hit.OutputTokens, hit.CostUsd));
+        Assert.Equal((3L, 5L), (saved[0].TotalInputTokens, saved[0].TotalOutputTokens));
     }
 
     [Fact]
