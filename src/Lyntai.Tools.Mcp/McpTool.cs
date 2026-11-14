@@ -12,11 +12,23 @@ internal sealed class McpTool(
     string name,
     string? description,
     string? parametersJsonSchema,
-    Func<string, CancellationToken, Task<string>> invoke) : ITool
+    Func<string, CancellationToken, Task<ToolObservation>> invoke) : IAttachmentTool
 {
+    /// <summary>A tool whose call answers text only.</summary>
+    public McpTool(string name, string? description, string? parametersJsonSchema,
+        Func<string, CancellationToken, Task<string>> invoke)
+        : this(name, description, parametersJsonSchema,
+            async (args, ct) => new ToolObservation(await invoke(args, ct).ConfigureAwait(false)))
+    {
+    }
+
     public string Name => name;
     public string? Description => description;
     public string? ParametersJsonSchema => parametersJsonSchema;
 
-    public Task<string> InvokeAsync(string argumentsJson, CancellationToken ct = default) => invoke(argumentsJson, ct);
+    public async Task<string> InvokeAsync(string argumentsJson, CancellationToken ct = default) =>
+        (await invoke(argumentsJson, ct).ConfigureAwait(false)).Text;
+
+    public Task<ToolObservation> InvokeWithAttachmentsAsync(string argumentsJson, CancellationToken ct = default) =>
+        invoke(argumentsJson, ct);
 }

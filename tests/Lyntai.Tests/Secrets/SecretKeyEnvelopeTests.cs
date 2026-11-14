@@ -1,6 +1,7 @@
 using System.Security.Cryptography;
 using System.Text.Json.Nodes;
 using Lyntai.Secrets;
+using Lyntai.Storage;
 using Lyntai.Storage.InMemory;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -184,6 +185,80 @@ public class SecretKeyEnvelopeTests
         var vault = new EnvelopeSecretVault(new InMemoryKeyValueStore(), Machine());
         await vault.GenerateMasterKeyAsync();
         await Assert.ThrowsAsync<InvalidOperationException>(() => vault.GenerateMasterKeyAsync());
+    }
+
+    [Fact]
+    public async Task Two_vaults_over_one_store_generate_one_master_key()
+    {
+        // two processes over one database: each reads "no envelope" before either writes. A get-then-set lets both
+        // write, and the second envelope strands every secret the first process sealed.
+        var store = new RacingStore(new InMemoryKeyValueStore());
+        var a = new EnvelopeSecretVault(store, Machine());
+        var b = new EnvelopeSecretVault(store, Machine());
+
+        var outcomes = await Task.WhenAll(Outcome(a), Outcome(b));
+
+        Assert.Equal(1, outcomes.Count(o => o is null));                        // one vault minted the key
+        Assert.IsType<InvalidOperationException>(Assert.Single(outcomes, o => o is not null));
+        Assert.Equal(2, store.EnvelopeReads);                                  // both did race past the read
+    }
+
+    [Fact]
+    public async Task Generating_over_a_store_without_the_capability_keeps_the_old_path()
+    {
+        // a BYO store that cannot insert-if-absent still generates, and a second generate is still refused
+        var store = new PlainStore(new InMemoryKeyValueStore());
+        var vault = new EnvelopeSecretVault(store, Machine());
+
+        Assert.NotEmpty(await vault.GenerateMasterKeyAsync());
+        await vault.SetAsync("token", "value");
+        Assert.Equal("value", await vault.GetAsync("token"));
+        await Assert.ThrowsAsync<InvalidOperationException>(() => vault.GenerateMasterKeyAsync());
+    }
+
+    private static async Task<Exception?> Outcome(EnvelopeSecretVault vault)
+    {
+        try { await vault.GenerateMasterKeyAsync(); return null; }
+        catch (Exception ex) { return ex; }
+    }
+
+    /// <summary>A store whose read of the envelope waits for a second reader, so two vaults both see no envelope
+    /// before either writes — the interleaving two processes can produce. Bounded, so a path that reads once
+    /// cannot hang the test.</summary>
+    private sealed class RacingStore(InMemoryKeyValueStore inner) : IConditionalKeyValueStore
+    {
+        private readonly TaskCompletionSource _both = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        private int _reads;
+
+        public int EnvelopeReads => _reads;
+
+        public async Task<string?> GetAsync(string key, CancellationToken ct = default)
+        {
+            if (key == EnvelopeSecretVault.EnvelopeKey)
+            {
+                var n = Interlocked.Increment(ref _reads);
+                if (n == 2) _both.TrySetResult();
+                if (n <= 2) await _both.Task.WaitAsync(TimeSpan.FromSeconds(5), ct);
+            }
+            return await inner.GetAsync(key, ct);
+        }
+
+        public Task SetAsync(string key, string value, CancellationToken ct = default) => inner.SetAsync(key, value, ct);
+        public Task<bool> SetIfAbsentAsync(string key, string value, CancellationToken ct = default) =>
+            inner.SetIfAbsentAsync(key, value, ct);
+        public Task DeleteAsync(string key, CancellationToken ct = default) => inner.DeleteAsync(key, ct);
+        public Task<IReadOnlyList<string>> ListKeysAsync(string? prefix = null, CancellationToken ct = default) =>
+            inner.ListKeysAsync(prefix, ct);
+    }
+
+    /// <summary>A store without the insert-if-absent capability, as a BYO one may be.</summary>
+    private sealed class PlainStore(IKeyValueStore inner) : IKeyValueStore
+    {
+        public Task<string?> GetAsync(string key, CancellationToken ct = default) => inner.GetAsync(key, ct);
+        public Task SetAsync(string key, string value, CancellationToken ct = default) => inner.SetAsync(key, value, ct);
+        public Task DeleteAsync(string key, CancellationToken ct = default) => inner.DeleteAsync(key, ct);
+        public Task<IReadOnlyList<string>> ListKeysAsync(string? prefix = null, CancellationToken ct = default) =>
+            inner.ListKeysAsync(prefix, ct);
     }
 
     [Fact]

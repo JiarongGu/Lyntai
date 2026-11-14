@@ -2,7 +2,8 @@ using Dapper;
 
 namespace Lyntai.Storage.Postgres;
 
-public sealed class PostgresKeyValueStore(IDbConnectionFactory factory) : IKeyValueStore
+/// <summary>KV store over the <c>lyntai_kv</c> table, with the insert-if-absent capability.</summary>
+public sealed class PostgresKeyValueStore(IDbConnectionFactory factory) : IConditionalKeyValueStore
 {
     public async Task<string?> GetAsync(string key, CancellationToken ct = default)
     {
@@ -23,6 +24,13 @@ public sealed class PostgresKeyValueStore(IDbConnectionFactory factory) : IKeyVa
         await using var conn = await factory.OpenAsync(ct).ConfigureAwait(false);
         await conn.ExecuteAsync(new CommandDefinition(
             KeyValueStoreSql.Delete, new { key }, cancellationToken: ct)).ConfigureAwait(false);
+    }
+
+    public async Task<bool> SetIfAbsentAsync(string key, string value, CancellationToken ct = default)
+    {
+        await using var conn = await factory.OpenAsync(ct).ConfigureAwait(false);
+        return await conn.ExecuteAsync(new CommandDefinition(KeyValueStoreSql.SetIfAbsent,
+            new { key, value, now = DateTimeOffset.UtcNow }, cancellationToken: ct)).ConfigureAwait(false) == 1;
     }
 
     public async Task<IReadOnlyList<string>> ListKeysAsync(string? prefix = null, CancellationToken ct = default)

@@ -1,8 +1,9 @@
 namespace Lyntai.Storage.FileSystem;
 
 /// <summary><see cref="IKeyValueStore"/> as <c>kv/&lt;name&gt;.md</c>, one file per key: the key in the
-/// header, the value as the body.</summary>
-internal sealed class FileSystemKeyValueStore(FileSystemRoot root) : IKeyValueStore
+/// header, the value as the body. Its insert-if-absent is atomic under the store's lock, which covers every
+/// writer because the root admits one owning process.</summary>
+internal sealed class FileSystemKeyValueStore(FileSystemRoot root) : IConditionalKeyValueStore
 {
     // `Copies` are the other files holding the same key, so a delete removes every one of them
     private sealed record Entry(string Value, string File, IReadOnlyList<string> Copies);
@@ -28,6 +29,15 @@ internal sealed class FileSystemKeyValueStore(FileSystemRoot root) : IKeyValueSt
 
     public Task SetAsync(string key, string value, CancellationToken ct = default)
     {
+        Write(key, value, onlyIfAbsent: false);
+        return Task.CompletedTask;
+    }
+
+    public Task<bool> SetIfAbsentAsync(string key, string value, CancellationToken ct = default) =>
+        Task.FromResult(Write(key, value, onlyIfAbsent: true));
+
+    private bool Write(string key, string value, bool onlyIfAbsent)
+    {
         ArgumentNullException.ThrowIfNull(key);
         ArgumentNullException.ThrowIfNull(value);
         (key, value) = (Utf8Text.Scrub(key)!, Utf8Text.Scrub(value)!);
@@ -35,6 +45,7 @@ internal sealed class FileSystemKeyValueStore(FileSystemRoot root) : IKeyValueSt
         {
             var entries = Entries();
             var e = entries.GetValueOrDefault(key);
+            if (onlyIfAbsent && e is not null) return false;
             var file = e?.File ?? Path.Combine(_directory, RecordName.For(key) + ".md");
             // a file already at a new key's own name is this key broken, or another key edited in by hand —
             // either way, never written over
@@ -44,7 +55,7 @@ internal sealed class FileSystemKeyValueStore(FileSystemRoot root) : IKeyValueSt
             root.Write(file, RecordFile.Write(new RecordHeader().Add("key", key), value));
             entries[key] = new Entry(value, file, e?.Copies ?? []);
         }
-        return Task.CompletedTask;
+        return true;
     }
 
     public Task DeleteAsync(string key, CancellationToken ct = default)

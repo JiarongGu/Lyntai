@@ -978,6 +978,15 @@ var mcpTools = await McpToolset.FromClientAsync(mcp);   // list + adapt the serv
 services.AddLyntai(b => b.AddClaudeCliProvider().AddMcpTools(mcpTools).UseDefaultCandidates("claude-cli"));
 ```
 
+A tool's answer reaches the model as text: an image, an audio clip or a binary blob is a line naming its kind,
+media type and size. **To show the model the images too**, adapt with
+`FromClientAsync(mcp, new McpToolsetOptions { MaxImageBytes = … })`: each image block at or under the cap then
+also travels as an attachment, which the tool loop hands the model on one user turn after the turn's tool results
+(a vision-capable backend shows it, a text-only one or a CLI drops it). The line stays either way, so a model that
+is not shown the picture is still told of it; an image over the cap, or one that does not decode, is the line
+alone, and audio and blobs are always lines. A guard that rewrites an observation withholds its images, since it
+read only the text. Your own tool can do the same by implementing `IAttachmentTool`.
+
 **Hosting your tools for a CLI agent** — the reverse direction. A CLI running its own agent loop reaches
 custom tools only over MCP, so this hosts your `ITool`s as a localhost-only MCP server for the length of each
 CLI call and passes the CLI the flags that point it there:
@@ -1661,7 +1670,15 @@ await ctx.ReportStageAsync(3, 10, new JobMessage("Copying 3 of 10")
   (AES-256-GCM, your key) over your storage backend, or in memory when none is registered. `AddEnvelopeSecretVault(machineProtector)` instead uses a
   Lyntai-generated key sealed to the host and backed by a one-time recovery key (`GenerateMasterKeyAsync()`,
   then `RecoverAsync(key)` on migration); on Windows, `AddDpapiSecretVault()` (`Lyntai.Secrets.Dpapi`) seals
-  it with DPAPI.
+  it with DPAPI. Over a store with the insert-if-absent capability (`IConditionalKeyValueStore`, which every
+  shipped store has), two processes generating at once agree on one master key and the other throws; over a BYO
+  store without it, generate from one process.
+  **Each secret is bound to its name**, so a blob copied over another name in the store fails to decrypt there
+  rather than slipping past an access policy that gates by name. A secret written before binding still reads; to
+  close that gap, run `RebindAsync()` once on the vault (`KeyValueSecretVault` or `EnvelopeSecretVault`) while
+  nothing else writes it, then register with `refuseUnboundSecrets: true`. **A build that predates binding cannot
+  read a bound secret**: once a store has been written, do not roll back or run an older build over it. The
+  plaintext vault binds nothing.
 - **Vision** — `TextMessage.UserWithImage(text, bytes, "image/png")` (or `UserWithImageUrl`) goes to the
   OpenAI-shaped backends as image content and to Ollama-native (`AddOllamaProvider`) as `/api/chat`'s `images`
   array. A URL-only attachment cannot travel on the Ollama-native path, which has no URL form: it is logged

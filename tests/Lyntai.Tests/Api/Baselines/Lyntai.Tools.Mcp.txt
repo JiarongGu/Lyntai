@@ -12,3 +12,7 @@ sealed class Lyntai.Tools.Mcp.Hosting.McpToolHostOptions
     ToolsByConsumer : Dictionary<String,IReadOnlyList<String>> { get; }
 static class Lyntai.Tools.Mcp.McpToolset
     static FromClientAsync(McpClient client, CancellationToken ct = default) : Task<IReadOnlyList<ITool>>
+    static FromClientAsync(McpClient client, McpToolsetOptions options, CancellationToken ct = default) : Task<IReadOnlyList<ITool>>
+sealed class Lyntai.Tools.Mcp.McpToolsetOptions
+    .ctor()
+    MaxImageBytes : Int64 { get; set; }

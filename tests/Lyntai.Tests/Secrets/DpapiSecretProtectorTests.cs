@@ -67,6 +67,21 @@ public class DpapiSecretProtectorTests
     }
 
     [SkippableFact]
+    public async Task A_blob_copied_to_another_name_does_not_decrypt_under_dpapi()
+    {
+        Skip.IfNot(OperatingSystem.IsWindows(), "DPAPI is Windows-only");
+        // the vault binds the name above the protector, so a protector with no notion of names binds it too
+        var kv = new InMemoryKeyValueStore();
+        var vault = new KeyValueSecretVault(kv, new DpapiSecretProtector());
+        await vault.SetAsync("admin-token", "sk-admin");
+
+        await kv.SetAsync("lyntai:secret:public", (await kv.GetAsync("lyntai:secret:admin-token"))!);
+
+        Assert.Equal("sk-admin", await vault.GetAsync("admin-token"));
+        await Assert.ThrowsAnyAsync<CryptographicException>(() => vault.GetAsync("public"));
+    }
+
+    [SkippableFact]
     public async Task AddDpapiSecretVault_wires_the_vault_and_exposes_generate_recover()
     {
         Skip.IfNot(OperatingSystem.IsWindows(), "DPAPI is Windows-only");

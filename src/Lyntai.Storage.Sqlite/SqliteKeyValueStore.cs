@@ -4,8 +4,8 @@ namespace Lyntai.Storage.Sqlite;
 
 /// <summary>KV store over Lyntai's own <c>lyntai_kv</c> table (Lyntai manages the schema). An app that needs
 /// its own backend registers its own <see cref="IKeyValueStore"/> impl instead (it wins over the default —
-/// the domain stores register with <c>TryAdd</c>).</summary>
-public sealed class SqliteKeyValueStore(IDbConnectionFactory factory) : IKeyValueStore
+/// the domain stores register with <c>TryAdd</c>). Offers the insert-if-absent capability.</summary>
+public sealed class SqliteKeyValueStore(IDbConnectionFactory factory) : IConditionalKeyValueStore
 {
     public async Task<string?> GetAsync(string key, CancellationToken ct = default)
     {
@@ -26,6 +26,13 @@ public sealed class SqliteKeyValueStore(IDbConnectionFactory factory) : IKeyValu
         await using var conn = await factory.OpenAsync(ct).ConfigureAwait(false);
         await conn.ExecuteAsync(new CommandDefinition(
             KeyValueStoreSql.Delete, new { key }, cancellationToken: ct)).ConfigureAwait(false);
+    }
+
+    public async Task<bool> SetIfAbsentAsync(string key, string value, CancellationToken ct = default)
+    {
+        await using var conn = await factory.OpenAsync(ct).ConfigureAwait(false);
+        return await conn.ExecuteAsync(new CommandDefinition(KeyValueStoreSql.SetIfAbsent,
+            new { key, value, now = DateTimeOffset.UtcNow }, cancellationToken: ct)).ConfigureAwait(false) == 1;
     }
 
     public async Task<IReadOnlyList<string>> ListKeysAsync(string? prefix = null, CancellationToken ct = default)

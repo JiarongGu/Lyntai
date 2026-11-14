@@ -101,6 +101,100 @@ public class McpToolsTests
     }
 
     [Fact]
+    public void An_image_block_is_attached_when_the_host_opts_in()
+    {
+        var png = new byte[] { 0x89, 0x50, 0x4E, 0x47 };
+        var result = new CallToolResult
+        {
+            Content =
+            [
+                new TextContentBlock { Text = "chart" },
+                ImageContentBlock.FromBytes(png, "image/png"),
+                AudioContentBlock.FromBytes(new byte[3], "audio/wav"),
+                new EmbeddedResourceBlock { Resource = BlobResourceContents.FromBytes(new byte[2], "file:///a.bin", "image/png") },
+            ],
+        };
+
+        var observation = McpToolset.ToObservation(result, new McpToolsetOptions { MaxImageBytes = 1024 });
+
+        // the line stays, so a model that is not shown the picture is still told of it; audio and a blob stay lines
+        Assert.Equal(McpToolset.ToText(result), observation.Text);
+        var image = Assert.Single(observation.Attachments!);
+        Assert.Equal("image/png", image.MediaType);
+        Assert.Equal(png, image.Data);
+    }
+
+    [Fact]
+    public void An_image_block_over_the_cap_is_described()
+    {
+        var small = new byte[10];
+        var result = new CallToolResult
+        {
+            Content =
+            [
+                ImageContentBlock.FromBytes(new byte[2048], "image/png"),
+                new ImageContentBlock { Data = "not base64!"u8.ToArray(), MimeType = "image/png" },
+                ImageContentBlock.FromBytes(small, "image/jpeg"),
+            ],
+        };
+
+        var observation = McpToolset.ToObservation(result, new McpToolsetOptions { MaxImageBytes = 1024 });
+
+        Assert.Equal(
+            "[image content: image/png, 2048 bytes]\n[image content: image/png, size unknown]\n[image content: image/jpeg, 10 bytes]",
+            observation.Text);
+        Assert.Equal("image/jpeg", Assert.Single(observation.Attachments!).MediaType);   // only the one that fits
+    }
+
+    [Fact]
+    public void An_image_block_by_default_is_text_only()
+    {
+        var result = new CallToolResult { Content = [ImageContentBlock.FromBytes(new byte[10], "image/png")] };
+
+        var observation = McpToolset.ToObservation(result, new McpToolsetOptions());
+
+        Assert.Equal("[image content: image/png, 10 bytes]", observation.Text);
+        Assert.True(observation.Attachments is null or { Count: 0 });
+    }
+
+    [Fact]
+    public async Task McpTool_answers_the_text_door_and_the_attachment_door_alike()
+    {
+        var image = new TextAttachment("image/png", [1]);
+        ITool tool = new McpTool("draw", null, null,
+            (_, _) => Task.FromResult(new ToolObservation("[image content: image/png, 1 byte]", [image])));
+
+        var attachments = Assert.IsAssignableFrom<IAttachmentTool>(tool);
+        Assert.Equal("[image content: image/png, 1 byte]", await tool.InvokeAsync("{}"));
+        var observation = await attachments.InvokeWithAttachmentsAsync("{}");
+        Assert.Equal("[image content: image/png, 1 byte]", observation.Text);
+        Assert.Same(image, Assert.Single(observation.Attachments!));
+    }
+
+    [Fact]
+    public async Task FromClientAsync_with_options_adapts_each_tool_as_one_that_can_carry_images()
+    {
+        // a text-only server: the overload wires the same call, behind the attachment door
+        ITool echo = new FunctionTool("echo", (args, _) => Task.FromResult($"echoed:{args}"), "echoes",
+            """{"type":"object","properties":{"message":{"type":"string"}}}""");
+        const string token = "test-bearer-token";
+        await using var host = await Lyntai.Tools.Mcp.Hosting.McpToolHost.StartAsync([echo], token);
+        await using var client = await ModelContextProtocol.Client.McpClient.CreateAsync(
+            new ModelContextProtocol.Client.HttpClientTransport(new ModelContextProtocol.Client.HttpClientTransportOptions
+            {
+                Endpoint = new Uri(host.Url),
+                AdditionalHeaders = new Dictionary<string, string> { ["Authorization"] = $"Bearer {token}" },
+            }));
+
+        var tool = Assert.IsAssignableFrom<IAttachmentTool>(Assert.Single(
+            await McpToolset.FromClientAsync(client, new McpToolsetOptions { MaxImageBytes = 1024 })));
+
+        var observation = await tool.InvokeWithAttachmentsAsync("""{"message":"hi"}""");
+        Assert.Contains("echoed", observation.Text);
+        Assert.True(observation.Attachments is null or { Count: 0 });
+    }
+
+    [Fact]
     public async Task AddMcpTools_registers_them_so_the_loop_can_call_them()
     {
         var mcpTools = new ITool[]

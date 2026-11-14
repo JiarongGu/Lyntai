@@ -48,6 +48,12 @@ every addition.
 
 ### Changed
 
+- **A secret is bound to its name** (**D355**). `KeyValueSecretVault` and `EnvelopeSecretVault` now seal each secret's name with its
+  value, so a blob copied over another name in the store throws `CryptographicException` there instead of decrypting past an access
+  policy that gates by name; a secret written before still reads. **A build that predates this cannot read a secret it writes: once a
+  store has been written, do not roll back or run an older build over it.** To bind existing secrets, call `RebindAsync()` once while
+  nothing else writes the vault, then set `RefuseUnboundSecrets` (or register with `refuseUnboundSecrets: true`). The plaintext vault is
+  unchanged.
 - **A reply's `Usage` is what the backend billed for the call, whatever the verdict** (**D350**). Through 3.5.3 a failed CLI turn's
   usage was dropped, an empty `Final` the router fell over from lost its usage while the next candidate was billed, and a response-cache
   hit replayed the first call's usage into a tool loop, the orchestrator and a trace step. A failed reply and an `Error` chunk now carry
@@ -291,6 +297,15 @@ every addition.
 
 ### Added
 
+- **An MCP tool's image can reach the model** (**D354**). `McpToolset.FromClientAsync(client, new McpToolsetOptions { MaxImageBytes = … })`
+  attaches each image block at or under the cap, and the tool loop hands the images to the model on one user turn after the turn's tool
+  results (on the prompt protocol, on the observation's own turn). The line naming each block stays in the text, an image over the cap is
+  that line alone, and audio and blobs stay lines; the default, `0`, is today's text-only behaviour. A host's own tool does the same by
+  implementing `IAttachmentTool`, returning a `ToolObservation`; `GatedToolResult.Attachments` is empty when a guard rewrote the text.
+- **`IConditionalKeyValueStore`: insert-if-absent beside `IKeyValueStore`** (**D356**). Every shipped key-value store implements
+  `SetIfAbsentAsync`, and `EnvelopeSecretVault.GenerateMasterKeyAsync` uses it, so two processes generating a master key over one store
+  agree on one and the other throws `InvalidOperationException`, where through 3.5.3 the second stranded the first's secrets. A host's own
+  store without it keeps the old path, so generate from one process; a store that wraps another must forward the capability.
 - **`HttpModelOptions.MaxTokensField` and `AppendVersionSegment`** (**D351**), both null by default, when the provider sends the same
   bytes as before. `MaxTokensField` names the JSON member the cap travels in, such as `max_completion_tokens`, which OpenAI's reasoning
   models are documented to require (not measured here); a blank name or another member the body writes is refused at registration.

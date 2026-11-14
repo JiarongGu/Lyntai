@@ -606,6 +606,117 @@ public class ToolLoopTests
         Assert.Single(result.Steps);
     }
 
+    // ---- a tool that answers images -----------------------------------------------------------------------
+
+    /// <summary>A tool answering a picture: the line describing it in the text, the bytes as an attachment.</summary>
+    private sealed class PictureTool(string name, params TextAttachment[] images) : IAttachmentTool
+    {
+        public string Name => name;
+        public string? Description => "draws a picture";
+        public string? ParametersJsonSchema => null;
+
+        public Task<string> InvokeAsync(string argumentsJson, CancellationToken ct = default) =>
+            throw new InvalidOperationException("the loop must take the attachment door");
+
+        public Task<ToolObservation> InvokeWithAttachmentsAsync(string argumentsJson, CancellationToken ct = default) =>
+            Task.FromResult(new ToolObservation($"{name}: [image content: image/png, 1 byte]", images));
+    }
+
+    private static FakeTextClient NativeClient(bool streaming, params TextToolCall[] calls)
+    {
+        var turn = 0;
+        var client = new FakeTextClient
+        {
+            SupportsToolCallsResult = true,
+            SupportsStreamingToolCallsResult = streaming,
+            StreamScript = _ => ++turn == 1
+                ? [.. calls.Select(TextChunk.Tool), TextChunk.Final()]
+                : [TextChunk.Content("seen"), TextChunk.Final()],
+        };
+        client.Replies.Enqueue(new TextResponse("", ProviderVerdict.Ok) { ToolCalls = calls });
+        client.Replies.Enqueue(new TextResponse("seen", ProviderVerdict.Ok));
+        return client;
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task Tool_attachments_follow_the_tool_results_as_one_user_turn(bool streaming)
+    {
+        // two calls in one turn, each answering a picture: an OpenAI-shaped or Ollama wire takes an image on a user
+        // turn only, and a user turn between two tool results would split the turn's answers
+        var chart = new TextAttachment("image/png", [1]);
+        var photo = new TextAttachment("image/jpeg", [2]);
+        var client = NativeClient(streaming,
+            new TextToolCall("call_1", "chart", "{}"), new TextToolCall("call_2", "photo", "{}"));
+        var loop = new ToolLoop(client, new ToolRegistry([new PictureTool("chart", chart), new PictureTool("photo", photo)]),
+            Options());
+
+        var result = await loop.RunAsync(Ask());
+
+        Assert.True(result.Ok);
+        var fed = client.Calls[1].Messages;
+        Assert.Equal(["user", "assistant", "tool", "tool", "user"], fed.Select(m => m.Role));
+        Assert.Equal([chart, photo], fed[^1].Attachments!);
+        Assert.All(fed.Take(4), m => Assert.Null(m.Attachments));
+        // the line stays in each result, so a model that is not shown the picture is still told of it
+        Assert.Equal("chart: [image content: image/png, 1 byte]", fed[2].Content);
+        Assert.Equal("chart: [image content: image/png, 1 byte]", result.Steps[0].Result);
+    }
+
+    [Fact]
+    public async Task Tool_attachments_ride_the_observation_turn_on_the_prompt_protocol()
+    {
+        // the prompt protocol already feeds an observation back as a user turn, so the images go on that one
+        var chart = new TextAttachment("image/png", [1]);
+        var client = new FakeTextClient();
+        client.Replies.Enqueue(new TextResponse("""{"tool":"chart","arguments":{}}""", ProviderVerdict.Ok));
+        client.Replies.Enqueue(new TextResponse("""{"final":"seen"}""", ProviderVerdict.Ok));
+
+        await Loop(client, new PictureTool("chart", chart)).RunAsync(Ask());
+
+        var observation = client.Calls[1].Messages[^1];
+        Assert.Equal("user", observation.Role);
+        Assert.Contains("chart: [image content: image/png, 1 byte]", observation.Content);
+        Assert.Equal([chart], observation.Attachments!);
+    }
+
+    [Fact]
+    public async Task A_plain_tool_adds_no_user_turn()
+    {
+        // nor does a tool that can carry images and answered none, which is an MCP tool by default
+        var client = NativeClient(streaming: false,
+            new TextToolCall("call_1", "echo", "{}"), new TextToolCall("call_2", "blank", "{}"));
+
+        await new ToolLoop(client, new ToolRegistry([Echo(), new PictureTool("blank")]), Options()).RunAsync(Ask());
+
+        Assert.Equal(["user", "assistant", "tool", "tool"], client.Calls[1].Messages.Select(m => m.Role));
+    }
+
+    [Fact]
+    public async Task A_guard_that_rewrites_an_observation_withholds_its_images()
+    {
+        // the rail reads the text only: having rewritten it, it cannot vouch for a picture it never saw
+        var client = NativeClient(streaming: false, new TextToolCall("call_1", "chart", "{}"));
+        var loop = new ToolLoop(client, new ToolRegistry([new PictureTool("chart", new TextAttachment("image/png", [1]))]),
+            Options(), guards: new RedactingRail());
+
+        await loop.RunAsync(Ask());
+
+        var fed = client.Calls[1].Messages;
+        Assert.Equal(["user", "assistant", "tool"], fed.Select(m => m.Role));
+        Assert.Equal("[redacted]", fed[^1].Content);
+    }
+
+    private sealed class RedactingRail : Lyntai.Guards.IGuardRail
+    {
+        public Task<Lyntai.Guards.GuardOutcome> InspectRequestAsync(TextRequest req, CancellationToken ct = default) =>
+            Task.FromResult(Lyntai.Guards.GuardOutcome.Allow);
+
+        public Task<Lyntai.Guards.GuardOutcome> InspectResponseAsync(TextResponse reply, CancellationToken ct = default) =>
+            Task.FromResult(Lyntai.Guards.GuardOutcome.Replace("[redacted]"));
+    }
+
     // ---- native path over a STREAM --------------------------------------------------------------------
     //
     // A turn buffered through CompleteAsync gives an agentic answer no time-to-first-token at all, however

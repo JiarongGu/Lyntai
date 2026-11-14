@@ -26,24 +26,40 @@ public sealed class EnvelopeSecretVault(
     /// <summary>Mint a new master key (DEK) if the vault has none, persist its envelope, and return the
     /// one-time recovery key for the operator to store out-of-band. Throws
     /// <see cref="InvalidOperationException"/> if an envelope already exists — regenerating would strand
-    /// every secret already encrypted under the old DEK.</summary>
+    /// every secret already encrypted under the old DEK.
+    /// <para>Over an <see cref="IConditionalKeyValueStore"/> the envelope is written insert-if-absent, so of two
+    /// processes generating at once one wins and the other throws. Over a store without that capability the
+    /// check and the write are guarded within this instance only: generate from one process.</para></summary>
     public async Task<string> GenerateMasterKeyAsync(CancellationToken ct = default)
     {
         await _initLock.WaitAsync(ct).ConfigureAwait(false);
         try
         {
             if (await kv.GetAsync(EnvelopeKey, ct).ConfigureAwait(false) is not null)
-                throw new InvalidOperationException(
-                    "A secret-key envelope already exists — regenerating would strand secrets encrypted under the old key. " +
-                    "Delete the vault (or use RecoverAsync) instead of regenerating.");
+                throw EnvelopeExists();
 
             var (envelope, dek, recoveryKey) = SecretKeyEnvelope.Create(machineProtector);
-            await kv.SetAsync(EnvelopeKey, envelope.ToJson(), ct).ConfigureAwait(false);
+            if (kv is IConditionalKeyValueStore conditional)
+            {
+                if (!await conditional.SetIfAbsentAsync(EnvelopeKey, envelope.ToJson(), ct).ConfigureAwait(false))
+                {
+                    CryptographicOperations.ZeroMemory(dek);
+                    throw EnvelopeExists();
+                }
+            }
+            else
+            {
+                await kv.SetAsync(EnvelopeKey, envelope.ToJson(), ct).ConfigureAwait(false);
+            }
             _inner = BuildInner(dek);
             return recoveryKey;
         }
         finally { _initLock.Release(); }
     }
+
+    private static InvalidOperationException EnvelopeExists() => new(
+        "A secret-key envelope already exists — regenerating would strand secrets encrypted under the old key. " +
+        "Delete the vault (or use RecoverAsync) instead of regenerating.");
 
     /// <summary>Load the envelope and unwrap the DEK via the machine wrap (fast path). Throws
     /// <see cref="InvalidOperationException"/> if no envelope exists (call <see cref="GenerateMasterKeyAsync"/>
@@ -71,6 +87,15 @@ public sealed class EnvelopeSecretVault(
         }
         finally { _initLock.Release(); }
     }
+
+    /// <summary>Refuse a secret still in the unbound format, as <see cref="KeyValueSecretVault.RefuseUnboundSecrets"/>
+    /// does: every secret is bound to its name, and a build that predates binding cannot read a bound one.</summary>
+    public bool RefuseUnboundSecrets { get; init; }
+
+    /// <summary>Rewrite every secret still in the unbound format bound to its name, as
+    /// <see cref="KeyValueSecretVault.RebindAsync"/> does, initializing the vault first.</summary>
+    public async Task<int> RebindAsync(CancellationToken ct = default) =>
+        await (await InnerAsync(ct).ConfigureAwait(false)).RebindAsync(ct).ConfigureAwait(false);
 
     public async Task<string?> GetAsync(string name, string? accessor = null, CancellationToken ct = default) =>
         await (await InnerAsync(ct).ConfigureAwait(false)).GetAsync(name, accessor, ct).ConfigureAwait(false);
@@ -121,7 +146,10 @@ public sealed class EnvelopeSecretVault(
         // than leave the plaintext master key lingering on the managed heap until GC (the transient recovery
         // KEK is already zeroed inside the envelope; this closes the same window for the DEK). Every unwrap
         // path (Generate/Recover/EnsureInitialized) funnels through here, so this covers all of them.
-        var inner = new KeyValueSecretVault(kv, new AesGcmSecretProtector(dek), policy);
+        var inner = new KeyValueSecretVault(kv, new AesGcmSecretProtector(dek), policy)
+        {
+            RefuseUnboundSecrets = RefuseUnboundSecrets,
+        };
         CryptographicOperations.ZeroMemory(dek);
         return inner;
     }

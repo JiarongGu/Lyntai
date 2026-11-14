@@ -7166,3 +7166,14 @@ door sends each request once (**D352**, Part 481's first row). A stream-json `re
 
 - the inference, HTTP, CLI-engine and stream-json tests named in the commit
 - D350 to D353, the changelog entries
+
+## Part 526 — `TASKS.md` Part 487: MCP images, a secret bound to its name, and the master key created once (2026-11-15)
+
+✅ done 2026-11-15 — **Outcome:** the Part's three decision-only rows ruled with a Fable design agent and built test first in a
+builder's worktree, the Postgres leg run. An MCP image block reaches the model on the host's opt-in through `IAttachmentTool`,
+beside its **D320** line (**D354**). A secret is bound to its name for new writes, old blobs read, with `RebindAsync` and
+`RefuseUnboundSecrets` to finish the move (**D355**). `IConditionalKeyValueStore.SetIfAbsentAsync` on every shipped store makes
+two processes agree on one master key (**D356**). The Part is empty and leaves the backlog.
+
+- `tests/Lyntai.Tests/Tools/McpToolsTests.cs`, `ToolLoopTests`, `SecretVaultTests`, `SecretKeyEnvelopeTests`, `KeyValueStoreContract`
+- D354 to D356, the changelog entries

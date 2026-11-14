@@ -19,7 +19,9 @@ namespace Lyntai.Agents;
 /// model replies with one JSON object, <c>{"tool":…}</c> or <c>{"final":…}</c>, via
 /// <see cref="TextStructuredExtensions.CompleteJsonAsync"/>). Both paths execute the same registered
 /// <see cref="ITool"/>s. Unknown tools and tools that throw become <c>error: …</c> observations fed back
-/// to the model (it can recover) rather than exceptions; a non-Ok LLM verdict is surfaced as-is.
+/// to the model (it can recover) rather than exceptions; a non-Ok LLM verdict is surfaced as-is. The images an
+/// <see cref="IAttachmentTool"/> answers follow on a user turn: one after the turn's last tool result natively,
+/// and the observation's own turn on the prompt protocol.
 /// </summary>
 public sealed class ToolLoop(
     ITextClient client,
@@ -249,6 +251,7 @@ public sealed class ToolLoop(
             if (!streaming && !string.IsNullOrEmpty(turn.Text)) yield return new TextDelta(turn.Text);
             messages.Add(TextMessage.AssistantToolCalls(turn.Calls, turn.Text));
             var executed = 0;
+            List<TextAttachment>? images = null;
             foreach (var call in turn.Calls)
             {
                 yield return new ToolCall(call.Name, call.ArgumentsJson, call.Id);
@@ -273,9 +276,16 @@ public sealed class ToolLoop(
                 steps.Add(new ToolStep(call.Name, gated.ArgumentsJson, gated.Observation));
                 yield return new ToolResult(call.Id, gated.Observation, IsErrorObservation(gated.Observation));
                 messages.Add(TextMessage.ToolResult(call.Id, gated.Observation));
+                if (gated.Attachments is { } answered) (images ??= []).AddRange(answered);
             }
+            // a vision wire takes an image on a user turn only, and one between two results would split the turn
+            if (images is not null)
+                messages.Add(new TextMessage("user", ToolImagesText) { Attachments = images });
         }
     }
+
+    // what the model reads beside the images its tools answered; each result's own text already names its images
+    private const string ToolImagesText = "The images the tool calls above returned, in the order of the calls.";
 
     /// <summary>One native turn, read from the provider's STREAM when it carries tool calls and buffered
     /// through <see cref="ITextClient.CompleteAsync"/> otherwise. What the turn produced lands in
@@ -402,7 +412,10 @@ public sealed class ToolLoop(
 
             // feed the model its own tool-call turn, then the observation, and continue
             messages.Add(TextMessage.Assistant(reply.Text));
-            messages.Add(TextMessage.User($"Tool \"{call.ToolName}\" returned:\n{gated.Observation}"));
+            messages.Add(TextMessage.User($"Tool \"{call.ToolName}\" returned:\n{gated.Observation}") with
+            {
+                Attachments = gated.Attachments,
+            });
         }
     }
 

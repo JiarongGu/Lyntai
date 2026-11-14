@@ -69,6 +69,153 @@ public class SecretVaultTests
             Task.FromResult(accessor == "owner");
     }
 
+    // ---- a secret is bound to its name ----------------------------------------------------------------------
+
+    private const string At = "lyntai:secret:";
+    private const string Marker = "lyntai2:";
+
+    private static AesGcmSecretProtector Aes() => new(RandomNumberGenerator.GetBytes(32));
+
+    /// <summary>The policy gates by NAME: anyone may read "public", nobody may read anything else.</summary>
+    private sealed class PublicOnly : ISecretAccessPolicy
+    {
+        public Task<bool> CanReadAsync(string name, string? accessor, CancellationToken ct = default) =>
+            Task.FromResult(name == "public");
+    }
+
+    [Fact]
+    public async Task A_blob_copied_to_another_name_does_not_decrypt()
+    {
+        // whoever can write the store but may read only "public" copies the admin blob over it: unbound, it
+        // decrypted there and handed the admin token to a reader the policy had refused
+        var kv = new InMemoryKeyValueStore();
+        var vault = new KeyValueSecretVault(kv, Aes(), new PublicOnly());
+        await vault.SetAsync("admin-token", "sk-admin");
+
+        await kv.SetAsync(At + "public", (await kv.GetAsync(At + "admin-token"))!);
+
+        await Assert.ThrowsAnyAsync<CryptographicException>(() => vault.GetAsync("public", "anyone"));
+    }
+
+    [Fact]
+    public async Task A_blob_copied_to_another_name_does_not_decrypt_through_the_envelope_vault()
+    {
+        var kv = new InMemoryKeyValueStore();
+        var vault = new EnvelopeSecretVault(kv, Aes(), new PublicOnly());
+        await vault.GenerateMasterKeyAsync();
+        await vault.SetAsync("admin-token", "sk-admin");
+
+        await kv.SetAsync(At + "public", (await kv.GetAsync(At + "admin-token"))!);
+
+        await Assert.ThrowsAnyAsync<CryptographicException>(() => vault.GetAsync("public", "anyone"));
+    }
+
+    [Fact]
+    public async Task A_legacy_blob_still_reads()
+    {
+        var kv = new InMemoryKeyValueStore();
+        var protector = Aes();
+        await kv.SetAsync(At + "old", protector.Protect("legacy-value"));   // as a build before binding wrote it
+
+        Assert.Equal("legacy-value", await new KeyValueSecretVault(kv, protector).GetAsync("old"));
+    }
+
+    [Fact]
+    public async Task Rebind_rewrites_legacy_blobs()
+    {
+        var kv = new InMemoryKeyValueStore();
+        var protector = Aes();
+        await kv.SetAsync(At + "a", protector.Protect("value-a"));
+        await kv.SetAsync(At + "b", protector.Protect("value-b"));
+        var vault = new KeyValueSecretVault(kv, protector);
+        await vault.SetAsync("c", "value-c");                               // already bound
+
+        Assert.Equal(2, await vault.RebindAsync());
+        Assert.Equal(0, await vault.RebindAsync());                         // nothing left to rewrite
+
+        foreach (var name in new[] { "a", "b", "c" })
+            Assert.StartsWith(Marker, await kv.GetAsync(At + name));
+        Assert.Equal("value-a", await vault.GetAsync("a"));
+        Assert.Equal("value-b", await vault.GetAsync("b"));
+
+        // the rewritten blob is bound: copied over another name, it no longer decrypts there
+        await kv.SetAsync(At + "b", (await kv.GetAsync(At + "a"))!);
+        await Assert.ThrowsAnyAsync<CryptographicException>(() => vault.GetAsync("b"));
+    }
+
+    [Fact]
+    public async Task RefuseUnboundSecrets_refuses_a_legacy_blob()
+    {
+        var kv = new InMemoryKeyValueStore();
+        var protector = Aes();
+        await kv.SetAsync(At + "old", protector.Protect("legacy-value"));
+        var vault = new KeyValueSecretVault(kv, protector) { RefuseUnboundSecrets = true };
+
+        await Assert.ThrowsAnyAsync<CryptographicException>(() => vault.GetAsync("old"));
+
+        await vault.SetAsync("new", "bound-value");
+        Assert.Equal("bound-value", await vault.GetAsync("new"));
+
+        // the upgrade path: the rebind still reads what the vault refuses, and binds it
+        Assert.Equal(1, await vault.RebindAsync());
+        Assert.Equal("legacy-value", await vault.GetAsync("old"));
+    }
+
+    [Fact]
+    public async Task A_marked_blob_stripped_of_its_marker_fails()
+    {
+        // without its marker the blob takes the legacy path, which would hand back the binding header as the value
+        var kv = new InMemoryKeyValueStore();
+        var vault = new KeyValueSecretVault(kv, Aes());
+        await vault.SetAsync("a", "value");
+        var stored = (await kv.GetAsync(At + "a"))!;
+        Assert.StartsWith(Marker, stored);
+
+        await kv.SetAsync(At + "a", stored[Marker.Length..]);
+        await kv.SetAsync(At + "b", stored[Marker.Length..]);
+
+        await Assert.ThrowsAnyAsync<CryptographicException>(() => vault.GetAsync("a"));
+        await Assert.ThrowsAnyAsync<CryptographicException>(() => vault.GetAsync("b"));
+        await Assert.ThrowsAnyAsync<CryptographicException>(() => vault.RebindAsync());
+    }
+
+    [Fact]
+    public async Task The_envelope_vault_passes_the_refusal_and_the_rebind_through()
+    {
+        var kv = new InMemoryKeyValueStore();
+        var recoveryKey = await new EnvelopeSecretVault(kv, Aes()).GenerateMasterKeyAsync();
+        var dek = SecretKeyEnvelope.FromJson((await kv.GetAsync(EnvelopeSecretVault.EnvelopeKey))!)
+            .UnwrapWithRecoveryKey(recoveryKey);
+        await kv.SetAsync(At + "old", new AesGcmSecretProtector(dek).Protect("legacy-value"));
+
+        var vault = new EnvelopeSecretVault(kv, Aes()) { RefuseUnboundSecrets = true };
+        await vault.RecoverAsync(recoveryKey);
+
+        await Assert.ThrowsAnyAsync<CryptographicException>(() => vault.GetAsync("old"));
+        Assert.Equal(1, await vault.RebindAsync());
+        Assert.Equal("legacy-value", await vault.GetAsync("old"));
+    }
+
+    [Fact]
+    public async Task The_builder_carries_the_refusal_to_either_vault()
+    {
+        var services = new ServiceCollection();
+        services.AddLyntai(b => b
+            .AddProvider(_ => new FakeTextProvider("p"))
+            .UseInMemoryStorage()
+            .AddSecretVault(RandomNumberGenerator.GetBytes(32), accessPolicy: null, refuseUnboundSecrets: true));
+        using (var sp = services.BuildServiceProvider())
+            Assert.True(Assert.IsType<KeyValueSecretVault>(sp.GetRequiredService<ISecretVault>()).RefuseUnboundSecrets);
+
+        var envelope = new ServiceCollection();
+        envelope.AddLyntai(b => b
+            .AddProvider(_ => new FakeTextProvider("p"))
+            .UseInMemoryStorage()
+            .AddEnvelopeSecretVault(Aes(), accessPolicy: null, refuseUnboundSecrets: true));
+        using (var sp = envelope.BuildServiceProvider())
+            Assert.True(sp.GetRequiredService<EnvelopeSecretVault>().RefuseUnboundSecrets);
+    }
+
     [Fact]
     public async Task Access_gate_denies_unauthorized_reads()
     {

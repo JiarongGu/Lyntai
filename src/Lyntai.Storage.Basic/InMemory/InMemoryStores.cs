@@ -3,8 +3,8 @@ using Lyntai.Cortex;
 
 namespace Lyntai.Storage.InMemory;
 
-/// <summary>In-memory <see cref="IKeyValueStore"/>.</summary>
-public sealed class InMemoryKeyValueStore : IKeyValueStore
+/// <summary>In-memory <see cref="IKeyValueStore"/>, with the insert-if-absent capability.</summary>
+public sealed class InMemoryKeyValueStore : IConditionalKeyValueStore
 {
     private readonly ConcurrentDictionary<string, string> _data = new();
 
@@ -16,6 +16,9 @@ public sealed class InMemoryKeyValueStore : IKeyValueStore
         _data[Utf8Text.Scrub(key)!] = Utf8Text.Scrub(value)!;
         return Task.CompletedTask;
     }
+
+    public Task<bool> SetIfAbsentAsync(string key, string value, CancellationToken ct = default) =>
+        Task.FromResult(_data.TryAdd(Utf8Text.Scrub(key)!, Utf8Text.Scrub(value)!));
 
     public Task DeleteAsync(string key, CancellationToken ct = default)
     {

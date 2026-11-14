@@ -423,8 +423,11 @@ new decision overturns an old one, rewrite the old entry as a stub pointing here
 | [D351](#d351--maxtokensfield-names-the-caps-member-and-appendversionsegment-states-the-v1-2026-11-15) | 2026-11-15 | `MaxTokensField` names the cap's member, and `AppendVersionSegment` states the `/v1` |
 | [D352](#d352--the-http-agent-door-sends-each-request-once-2026-11-15) | 2026-11-15 | the HTTP agent door sends each request once |
 | [D353](#d353--a-stream-json-result-whose-subtype-begins-with-error-is-a-failure-whatever-is_error-says-2026-11-15) | 2026-11-15 | a stream-json `result` whose `subtype` begins with `error` is a failure whatever `is_error` says |
+| [D354](#d354--an-mcp-image-reaches-the-model-when-the-host-opts-in-beside-its-line-2026-11-15) | 2026-11-15 | an MCP image reaches the model when the host opts in, beside its line |
+| [D355](#d355--a-secret-is-bound-to-its-name-for-new-writes-2026-11-15) | 2026-11-15 | a secret is bound to its name for new writes |
+| [D356](#d356--the-master-key-is-created-insert-if-absent-where-the-store-can-2026-11-15) | 2026-11-15 | the master key is created insert-if-absent where the store can |
 
-**348 live decisions.** The rest are stubs — `D<n>` is a permanent identifier, so a number is never reused or renumbered (5): [D36](#d36--a-translation-between-two-verdict-taxonomies-gets-one-arm-per-member-gated-by-a-test-2026-08-05) → D136 · [D80](#d80--merged-into-d77-2026-08-16-folded-2026-08-17) → D77 · [D131](#d131--a-backends-produces-is-derived-from-its-configuration-so-a-modality-is-a-field-2026-09-14) → D133 · [D134](#d134--a-registration-names-the-backend-the-provider-suffix-is-gone-from-all-seventeen-2026-09-14) → D137 · [D145](#d145--the-microsoftextensionsai-module-is-a-bridge-not-a-provider-2026-09-15) → D146
+**351 live decisions.** The rest are stubs — `D<n>` is a permanent identifier, so a number is never reused or renumbered (5): [D36](#d36--a-translation-between-two-verdict-taxonomies-gets-one-arm-per-member-gated-by-a-test-2026-08-05) → D136 · [D80](#d80--merged-into-d77-2026-08-16-folded-2026-08-17) → D77 · [D131](#d131--a-backends-produces-is-derived-from-its-configuration-so-a-modality-is-a-field-2026-09-14) → D133 · [D134](#d134--a-registration-names-the-backend-the-provider-suffix-is-gone-from-all-seventeen-2026-09-14) → D137 · [D145](#d145--the-microsoftextensionsai-module-is-a-bridge-not-a-provider-2026-09-15) → D146
 
 <!-- index:end -->
 
@@ -8315,7 +8318,7 @@ recall and its write-back is already a silent skip).
 
 ## D320 — a non-text MCP block is described in order beside the text (2026-11-09)
 
-**Standing.** A ruling on `TASKS.md` Part 487's MCP row, recorded in `docs/task-archive.md` Part 516, **the steward's under the owner's delegation, which the owner may reverse** — not the owner's words. Built; passing the bytes or a link is not.
+**Standing.** A ruling on the 2026-11-08 review's MCP row, recorded in `docs/task-archive.md` Part 516, **the steward's under the owner's delegation, which the owner may reverse** — not the owner's words. Built; passing the bytes or a link is not.
 
 **Decided.** `McpToolset.ToText` writes a line for each image, audio and blob block in the result's order, naming its kind, media type and size (`[image content: image/png, 1500 bytes]`), beside any text. Structured content still leads where no block holds text.
 
@@ -8323,11 +8326,11 @@ recall and its write-back is already a silent skip).
 
 **Rejected.** The block's bytes or a link a host resolves (a multimodal observation shape, which is the owner's).
 
-**Re-opens** when an observation can carry more than a string.
+**Re-opens** when a provider takes an image on a tool-role turn, or a host needs audio or a blob shown. An observation that carries an image beside this line is **D354**.
 
 ## D321 — the hosted MCP accept loop survives a listener fault while the listener is up (2026-11-09)
 
-**Standing.** A ruling on `TASKS.md` Part 487's accept-loop row, recorded in `docs/task-archive.md` Part 516, **the steward's under the owner's delegation, which the owner may reverse** — not the owner's words. Built.
+**Standing.** A ruling on the 2026-11-08 review's accept-loop row, recorded in `docs/task-archive.md` Part 516, **the steward's under the owner's delegation, which the owner may reverse** — not the owner's words. Built.
 
 **Decided.** `McpToolHost.AcceptLoopAsync` waits 100 ms and accepts again on an `HttpListenerException` while the listener is listening and the host is not cancelled. A fault after either still ends it. The loop is a static seam over the accept it awaits.
 
@@ -8339,7 +8342,7 @@ recall and its write-back is already a silent skip).
 
 ## D322 — a judge out of range or non-finite is unscored (2026-11-09)
 
-**Standing.** A ruling on `TASKS.md` Part 487's judge row, recorded in `docs/task-archive.md` Part 516, **the steward's under the owner's delegation, which the owner may reverse** — not the owner's words. Built, as **D281** does for a scorer.
+**Standing.** A ruling on the 2026-11-08 review's judge row, recorded in `docs/task-archive.md` Part 516, **the steward's under the owner's delegation, which the owner may reverse** — not the owner's words. Built, as **D281** does for a scorer.
 
 **Decided.** `LlmScorerBase` reads `score` with `TryGetDouble` and returns no verdict for a value that is not finite or lies outside 0 to 1; the dimension is skipped. 0 and 1 are kept.
 
@@ -8351,7 +8354,7 @@ recall and its write-back is already a silent skip).
 
 ## D323 — `TryParseObject` and `TryReadObject` try later braces, at most eight (2026-11-09)
 
-**Standing.** A ruling on `TASKS.md` Part 487's extraction row, recorded in `docs/task-archive.md` Part 516, **the steward's under the owner's delegation, which the owner may reverse** — not the owner's words. Built.
+**Standing.** A ruling on the 2026-11-08 review's extraction row, recorded in `docs/task-archive.md` Part 516, **the steward's under the owner's delegation, which the owner may reverse** — not the owner's words. Built.
 
 **Decided.** The two lenient reads take the first balanced `{…}` that parses, passing over one that does not (`{score}` in prose) for the next, at most eight in all; an object never closed ends the search. `ExtractObject` keeps its first-brace contract.
 
@@ -8615,7 +8618,7 @@ recall and its write-back is already a silent skip).
 
 ## D345 — a device-code sign-in is a request flag one program carries and the other refuses (2026-11-15)
 
-**Standing.** A ruling on the remainder of Daoris's A-LQ23 (`TASKS.md` Part 518's last row), read by the agent that built it; the owner may reverse it. Built.
+**Standing.** A ruling on the remainder of Daoris's A-LQ23 (closed as `docs/task-archive.md` Part 520), read by the agent that built it; the owner may reverse it. Built.
 
 **Decided.** `ProviderLoginRequest.DeviceCode` (an init property, so no constructor or deconstruction moves) asks for the program's device-code flow. The Codex backend sends `codex login --device-auth`, read from codex 0.169.0's own usage text and not run here; the Claude backend refuses it before a spawn, because `claude auth login --help` (2.1.325) lists `--claudeai`, `--console`, `--email` and `--sso` and nothing else. Both the inference providers and the agent doors' `IAgentAuthSource` take it, since they share the backend's login argv.
 
@@ -8627,7 +8630,7 @@ recall and its write-back is already a silent skip).
 
 ## D346 — a child agent is read as a session of its own only on a host's option, and its events are wrapped, not stamped (2026-11-15)
 
-**Standing.** A ruling on A-LQ24's second half (`TASKS.md` Part 518's AG52), read by the agent that built it; the owner may reverse it. Built.
+**Standing.** A ruling on A-LQ24's second half (AG52, closed as `docs/task-archive.md` Part 522), read by the agent that built it; the owner may reverse it. Built.
 
 **Decided.** `AddAcpAgentSession(childSessions: AcpChildSessions.ClaudeAgentAcp)` declares AIR's `nativeSubagentSessions` at `initialize`, and the door reads `subagent_spawned` as `ChildSessionStarted` (id, name, task), `subagent_state_update` as `ChildSessionEnded` (the agent's word, once per change), and an update under an announced child's session id as `ChildSessionUpdate(id, event)`, read as the session's own would be with the child's own state, so a child's words never join the answer. An update under an id nobody announced is dropped. On a kept run a child's update begins no woken turn and, with no turn running, waits for the next. A child's events count as the turn's evidence, a child's call as a call. The door states `child-sessions` `Supported`, applying to claude-agent-acp 0.79.0; the default declares nothing (**D343**).
 
@@ -8639,7 +8642,7 @@ recall and its write-back is already a silent skip).
 
 ## D347 — a steer is an optional capability of a run, asks an idle agent to leave the words to the host, and a turn begun with them is woken (2026-11-15)
 
-**Standing.** A ruling on A-LQ18 (`TASKS.md` Part 518's AG49), read by the agent that built it; the owner may reverse it. Built.
+**Standing.** A ruling on A-LQ18 (AG49, closed as `docs/task-archive.md` Part 523), read by the agent that built it; the owner may reverse it. Built.
 
 **Decided.** `IAgentRunSteering.SteerAsync(words)` is found by type test on an `IAgentRun`; the protocol door's run sends `_session/steering` with the words as a text block and `_meta.steering.idleBehavior: promptRequired`, under its own id range, where the open stated `_meta.steering.supported`, and answers `AgentSteerResult`: `Injected` (the turn's open calls stop holding it), `PromptRequired`, `StartedNewTurn`, `Refused` with an `AgentRunSubtypes` word, or `Failed` when the landing is not known. **A turn the agent began with the words is a woken turn**, since no prompt owns it and nothing would answer a sent turn's end. Refused while a request is held, a woken turn runs or a stop is out; a stop is not sent while a steer waits. The door states `steering` `Supported` for claude-agent-acp 0.84.0 on a run, and `Unsupported` without one.
 
@@ -8651,7 +8654,7 @@ recall and its write-back is already a silent skip).
 
 ## D348 — a session `AddAgentRetry` wraps stays the container's to dispose, built through a tracked holder (2026-11-15)
 
-**Standing.** A ruling on `TASKS.md` Part 481's third row, read by the agent that built it; the owner may reverse it. Built.
+**Standing.** A ruling on a row closed as `docs/task-archive.md` Part 524 (the disposal row), read by the agent that built it with a Fable design agent; the owner may reverse it. Built.
 
 **Decided.** A factory- or type-registered inner is built through a private holder the container resolves, under a private key with the registration's lifetime, or, for an any-key registration, through one transient holder whose key names the registration and the requested key. The container disposes it with the provider or scope that built it, sync or async, as it would unwrapped. An instance stays the host's. `RetryingAgentSession` stays non-disposable, and the holder is never an `IAgentSession` and is disposable only when its session is.
 
@@ -8663,7 +8666,7 @@ recall and its write-back is already a silent skip).
 
 ## D349 — a resumed retry is marked a continuation, and the door decides what it leaves out (2026-11-15)
 
-**Standing.** A ruling on `TASKS.md` Part 481's fourth row, read by the agent that built it; the owner may reverse it. Built.
+**Standing.** A ruling on a row closed as `docs/task-archive.md` Part 524 (the system-prompt row), read by the agent that built it with a Fable design agent; the owner may reverse it. Built.
 
 **Decided.** `AgentSessionOptions.ContinuesTurn` (default false) marks an attempt that continues a turn the resumed conversation holds. `RetryingAgentSession` sets it on a `Taken` resume and keeps `SystemPrompt`. Beside a non-empty `ResumeToken`, the Codex exec door and the protocol door (a one-shot turn, and a kept run's first prompt) leave the system prompt out; the Claude door's per-process `--append-system-prompt` still carries it. With no token the flag is not read.
 
@@ -8675,7 +8678,7 @@ recall and its write-back is already a silent skip).
 
 ## D350 — a reply's `Usage` is what the backend billed for the call, whatever the verdict (2026-11-15)
 
-**Standing.** A ruling on `TASKS.md` Part 486's two rows and Part 495's first, read by the agent that built it; the owner may reverse it. Built.
+**Standing.** A ruling on three rows closed as `docs/task-archive.md` Part 525 (usage on a hit, on a failed stream and on a failed CLI result), read by the agent that built it with a Fable design agent; the owner may reverse it. Built.
 
 **Decided.** A failed `TextResponse` and an `Error` chunk carry the usage the provider read: the CLI engine from a reported failure (`CliOutputEvent.Failure(string, TextUsage?)`, an overload) and from a result line on any failed reply, the Claude backend from a failed `result`. The router adds every attempt it moved on from to the reply or terminal it yields, on both doors, through one internal `TextUsage.Sum`; each attempt's `chat` span keeps its own figure. A response-cache hit carries none. `BudgetedTextClient` settles an `Error` chunk's usage as a `Final`'s, and `ToolLoop` counts it.
 
@@ -8699,7 +8702,7 @@ recall and its write-back is already a silent skip).
 
 ## D352 — the HTTP agent door sends each request once (2026-11-15)
 
-**Standing.** A ruling on `TASKS.md` Part 481's first row, read by the agent that built it; the owner may reverse it. Built.
+**Standing.** A ruling on a row closed as `docs/task-archive.md` Part 525 (the HTTP door's resend), read by the agent that built it with a Fable design agent; the owner may reverse it. Built.
 
 **Decided.** `HttpAgentSession` builds its provider with the internal `resendOnEmptyBody: false`, so an empty or malformed 200 body is a `Failed` reply on the first request, read as `Fatal`, `no-failure-fields`, `Taken`; the one-shot `HttpModelProvider` keeps its one resend.
 
@@ -8711,7 +8714,7 @@ recall and its write-back is already a silent skip).
 
 ## D353 — a stream-json `result` whose `subtype` begins with `error` is a failure whatever `is_error` says (2026-11-15)
 
-**Standing.** A ruling on `TASKS.md` Part 495's second row, read by the agent that built it; the owner may reverse it. Built.
+**Standing.** A ruling on a row closed as `docs/task-archive.md` Part 525 (the error subtype), read by the agent that built it with a Fable design agent; the owner may reverse it. Built.
 
 **Decided.** `StreamJsonFields.IsFailedResult` reads a result as failed when `is_error` is `true` or its `subtype` begins with `error` (ordinal); `StreamJsonParser` and `StreamJsonAgentReader` both call it. Any other subtype, an unknown one included, is an answer, and `is_error: true` leads, so `success` beside it is a failure.
 
@@ -8720,3 +8723,39 @@ recall and its write-back is already a silent skip).
 **Rejected.** A list of known failing subtypes (a new one reads as an answer). Any subtype but `success` as a failure (an unknown success-shaped one would fail a healthy turn). The subtype outranking `is_error` (the refused-key capture).
 
 **Re-opens** when a capture shows a failing subtype not beginning with `error`, or `is_error: false` beside one.
+
+## D354 — an MCP image reaches the model when the host opts in, beside its line (2026-11-15)
+
+**Standing.** A ruling on a row closed as `docs/task-archive.md` Part 526 (MCP images), read by the agent that built it with a Fable design agent; the owner may reverse it. Built.
+
+**Decided.** `IAttachmentTool : ITool` (`InvokeWithAttachmentsAsync`, returning `ToolObservation(Text, Attachments)`) is found by type test, and `GatedToolResult.Attachments` carries the images, withheld when the call was blocked or denied or a guard rewrote its text. `ToolLoop` adds one user turn carrying a native turn's images after that turn's last tool result; on the prompt protocol they ride the observation's own user turn. `McpToolsetOptions.MaxImageBytes` (0, the default, is off) with `FromClientAsync(client, options, ct)` attaches each `image/*` block at or under the cap. The **D320** line always stays; audio and blobs stay lines.
+
+**Why.** A tool whose answer was a picture gave the model no pixels; the OpenAI-shaped and Ollama wires take an image on a user turn only, and whether a model can see is the deployment's to say.
+
+**Rejected.** A member on `ITool` (every host tool would break). An image on the tool-role message (those wires refuse it there). Carrying audio or blobs (no provider here takes them). An image past a guard that rewrote its text (the guard reads text only). A link the host resolves (no consumer asked).
+
+**Re-opens** when a provider takes images on a tool-role turn, a host needs audio or a blob shown, or a guard can inspect an image.
+
+## D355 — a secret is bound to its name for new writes (2026-11-15)
+
+**Standing.** A ruling on a row closed as `docs/task-archive.md` Part 526 (a secret's name), read by the agent that built it with a Fable design agent; the owner may reverse it. Built.
+
+**Decided.** `KeyValueSecretVault` writes `lyntai2:` and then `Protect("lyntai2:" + the name's length in UTF-16 units + ":" + name + value)`, the name normalized as a store key is (**D262**). A marked blob whose header names another secret throws `CryptographicException`, and so does an unmarked one whose plaintext parses as a header (its marker stripped); any other unmarked blob reads as before. `RefuseUnboundSecrets` (an init property on both vaults, and a builder overload each) refuses unmarked blobs, and `RebindAsync` rewrites them bound. `NullSecretProtector` binds nothing. A build that predates this cannot read a bound blob.
+
+**Why.** The access policy gates by name, and a blob copied over another name decrypted there; binding above the protector covers AES-GCM, DPAPI and a host's own protector without a seam change.
+
+**Rejected.** Associated data in `AesGcmSecretProtector` (DPAPI and BYO protectors have nowhere to take it). Treating store write access as trusted (the policy exists because readers differ). Refusing old blobs by default (an upgraded store would stop reading until rebound).
+
+**Re-opens** when a real secret's value begins with `lyntai2:<digits>:`, or a host must roll back across the format.
+
+## D356 — the master key is created insert-if-absent where the store can (2026-11-15)
+
+**Standing.** A ruling on a row closed as `docs/task-archive.md` Part 526 (the master key), read by the agent that built it with a Fable design agent; the owner may reverse it. Built.
+
+**Decided.** `IConditionalKeyValueStore : IKeyValueStore` adds `SetIfAbsentAsync(key, value)`, answering whether this call wrote, found by type test and implemented by every shipped store (in-memory `TryAdd`, the file store under its root's lock, SQLite and Postgres `INSERT … ON CONFLICT DO NOTHING` read by rows affected). `GenerateMasterKeyAsync` writes the envelope through it where the store has it, so of two processes one wins and the other throws the existing `InvalidOperationException`; a store without it keeps get-then-set, documented as one process.
+
+**Why.** Two processes over one database could each mint a master key, and the second envelope stranded every secret the first had sealed.
+
+**Rejected.** A member on `IKeyValueStore` (every host store would break). A documented single-process rule alone (the shipped stores can do better). A general compare-and-set (nothing else needs it).
+
+**Re-opens** when a store that wraps another ships (it must forward the capability), or a second caller needs compare-and-set.

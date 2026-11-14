@@ -351,6 +351,13 @@ them. A backend implements up to **twelve**: the eight in `src/Lyntai.Core/Stora
 `IModelRoutingStore` and `IJobScheduleStore`, are never yours to write: Core serves them as
 `KeyValueModelRoutingStore` and `KeyValueJobScheduleStore` over your `IKeyValueStore`.
 
+**Implement `IConditionalKeyValueStore` beside `IKeyValueStore` wherever the backend can insert-if-absent
+atomically** (`INSERT … ON CONFLICT DO NOTHING`, rows affected): it is found by type test, so a store without it
+still works and its consumer quietly takes a weaker path — `EnvelopeSecretVault.GenerateMasterKeyAsync` falls back to
+a get-then-set that two processes can both win. A store that WRAPS another must forward it whenever the inner one
+has it, or the type test sees nothing. The contract's `SetIfAbsent_writes_once_and_keeps_the_first` fact requires
+it of every backend the suite runs.
+
 **`IMemoryGraphStore` is the LARGEST contract in the storage layer, and the easiest to plan a backend without.**
 It is also the only one with a per-backend migration asymmetry (`.agents/knowledge/storage.md` §Migrations)
 and the only one whose contract pins an ORDER (`WriteBackAsync`, **D101**). If you are backing the memory

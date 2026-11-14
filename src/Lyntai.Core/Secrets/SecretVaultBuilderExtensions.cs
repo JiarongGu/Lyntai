@@ -14,31 +14,41 @@ public static class SecretVaultBuilderExtensions
     /// Backing: the registered <see cref="IKeyValueStore"/> (persistent, encrypted) when storage is
     /// wired, else in-memory.</summary>
     public static LyntaiBuilder AddSecretVault(this LyntaiBuilder builder,
-        byte[] encryptionKey, ISecretAccessPolicy? accessPolicy = null)
+        byte[] encryptionKey, ISecretAccessPolicy? accessPolicy = null) =>
+        AddSecretVault(builder, encryptionKey, accessPolicy, refuseUnboundSecrets: false);
+
+    /// <summary>The same vault, refusing on read a secret still in the unbound format when
+    /// <paramref name="refuseUnboundSecrets"/> is set (<see cref="KeyValueSecretVault.RefuseUnboundSecrets"/>).
+    /// Run <see cref="KeyValueSecretVault.RebindAsync"/> on the resolved vault before setting it.</summary>
+    public static LyntaiBuilder AddSecretVault(this LyntaiBuilder builder,
+        byte[] encryptionKey, ISecretAccessPolicy? accessPolicy, bool refuseUnboundSecrets)
     {
         if (encryptionKey is not { Length: > 0 })
             throw new ArgumentException(
                 "AddSecretVault requires an encryption key — secrets must not silently land in plaintext. " +
                 "For dev/testing without encryption, opt in explicitly via AddPlaintextSecretVault().",
                 nameof(encryptionKey));
-        return AddVault(builder, new AesGcmSecretProtector(encryptionKey), accessPolicy);
+        return AddVault(builder, new AesGcmSecretProtector(encryptionKey), accessPolicy, refuseUnboundSecrets);
     }
 
     /// <summary>DEV/TESTING ONLY: a vault that stores secrets UNENCRYPTED (no protector). This is the
-    /// loud, deliberate opt-in that <see cref="AddSecretVault"/> refuses to default to — anything read
-    /// from this vault's backing store is plaintext on disk. Never use it for real secrets.</summary>
+    /// loud, deliberate opt-in that <see cref="AddSecretVault(LyntaiBuilder, byte[], ISecretAccessPolicy?)"/>
+    /// refuses to default to — anything read from this vault's backing store is plaintext on disk. Never use it
+    /// for real secrets.</summary>
     public static LyntaiBuilder AddPlaintextSecretVault(this LyntaiBuilder builder,
         ISecretAccessPolicy? accessPolicy = null) =>
-        AddVault(builder, new NullSecretProtector(), accessPolicy);
+        AddVault(builder, new NullSecretProtector(), accessPolicy, refuseUnboundSecrets: false);
 
-    private static LyntaiBuilder AddVault(LyntaiBuilder builder, ISecretProtector protector, ISecretAccessPolicy? accessPolicy)
+    private static LyntaiBuilder AddVault(
+        LyntaiBuilder builder, ISecretProtector protector, ISecretAccessPolicy? accessPolicy, bool refuseUnboundSecrets)
     {
         builder.Services.TryAddSingleton<ISecretVault>(sp =>
         {
             var kv = sp.GetService<IKeyValueStore>();
             var policy = accessPolicy ?? sp.GetService<ISecretAccessPolicy>();
+            // the in-memory vault holds no store anyone else can write, so it has nothing to bind against
             return kv is not null
-                ? new KeyValueSecretVault(kv, protector, policy)
+                ? new KeyValueSecretVault(kv, protector, policy) { RefuseUnboundSecrets = refuseUnboundSecrets }
                 : new InMemorySecretVault(protector, policy);
         });
         return builder;
@@ -51,7 +61,14 @@ public static class SecretVaultBuilderExtensions
     /// recovery key) and <see cref="EnvelopeSecretVault.RecoverAsync"/> on machine migration. Requires a
     /// registered <see cref="IKeyValueStore"/> (durable jobs-style storage) — the vault is backed by it.</summary>
     public static LyntaiBuilder AddEnvelopeSecretVault(this LyntaiBuilder builder,
-        ISecretProtector machineProtector, ISecretAccessPolicy? accessPolicy = null)
+        ISecretProtector machineProtector, ISecretAccessPolicy? accessPolicy = null) =>
+        AddEnvelopeSecretVault(builder, machineProtector, accessPolicy, refuseUnboundSecrets: false);
+
+    /// <summary>The same vault, refusing on read a secret still in the unbound format when
+    /// <paramref name="refuseUnboundSecrets"/> is set (<see cref="EnvelopeSecretVault.RefuseUnboundSecrets"/>).
+    /// Run <see cref="EnvelopeSecretVault.RebindAsync"/> before setting it.</summary>
+    public static LyntaiBuilder AddEnvelopeSecretVault(this LyntaiBuilder builder,
+        ISecretProtector machineProtector, ISecretAccessPolicy? accessPolicy, bool refuseUnboundSecrets)
     {
         ArgumentNullException.ThrowIfNull(machineProtector);
         // register the CONCRETE vault first and delegate the interface to it — never the inverse cast:
@@ -64,7 +81,7 @@ public static class SecretVaultBuilderExtensions
                 ?? throw new InvalidOperationException(
                     "AddEnvelopeSecretVault requires a key-value store — wire a storage backend (e.g. UseSqliteStorage/UseInMemoryStorage) before it.");
             var policy = accessPolicy ?? sp.GetService<ISecretAccessPolicy>();
-            return new EnvelopeSecretVault(kv, machineProtector, policy);
+            return new EnvelopeSecretVault(kv, machineProtector, policy) { RefuseUnboundSecrets = refuseUnboundSecrets };
         });
         builder.Services.TryAddSingleton<ISecretVault>(sp => sp.GetRequiredService<EnvelopeSecretVault>());
         return builder;

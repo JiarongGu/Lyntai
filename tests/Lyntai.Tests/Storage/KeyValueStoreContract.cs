@@ -85,6 +85,24 @@ public static class KeyValueStoreContract
         Assert.Empty(await store.ListKeysAsync(ns + "%")); // '%' is a literal char, not match-all
     }
 
+    /// <summary>Every shipped store offers the insert-if-absent capability: the first write lands, a second one to the
+    /// same key reports false and leaves the first value in place, and an ordinary set still overwrites afterwards.</summary>
+    public static async Task SetIfAbsent_writes_once_and_keeps_the_first(IKeyValueStore store, string key)
+    {
+        var conditional = Assert.IsAssignableFrom<IConditionalKeyValueStore>(store);
+
+        Assert.True(await conditional.SetIfAbsentAsync(key, "first"));
+        Assert.False(await conditional.SetIfAbsentAsync(key, "second"));
+        Assert.Equal("first", await store.GetAsync(key));
+
+        await store.SetAsync(key, "overwritten");
+        Assert.Equal("overwritten", await store.GetAsync(key));
+
+        await store.DeleteAsync(key);
+        Assert.True(await conditional.SetIfAbsentAsync(key, "again"));   // a deleted key is absent again
+        Assert.Equal("again", await store.GetAsync(key));
+    }
+
     public static async Task List_keys_without_prefix_lists_all_keys(IKeyValueStore store, string ns)
     {
         await store.SetAsync(ns + "/1", "v");

@@ -1,6 +1,7 @@
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using Lyntai.Agents;
+using Lyntai.Inference;
 using ModelContextProtocol.Client;
 using ModelContextProtocol.Protocol;
 
@@ -14,25 +15,65 @@ namespace Lyntai.Tools.Mcp;
 public static class McpToolset
 {
     /// <summary>List the server's tools and wrap each as an <see cref="ITool"/>. Call once at startup
-    /// (after connecting the client); register the result with <c>builder.AddMcpTools(...)</c>.</summary>
-    public static async Task<IReadOnlyList<ITool>> FromClientAsync(McpClient client, CancellationToken ct = default)
+    /// (after connecting the client); register the result with <c>builder.AddMcpTools(...)</c>. Each answers the
+    /// model in text alone, an image named but never shown, as the default <see cref="McpToolsetOptions"/> do.</summary>
+    public static Task<IReadOnlyList<ITool>> FromClientAsync(McpClient client, CancellationToken ct = default) =>
+        FromClientAsync(client, new McpToolsetOptions(), ct);
+
+    /// <summary>List the server's tools and wrap each as an <see cref="IAttachmentTool"/> adapted by
+    /// <paramref name="options"/>: with <see cref="McpToolsetOptions.MaxImageBytes"/> set, an image a tool answers
+    /// reaches a vision-capable model as well as being named in the text.</summary>
+    public static async Task<IReadOnlyList<ITool>> FromClientAsync(
+        McpClient client, McpToolsetOptions options, CancellationToken ct = default)
     {
+        ArgumentNullException.ThrowIfNull(client);
+        ArgumentNullException.ThrowIfNull(options);
+        var maxImageBytes = options.MaxImageBytes; // read once: a later change to the options is never seen
         var mcpTools = await client.ListToolsAsync(cancellationToken: ct).ConfigureAwait(false);
-        return [.. mcpTools.Select(FromMcpTool)];
+        return [.. mcpTools.Select(t => FromMcpTool(t, maxImageBytes))];
     }
 
-    internal static ITool FromMcpTool(McpClientTool tool) =>
+    internal static ITool FromMcpTool(McpClientTool tool, long maxImageBytes) =>
         new McpTool(tool.Name, tool.Description, tool.JsonSchema.GetRawText(),
-            (argsJson, ct) => CallAsync(tool, argsJson, ct));
+            (argsJson, ct) => CallAsync(tool, argsJson, maxImageBytes, ct));
 
-    private static async Task<string> CallAsync(McpClientTool tool, string argsJson, CancellationToken ct)
+    private static async Task<ToolObservation> CallAsync(
+        McpClientTool tool, string argsJson, long maxImageBytes, CancellationToken ct)
     {
         // an argument string that is not a JSON object is the model's mistake, said back to it: calling the tool
         // with its defaults instead would run something the model never asked for
         if (!TryParseArgs(argsJson, out var args))
-            return ToolObservations.Error("the arguments are not a JSON object; send one, or {} for a tool that takes none");
+            return new ToolObservation(
+                ToolObservations.Error("the arguments are not a JSON object; send one, or {} for a tool that takes none"));
         var result = await tool.CallAsync(args, cancellationToken: ct).ConfigureAwait(false);
-        return ToText(result);
+        return ToObservation(result, maxImageBytes);
+    }
+
+    internal static ToolObservation ToObservation(CallToolResult result, McpToolsetOptions options) =>
+        ToObservation(result, options.MaxImageBytes);
+
+    /// <summary>The text <see cref="ToText"/> writes, and beside it, in order, each image block a positive
+    /// <paramref name="maxImageBytes"/> admits.</summary>
+    internal static ToolObservation ToObservation(CallToolResult result, long maxImageBytes)
+    {
+        var text = ToText(result);
+        if (maxImageBytes <= 0) return new ToolObservation(text);
+        List<TextAttachment>? images = null;
+        foreach (var block in result.Content)
+            if (block is ImageContentBlock image && Attachable(image, maxImageBytes) is { } attachment)
+                (images ??= []).Add(attachment);
+        return new ToolObservation(text, images);
+    }
+
+    // null where the line alone must do: over the cap, empty, not an image media type, or data that does not decode
+    private static TextAttachment? Attachable(ImageContentBlock image, long maxImageBytes)
+    {
+        if (string.IsNullOrEmpty(image.MimeType) || !image.MimeType.StartsWith("image/", StringComparison.OrdinalIgnoreCase))
+            return null;
+        ReadOnlyMemory<byte> bytes;
+        try { bytes = image.DecodedData; }
+        catch (FormatException) { return null; }
+        return bytes.Length > 0 && bytes.Length <= maxImageBytes ? new TextAttachment(image.MimeType, bytes.ToArray()) : null;
     }
 
     /// <summary>Flatten a tool result to the observation string the loop feeds back, block by block in order: the text

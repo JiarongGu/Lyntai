@@ -1,5 +1,6 @@
 using Lyntai.Diagnostics;
 using Lyntai.Guards;
+using Lyntai.Inference;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 
@@ -85,9 +86,11 @@ public static class ToolInvocation
                     ToolObservations.Error($"tool call refused by approval: {refusal}"), argumentsJson) { Denied = true };
         }
 
-        var observation = tool is null
-            ? unknown?.Invoke() ?? ToolObservations.Error($"unknown tool \"{name}\"")
+        var answered = tool is null
+            ? new ToolObservation(unknown?.Invoke() ?? ToolObservations.Error($"unknown tool \"{name}\""))
             : await RunAsync(tool, argumentsJson, logger, ct).ConfigureAwait(false);
+        var observation = answered.Text;
+        var attachments = answered.Attachments is { Count: > 0 } images ? images : null;
 
         if (guards is not null)
         {
@@ -99,9 +102,10 @@ public static class ToolInvocation
                     ToolObservations.Error($"observation blocked by guard: {post.Reason ?? "no reason given"}"),
                     argumentsJson);
             }
-            if (post.Result == GuardOutcome.Kind.Replace) observation = post.Replacement!;
+            if (post.Result == GuardOutcome.Kind.Replace)
+                (observation, attachments) = (post.Replacement!, null);
         }
-        return new GatedToolResult(false, null, observation, argumentsJson);
+        return new GatedToolResult(false, null, observation, argumentsJson) { Attachments = attachments };
     }
 
     /// <summary>Put the call to every approver in order; null when all approve, else the first refusal's
@@ -138,15 +142,17 @@ public static class ToolInvocation
         return null;
     }
 
-    private static async Task<string> RunAsync(ITool tool, string argumentsJson, ILogger logger, CancellationToken ct)
+    private static async Task<ToolObservation> RunAsync(ITool tool, string argumentsJson, ILogger logger, CancellationToken ct)
     {
         using var activity = LyntaiDiagnostics.StartToolCall(tool.Name);
         var error = false;
         try
         {
             logger.LogDebug("invoking tool {Tool} with {Args}", tool.Name, argumentsJson);
-            return await tool.InvokeAsync(argumentsJson, ct).ConfigureAwait(false)
-                ?? ToolObservations.Error("tool returned no result");
+            var answered = tool is IAttachmentTool attaching
+                ? await attaching.InvokeWithAttachmentsAsync(argumentsJson, ct).ConfigureAwait(false)
+                : new ToolObservation(await tool.InvokeAsync(argumentsJson, ct).ConfigureAwait(false));
+            return answered is { Text: not null } ? answered : new ToolObservation(ToolObservations.Error("tool returned no result"));
         }
         catch (OperationCanceledException) when (ct.IsCancellationRequested)
         {
@@ -156,7 +162,7 @@ public static class ToolInvocation
         {
             error = true;
             logger.LogWarning(ex, "tool {Tool} threw", tool.Name);
-            return ToolObservations.Error(ex.Message);
+            return new ToolObservation(ToolObservations.Error(ex.Message));
         }
         finally
         {
@@ -179,6 +185,11 @@ public sealed record GatedToolResult(bool Blocked, string? Reason, string Observ
     /// <summary>An <see cref="IToolApprover"/> refused the call, so the tool did not run. Never set with
     /// <see cref="Blocked"/>: a refusal is an ordinary tool result the model sees, and the loop goes on.</summary>
     public bool Denied { get; init; }
+
+    /// <summary>The images an <see cref="IAttachmentTool"/> answered beside <see cref="Observation"/>, for the door
+    /// to hand the model. Null when it answered none, when the call was blocked or denied, and when a guard
+    /// rewrote the observation: the rail reads only the text, so it cannot vouch for a picture.</summary>
+    public IReadOnlyList<TextAttachment>? Attachments { get; init; }
 
     internal static GatedToolResult Block(string reason, string observation, string argumentsJson) =>
         new(true, reason, observation, argumentsJson);

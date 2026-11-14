@@ -9,7 +9,7 @@ namespace Lyntai;
 /// to a CLI that speaks MCP — is <c>Lyntai.Tools.Mcp.Hosting</c>.</summary>
 public static class McpBuilderExtensions
 {
-    /// <summary>Register MCP-server tools (from <see cref="Tools.Mcp.McpToolset.FromClientAsync"/>) into
+    /// <summary>Register MCP-server tools (from <see cref="Tools.Mcp.McpToolset.FromClientAsync(ModelContextProtocol.Client.McpClient, CancellationToken)"/>) into
     /// the tool-loop's tool collection.
     /// <para><b>The intended shape is two steps, and it is two steps on purpose.</b> Connecting an MCP
     /// client is asynchronous and its lifetime outlives the registration, while <c>AddLyntai</c> is a
@@ -35,7 +35,8 @@ public static class McpBuilderExtensions
     /// <summary>Inline overload of <see cref="AddMcpTools(LyntaiBuilder, IEnumerable{ITool})"/> for a known
     /// handful of tools — a hand-picked subset of a server's toolset, or a BYO <see cref="ITool"/> alongside
     /// them — without wrapping them in a collection first. Identical behavior; the sequence overload remains
-    /// the one <see cref="Tools.Mcp.McpToolset.FromClientAsync"/>'s result flows into.</summary>
+    /// the one <see cref="Tools.Mcp.McpToolset.FromClientAsync(ModelContextProtocol.Client.McpClient, CancellationToken)"/>'s
+    /// result flows into.</summary>
     public static LyntaiBuilder AddMcpTools(this LyntaiBuilder builder, params ITool[] mcpTools) =>
         builder.AddMcpTools((IEnumerable<ITool>)mcpTools);
 }

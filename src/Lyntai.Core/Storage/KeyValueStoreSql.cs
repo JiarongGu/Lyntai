@@ -14,4 +14,11 @@ public static class KeyValueStoreSql
         """;
 
     public const string Delete = "DELETE FROM lyntai_kv WHERE key = @key";
+
+    /// <summary>The insert-if-absent of <see cref="IConditionalKeyValueStore"/>: one row affected when it wrote,
+    /// none when the key was already held, decided by the primary key on both engines.</summary>
+    public const string SetIfAbsent = """
+        INSERT INTO lyntai_kv (key, value, updated_at) VALUES (@key, @value, @now)
+        ON CONFLICT (key) DO NOTHING
+        """;
 }
