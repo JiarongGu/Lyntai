@@ -284,6 +284,19 @@ host-enabled, validated per door and version, side effects declared, unknown on 
   account, and the door stating resume `Supported` (`Unknown` is not promised); every other case is a fresh
   session, and `AgentHandoverDecision.Apply` leads its prompt with the brief, the host's new request after a marker.
 
+### 5.6 A session's context (**D344**)
+
+- **`SessionContext`** is the session's own record, apart from any agent: an append-only log of typed entries (`Work`, `Decided`,
+  `Found`, `Standing`, `Tree`), each with an id a later entry may supersede. Nothing is deleted and no model writes it. The host writes
+  its entries; a turn's `ReadBack` adds the agent's, as claims. Only the host writes `Work`, and an agent's entry never replaces the host's.
+- **`IContextRendering`** states per door what a provider can be handed and renders the context in a `ContextForm`. **Seed**, the main path,
+  writes the host's recorded turns, tool calls and results and every live entry (as the host's words) in the agent's own resumable format through the
+  provider's `IConversationSeedWriter`; the host places the files and resumes under the id. **Resume** is its cheap case: the agent's own
+  conversation plus the host's entries since a position, only where `AgentHandover.Decide` allows. **Prompt** is a bounded head
+  (`ContextHeadComposer`, which generalises the brief) plus files, the floor for an agent that takes no conversation in.
+- **A writer is held by `SeedWriterConformance.Check`**, which each provider's test calls; whether a vendor's agent loads what is written is that
+  provider's test on the real agent, so a writer states `Unknown` until then. No vendor's writer ships yet.
+
 ## 6. Which agents and doors first
 
 1. **Claude Code CLI and Codex CLI**, the doors that exist, brought to the contract with no new transport. They

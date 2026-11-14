@@ -79,12 +79,20 @@ internal static class HandoverFraming
     /// <summary>What <see cref="AgentHandoverDecision.Apply"/> puts between the brief and the host's request.</summary>
     public const string RequestMarker = "\nNEW REQUEST FROM THE HOST\n";
 
-    /// <summary>The host's own words in a prompt: the part after the marker when the prompt is a brief
-    /// <see cref="AgentHandoverDecision.Apply"/> built, else the prompt as given. A prompt that opens like a brief but
-    /// carries no marker is the host's, and is kept whole.</summary>
+    /// <summary>What a session context's head opens with (<see cref="ContextHeadComposer"/>).</summary>
+    public const string ContextHeader = "SESSION CONTEXT\n";
+
+    /// <summary>What the words a resumed conversation is handed open with (<see cref="StandardContextRendering"/>).</summary>
+    public const string ContextUpdateHeader = "SESSION CONTEXT UPDATE\n";
+
+    /// <summary>The host's own words in a prompt: the part after the marker when the prompt is a brief or a context
+    /// <see cref="AgentHandoverDecision.Apply"/> or <see cref="ContextRendered.Apply"/> built, else the prompt as given. A
+    /// prompt that opens like one but carries no marker is the host's, and is kept whole.</summary>
     public static string HostRequest(string prompt)
     {
-        if (!prompt.StartsWith(BriefHeader, StringComparison.Ordinal)) return prompt;
+        if (!prompt.StartsWith(BriefHeader, StringComparison.Ordinal)
+            && !prompt.StartsWith(ContextHeader, StringComparison.Ordinal)
+            && !prompt.StartsWith(ContextUpdateHeader, StringComparison.Ordinal)) return prompt;
         var at = prompt.IndexOf(RequestMarker, StringComparison.Ordinal);
         return at < 0 ? prompt : prompt[(at + RequestMarker.Length)..];
     }

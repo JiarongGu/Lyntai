@@ -282,6 +282,17 @@ every addition.
 
 ### Added
 
+- **A provider-neutral session context, a rendering port and a bounded head** (**D344**). `SessionContext` is an immutable, append-only log of
+  typed entries (`Work`, `Decided`, `Found`, `Standing`, `Tree`), each with an id a later entry may supersede; nothing is deleted and no model
+  writes it. `IContextRendering` states what a provider's door can be handed and renders the context in a `ContextForm`: `Resume` (the
+  conversation's own token plus the host's entries since a position, as words, only where `AgentHandover.Decide` allows it), `Prompt`
+  (`ContextHeadComposer`, a bounded head that generalises `AgentBriefComposer`, plus the files that hold the rest, the floor for an agent
+  that takes no conversation in) and `Seed`, the main path: a provider's `IConversationSeedWriter` writes the host's recorded turns, tool
+  calls and results (`SeedConversation`) and every live entry, as the host's words, in its agent's own resumable format, and the host places
+  the files and resumes under the id. A writer states `Unknown` until its provider's test resumes one on the real agent, and
+  `SeedWriterConformance.Check` is the test every writer calls: pure, files relative to the agent's home, read back equal.
+  `StandardContextRendering` is the implementation a door without its own needs; its `ReadBack` maps a turn to one
+  agent-claimed where-it-stands entry. A prompt a rendering composed is never recorded as the host's words. **No vendor's writer ships yet.**
 - **A conversation another client holds is a stated outcome, the Codex exec door carries a sandbox word and an effort, and an account's sign-in
   has an optional ability** (**D340**–**D343**). `AgentFailure.Conflict` (`AgentConflict.ConversationHeld`) is set by the protocol door
   when `codex-acp` refuses an open with `data.reason` `thread_active_writer`; the kind stays `Fatal`, so the retry decorator never resends

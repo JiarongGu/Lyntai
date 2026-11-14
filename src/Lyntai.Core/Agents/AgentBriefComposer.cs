@@ -234,7 +234,7 @@ public sealed class AgentBriefComposer
 
     /// <summary>One line: whitespace and control characters collapsed to single spaces, cut to
     /// <paramref name="limit"/> characters with an ellipsis, never inside a surrogate pair.</summary>
-    private static string Flatten(string text, int limit)
+    internal static string Flatten(string text, int limit)
     {
         var sb = new StringBuilder(text.Length);
         var space = false;

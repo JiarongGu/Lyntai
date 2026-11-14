@@ -7085,3 +7085,11 @@ lines the doors' own tests pin. Landed in `08b41270`; the row stayed open in `TA
 
 - the code commits and their tests, one per need
 - D340 to D343, the changelog entry
+
+## Part 519 — a provider-neutral session context in `Lyntai.Agents`: typed entries, a rendering port with Resume and Prompt, a bounded head (2026-11-14)
+
+✅ done 2026-11-14 — **Outcome:** a host's request, built with the tests written beside the code and two mutations (the cut order, the read-back's supersede) shown to turn them red. `SessionContext` (typed entries, supersede by id, nothing deleted), `ContextHeadComposer` (the bounded head generalising `AgentBriefComposer`, with files for the rest), `IContextRendering` and `StandardContextRendering` (Resume under `AgentHandover.Decide`, Prompt, Seed refused, `ReadBack`), and `HandoverFraming.HostRequest` seeing through both composed prompts, and, after the person's correction that Seed is the main path, the Seed form: `IConversationSeedWriter`, the neutral `SeedConversation`, and `SeedWriterConformance.Check`, held by a stand-in JSON-lines format with five writers that each break the contract one way. **D344.**
+<br>**What stays open:** each vendor's writer (Claude Code, Codex, a DeepSeek harness), whose `Supported` claim needs a test that resumes a written conversation on the real agent, which the library cannot run; and any `AddLyntai` registration: a rendering is built per provider by the host.
+
+- `tests/Lyntai.Tests/Agents/SessionContextTests.cs`, `ContextHeadComposerTests.cs`, `ContextRenderingTests.cs`, `ConversationSeedTests.cs`
+- D344, the changelog entry
