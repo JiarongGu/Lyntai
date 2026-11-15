@@ -28,7 +28,7 @@ _Edit a marker, never this table — `verify` fails the moment the two disagree.
 | 251 | 417 | MC8 — run the wrong-end instrument on an adjudicated corpus, with a bar wri… | blocked · decision+data | two reviewers' independent labels on a sample of the pairs, and a bar a per… |
 | 274 | 481 | A rejected limit is never cleared inside a turn | blocked · data | a capture of the CLI sending a rejected rate_limit_event and then an allowe… |
 | 285 | 485 | How long a quiet Codex step runs is unmeasured | blocked · env | a `codex exec --json` allowed to run a command: re-checked 2026-11-15, the … |
-| 296 | 518 | AG50 — a kept run on `codex-acp` and dsh (A-LQ19) | blocked · data | dsh: a launch with its DeepSeek key, which Daoris holds encrypted and a ses… |
+| 296 | 518 | AG50 — a kept run on `codex-acp` and dsh (A-LQ19) | blocked · data | dsh: Daoris recording the frames of a dsh sitting it launches with its own … |
 | 298 | 518 | AG53 — the replay echo that would tell a word folded into a running CLI tur… | startable |  |
 
 <!-- open-items:end -->
@@ -293,7 +293,7 @@ was filed. Three closed in that Part. What stays needs a measurement against a r
 
 _Opened by `docs/task-archive.md` **Part 518**, which built A-LQ20, A-LQ22, A-LQ23 and A-LQ24's statement (**D340** to **D343**) and answered the rest in `docs/agent-provider-daoris-study.md` §12. Every row below is one of Daoris's needs that rests on a record already read or on one Daoris has said it will send. Lanes `inference` and `platform`._
 
-- [ ] **AG50 — a kept run on `codex-acp` and dsh (A-LQ19).** The study's `Unknown` cells (`docs/agent-provider-daoris-study.md` §11.1) for those two doors are Daoris's to fill from <!-- item: state=blocked kind=data needs="dsh: a launch with its DeepSeek key, which Daoris holds encrypted and a session cannot use (the `dsh --profile acp` wire was probed keyless, `docs/agent-provider-daoris-study.md` §11.4); Codex: a kept run on `codex-acp`, whose account has room but whose headless commands are refused (the quiet-step row above); re-checked 2026-11-15" -->
+- [ ] **AG50 — a kept run on `codex-acp` and dsh (A-LQ19).** The study's `Unknown` cells (`docs/agent-provider-daoris-study.md` §11.1) for those two doors are Daoris's to fill from <!-- item: state=blocked kind=data needs="dsh: Daoris recording the frames of a dsh sitting it launches with its own key (checked 2026-11-15: every dsh session file Daoris launched holds a header line and no turn, a helper asked of dsh was answered by codex-acp, and the keyless probe is in `docs/agent-provider-daoris-study.md` §11.4); Codex: a kept run on `codex-acp`, whose account has room but whose headless commands are refused (the quiet-step row above)" -->
   records it is taking. Each cell moves only to what a record shows, and a record that shows a second prompt replacing the first leaves `queued-words` `Unsupported` for `codex-acp`.
 - [ ] **AG53 — the replay echo that would tell a word folded into a running CLI turn from the next turn (re-opens `queued-words` on the Claude CLI door).** <!-- item: state=startable -->
   The CLI run (**D375**) refuses a word on a busy run because a no-priority line folds into a tool step but becomes the next turn after a streaming step (STEER3, claude

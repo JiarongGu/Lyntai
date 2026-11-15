@@ -390,11 +390,11 @@ AG46 (the type, the open, a turn, a stop and the abilities of §11.1, on the Cla
 and the refusals above) and AG48 (the woken turn and background work read until it ends), archived as `docs/task-archive.md` Parts 469 to 471. Their captures are
 SOURCE-DERIVED from Daoris's notes, which a real one replaces when it arrives, and none spends an account.
 
-**dsh's record, taken here (2026-11-15, `dsh --profile acp` 0.2.1-rc.2, no key reachable).** `initialize` answers protocol 1, agent `deepseek-harness-acp`, `sessionCapabilities` `close`,
+**dsh's record, taken here (2026-11-15, `dsh --profile acp` 0.2.1-rc.2, no key a session can use).** `initialize` answers protocol 1, agent `deepseek-harness-acp`, `sessionCapabilities` `close`,
 `list` and `resume` (no `loadSession`), `promptCapabilities` all false, `authMethods` empty; `session/new` states a `model` option with the one value `deepseek-v4-flash` and a
 `reasoning_effort` option (`off`, `low`, `high`, `max`, current `high`). A prompt without `DEEPSEEK_API_KEY` is answered with the JSON-RPC error -32603 (`llm-deepseek: no API key for
-provider route`), twice in a row on one process, so a failed turn leaves the process answering. **No turn ran**: the account's key is held encrypted in Daoris's own store, and this session has no
-way to launch the agent with it, so the turn, stop, mid-turn word, model-between-turns, background and held-request cells stay `Unknown` (`TASKS.md` Part 518's AG50 row).
+provider route`), twice in a row on one process, so a failed turn leaves the process answering. **No turn was recorded**: Daoris holds the account's key encrypted and launches dsh with it itself, and it keeps no frames of a dsh sitting (the
+session files of its dsh sittings hold a header line and no turn), so the turn, stop, mid-turn word, model-between-turns, background and held-request cells stay `Unknown` (`TASKS.md` Part 518's AG50 row).
 
 **AG53's record, taken here (2026-11-15, Claude 2.1.325, `-p --input-format stream-json --output-format stream-json --verbose --replay-user-messages`, `haiku`, stdin held).**
 A second user line with no priority, written once the first turn's step was under way:
