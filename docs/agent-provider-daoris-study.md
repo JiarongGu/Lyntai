@@ -329,13 +329,13 @@ protocol door was split into several files since), so the evidence is cited by n
 | Capability | Claude protocol door | Claude CLI, stdin held open | Codex protocol door | Codex CLI (`exec`) | dsh over the protocol |
 |---|---|---|---|---|---|
 | **Turns in one process** | Supported, REAL (a second prompt on one process, steer note) | Supported, REAL (two turns, one process, stream-json note); built (AG51) | Unknown | **Unsupported**, SOURCE-DERIVED: the prompt is taken once; a resume is a new process | Unknown (one scripted prompt then close, REAL) |
-| **A word taken mid-turn** | Supported, REAL: queued and folded at the next step; the earlier prompt answers `end_turn` with every usage count 0 | Unknown, REAL on 2.1.322 (steer note §8) and step-dependent: a line with no priority folds into a tool step but is the next turn after a streaming step, and only the replay echo, recorded for the tool step alone, tells which; a run refuses it (AG51) | **Unsupported by a second prompt**, SOURCE-DERIVED (it replaces the tracked one); its `_session/steering` is recorded (STEER3) but a run on it is not (AG50), so Unknown | Unsupported (no input after the start) | Unknown |
+| **A word taken mid-turn** | Supported, REAL: queued and folded at the next step; the earlier prompt answers `end_turn` with every usage count 0 | Unknown, REAL on 2.1.322 (steer note §8) and step-dependent: a line with no priority folds into a tool step but is the next turn after a streaming step, and the replay echo tells which by where it falls (REAL on 2.1.325 for both steps, §11.4); a run refuses it (AG51), and taking it is a build (AG53) | **Unsupported by a second prompt**, SOURCE-DERIVED (it replaces the tracked one); its `_session/steering` is recorded (STEER3) but a run on it is not (AG50), so Unknown | Unsupported (no input after the start) | Unknown |
 | **A stop that keeps the conversation** | Unknown: a cancelled turn's zero counts are REAL, a usable next turn is not recorded, and cancel with a word on its way loses its answer (SOURCE-DERIVED) | Supported, REAL (an interrupt, then an ordinary turn); built as `StopAsync` (AG51) | Unknown | Unknown | Unknown (SOURCE-DERIVED mapping only) |
 | **The model re-asked between turns** | Unknown: REAL only after `session/new` and before the first prompt | Unknown, not offered (the launch's `--model`) | Unknown: the same, before the first prompt | Unknown | Not offered |
 | **Background work read until it ends** | Supported, REAL (the task frames, and a subagent as a session of its own) | Unknown: on `-p` the binary ends it with the turn (REAL); held stdin never probed, and a run carries a task's line seen between turns into the next turn (AG51) | Unknown | Unknown | Unknown |
 | **A turn a task's end wakes** | Supported, REAL (the agent spoke again 1.6 and 2.4 s after the response); a prompt sent into the woken turn was **never answered** (REAL, BGWAIT2) | Unknown, not offered: a run refuses a line while the CLI speaks unprompted, until its result (AG51) | Unknown | Unknown | Unknown |
-| **A replayed frame told from a live one** | Unknown: `session/load` replays and `session/resume` does not (SOURCE-DERIVED) | Unknown: `--replay-user-messages` echoes a folded word, REAL for a tool step only (steer note §8); a run passes no such flag | Unknown (SOURCE-DERIVED, as the left) | Unknown | Unknown |
-| **A repeatable open** | Unknown: the raw open repeats in Daoris's stand-in only, and the handshake refuses a second | **Unsupported**: no open exists, a new open is a new process | Unknown | Unsupported (a new process) | Unknown |
+| **A replayed frame told from a live one** | Unknown: `session/load` replays and `session/resume` does not (SOURCE-DERIVED) | Unknown: `--replay-user-messages` echoes a word when the CLI takes it up, REAL for a tool step and for a streaming step (steer note §8; §11.4); a run passes no such flag | Unknown (SOURCE-DERIVED, as the left) | Unknown | Unknown |
+| **A repeatable open** | Unknown: the raw open repeats in Daoris's stand-in only, and the handshake refuses a second | **Unsupported**: no open exists, a new open is a new process | Unknown | Unsupported (a new process) | Supported, REAL (dsh 0.2.1-rc.2, no key: a second `initialize` and a second `session/new` on one process each answered, the second with a new session id) |
 | **A request held for the person, process kept** | Unknown: a request arrives (REAL) and is answered, held for minutes never run | Unknown (`-p` refuses what it does not allow, SOURCE-DERIVED) | Unknown | Unknown | Unknown |
 
 **The library's own HTTP door** carries no kept run: a turn is one tool loop and the conversation is the host's messages.
@@ -390,6 +390,26 @@ AG46 (the type, the open, a turn, a stop and the abilities of §11.1, on the Cla
 and the refusals above) and AG48 (the woken turn and background work read until it ends), archived as `docs/task-archive.md` Parts 469 to 471. Their captures are
 SOURCE-DERIVED from Daoris's notes, which a real one replaces when it arrives, and none spends an account.
 
+**dsh's record, taken here (2026-11-15, `dsh --profile acp` 0.2.1-rc.2, no key a session can use).** `initialize` answers protocol 1, agent `deepseek-harness-acp`, `sessionCapabilities` `close`,
+`list` and `resume` (no `loadSession`), `promptCapabilities` all false, `authMethods` empty; `session/new` states a `model` option with the one value `deepseek-v4-flash` and a
+`reasoning_effort` option (`off`, `low`, `high`, `max`, current `high`). A prompt without `DEEPSEEK_API_KEY` is answered with the JSON-RPC error -32603 (`llm-deepseek: no API key for
+provider route`), twice in a row on one process, so a failed turn leaves the process answering. **No turn was recorded**: Daoris holds the account's key encrypted and launches dsh with it itself, and it keeps no frames of a dsh sitting (the
+session files of its dsh sittings hold a header line and no turn), so the turn, stop, mid-turn word, model-between-turns, background and held-request cells stay `Unknown` (`TASKS.md` Part 518's AG50 row).
+
+**AG53's record, taken here (2026-11-15, Claude 2.1.325, `-p --input-format stream-json --output-format stream-json --verbose --replay-user-messages`, `haiku`, stdin held).**
+A second user line with no priority, written once the first turn's step was under way:
+
+| The step in flight | Where the `isReplay` echo of the second line fell | What became of the line |
+|---|---|---|
+| a tool (a `Bash` `sleep 8`, the line written 2 s after the call) | right after the tool's `user` `tool_result`, before the next model call, with no `result` between | folded into the turn; **one** `result`, and the answer carried the word |
+| a streaming answer (written on the first `text_delta`) | after the turn's `result`, then a fresh `system/init`, then the echo, then the new turn's `message_start` | the next turn: **two** `result`s, the second the word's answer |
+
+So the echo tells the two apart, by where it falls: before the running turn's `result` is a fold, after it is the next turn (the same two outcomes
+as the steer note's §8, now with the streaming echo recorded). **It tells after the fact only**: the echo arrives when the CLI takes the line up, not
+when it is written, so a run that takes a word learns where it landed on the echo and not at the write. The first turn's own prompt is echoed the same
+way, once the CLI takes it up (the first model call's start in both runs). A run still passes no `--replay-user-messages` and refuses a word on a
+busy run; reading the echo is the build left in `TASKS.md` Part 518's AG53 row.
+
 ## 12. Daoris's third request: A-LQ18 to A-LQ24, Part 481's frames and a release (**D340** to **D343**)
 
 Daoris read the layer at `master` `fa54381f` and asked for seven needs and a release. Each was read against the code and the records it names
@@ -401,7 +421,7 @@ no signed-in agent and no installed `codex` was used.
 | Need | Answer | Where |
 |---|---|---|
 | **A-LQ18** words that cut into the running turn, on a kept run | **built as AG49**: `IAgentRunSteering` beside `IAgentRun`, answering `injected`, `startedNewTurn` (read as a woken turn) or left to the host; `claude-agent-acp` 0.84.0 is the only record | **D347** |
-| **A-LQ19** a kept run on `codex-acp` and dsh | **planned, blocked on the records Daoris will send**; the §11.1 cells stay `Unknown` until then | AG50 |
+| **A-LQ19** a kept run on `codex-acp` and dsh | **planned, still blocked**: the §11.1 cells stay `Unknown`; a run here on 2026-11-15 reached dsh's wire and no key (`TASKS.md` Part 518) | AG50 |
 | **A-LQ20** another writer told apart | **built**: `AgentFailure.Conflict` `ConversationHeld`, read from `data.reason` and never the sentence | **D340** |
 | **A-LQ21** a Claude CLI kept run with stdin held | **built as AG51**: a turn per user line and a stop by the interrupt, both REAL on 2.1.281; a word on a busy run is refused, since the steer note's §8 shows it fold or become the next turn by the step, and the §11.1 column states the rest | AG51, **D375**; a word on a busy run waits on AG53's record (`TASKS.md` Part 518) |
 | **A-LQ22** Codex's sandbox, approval and effort on the exec door | **built in part**: the sandbox as `PermissionMode` and the effort; **the approval half is declined** because `exec` asks no one | **D341** |

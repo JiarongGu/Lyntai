@@ -15,7 +15,7 @@ LLM-ops layer (prompt registry, scoring, traces, memory). `AddLyntai(...)` and g
 
 <!-- open-items:begin — GENERATED. Edit the per-item `item:` markers, never this table. -->
 
-## Open items — 8 across 7 Parts: 7 blocked, 1 watch
+## Open items — 8 across 7 Parts: 1 startable, 6 blocked, 1 watch
 
 _Generated from the per-item `<!-- item: … -->` markers by `node devtools/dev.mjs check-backlog --write`._
 _Edit a marker, never this table — `verify` fails the moment the two disagree._
@@ -27,9 +27,9 @@ _Edit a marker, never this table — `verify` fails the moment the two disagree.
 | 177 | 99 | `verify`'s test step intermittently fails EXACTLY 9 tests, and once aborted… | watch · data | the same nine tests to recur — the fix is unconfirmed as the cure, and a gr… |
 | 251 | 417 | MC8 — run the wrong-end instrument on an adjudicated corpus, with a bar wri… | blocked · decision+data | two reviewers' independent labels on a sample of the pairs, and a bar a per… |
 | 274 | 481 | A rejected limit is never cleared inside a turn | blocked · data | a capture of the CLI sending a rejected rate_limit_event and then an allowe… |
-| 285 | 485 | How long a quiet Codex step runs is unmeasured | blocked · env | one real Codex turn on an account with room: re-checked 2026-11-15, the own… |
-| 296 | 518 | AG50 — a kept run on `codex-acp` and dsh (A-LQ19) | blocked · data | Daoris's recorded Codex sitting and dsh probe frames; re-checked 2026-11-15… |
-| 298 | 518 | AG53 — the replay echo that would tell a word folded into a running CLI tur… | blocked · data | a host's STEER3 streaming-step row re-run on held stdin with --replay-user-… |
+| 285 | 485 | How long a quiet Codex step runs is unmeasured | blocked · env | a `codex exec --json` allowed to run a command: re-checked 2026-11-15, the … |
+| 296 | 518 | AG50 — a kept run on `codex-acp` and dsh (A-LQ19) | blocked · data | dsh: Daoris recording the frames of a dsh sitting it launches with its own … |
+| 298 | 518 | AG53 — the replay echo that would tell a word folded into a running CLI tur… | startable |  |
 
 <!-- open-items:end -->
 
@@ -271,7 +271,7 @@ stream-json door (`StreamJsonAgentReader`, `StreamJsonFailure`, `StreamJsonField
 doors (`RetryingAgentSession`, the HTTP door and its chat engine, the transcript recorder) — each finding read against the code
 before it was filed. Lanes `inference` and `platform`._
 
-- [ ] **A rejected limit is never cleared inside a turn.** `StreamJsonAgentReader.NoteRateLimit` keeps `_rejectedLimit` once seen, so a later <!-- item: state=blocked kind=data needs="a capture of the CLI sending a rejected rate_limit_event and then an allowed one in one turn; re-checked 2026-11-15: Daoris holds 117 recorded frames, every one allowed, and no rejected frame" -->
+- [ ] **A rejected limit is never cleared inside a turn.** `StreamJsonAgentReader.NoteRateLimit` keeps `_rejectedLimit` once seen, so a later <!-- item: state=blocked kind=data needs="a capture of the CLI sending a rejected rate_limit_event and then an allowed one in one turn; re-checked 2026-11-15: Daoris holds 117 recorded frames and two real Claude 2.1.325 turns here added more, every one allowed, and no rejected frame" -->
   `allowed` frame does not clear it and an unrelated `is_error` result is classified `Limit`. Whether the CLI sends `allowed` after `rejected`
   in one turn is not shown by any capture here.
   **The rule a capture would select is written first:** the latest report per `rateLimitType` stands, so an `allowed` clears only a rejection of the
@@ -282,7 +282,7 @@ before it was filed. Lanes `inference` and `platform`._
 _Opened by `docs/task-archive.md` **Part 483**: a read-only review of the Codex exec door and `ProcessRunner`, each finding read against the code before it
 was filed. Three closed in that Part. What stays needs a measurement against a real `codex`. Lane `inference`._
 
-- [ ] **How long a quiet Codex step runs is unmeasured.** The agent doors now arm `LyntaiOptions.AgentTimeout` (15 minutes) in place of two, but no real `codex exec --json` turn has been timed through a long `dotnet test`, <!-- item: state=blocked kind=env needs="one real Codex turn on an account with room: re-checked 2026-11-15, the owner's Codex account is at its workspace spend cap" -->
+- [ ] **How long a quiet Codex step runs is unmeasured.** The agent doors now arm `LyntaiOptions.AgentTimeout` (15 minutes) in place of two, but no real `codex exec --json` turn has been timed through a long `dotnet test`, <!-- item: state=blocked kind=env needs="a `codex exec --json` allowed to run a command: re-checked 2026-11-15, the account has room (three turns ran) but each refused its shell command, `sleep 120` through PowerShell and `ping` through cmd, under read-only and workspace-write with approval never: `Rejected: blocked by policy`; only the person can say whether a probe may relax the sandbox" -->
   so the figure is a steward's default, not a measurement, and a turn spends an account.
   **The question is narrower than "does 15 hold":** whether `codex exec --json` is silent for the whole of a command. One run of a step of known length
   answers it (`codex exec --json --sandbox read-only` asked to sleep 120 s, each line timestamped): no line between the command's `item.started` and
@@ -293,12 +293,12 @@ was filed. Three closed in that Part. What stays needs a measurement against a r
 
 _Opened by `docs/task-archive.md` **Part 518**, which built A-LQ20, A-LQ22, A-LQ23 and A-LQ24's statement (**D340** to **D343**) and answered the rest in `docs/agent-provider-daoris-study.md` §12. Every row below is one of Daoris's needs that rests on a record already read or on one Daoris has said it will send. Lanes `inference` and `platform`._
 
-- [ ] **AG50 — a kept run on `codex-acp` and dsh (A-LQ19).** The study's `Unknown` cells (`docs/agent-provider-daoris-study.md` §11.1) for those two doors are Daoris's to fill from <!-- item: state=blocked kind=data needs="Daoris's recorded Codex sitting and dsh probe frames; re-checked 2026-11-15 with Daoris: not recorded, its Codex account is at its spend cap and its dsh build has no session to keep" -->
+- [ ] **AG50 — a kept run on `codex-acp` and dsh (A-LQ19).** The study's `Unknown` cells (`docs/agent-provider-daoris-study.md` §11.1) for those two doors are Daoris's to fill from <!-- item: state=blocked kind=data needs="dsh: Daoris recording the frames of a dsh sitting it launches with its own key (checked 2026-11-15: every dsh session file Daoris launched holds a header line and no turn, a helper asked of dsh was answered by codex-acp, and the keyless probe is in `docs/agent-provider-daoris-study.md` §11.4); Codex: a kept run on `codex-acp`, whose account has room but whose headless commands are refused (the quiet-step row above)" -->
   records it is taking. Each cell moves only to what a record shows, and a record that shows a second prompt replacing the first leaves `queued-words` `Unsupported` for `codex-acp`.
-- [ ] **AG53 — the replay echo that would tell a word folded into a running CLI turn from the next turn (re-opens `queued-words` on the Claude CLI door).** <!-- item: state=blocked kind=data needs="a host's STEER3 streaming-step row re-run on held stdin with --replay-user-messages: whether, and where, the CLI echoes a word that becomes the next turn" -->
+- [ ] **AG53 — the replay echo that would tell a word folded into a running CLI turn from the next turn (re-opens `queued-words` on the Claude CLI door).** <!-- item: state=startable -->
   The CLI run (**D375**) refuses a word on a busy run because a no-priority line folds into a tool step but becomes the next turn after a streaming step (STEER3, claude
-  2.1.322), and the `isReplay` echo that might attribute it is recorded for the tool step only. With the streaming row's echo recorded, `queued-words` is stated from it:
-  if the echo tells the two apart, the run takes the word; if not, the claim becomes `Unsupported` (`docs/agent-provider-daoris-study.md` §11.1).
+  2.1.322). **The echo tells the two apart** (2.1.325, `docs/agent-provider-daoris-study.md` §11.4): by where the `isReplay` echo falls relative to the running turn's `result`, and only after the fact.
+  So the run can take the word, pass `--replay-user-messages` and report where it landed on the echo; that is the build, and `queued-words` is stated from it (§11.1).
 
 ## Retired — five Parts that outlived their open work (2026-09-16)
 
